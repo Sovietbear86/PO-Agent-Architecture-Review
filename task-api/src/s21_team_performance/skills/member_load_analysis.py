@@ -7,7 +7,7 @@ from datetime import datetime
 import re
 
 from s21_team_performance.models import AnalysisResult
-from s21_team_performance.services.task_service import TaskService, load_team_members, get_member_full_name
+from s21_team_performance.services.task_service import TaskService, load_team_members, get_member_full_name, get_member_short_name
 
 
 class MemberLoadAnalysisSkill:
@@ -73,9 +73,14 @@ class MemberLoadAnalysisSkill:
                 products=[]
             )
 
-        # Получить задачи спринта
-        sprint_tasks = await self._fetch_sprint_tasks(sprint_id, team_members)
-
+        # Получить задачи сотрудника через get_tasks (правильная фильтрация)
+        # Для member_load_analysis используем SprintHealthSkill.get_tasks()
+        from s21_team_performance.skills.sprint_health import SprintHealthSkill
+        
+        # If single member, filter tasks for that member only
+        # If multiple members, we'll get all and filter by member
+        sprint_tasks = await self._fetch_sprint_tasks(sprint_id)
+        
         if not sprint_tasks:
             return AnalysisResult(
                 status="yellow",
@@ -89,40 +94,61 @@ class MemberLoadAnalysisSkill:
                 products=[]
             )
 
-        # Сгруппировать задачи по сотруднику
+        # Сгруппировать задачи по сотруднику - используем правильную фильтрацию
         member_tasks: Dict[str, List] = {}
-        for task in sprint_tasks:
-            task_assignee = task.assignee or ""
-            for member_login in team_members:
-                member_short_name = get_member_full_name(member_login).split()[-1]
-                if member_short_name.lower() in task_assignee.lower():
-                    if member_login not in member_tasks:
-                        member_tasks[member_login] = []
-                    member_tasks[member_login].append(task)
-                    break
-
-        # Если не нашли по short_name, попробовать по login
-        if not member_tasks:
+        
+        # For single member, directly filter using get_member_short_name
+        if len(team_members) == 1:
+            member_login = team_members[0]
+            short_name = get_member_short_name(member_login)
+            member_tasks[member_login] = []
+            
             for task in sprint_tasks:
+                task_assignee = task.assignee or ""
+                # Check if task is assigned to this member
+                if short_name and task_assignee.lower() == short_name.lower():
+                    member_tasks[member_login].append(task)
+                    continue
+                
+                # Also check responsible in source_data
                 source_data = getattr(task, 'source_data', {}) or {}
                 responsible = source_data.get('responsible', {})
+                responsible_login = ''
                 if isinstance(responsible, dict):
                     responsible_login = responsible.get('login', '')
                 elif isinstance(responsible, str):
                     responsible_login = responsible
-                else:
-                    responsible_login = ''
+                
+                if responsible_login.lower() == member_login.lower():
+                    member_tasks[member_login].append(task)
+        else:
+            # Multiple members - filter each one
+            for task in sprint_tasks:
+                task_assignee = task.assignee or ""
                 
                 for member_login in team_members:
-                    if member_login.lower() in responsible_login.lower() or responsible_login.lower() in member_login.lower():
+                    short_name = get_member_short_name(member_login)
+                    
+                    # Check if task is assigned to this member
+                    if short_name and task_assignee.lower() == short_name.lower():
                         if member_login not in member_tasks:
                             member_tasks[member_login] = []
                         member_tasks[member_login].append(task)
-                        break
-
-        # Если еще не нашли, использовать все задачи спринта
-        if not member_tasks:
-            member_tasks = {"all": sprint_tasks}
+                        continue
+                    
+                    # Also check responsible in source_data
+                    source_data = getattr(task, 'source_data', {}) or {}
+                    responsible = source_data.get('responsible', {})
+                    responsible_login = ''
+                    if isinstance(responsible, dict):
+                        responsible_login = responsible.get('login', '')
+                    elif isinstance(responsible, str):
+                        responsible_login = responsible
+                    
+                    if responsible_login.lower() == member_login.lower():
+                        if member_login not in member_tasks:
+                            member_tasks[member_login] = []
+                        member_tasks[member_login].append(task)
 
         # Вычислить метрики для каждого сотрудника
         member_metrics = []
@@ -174,19 +200,57 @@ class MemberLoadAnalysisSkill:
             status = "green"
 
         # Сформировать вывод
-        total_tasks = sum(m.get('total_tasks', 0) for m in member_metrics)
-        total_effort = sum(m.get('total_effort', 0) for m in member_metrics)
-        total_done = sum(m.get('done', 0) for m in member_metrics)
+        # If single member requested, show only that member's metrics
+        # Otherwise, show total metrics for all members
+        is_single_member = team_members and len(team_members) == 1
+        
+        if is_single_member:
+            # Show metrics for the single requested member
+            single_member = member_metrics[0] if member_metrics else {}
+            total_tasks = single_member.get('total_tasks', 0)
+            total_effort = single_member.get('total_effort', 0)
+            total_done = single_member.get('done', 0)
+            
+            self.findings = [
+                f"Спринт: {sprint_id}",
+                f"Сотрудник: {single_member.get('full_name', 'N/A')}",
+                f"Всего задач: {total_tasks}",
+                f"Общая трудоемкость: {total_effort:.1f} story points",
+                f"Выполнено: {total_done} задач ({total_done/total_tasks*100:.1f}%)" if total_tasks > 0 else "Выполнено: 0 задач",
+                f"Средняя трудоемкость задачи: {total_effort/total_tasks:.1f} sp" if total_tasks > 0 else "Нет задач",
+            ]
+        else:
+            # Show total metrics for all members
+            total_tasks = sum(m.get('total_tasks', 0) for m in member_metrics)
+            total_effort = sum(m.get('total_effort', 0) for m in member_metrics)
+            total_done = sum(m.get('done', 0) for m in member_metrics)
+            
+            self.findings = [
+                f"Спринт: {sprint_id}",
+                f"Всего задач: {total_tasks}",
+                f"Общая трудоемкость: {total_effort:.1f} story points",
+                f"Выполнено: {total_done} задач ({total_done/total_tasks*100:.1f}%)" if total_tasks > 0 else "Выполнено: 0 задач",
+                f"Средняя трудоемкость задачи: {total_effort/total_tasks:.1f} sp" if total_tasks > 0 else "Нет задач",
+            ]
 
-        self.findings = [
-            f"Спринт: {sprint_id}",
-            f"Всего задач: {total_tasks}",
-            f"Общая трудоемкость: {total_effort:.1f} story points",
-            f"Выполнено: {total_done} задач ({total_done/total_tasks*100:.1f}%)" if total_tasks > 0 else "Выполнено: 0 задач",
-            f"Средняя трудоемкость задачи: {total_effort/total_tasks:.1f} sp" if total_tasks > 0 else "Нет задач",
-        ]
+        # Детальный анализ по каждому сотруднику (для нескольких сотрудников или single_member=False)
+        if not is_single_member:
+            for member in member_metrics:
+                full_name = member.get('full_name', 'N/A')
+                total = member.get('total_tasks', 0)
+                effort = member.get('total_effort', 0)
+                avg = member.get('avg_effort_per_task', 0)
+                todo = member.get('todo', 0)
+                in_progress = member.get('in_progress', 0)
+                done = member.get('done', 0)
+                workload = member.get('workload_score', 0)
 
-        # Детальный анализ по каждому сотруднику
+                self.findings.append(
+                    f"- {full_name}: {total} задач ({effort:.1f} sp), средняя трудоемкость: {avg:.1f} sp, "
+                    f"В работе: {in_progress}, Выполнено: {done}, Загруженность: {workload*100:.0f}%"
+                )
+
+        # Риски
         for member in member_metrics:
             full_name = member.get('full_name', 'N/A')
             total = member.get('total_tasks', 0)
@@ -195,16 +259,6 @@ class MemberLoadAnalysisSkill:
             todo = member.get('todo', 0)
             in_progress = member.get('in_progress', 0)
             done = member.get('done', 0)
-            workload = member.get('workload_score', 0)
-
-            self.findings.append(
-                f"- {full_name}: {total} задач ({effort:.1f} sp), средняя трудоемкость: {avg:.1f} sp, "
-                f"В работе: {in_progress}, Выполнено: {done}, Загруженность: {workload*100:.0f}%"
-            )
-
-        # Риски
-        for member in member_metrics:
-            full_name = member.get('full_name', 'N/A')
             workload = member.get('workload_score', 0)
             todo_effort = member.get('todo_effort', 0)
             in_progress_effort = member.get('in_progress_effort', 0)
@@ -276,16 +330,16 @@ class MemberLoadAnalysisSkill:
             tasks=tasks_list
         )
 
-    async def _fetch_sprint_tasks(self, sprint_id: str, team_members: List[str]) -> List[Any]:
+    async def _fetch_sprint_tasks(self, sprint_id: str) -> List[Any]:
         """Получить все задачи спринта."""
         from app.repositories.task_repository import TaskRepository
-        
+
         repository = TaskRepository()
         all_tasks = repository.find_all(limit=10000)
-        
+
         # Filter by sprint_id
         sprint_tasks = [t for t in all_tasks if t.source_data.get("sprint_id") == sprint_id]
-        
+
         return sprint_tasks
 
     def _calculate_workload_score(self, tasks: List[Any], total_effort: float) -> float:
