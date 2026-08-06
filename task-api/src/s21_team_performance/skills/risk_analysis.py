@@ -251,7 +251,7 @@ class RiskAnalysisSkill:
             team_members=team_members,
             products=[],
             sprint_id=sprint_id,
-            tasks=[{"id": t.id, "source_id": t.source_id, "title": t.title, "status": t.status} for tasks in member_tasks.values() for t in tasks]
+            tasks=[{"id": str(t.id), "source_id": t.source_id, "title": t.title, "status": t.status} for tasks in member_tasks.values() for t in tasks]
         )
 
     async def _fetch_sprint_tasks(self, sprint_id: str, team_members: List[str]) -> List[Any]:

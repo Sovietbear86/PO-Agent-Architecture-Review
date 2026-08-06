@@ -251,16 +251,16 @@ class MemberLoadAnalysisSkill:
         # If specific members requested, return only their tasks; otherwise return all sprint tasks
         import logging
         logger = logging.getLogger(__name__)
-        
+
         if team_members and len(team_members) == 1:
             # Single member query - return only that member's tasks
             member_key = team_members[0]
             member_tasks_list = member_tasks.get(member_key, [])
             logger.info(f"[member_load_analysis] member_key={member_key}, tasks_count={len(member_tasks_list)}")
-            tasks_list = [{"id": t.id, "source_id": t.source_id, "title": t.title, "status": t.status} for t in member_tasks_list]
+            tasks_list = [{"id": str(t.id), "source_id": t.source_id, "title": t.title, "status": t.status} for t in member_tasks_list]
         else:
             # Multiple members or all members - return all sprint tasks
-            tasks_list = [{"id": t.id, "source_id": t.source_id, "title": t.title, "status": t.status} for tasks in member_tasks.values() for t in tasks]
+            tasks_list = [{"id": str(t.id), "source_id": t.source_id, "title": t.title, "status": t.status} for tasks in member_tasks.values() for t in tasks]
 
         return AnalysisResult(
             status=status,
