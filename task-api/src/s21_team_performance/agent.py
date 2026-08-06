@@ -230,6 +230,8 @@ class TeamPerformanceAgent:
 
         # Priority 2: Specific team performance queries (order matters - specific first)
         # These should be checked BEFORE simple task patterns to avoid false positives
+        if "насколько загружен" in query_lower or "насколько загружена" in query_lower:
+            return "member_load_analysis"
         if "средняя трудоемкость" in query_lower or "трудоемкость задач" in query_lower:
             return "member_load_analysis"
         if "загружен" in query_lower or "загрузка" in query_lower:
