@@ -236,6 +236,12 @@ class TeamPerformanceAgent:
         if "насколько загружен" in query_lower or "насколько загружена" in query_lower:
             return "member_load_analysis"
         if "средняя трудоемкость" in query_lower or "трудоемкость задач" in query_lower:
+            # Check if query contains sprint keyword - if not, use get_tasks to show sprint list
+            has_sprint_keyword = any(kw in query_lower for kw in ['в спринте', 'из спринта'])
+            has_member = len(self.extract_team_members_from_query(query)) > 0
+            if has_member and not has_sprint_keyword:
+                # Return get_tasks to allow sprint selection
+                return "get_tasks"
             return "member_load_analysis"
         if "загружен" in query_lower or "загрузка" in query_lower:
             # Check if it's workload_balance (general team) vs member_load_analysis (specific person)
@@ -840,17 +846,24 @@ class TeamPerformanceAgent:
             llm = self.get_llm()
             if llm and llm.api_key:
                 try:
-                    # For member_load_analysis and risk_analysis, don't use LLM at all
-                    # to avoid duplicate details in response - use findings directly
+                    result_data = result.model_dump()
                     if skill_name in ["member_load_analysis", "risk_analysis"]:
-                        # Just use findings directly, no LLM
-                        pass
-                    else:
-                        result_data = result.model_dump()
-                        if skill_name in ["member_load_analysis", "risk_analysis"]:
-                            result_data["tasks"] = []
-                        response = llm.generate_response(query, result_data)
-                        result.findings.insert(0, f"LLM Response: {response}")
+                        result_data["tasks"] = []
+                    response = llm.generate_response(query, result_data)
+                    
+                    # For member_load_analysis and risk_analysis, filter LLM response
+                    # to remove member-specific details that are already in findings
+                    if skill_name in ["member_load_analysis", "risk_analysis"]:
+                        # Remove lines about specific members from LLM response
+                        filtered_response = ""
+                        for line in response.split('\n'):
+                            # Skip lines about member details
+                            if "- " in line and any(kw in line for kw in ["задач", "риски"]):
+                                continue
+                            filtered_response += line + '\n'
+                        response = filtered_response
+                    
+                    result.findings.insert(0, f"LLM Response: {response}")
                 except Exception as e:
                     print(f"LLM generation failed: {e}")
 
@@ -867,6 +880,9 @@ class TeamPerformanceAgent:
                     filtered_findings.append(finding)
                 # Also keep risks and constraints (no member details)
                 elif "Риск" in finding or "Рекомендации" in finding or "Ограничения" in finding or "constraints" in finding.lower():
+                    filtered_findings.append(finding)
+                # Keep error messages like "Не указан спринт"
+                elif "Не указан" in finding:
                     filtered_findings.append(finding)
             result.findings = filtered_findings
 
