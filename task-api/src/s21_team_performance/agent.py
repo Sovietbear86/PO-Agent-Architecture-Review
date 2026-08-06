@@ -40,6 +40,9 @@ class LLMAgent:
 
 You analyze team performance metrics and task data from SWTR.
 
+## Important: For member load analysis and risk analysis, do NOT list individual tasks.
+Only provide summary metrics and recommendations for the specified team member.
+
 ## Supported Skills (Ключевые слова для запросов):
 
 ### 1. Здоровье спринта (sprint_health)
