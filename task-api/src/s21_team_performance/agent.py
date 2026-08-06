@@ -346,7 +346,32 @@ class TeamPerformanceAgent:
                     continue
 
         return result
-    
+
+    def _has_member_mention(self, query: str) -> bool:
+        """Проверить, содержит ли запрос упоминание участника команды.
+        
+        Ищет паттерны вида "задачи Иванова", "Иванову", "Иванов" (в контексте задач).
+        """
+        import re
+        
+        query_lower = query.lower()
+        
+        # Паттерны для упоминания участника
+        patterns = [
+            r'задачи\s+\w+',           # "задачи Иванова"
+            r'задачи\s+\w+\s+из',      # "задачи Иванова из"
+            r'задачи\s+\w+\s+в\s+спринте',  # "задачи Иванова в спринте"
+            r'\w+у\s+задачи',          # "Иванову задачи"
+            r'кто\s+\w+',              # "кто Гаранин"
+            r'кто\s+\w+\s+работает',   # "кто Гаранин работает"
+        ]
+        
+        for pattern in patterns:
+            if re.search(pattern, query_lower):
+                return True
+        
+        return False
+
     async def analyze(self, request: TeamAnalysisRequest) -> AnalysisResult:
         """Анализ команды с использованием соответствующего скилла"""
         
@@ -601,6 +626,24 @@ class TeamPerformanceAgent:
 
         # Извлечь имена участников из запроса
         team_members = self.extract_team_members_from_query(query)
+
+        # Если не найдено участников, но запрос явно содержит упоминание участника
+        if not team_members and self._has_member_mention(query):
+            available_names = [m.full_name for m in self.team_members]
+            return AnalysisResult(
+                status="red",
+                findings=[
+                    "Не найден участник команды.",
+                    f"Доступные участники: {', '.join(available_names)}"
+                ],
+                risks=["Проверьте имя участника"],
+                recommendations=["Попробуйте сокращенную фамилию или login"],
+                sources=[],
+                constraints=["Участник не найден в team_members.yaml"],
+                confidence=0.0,
+                team_members=[],
+                products=[]
+            )
 
         # Извлечь статус из запроса (открытые, закрытые, в работе и т.д.)
         # Использовать WorkflowStatusConfig для нормализации статусов
