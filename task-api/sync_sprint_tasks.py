@@ -351,6 +351,21 @@ def sync_sprint_tasks(team_members: list = None, spaces: list = None, max_result
                 except (ValueError, TypeError):
                     deadline_dt = None
 
+            # Extract Due_date from attributes (priority over deadline)
+            due_date = None
+            for attr in swtr_unit.get('attributes', []):
+                if attr.get('code') in ['Due_date', 'due_date']:
+                    value = attr.get('value', '')
+                    if isinstance(value, str) and value:
+                        due_date = value
+                        # Update deadline if not already set
+                        if not deadline_dt and due_date:
+                            try:
+                                deadline_dt = datetime.fromisoformat(due_date.replace('Z', '+00:00'))
+                            except (ValueError, TypeError):
+                                pass
+                        break
+
             # Parse createdAt/updatedAt
             created_at = swtr_unit.get('createdAt')
             if created_at and isinstance(created_at, str):
@@ -365,6 +380,31 @@ def sync_sprint_tasks(team_members: list = None, spaces: list = None, max_result
                     updated_at = datetime.fromisoformat(updated_at.replace('Z', '+00:00'))
                 except (ValueError, TypeError):
                     updated_at = datetime.now(timezone.utc)
+
+            # Extract additional attributes for effort calculation
+            estimate_hours = None
+            planned_start = None
+            planned_end = None
+            
+            for attr in swtr_unit.get('attributes', []):
+                code = attr.get('code')
+                if code == 'estimate':
+                    value = attr.get('value')
+                    if isinstance(value, (int, float)) and value > 0:
+                        estimate_hours = value
+                if code == 'customfield_16701':  # planned_start
+                    value = attr.get('value')
+                    if isinstance(value, str):
+                        planned_start = value
+                if code == 'customfield_16700':  # planned_end
+                    value = attr.get('value')
+                    if isinstance(value, str):
+                        planned_end = value
+
+            # Add additional attributes to source_data for effort calculation
+            source_data['estimate_hours'] = estimate_hours
+            source_data['planned_start'] = planned_start
+            source_data['planned_end'] = planned_end
 
             task = Task(
                 id=str(uuid4()),

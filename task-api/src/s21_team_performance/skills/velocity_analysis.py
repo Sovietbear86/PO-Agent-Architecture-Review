@@ -154,24 +154,30 @@ class VelocityAnalysisSkill:
         if not all_completed:
             return []
 
-        # Group by week (simplified sprint simulation)
+        # Group by sprint_id (from task.source_data.sprint_id)
         from datetime import datetime, timedelta
-        weeks: Dict[str, List] = {}
+        sprints: Dict[str, List] = {}
 
         for task in all_completed:
-            week_num = task.updated_at.isocalendar()[:2]  # (year, week)
-            week_key = f"W{week_num[0]}-{week_num[1]:02d}"
+            # Try to get sprint_id from source_data
+            source_data = getattr(task, 'source_data', {}) or {}
+            sprint_id = source_data.get("sprint_id")
+            
+            # Fallback to week-based grouping if no sprint_id
+            if not sprint_id:
+                week_num = task.updated_at.isocalendar()[:2]
+                sprint_id = f"W{week_num[0]}-{week_num[1]:02d}"
 
-            if week_key not in weeks:
-                weeks[week_key] = []
-            weeks[week_key].append(task)
+            if sprint_id not in sprints:
+                sprints[sprint_id] = []
+            sprints[sprint_id].append(task)
 
-        # Calculate effort per week
+        # Calculate effort per sprint
         velocity_history = []
-        for week_key, tasks in sorted(weeks.items(), reverse=True)[:period_days//7]:  # Last ~period_days days
+        for sprint_id, tasks in sorted(sprints.items(), reverse=True)[:period_days//7]:  # Last ~period_days days
             effort = sum(self._task_service._estimate_effort(t) for t in tasks)
             velocity_history.append({
-                "sprint_id": week_key,
+                "sprint_id": sprint_id,
                 "completed_effort": effort,
                 "task_count": len(tasks),
             })

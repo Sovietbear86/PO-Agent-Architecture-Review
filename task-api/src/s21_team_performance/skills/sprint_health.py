@@ -229,7 +229,9 @@ class SprintHealthSkill:
 
         # Get all tasks with sprint info from repository
         repository = TaskRepository()
-        all_sprint_tasks = repository.find_all(source="swtr_sprint", limit=10000)
+        # Changed: find all tasks (source='swtr') that have sprint_id in source_data
+        all_tasks = repository.find_all(limit=10000)
+        all_sprint_tasks = [t for t in all_tasks if t.source_data.get("sprint_id")]
 
         # Filter tasks by sprint_id and team members
         sprint_tasks = []

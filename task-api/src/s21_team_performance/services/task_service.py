@@ -241,8 +241,62 @@ class TaskService:
         )
 
     def _estimate_effort(self, task: Task) -> float:
-        """Estimate story points for a task based on various factors."""
-        # Simple heuristic: estimate based on task characteristics
+        """Estimate story points for a task based on various factors.
+        
+        Priority order:
+        1. story_points attribute (if set)
+        2. estimate attribute (hours - convert to story points)
+        3. Custom field customfield_16700 (planned_end - calculate duration)
+        4. Heuristic based on task characteristics
+        """
+        # Get source_data for attribute lookup
+        source_data = getattr(task, 'source_data', {}) or {}
+        attrs = source_data.get('swtr_attributes', [])
+        
+        # 1. Check story_points attribute
+        for attr in attrs:
+            if attr.get('code') == 'story_points':
+                value = attr.get('value')
+                if value is not None and value > 0:
+                    return float(value)
+        
+        # 2. Check estimate attribute (hours)
+        for attr in attrs:
+            if attr.get('code') == 'estimate':
+                value = attr.get('value')
+                if value is not None:
+                    # Convert hours to story points (assuming 8h = 1 story point, max 10h = 1.25 sp)
+                    hours = float(value) if isinstance(value, (int, float)) else 0
+                    if hours > 0:
+                        return min(hours / 8.0, 10.0)  # Cap at 10 story points
+        
+        # 3. Check customfield_16700 (planned_end) for duration-based estimation
+        planned_end = None
+        for attr in attrs:
+            if attr.get('code') == 'customfield_16700':
+                value = attr.get('value')
+                if value:
+                    try:
+                        from datetime import datetime
+                        end_dt = datetime.fromisoformat(value.replace('Z', '+00:00'))
+                        planned_end = end_dt
+                    except:
+                        pass
+            if attr.get('code') == 'customfield_16701':
+                value = attr.get('value')
+                if value:
+                    try:
+                        from datetime import datetime
+                        start_dt = datetime.fromisoformat(value.replace('Z', '+00:00'))
+                        if planned_end:
+                            # Calculate working days (8h/day)
+                            duration_days = (planned_end - start_dt).days
+                            if duration_days > 0:
+                                return min(duration_days * 0.5, 10.0)  # 0.5 sp per working day
+                    except:
+                        pass
+        
+        # 4. Heuristic based on task characteristics
         title = task.title.lower()
         desc = task.description.lower()
 
