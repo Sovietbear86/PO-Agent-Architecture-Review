@@ -1,0 +1,12 @@
+products:
+  OLAP:
+    display_name: "Platform V OLAP Analytics"
+    aliases: ["OLAP Analytics", "PV Analytics"]
+    s21_projects: []
+    s21_components: []
+
+  DTMS:
+    display_name: "Platform V DataMarts"
+    aliases: ["DataMarts", "DTMS"]
+    s21_projects: []
+    s21_components: []

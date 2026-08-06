@@ -1,0 +1,91 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Build outputs
+target/
+build/
+dist/
+
+# Database
+*.db
+*.sqlite
+*.sqlite3
+tasks.db
+
+# Vite
+.svelte-kit/
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+
+# Backup files
+*.bak
+*.backup
+
+# Config local
+.env
+.env.local
+.env.*.local
+
+# Caches
+.cache/
+.__pycache__/
+
+# Tests
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Reports
+reports/
+*.html
+coverage/
+
+# IntelliJ
+out/
+out-*
+*.ipr
+*.iws
+*.iml

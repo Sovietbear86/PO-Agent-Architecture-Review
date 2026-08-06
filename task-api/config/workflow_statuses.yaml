@@ -1,0 +1,179 @@
+# Конфигурация статусной схемы AS21 для AI-агента
+
+# Инструкция для AI-агента по работе со статусной схемой задач AS21
+# Источник: S21_WORKFLOW_STATUS_INSTRUCTION.md
+
+# Сопоставление статусов AS21 с аналитическими категориями
+# Важно: на визуальной схеме разрешено много переходов между статусами.
+# Агент не должен пытаться восстановить полную матрицу переходов только по изображению.
+
+statuses:
+  # Backlog
+  Open:
+    display_name: "Открыта"
+    category: "backlog"
+    description: "Задача создана, но активная работа еще не началась"
+
+  # Waiting / Blocked
+  "Need info":
+    display_name: "Требуется информация"
+    category: "waiting"
+    description: "Для продолжения не хватает данных, решения или ответа"
+
+  # Active Work
+  "In progress":
+    display_name: "В работе"
+    category: "active_work"
+    description: "По задаче ведется активная работа"
+
+  Reopened:
+    display_name: "Переоткрыта"
+    category: "active_work"
+    description: "Задача возвращена на доработку после проверки"
+
+  # Review Queue
+  "Ready for review":
+    display_name: "Готово к ревью"
+    category: "review_queue"
+    description: "Результат подготовлен и ожидает проверки"
+
+  # Review
+  "In review":
+    display_name: "На ревью"
+    category: "review"
+    description: "Выполняется code review, техническое или аналитическое ревью"
+
+  # QA Queue
+  "Ready for QA":
+    display_name: "Готово к QA"
+    category: "qa_queue"
+    description: "Реализация готова и ожидает передачи в тестирование"
+
+  # Testing (QA)
+  QA:
+    display_name: "Тестирование"
+    category: "testing"
+    description: "Выполняется проверка качества или приемка"
+
+  # Completed - Conditional
+  Resolved:
+    display_name: "Решена"
+    category: "completed_pending"
+    description: "Исполнитель считает работу завершенной, но может требоваться финальное закрытие"
+
+  # Completed - Final
+  Closed:
+    display_name: "Закрыта"
+    category: "completed"
+    description: "Задача окончательно завершена"
+
+  # Cancelled
+  Cancelled:
+    display_name: "Отменена"
+    category: "cancelled"
+    description: "Задача исключена из актуального объема работ"
+
+
+# Группировка статусов для аналитики
+analytics:
+  # Backlog - входящая очередь
+  backlog_statuses:
+    - "Open"
+
+  # Waiting / Blocked - ожидание или блокировка
+  waiting_statuses:
+    - "Need info"
+
+  # Active Work - активная работа
+  active_work_statuses:
+    - "In progress"
+    - "Reopened"
+
+  # Review Queue - очередь на ревью
+  review_queue_statuses:
+    - "Ready for review"
+
+  # Review - фактическое ревью
+  review_statuses:
+    - "In review"
+
+  # QA Queue - очередь на тестирование
+  qa_queue_statuses:
+    - "Ready for QA"
+
+  # Testing - активное тестирование
+  testing_statuses:
+    - "QA"
+
+  # Completed Pending - условное завершение
+  completed_pending_statuses:
+    - "Resolved"
+
+  # Completed - окончательное завершение
+  completed_statuses:
+    - "Closed"
+
+  # Cancelled - отменено
+  cancelled_statuses:
+    - "Cancelled"
+
+
+# Цикл работ (Cycle Time)
+cycle_time:
+  # Статус, с которого начинается активная работа
+  start_status: "In progress"
+
+  # Статус по умолчанию для окончания
+  default_end_status: "Closed"
+
+  # Альтернативный статус окончания (если подтвержден)
+  optional_end_status: "Resolved"
+
+
+# Ширина очереди (WIP) - базовая
+basic_wip_statuses:
+  - "In progress"
+  - "In review"
+  - "QA"
+  - "Reopened"
+
+# Расширенная WIP (включая очереди)
+extended_wip_statuses:
+  - "In progress"
+  - "In review"
+  - "QA"
+  - "Reopened"
+  - "Ready for review"
+  - "Ready for QA"
+
+
+# Метрики throughput
+throughput:
+  # Статусы, которые учитываются в успешном throughput
+  successful_statuses:
+    - "Closed"
+
+  # Статусы, которые исключаются из успешного throughput
+  excluded_statuses:
+    - "Cancelled"
+
+
+# Пороговые значения для предупреждений (в днях)
+thresholds:
+  # Длительное ожидание информации
+  need_info_days: 2
+
+  # Длительное ревью
+  review_days: 3
+
+  # Длительное тестирование
+  qa_days: 5
+
+  # Переоткрытие (количество)
+  reopen_count: 1
+
+  # Переоткрытие после Resolved
+  reopen_after_resolved_days: 1
+
+  # Зависание между Resolved и Closed
+  resolved_to_closed_days: 3

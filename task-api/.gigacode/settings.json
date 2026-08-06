@@ -1,0 +1,28 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(python3 *)",
+      "Bash(cp *)",
+      "Bash(npm test)",
+      "Bash(ls *)",
+      "Bash(\"/users/shared/maven_3.9.6/bin/mvn\" *)",
+      "Bash(rm *)",
+      "Bash(sleep *)",
+      "Bash(pkill *)",
+      "Bash(true)",
+      "Bash(timeout *)",
+      "Bash(cd *)"
+    ]
+  },
+  "mcpServers": {
+    "s21-task-agent": {
+      "command": "python3",
+      "args": [
+        "/Users/kalachanov.v.v/Desktop/Мои документы/Обучение/GIGACodeCLI/MyTestProject_1/MyTestProject_1/task-api/s21_agent_mcp_server.py"
+      ],
+      "env": {}
+    }
+  },
+  "$version": 3
+}

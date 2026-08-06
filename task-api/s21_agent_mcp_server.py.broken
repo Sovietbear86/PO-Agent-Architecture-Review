@@ -1,0 +1,1144 @@
+"""MCP Server for S21 Task Intelligence Agent."""
+import json
+import os
+import sys
+import subprocess
+import requests
+from typing import Any, Optional
+from fastapi import FastAPI, HTTPException
+from pydantic import BaseModel, Field
+
+# Add src to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
+
+from s21_agent.connectors.s21_swtr_adapter import SWTRAdapter
+from s21_agent.services.ranker import rank_tasks
+from s21_agent.services.quality_scorer import calculate_quality_score, category, CriterionScore
+from s21_agent.config import settings
+from s21_agent.services.llm_client import LLMClient
+
+app = FastAPI(
+    title="S21 Task Agent MCP",
+    description="MCP server for intelligent task search and analysis",
+    version="0.1.0",
+)
+
+adapter = SWTRAdapter()
+llm_client = LLMClient()
+
+# Load team members for name extraction
+import sys
+sys.path.insert(0, 'src')
+from s21_team_performance.agent import TeamPerformanceAgent
+team_agent = TeamPerformanceAgent()
+team_agent.load_team_members()
+
+
+def extract_assignee_from_query(query: str) -> Optional[str]:
+    """Извлечь имя исполнителя из запроса"""
+    query_lower = query.lower()
+
+    for member in team_agent.team_members:
+        # Проверяем login (без точки и расширения) - приоритет для поиска
+        login = member.login.split('.')[0].lower() if '.' in member.login else member.login.lower()
+
+        # Проверяем фамилию (первая часть полного имени)
+        full_name_parts = member.full_name.split()
+        surname = full_name_parts[0].lower() if full_name_parts else ''
+
+        # Проверяем полное имя (без отчества) - Last First (as in tasks)
+        first_name = full_name_parts[1] if len(full_name_parts) > 1 else ''
+        patronymic = full_name_parts[2] if len(full_name_parts) > 2 else ''
+
+        if login and login in query_lower:
+            # Return short name for search in SWTR (FastAPI expects "Last First" without patronymic)
+            return f"{full_name_parts[0]} {first_name}" if len(full_name_parts) > 1 else member.full_name
+
+        # Check full name in genitive case FIRST (e.g., "Гаранина Родиона", "Кондратчиковой Полины")
+        # Build genitive for surname
+        surname_genitive = None
+        if surname.endswith('ова') or surname.endswith('ева'):
+            surname_genitive = surname[:-2] + 'ой'
+        elif surname.endswith('ия'):
+            surname_genitive = surname[:-2] + 'ой'
+        elif surname.endswith('а') and len(surname) > 1 and surname[-2] not in 'аяоуыэюи':
+            surname_genitive = surname[:-1] + 'а'
+        else:
+            surname_genitive = surname + 'а'
+
+        # Build genitive for first name
+        first_name_genitive = None
+        if first_name.endswith('а'):
+            first_name_genitive = first_name[:-1] + 'ы'
+        elif first_name.endswith('ий') or first_name.endswith('й'):
+            # Elena -> Elena, Sergey -> Sergey's
+            first_name_genitive = first_name[:-1] + 'я'
+        elif first_name.endswith('ион'):
+            # Rodion -> Rodiona
+            first_name_genitive = first_name[:-2] + 'она'
+        elif first_name.endswith('н'):
+            # Ivan -> Ivana, Petr -> Petra
+            first_name_genitive = first_name + 'а'
+        else:
+            first_name_genitive = first_name + 'а'
+
+        # Check full genitive name (case-insensitive)
+        if surname_genitive and first_name_genitive:
+            full_genitive = f"{surname_genitive} {first_name_genitive}"
+            if full_genitive.lower() in query_lower:
+                return f"{full_name_parts[0]} {first_name}" if len(full_name_parts) > 1 else member.full_name
+
+        # Check surname in genitive case (case-insensitive)
+        if surname_genitive and surname_genitive.lower() in query_lower:
+            return f"{full_name_parts[0]} {first_name}" if len(full_name_parts) > 1 else member.full_name
+
+        # Check first name in genitive case (case-insensitive)
+        if first_name_genitive and first_name_genitive.lower() in query_lower:
+            return f"{full_name_parts[0]} {first_name}" if len(full_name_parts) > 1 else member.full_name
+
+        # Check surname with different cases (nominative) - after genitive
+        if surname and surname in query_lower:
+            # Return short name for search in SWTR
+            return f"{full_name_parts[0]} {first_name}" if len(full_name_parts) > 1 else member.full_name
+
+        if first_name and first_name.lower() in query_lower:
+            # Return short name for search in SWTR
+            return f"{full_name_parts[0]} {first_name}" if len(full_name_parts) > 1 else member.full_name
+
+    return None
+
+
+def start_mcp_server() -> subprocess.Popen:
+    """Start the MCP server process for SWTR."""
+    token = os.environ.get('TOKEN')
+    if not token:
+        try:
+            with open(os.path.expanduser('~/.config/swtr/api_key'), 'r') as f:
+                token = f.read().strip()
+        except:
+            pass
+
+    base_url = os.environ.get('BASE_URL', 'https://portal.works.prod.sbt/swtr')
+    env = os.environ.copy()
+    env['TOKEN'] = token
+    env['BASE_URL'] = base_url
+    env['PORT'] = '0'
+
+    script_path = os.path.join(os.path.dirname(__file__), '..', 'mcp-swtr', 'mcp_server.py')
+    python_path = os.path.join(os.path.dirname(__file__), '..', 'mcp-swtr', '.venv', 'bin', 'python')
+
+    return subprocess.Popen(
+        [python_path, script_path],
+        stdin=subprocess.PIPE,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        env=env,
+        text=True,
+        bufsize=1
+    )
+
+
+def send_mcp_request(proc: subprocess.Popen, method: str, params: dict) -> dict:
+    """Send MCP request and wait for response."""
+    request = {
+        'jsonrpc': '2.0',
+        'method': method,
+        'params': params,
+        'id': 1
+    }
+
+    proc.stdin.write(json.dumps(request) + '\n')
+    proc.stdin.flush()
+
+    response = proc.stdout.readline()
+    return json.loads(response)
+
+
+class SearchRequest(BaseModel):
+    """Request for task search."""
+    query: str = Field(..., description="Search query")
+    filters: dict[str, Any] | None = Field(None, description="Optional filters (status, assignee, project)")
+    limit: int = Field(50, ge=1, le=100, description="Maximum number of results")
+
+
+class TaskIdRequest(BaseModel):
+    """Request for task by ID."""
+    task_id: str = Field(..., description="Task ID")
+
+
+class TaskUrlRequest(BaseModel):
+    """Request for task by URL."""
+    url: str = Field(..., description="SWTR task URL")
+
+
+class QualityCriteriaRequest(BaseModel):
+    """Request for quality assessment."""
+    task_id: str = Field(..., description="Task ID to assess")
+    criteria: list[dict[str, Any]] = Field(
+        default=[
+            {"name": "цель", "weight": 20},
+            {"name": "критерии приемки", "weight": 30},
+            {"name": "зависимости", "weight": 20},
+            {"name": "риски", "weight": 20},
+            {"name": "вопросы", "weight": 10},
+        ],
+        description="Quality criteria with weights",
+    )
+
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint."""
+    return {"status": "healthy", "service": "s21-task-agent"}
+
+
+@app.post("/query")
+async def query_agent(request: dict[str, Any]):
+    """Handle natural language queries using LLM for intent extraction."""
+    query = request.get("query", "").strip()
+    
+    if not query:
+        return {"response": "Пожалуйста, задайте вопрос.", "type": "error", "tasks": []}
+    
+    llm_used = False
+    try:
+        # Use LLM to extract intent and parameters
+        intent_result = llm_client.extract_intent(query)
+        intent = intent_result.get("intent", "unknown")
+        assignee = intent_result.get("assignee")
+        search_terms = intent_result.get("search_terms")
+        llm_used = True
+
+        # If LLM returns unknown, use fallback heuristics
+        if intent == "unknown":
+            query_lower = query.lower()
+            # Try basic heuristics
+            if any(word in query_lower for word in ["спринт", "спринте", "в спринте", "текущий спринт", "сейчас в спринте"]):
+                intent = "sprint"
+                assignee = extract_assignee_from_query(query)
+            elif any(p in query_lower for p in ["мои задачи", "на мне висят", "что у меня", "у меня есть", "мои таски", "мои тикеты"]):
+                intent = "my_tasks"
+                assignee = "Калачанов Виктор"
+            elif "задачи" in query_lower and any(word in query_lower for word in ["у", "у Гаранина", "у Кондратчиковой", "у Агатаевой", "у Калачанова", "у Семавина", "у Гончарова"]):
+                # Also check if full name contains assignee parts
+                name_parts = assignee_lower.split()
+                if len(name_parts) >= 2:
+                    surname = name_parts[0]
+                    first_name = name_parts[1]
+                    # Check if both surname and first name are in full name
+                    if surname in full_name and first_name in full_name:
+                        # Extract only "Last First" without patronymic
+                        parts = member.full_name.split()
+                        assignee = f"{parts[0]} {parts[1]}" if len(parts) > 1 else member.full_name
+                        break
+            # Normalize assignee order (Last First)
+            assignee_parts = assignee.split()
+            if len(assignee_parts) >= 2:
+                # Try to normalize: if first word is first name, swap
+                # Check if the name exists in team members
+                normalized = None
+                for member in team_agent.team_members:
+                    full_name = member.full_name
+                    if ' ' in full_name:
+                        parts = full_name.split()
+                        surname = parts[0]
+                        first_name = parts[1] if len(parts) > 1 else ''
+                        # Check if assignee matches this member (any order)
+                        if (assignee_parts[0] == surname and assignee_parts[1] == first_name):
+                            normalized = f"{surname} {first_name}"
+                            break
+                        elif (assignee_parts[0] == first_name and assignee_parts[1] == surname):
+                            normalized = f"{surname} {first_name}"
+                            break
+                if normalized:
+                    assignee = normalized
+        
+        # Fallback to basic extraction if LLM returns null
+        if intent == "unknown":
+            query_lower = query.lower()
+            # Try basic heuristics
+            if any(word in query_lower for word in ["спринт", "спринте", "в спринте", "текущий спринт", "сейчас в спринте"]):
+                intent = "sprint"
+                assignee = extract_assignee_from_query(query)
+            elif any(p in query_lower for p in ["мои задачи", "на мне висят", "что у меня", "у меня есть", "мои таски", "мои тикеты"]):
+                intent = "my_tasks"
+                assignee = "Калачанов Виктор"
+            elif "задачи" in query_lower and any(word in query_lower for word in ["у", "у Гаранина", "у Кондратчиковой", "у Агатаевой", "у Калачанова", "у Семавина", "у Гончарова"]):
+                # Pattern: "задачи у [имя]"
+                intent = "my_tasks"
+                assignee = extract_assignee_from_query(query)
+                if not assignee:
+                    # Try to extract from query
+                    import re
+                    match = re.search(r'задачи (?:у\s+)?([А-Я][а-я]+(?:\s+[А-Я][а-я]+)?)', query_lower)
+                    if match:
+                        assignee = match.group(1).title()
+                        # Normalize if possible
+                        for member in team_agent.team_members:
+                            if member.full_name.lower().startswith(assignee.lower()):
+                                assignee = member.full_name
+                                break
+                if not assignee:
+                    assignee = "Калачанов Виктор"
+            elif "задачи" in query_lower:
+                # Pattern: "задачи [Фамилия]" (genitive case - last word)
+                import re
+                match = re.search(r'задачи\s+(.+)$', query_lower)
+                if match:
+                    last_word = match.group(1).strip()
+                    intent = "my_tasks"
+                    # Try to normalize genitive to nominative
+                    nominative = last_word
+                    if last_word.endswith('на') and len(last_word) > 2:
+                        # Genitive ending -на -> nominative -н
+                        nominative = last_word[:-2] + 'н'
+                    elif last_word.endswith('ой') and len(last_word) > 2:
+                        # Genitive ending -ой -> nominative -ый/-ий
+                        nominative = last_word[:-2] + ('ый' if last_word[-3] in 'бвгд жзйклмнопрстуфхцчшщ' else 'ий')
+                    elif last_word.endswith('а') and len(last_word) > 1 and last_word[-2] not in 'аяоуыэюи':
+                        # Genitive ending -а -> nominative (e.g., Полины -> Полина)
+                        nominative = last_word[:-1]
+                    # Try to normalize - search for surname in team members
+                    assignee = nominative.title()
+                    for member in team_agent.team_members:
+                        surname = member.full_name.split()[0]
+                        if surname.lower() == nominative.lower():
+                            assignee = member.full_name
+                            break
+                        elif surname.lower().startswith(nominative.lower()):
+                            # Partial match, use full name
+                            assignee = member.full_name
+                            break
+                    if not assignee:
+                        assignee = "Калачанов Виктор"
+            elif any(word in query_lower for word in ["сколько задач"]):
+                intent = "my_tasks"
+                assignee = extract_assignee_from_query(query)
+                if any(word in query_lower for word in ["спринт", "в спринте"]):
+                    intent = "sprint"
+            elif any(p in query_lower for p in ["найди", "искать", "поиск", "по фразе", "найти"]):
+                intent = "search"
+                import re
+                search_terms = query
+                for p in ["найди", "искать", "поиск", "по фразе", "найти"]:
+                    if p in query_lower:
+                        rest = query[len(p):].strip()
+                        search_terms = re.sub(r'[^\w\s.]', '', rest).strip()
+                        search_terms = re.sub(r'^(по|по фразе)\s*', '', search_terms, flags=re.IGNORECASE)
+                        break
+        
+        params = {"assignee": assignee, "search_terms": search_terms}
+        
+        proc = start_mcp_server()
+        init_response = send_mcp_request(proc, 'initialize', {
+            'protocolVersion': '2024-11-05',
+            'capabilities': {},
+            'clientInfo': {'name': 's21-agent', 'version': '1.0'}
+        })
+
+        results = {}
+        
+        # Fallback assignee for search operations
+        assignee = params.get('assignee')
+        if not assignee and intent == "my_tasks":
+            assignee = extract_assignee_from_query(query)
+
+        if intent == "sprint":
+            sprint_spaces = []
+            for space in ['DMS', 'OLP', 'WMB']:
+                sprint_response = send_mcp_request(proc, 'tools/call', {
+                    'name': 'get_current_sprint',
+                    'arguments': {'space': space}
+                })
+                if 'result' in sprint_response and 'content' in sprint_response['result']:
+                    for item in sprint_response['result']['content']:
+                        if item.get('type') == 'text':
+                            sprint_data = json.loads(item.get('text', '{}'))
+                            sprint_id = sprint_data.get('id', {}).get('code', '')
+                            sprint_name = sprint_data.get('name', '')
+                            if sprint_id:
+                                sprint_spaces.append({'space': space, 'id': sprint_id, 'name': sprint_name})
+            
+            sprint_task_counts = {}
+            for sprint_info in sprint_spaces:
+                tasks_response = send_mcp_request(proc, 'tools/call', {
+                    'name': 'get_sprint_tasks',
+                    'arguments': {'sprint_id': sprint_info['id']}
+                })
+                if 'result' in tasks_response and 'content' in tasks_response['result']:
+                    for item in tasks_response['result']['content']:
+                        if item.get('type') == 'text':
+                            tasks_data = json.loads(item.get('text', '{}'))
+                            tasks = tasks_data.get('content', [])
+                            if params.get('assignee'):
+                                filtered = []
+                                for t in tasks:
+                                    for attr in t.get('attributes', []):
+                                        if attr.get('attribute', {}).get('code') == 'assigned_to':
+                                            value = attr.get('value')
+                                            if value is None:
+                                                continue
+                                            name = f"{value.get('lastName', '')} {value.get('firstName', '')}".strip()
+                                            if name and name.lower() == params['assignee'].lower():
+                                                filtered.append(t)
+                                                break
+                                tasks = filtered
+                            elif assignee:  # Use fallback assignee
+                                filtered = []
+                                for t in tasks:
+                                    for attr in t.get('attributes', []):
+                                        if attr.get('attribute', {}).get('code') == 'assigned_to':
+                                            value = attr.get('value')
+                                            if value is None:
+                                                continue
+                                            name = f"{value.get('lastName', '')} {value.get('firstName', '')}".strip()
+                                            if name and name.lower() == assignee.lower():
+                                                filtered.append(t)
+                                                break
+                                tasks = filtered
+                            sprint_task_counts[sprint_info['id']] = {
+                                'space': sprint_info['space'], 'name': sprint_info['name'],
+                                'count': len(tasks), 'tasks': tasks[:5]
+                            }
+
+            proc.terminate()
+            total = sum(d['count'] for d in sprint_task_counts.values())
+            names = ', '.join([f"{s['space']}: {s['name']}" for s in sprint_spaces])
+            # Use params assignee, fallback to assignee
+            assignee_param = params.get('assignee') or assignee
+            assignee_text = f" на {assignee_param}" if assignee_param else ""
+            return {
+                "response": f"В текущих спринтах{assignee_text} {total} задач. Спринты: {names}" if sprint_task_counts else "В текущем проекте спринты не используются.",
+                "type": "sprint_info", "tasks": [], "llm_used": llm_used,
+            }
+
+        elif intent == "my_tasks":
+            assignee = params.get('assignee')
+            # Fallback to extraction if LLM didn't get it
+            if not assignee:
+                assignee = extract_assignee_from_query(query)
+            if not assignee:
+                assignee = "Калачанов Виктор"
+            
+            # Use FastAPI API for direct assignee lookup (more accurate than MCP)
+            try:
+                api_response = requests.get(
+                    "http://localhost:8003/api/v1/tasks",
+                    params={"assignee": assignee, "limit": 50},
+                    timeout=30
+                )
+                if api_response.status_code == 200:
+                    tasks = api_response.json()
+                    if tasks:
+                        task_list = "\n".join([f"- {t.get('source_id', 'N/A')}: {t.get('title', 'N/A')}" for t in tasks[:5]])
+                        return {
+                            "response": f"У {assignee} найдено {len(tasks)} задач(и/а):\n{task_list}\n\nОписание задачи: 'что нужно сделать по задаче WMB-XXXX'",
+                            "type": "my_tasks", "tasks": [], "llm_used": llm_used,
+                        }
+            except Exception as e:
+                print(f"FastAPI API error: {e}")
+                # Fallback to MCP
+                tasks_response = send_mcp_request(proc, 'tools/call', {
+                    'name': 'get_my_tasks',
+                    'arguments': {'assignee': assignee}
+                })
+                proc.terminate()
+                if 'result' in tasks_response and 'content' in tasks_response['result']:
+                    for item in tasks_response['result']['content']:
+                        if item.get('type') == 'text':
+                            data = json.loads(item.get('text', '{}'))
+                            tasks = data.get('content', [])
+                            if tasks:
+                                task_list = "\n".join([f"- {t.get('unit', {}).get('code', 'N/A')}: {t.get('unit', {}).get('summary', 'N/A')}" for t in tasks[:5]])
+                                return {
+                                    "response": f"У {assignee} найдено {len(tasks)} задач(и/а):\n{task_list}\n\nОписание задачи: 'что нужно сделать по задаче WMB-XXXX'",
+                                    "type": "my_tasks", "tasks": [], "llm_used": llm_used,
+                                }
+            proc.terminate()
+            return {"response": f"У {assignee} нет задач в системе SWTR.", "type": "my_tasks", "tasks": [], "llm_used": llm_used}
+
+        elif intent == "search":
+            search_terms = params.get('search_terms', query)
+            tasks_response = send_mcp_request(proc, 'tools/call', {
+                'name': 'search_tasks',
+                'arguments': {'search_terms': search_terms, 'limit': 10}
+            })
+            proc.terminate()
+            if 'result' in tasks_response and 'content' in tasks_response['result']:
+                for item in tasks_response['result']['content']:
+                    if item.get('type') == 'text':
+                        data = json.loads(item.get('text', '{}'))
+                        tasks = data.get('content', [])
+                        if tasks:
+                            task_list = "\n".join([f"- {t.get('unit', {}).get('code', 'N/A')}: {t.get('unit', {}).get('summary', 'N/A')}" for t in tasks[:5]])
+                            return {
+                                "response": f"Найдено {len(tasks)} задач по '{search_terms}':\n{task_list}",
+                                "type": "search", "tasks": [], "llm_used": llm_used,
+                            }
+            return {"response": f"По запросу '{search_terms}' задач не найдено.", "type": "search", "tasks": [], "llm_used": llm_used}
+
+        elif intent == "analyze":
+            task_id = params.get('task_id', '')
+            tasks_response = send_mcp_request(proc, 'tools/call', {
+                'name': 'get_task',
+                'arguments': {'task_id': task_id}
+            })
+            proc.terminate()
+            if 'result' in tasks_response and 'content' in tasks_response['result']:
+                for item in tasks_response['result']['content']:
+                    if item.get('type') == 'text':
+                        data = json.loads(item.get('text', '{}'))
+                        return {
+                            "response": f"Задача {task_id}: {data.get('summary', 'Нет данных')}\nСтатус: {data.get('workflow_status', 'N/A')}",
+                            "type": "analysis", "tasks": [], "llm_used": llm_used,
+                        }
+
+        proc.terminate()
+        return {
+            "response": "Я не понял ваш запрос. Могу искать задачи, показывать спринты, мои задачи или анализировать задачи. Примеры: 'мои задачи', 'сколько задач в спринте', 'найди задачи по фразе Apache'",
+            "type": "unknown", "tasks": [], "llm_used": llm_used,
+        }
+    
+    except Exception as e:
+        print(f"Query agent error: {e}")
+        import traceback
+        traceback.print_exc()
+        return {"response": f"Ошибка при обработке запроса: {str(e)}", "type": "error", "tasks": []}
+
+
+@app.post("/tasks/search")
+async def search_tasks(request: SearchRequest):
+    """Search tasks by query and filters."""
+    try:
+        tasks = adapter.search_tasks(query=request.query, filters=request.filters)
+        
+        if request.filters and request.filters.get("assignee"):
+            # Filter by assignee if provided
+            tasks = [t for t in tasks if t.assignee and request.filters["assignee"].lower() in t.assignee.lower()]
+        
+        # Rank tasks
+        ranked_tasks = rank_tasks(tasks, request.query)
+        
+        # Limit results
+        ranked_tasks = ranked_tasks[:request.limit]
+        
+        return {
+            "query": request.query,
+            "filters": request.filters,
+            "total": len(ranked_tasks),
+            "tasks": [t.model_dump() for t in ranked_tasks],
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Search error: {str(e)}")
+
+
+@app.post("/tasks/get")
+async def get_task(request: TaskIdRequest):
+    """Get task by ID."""
+    try:
+        task = adapter.get_task(request.task_id)
+        
+        if task is None:
+            raise HTTPException(status_code=404, detail=f"Task {request.task_id} not found")
+        
+        return task.model_dump()
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Get task error: {str(e)}")
+
+
+@app.get("/tasks/get_by_url")
+@app.post("/tasks/get_by_url")
+async def get_task_by_url(request: Optional[TaskUrlRequest] = None, url: Optional[str] = None):
+    """Get task by SWTR URL - try local API first, then MCP."""
+    import re
+    import requests
+
+    try:
+        # Extract URL from request or query param
+        task_url = url
+        if request and hasattr(request, 'url'):
+            task_url = request.url
+        
+        if not task_url:
+            raise HTTPException(status_code=400, detail="URL parameter is required")
+
+        # Extract task code from URL
+        match = re.search(r"/unit/([A-Z0-9-]+)", task_url)
+        if not match:
+            raise HTTPException(status_code=400, detail="Invalid URL format")
+
+        task_code = match.group(1)
+
+        # Try local API first (port 8003)
+        try:
+            response = requests.get(
+                f"http://localhost:8003/api/v1/tasks",
+                timeout=settings.mcp_timeout_seconds,
+            )
+
+            if response.status_code == 200:
+                tasks = response.json()
+                for task in tasks:
+                    if task.get("source_id") == task_code or task.get("swtr_id") == task_code:
+                        # Map to Task model
+                        task_model = adapter._map_to_task(task)
+                        return task_model.model_dump()
+        except:
+            pass  # Fall through to MCP
+
+        # Try MCP API (port 8000)
+        try:
+            response = requests.get(
+                f"http://localhost:8000/api/v1/swtr/tasks/{task_code}",
+                timeout=settings.mcp_timeout_seconds,
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                if data.get("task"):
+                    task = adapter._map_to_task(data["task"])
+                    return task.model_dump()
+        except:
+            pass  # Fall through
+
+        raise HTTPException(status_code=404, detail=f"Task {task_code} not found")
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Get task by URL error: {str(e)}")
+
+
+@app.post("/tasks/assess_quality")
+async def assess_quality(request: QualityCriteriaRequest):
+    """Assess task quality based on criteria using LLM analysis."""
+    try:
+        # Get task using local API
+        import requests
+        try:
+            response = requests.get(
+                f"http://localhost:8003/api/v1/tasks",
+                timeout=30,
+            )
+            if response.status_code != 200:
+                raise HTTPException(status_code=503, detail="Local API unavailable")
+
+            tasks = response.json()
+            task_data = None
+            for t in tasks:
+                if t.get("source_id") == request.task_id or t.get("swtr_id") == request.task_id:
+                    task_data = t
+                    break
+
+            if not task_data:
+                raise HTTPException(status_code=404, detail=f"Task {request.task_id} not found")
+        except requests.exceptions.RequestException as e:
+            raise HTTPException(status_code=503, detail=f"Local API error: {str(e)}")
+
+        task = adapter._map_to_task(task_data)
+
+        # Generate scores using LLM for intelligent analysis
+        try:
+            # Use QualityAnalyzer from quality_scorer
+            from s21_agent.services.quality_scorer import QualityAnalyzer
+            
+            criteria_names = [c.get("name", "") for c in request.criteria]
+            analyzer = QualityAnalyzer()
+            criteria_scores = analyzer.analyze_task_quality(
+                task.title, 
+                task.description or "",
+                criteria_names
+            )
+            
+            # Ensure all criteria have weights
+            for c, req_c in zip(criteria_scores, request.criteria):
+                c.weight = req_c.get("weight", 10)
+                c.source = "llm_analysis"
+            
+            score = calculate_quality_score(criteria_scores)
+            
+            return {
+                "task_id": request.task_id,
+                "score": score,
+                "category": category(score),
+                "criteria_scores": [c.model_dump() for c in criteria_scores],
+                "llm_used": True,
+            }
+        except Exception:
+            # Fallback to simple heuristic scoring
+            pass
+
+        # Generate scores based on task content (fallback)
+        criteria_scores = []
+        for c in request.criteria:
+            name = c.get("name", "")
+            weight = c.get("weight", 10)
+
+            score = 0.5  # Default
+            rationale = "Оценка на основе доступных данных"
+
+            task_lower = f"{task.title} {task.description}".lower()
+
+            if "цель" in name or "цели" in name:
+                if "цель" in task_lower or "цели" in task_lower:
+                    score = 0.8
+                    rationale = "Цель упомянута в описании"
+                else:
+                    score = 0.3
+                    rationale = "Цель не найдена в описании"
+
+            elif "критерии" in name or "приемки" in name:
+                if "критерии" in task_lower or "приемка" in task_lower:
+                    score = 0.8
+                    rationale = "Критерии приемки найдены"
+                else:
+                    score = 0.3
+                    rationale = "Критерии приемки не найдены"
+
+            elif "зависимости" in name:
+                if "зависим" in task_lower:
+                    score = 0.8
+                    rationale = "Зависимости упомянуты"
+                else:
+                    score = 0.5
+                    rationale = "Зависимости не найдены"
+
+            elif "риски" in name:
+                if "риск" in task_lower:
+                    score = 0.8
+                    rationale = "Риски упомянуты"
+                else:
+                    score = 0.3
+                    rationale = "Риски не найдены"
+
+            criteria_scores.append(CriterionScore(
+                name=name,
+                weight=weight,
+                score=score,
+                rationale=rationale,
+                source="task_content",
+            ))
+
+        score = calculate_quality_score(criteria_scores)
+
+        return {
+            "task_id": request.task_id,
+            "score": score,
+            "category": category(score),
+            "criteria_scores": [c.model_dump() for c in criteria_scores],
+            "llm_used": False,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Quality assessment error: {str(e)}")
+
+
+@app.post("/tasks/find_duplicates")
+async def find_duplicates(request: TaskIdRequest):
+    """Find potential duplicates of a task using LLM semantic analysis."""
+    try:
+        import requests
+        
+        # Get task from local API
+        try:
+            response = requests.get(
+                f"http://localhost:8003/api/v1/tasks",
+                timeout=30,
+            )
+            if response.status_code != 200:
+                raise HTTPException(status_code=503, detail="Local API unavailable")
+
+            tasks = response.json()
+            task_data = None
+            for t in tasks:
+                if t.get("source_id") == request.task_id or t.get("swtr_id") == request.task_id:
+                    task_data = t
+                    break
+
+            if not task_data:
+                raise HTTPException(status_code=404, detail=f"Task {request.task_id} not found")
+        except requests.exceptions.RequestException as e:
+            raise HTTPException(status_code=503, detail=f"Local API error: {str(e)}")
+
+        original_task = adapter._map_to_task(task_data)
+
+        # Search for similar tasks using rank_tasks with LLM
+        search_query = f"{original_task.title} {original_task.description[:100]}"
+        all_tasks = rank_tasks(tasks=[original_task] + [adapter._map_to_task(t) for t in tasks], query=search_query)
+        
+        # Filter out the original task
+        candidates = [t for t in all_tasks if t.source_id != original_task.source_id]
+
+        # Use LLM for semantic duplicate detection if available
+        from s21_agent.services.llm_client import LLMClient
+        llm = LLMClient()
+        
+        if llm.api_key and candidates:
+            # Build prompt for LLM to find duplicates
+            candidates_text = "\n".join([
+                f"- {t.source_id}: {t.title}"
+                for t in candidates[:15]
+            ])
+            
+            system_prompt = """You are a duplicate detection assistant. Identify which tasks are likely duplicates of the original task.
+            
+Output JSON with task IDs that are duplicates (same meaning, different wording)."""
+
+            user_prompt = f"""Original Task:
+Title: {original_task.title}
+Description: {original_task.description[:300] if original_task.description else ''}
+
+Candidate Tasks:
+{candidates_text}
+
+Output JSON format: {{"duplicates": ["WMB-123", "WMB-456"]}}"""
+            
+            try:
+                response = llm.analyze_task(original_task.title, original_task.description[:500], user_prompt)
+                
+                import json
+                import re
+                
+                json_match = re.search(r'\{[^}]+\}', response)
+                if json_match:
+                    data = json.loads(json_match.group())
+                    duplicate_ids = set(data.get("duplicates", []))
+                    duplicates = [t for t in candidates if t.source_id in duplicate_ids]
+                else:
+                    # Fallback to simple matching
+                    duplicates = []
+                    for t in candidates:
+                        if original_task.title.lower() in t.title.lower() or t.title.lower() in original_task.title.lower():
+                            duplicates.append(t)
+            except Exception:
+                # Fallback to simple matching
+                duplicates = []
+                for t in candidates:
+                    if original_task.title.lower() in t.title.lower() or t.title.lower() in original_task.title.lower():
+                        duplicates.append(t)
+        else:
+            # Fallback to simple matching
+            duplicates = []
+            for t in candidates:
+                if original_task.title.lower() in t.title.lower() or t.title.lower() in original_task.title.lower():
+                    duplicates.append(t)
+
+        return {
+            "original_task": original_task.model_dump(),
+            "duplicates": [t.model_dump() for t in duplicates[:10]],
+            "llm_used": llm.api_key is not None and len(duplicates) > 0,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Find duplicates error: {str(e)}")
+
+
+@app.post("/tasks/summarize")
+async def summarize_task(request: TaskIdRequest):
+    """Summarize task content - direct local API call."""
+    import requests
+    try:
+        # Get all tasks from local API and find by source_id
+        try:
+            response = requests.get(
+                f"http://localhost:8003/api/v1/tasks",
+                timeout=30,
+            )
+            if response.status_code != 200:
+                raise HTTPException(status_code=503, detail="Local API unavailable")
+            
+            tasks = response.json()
+            task_data = None
+            for t in tasks:
+                if t.get("source_id") == request.task_id or t.get("swtr_id") == request.task_id:
+                    task_data = t
+                    break
+            
+            if not task_data:
+                raise HTTPException(status_code=404, detail=f"Task {request.task_id} not found")
+        except requests.exceptions.RequestException as e:
+            raise HTTPException(status_code=503, detail=f"Local API error: {str(e)}")
+
+        task = adapter._map_to_task(task_data)
+
+        # Generate summary using LLM for intelligent analysis
+        try:
+            llm_summary = llm_client.summarize_task(task.title, task.description or "")
+            summary = f"{task.title}. "
+            summary += f"Исполнитель: {task.assignee}. "
+            summary += f"Статус: {task.status}. "
+            if task.deadline:
+                summary += f"Дедлайн: {task.deadline.strftime('%d.%m.%Y')}. "
+            summary += f"Анализ: {llm_summary}"
+        except ValueError as e:
+            # Fallback to simple extraction if LLM not available
+            summary = f"{task.title}. "
+            summary += f"Исполнитель: {task.assignee}. "
+            summary += f"Статус: {task.status}. "
+            if task.deadline:
+                summary += f"Дедлайн: {task.deadline.strftime('%d.%m.%Y')}. "
+            description = task.description or ""
+            key_points = extract_key_points(description)
+            if key_points:
+                summary += f"Ключевые моменты: {key_points[:300]}{'...' if len(key_points) > 300 else ''}"
+            elif description:
+                summary += f"Описание: {description[:200]}{'...' if len(description) > 200 else ''}"
+
+        return {
+            "task_id": request.task_id,
+            "summary": summary,
+            "task": task.model_dump(),
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Summarize error: {str(e)}")
+
+
+
+# ============== TEAM PERFORMANCE AGENT ENDPOINTS ==============
+
+from s21_team_performance.agent import TeamPerformanceAgent
+from s21_team_performance.models import TeamAnalysisRequest
+
+team_agent = TeamPerformanceAgent()
+team_agent.load_team_members()
+
+
+class TeamAnalysisRequestModel(BaseModel):
+    """Request for team analysis."""
+    skill: str = Field(..., description="Skill name")
+    params: dict[str, Any] = Field(default_factory=dict, description="Skill parameters")
+
+
+class SprintHealthTeamRequest(BaseModel):
+    """Request for sprint health analysis."""
+    sprint_id: str = Field(..., description="Sprint ID")
+    team_members: list[str] = Field(default_factory=list)
+    products: list[str] = Field(default_factory=list)
+
+
+class VelocityTeamRequest(BaseModel):
+    """Request for velocity analysis."""
+    period_sprints: int = Field(default=6, ge=1, le=12)
+    team_members: list[str] = Field(default_factory=list)
+    products: list[str] = Field(default_factory=list)
+
+
+class FlowTeamRequest(BaseModel):
+    """Request for flow metrics."""
+    period_days: int = Field(default=30, ge=7, le=365)
+    team_members: list[str] = Field(default_factory=list)
+    products: list[str] = Field(default_factory=list)
+
+
+class WorkloadTeamRequest(BaseModel):
+    """Request for workload balance."""
+    period_days: int = Field(default=30, ge=7, le=365)
+    team_members: list[str] = Field(default_factory=list)
+    products: list[str] = Field(default_factory=list)
+
+
+class CompetencyMatchTeamRequest(BaseModel):
+    """Request for competency matching."""
+    task_requirements: dict[str, int] = Field(..., description="Required competencies")
+    exclude_members: list[str] = Field(default_factory=list)
+    max_candidates: int = Field(default=3, ge=1, le=5)
+
+
+class BottlenecksTeamRequest(BaseModel):
+    """Request for bottleneck analysis."""
+    period_days: int = Field(default=30, ge=7, le=365)
+    team_members: list[str] = Field(default_factory=list)
+    products: list[str] = Field(default_factory=list)
+
+
+class ForecastTeamRequest(BaseModel):
+    """Request for forecasting."""
+    sprint_id: str = Field(..., description="Sprint ID")
+    remaining_effort: float = Field(default=0)
+    team_members: list[str] = Field(default_factory=list)
+    products: list[str] = Field(default_factory=list)
+
+
+class ReleaseLinkageTeamRequest(BaseModel):
+    """Request for release linkage analysis."""
+    release_id: str = Field(..., description="Release ID")
+    team_members: list[str] = Field(default_factory=list)
+    products: list[str] = Field(default_factory=list)
+
+
+@app.post("/team/analyze")
+async def analyze_team(request: TeamAnalysisRequestModel):
+    """Основной endpoint для вызова Team Performance Agent"""
+    try:
+        # Если в params есть 'query', использовать analyze_by_query для автоматического определения
+        if request.params and 'query' in request.params:
+            result = await team_agent.analyze_by_query(request.params['query'])
+        else:
+            team_analysis_request = TeamAnalysisRequest(skill=request.skill, params=request.params)
+            result = await team_agent.analyze(team_analysis_request)
+        
+        # Generate LLM-based response for UI
+        llm = team_agent.get_llm()
+        if llm and llm.api_key:
+            try:
+                response = llm.generate_response(request.params.get('query', ''), result.model_dump())
+            except Exception as e:
+                response = f"Анализ завершен. Статус: {result.status}. Подробности см. в findings."
+        else:
+            response = f"Анализ завершен. Статус: {result.status}. Подробности см. в findings."
+        
+        response_data = result.model_dump()
+        response_data["response"] = response
+        return response_data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Team analysis error: {str(e)}")
+
+
+@app.post("/team/sprint_health")
+async def sprint_health(request: SprintHealthTeamRequest):
+    """Анализ здоровья спринта"""
+    try:
+        request_model = TeamAnalysisRequest(skill="sprint_health", params={
+            "sprint_id": request.sprint_id,
+            "team_members": request.team_members,
+            "products": request.products
+        })
+        result = await team_agent.analyze(request_model)
+        return result.model_dump()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Sprint health analysis error: {str(e)}")
+
+
+@app.post("/team/velocity")
+async def velocity(request: VelocityTeamRequest):
+    """Анализ velocity"""
+    try:
+        request_model = TeamAnalysisRequest(skill="velocity_analysis", params={
+            "period_sprints": request.period_sprints,
+            "team_members": request.team_members,
+            "products": request.products
+        })
+        result = await team_agent.analyze(request_model)
+        return result.model_dump()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Velocity analysis error: {str(e)}")
+
+
+@app.post("/team/flow")
+async def flow(request: FlowTeamRequest):
+    """Flow metrics"""
+    try:
+        request_model = TeamAnalysisRequest(skill="flow_metrics", params={
+            "period_days": request.period_days,
+            "team_members": request.team_members,
+            "products": request.products
+        })
+        result = await team_agent.analyze(request_model)
+        return result.model_dump()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Flow metrics error: {str(e)}")
+
+
+@app.post("/team/workload")
+async def workload(request: WorkloadTeamRequest):
+    """Workload balance"""
+    try:
+        request_model = TeamAnalysisRequest(skill="workload_balance", params={
+            "period_days": request.period_days,
+            "team_members": request.team_members,
+            "products": request.products
+        })
+        result = await team_agent.analyze(request_model)
+        return result.model_dump()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Workload balance error: {str(e)}")
+
+
+@app.post("/team/competency_match")
+async def competency_match(request: CompetencyMatchTeamRequest):
+    """Сопоставление компетенций"""
+    try:
+        request_model = TeamAnalysisRequest(skill="competency_matching", params={
+            "task_requirements": request.task_requirements,
+            "exclude_members": request.exclude_members,
+            "max_candidates": request.max_candidates
+        })
+        result = await team_agent.analyze(request_model)
+        return result.model_dump()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Competency matching error: {str(e)}")
+
+
+@app.post("/team/bottlenecks")
+async def bottlenecks(request: BottlenecksTeamRequest):
+    """Анализ узких мест"""
+    try:
+        request_model = TeamAnalysisRequest(skill="bottleneck_analysis", params={
+            "period_days": request.period_days,
+            "team_members": request.team_members,
+            "products": request.products
+        })
+        result = await team_agent.analyze(request_model)
+        return result.model_dump()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Bottleneck analysis error: {str(e)}")
+
+
+@app.post("/team/forecast")
+async def forecast(request: ForecastTeamRequest):
+    """Прогноз завершения"""
+    try:
+        request_model = TeamAnalysisRequest(skill="forecasting", params={
+            "sprint_id": request.sprint_id,
+            "remaining_effort": request.remaining_effort,
+            "team_members": request.team_members,
+            "products": request.products
+        })
+        result = await team_agent.analyze(request_model)
+        return result.model_dump()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Forecast error: {str(e)}")
+
+
+@app.post("/team/release_linkage")
+async def release_linkage(request: ReleaseLinkageTeamRequest):
+    """Связь с релизом"""
+    try:
+        request_model = TeamAnalysisRequest(skill="release_linkage", params={
+            "release_id": request.release_id,
+            "team_members": request.team_members,
+            "products": request.products
+        })
+        result = await team_agent.analyze(request_model)
+        return result.model_dump()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Release linkage error: {str(e)}")
+
+
+def extract_key_points(description: str) -> str:
+    """Extract key points from task description."""
+    import re
+
+    if not description:
+        return ""
+
+    lines = description.split('\n')
+    key_points = []
+
+    for line in lines:
+        line = line.strip()
+        # Look for numbered items, dates, emails, important deadlines
+        if re.match(r'^\d+\.', line) or re.search(r'\d{2}\.\d{2}\.\d{4}', line) or '@' in line:
+            key_points.append(line)
+
+    if key_points:
+        return ' '.join(key_points[:10])
+
+    return ""
+
+

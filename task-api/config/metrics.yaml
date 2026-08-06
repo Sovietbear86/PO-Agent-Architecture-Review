@@ -1,0 +1,36 @@
+metrics:
+  velocity:
+    enabled: true
+    unit: story_points
+    comparison_window_sprints: 6
+    warning: "Не использовать как персональный KPI."
+
+  throughput:
+    enabled: true
+    unit: completed_items
+
+  sprint_predictability:
+    formula: "completed_committed / committed_at_sprint_start"
+
+  carryover_rate:
+    formula: "carried_over_items / committed_items"
+
+  scope_change_rate:
+    formula: "items_added_after_start / committed_at_start"
+
+  cycle_time:
+    start_statuses: ["In Progress"]
+    end_statuses: ["Done", "Closed"]
+
+  lead_time:
+    start_event: "created"
+    end_statuses: ["Done", "Closed"]
+
+  wip:
+    active_statuses: ["In Progress", "Review", "Testing"]
+
+  blocked_time:
+    enabled: true
+
+  unplanned_work_share:
+    formula: "unplanned_effort / total_completed_effort"

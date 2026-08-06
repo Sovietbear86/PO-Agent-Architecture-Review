@@ -1,0 +1,231 @@
+members:
+- allocation_percent: null
+  competencies: {}
+  competency_evidence_file: knowledge/employees/Kalacanov_Viktor_Vaceslavovic.md
+  email: Kalachanov.V.V@sbertech.ru
+  full_name: Калачанов Виктор Вячеславович
+  grade: 13
+  id: Kalachanov.V.V
+  login: Kalachanov.V.V
+  planned_absences: []
+  products:
+  - OLAP
+  - DTMS
+  professional_profile: Владелец продуктов OLAP Analytics и DataMarts
+  recommended_max_wip: null
+  regular_non_sprint_load_percent: null
+  team_role: Владелец продукта
+- allocation_percent: null
+  competencies: {}
+  competency_evidence_file: knowledge/employees/Garanin_Rodion_Vladimirovic.md
+  email: Garanin.R.V@sbertech.ru
+  full_name: Гаранин Родион Владимирович
+  grade: 13
+  id: Garanin.R.V
+  login: Garanin.R.V
+  planned_absences: []
+  products:
+  - OLAP
+  - DTMS
+  professional_profile: Технический лидер / ведущий Java-разработчик
+  recommended_max_wip: null
+  regular_non_sprint_load_percent: null
+  team_role: Лидер продукта
+- allocation_percent: null
+  competencies: {}
+  competency_evidence_file: knowledge/employees/Agataeva_Ajna_Jumagalieva.md
+  email: Agataeva.A.Z@sbertech.ru
+  full_name: Агатаева Айна Жумагалиева
+  grade: 11
+  id: Agataeva.A.Z
+  login: Agataeva.A.Z
+  planned_absences: []
+  products:
+  - DTMS
+  professional_profile: Go-разработчик DataMarts
+  recommended_max_wip: null
+  regular_non_sprint_load_percent: null
+  team_role: Участник команды
+- allocation_percent: null
+  competencies: {}
+  competency_evidence_file: knowledge/employees/Alekseev_Konstantin_Sergeevic.md
+  email: Alekseev.K.S@sbertech.ru
+  full_name: Алексеев Константин Сергеевич
+  grade: 10
+  id: Alekseev.K.S
+  login: Alekseev.K.S
+  planned_absences: []
+  products:
+  - DTMS
+  professional_profile: Аналитик
+  recommended_max_wip: null
+  regular_non_sprint_load_percent: null
+  team_role: Участник команды
+- allocation_percent: null
+  competencies: {}
+  competency_evidence_file: knowledge/employees/Gal_cov_Aleksandr_Alekseevic.md
+  email: Galtsov.A.A@sbertech.ru
+  full_name: Гальцов Александр Алексеевич
+  grade: 12
+  id: Galtsov.A.A
+  login: Galtsov.A.A
+  planned_absences: []
+  products:
+  - DTMS
+  professional_profile: Solution-архитектор OLAP
+  recommended_max_wip: null
+  regular_non_sprint_load_percent: null
+  team_role: Участник команды
+- allocation_percent: null
+  competencies: {}
+  competency_evidence_file: knowledge/employees/Dolgovskoj_Evgenij_Nikolaevic.md
+  email: Dolgovskoy.E.N@sbertech.ru
+  full_name: Долговской Евгений Николаевич
+  grade: 11
+  id: Dolgovskoy.E.N
+  login: Dolgovskoy.E.N
+  planned_absences: []
+  products:
+  - DTMS
+  professional_profile: Архитектура и нагрузочное тестирование
+  recommended_max_wip: null
+  regular_non_sprint_load_percent: null
+  team_role: Участник команды
+- allocation_percent: null
+  competencies: {}
+  competency_evidence_file: knowledge/employees/Kondratcikova_Polina_Igorevna.md
+  email: Kondratchikova.P.I@sbertech.ru
+  full_name: Кондратчикова Полина Игоревна
+  grade: 10
+  id: Kondratchikova.P.I
+  login: Kondratchikova.P.I
+  planned_absences: []
+  products:
+  - DTMS
+  professional_profile: Технический писатель / продуктовая документация
+  recommended_max_wip: null
+  regular_non_sprint_load_percent: null
+  team_role: Участник команды
+- allocation_percent: null
+  competencies: {}
+  competency_evidence_file: knowledge/employees/Krukov_Vladimir_Aleksandrovic.md
+  email: Kryukov.V.A@sbertech.ru
+  full_name: Крюков Владимир Александрович
+  grade: 12
+  id: Kryukov.V.A
+  login: Kryukov.V.A
+  planned_absences: []
+  products:
+  - OLAP
+  - DTMS
+  professional_profile: Delivery Lead / управление поставкой нескольких продуктов
+  recommended_max_wip: null
+  regular_non_sprint_load_percent: null
+  team_role: Участник команды
+- allocation_percent: null
+  competencies: {}
+  competency_evidence_file: knowledge/employees/Makosina_Verea_Valer_evna.md
+  email: Makoshina.V.V@sbertech.ru
+  full_name: Макошина Верея Валерьевна
+  grade: 10
+  id: Makoshina.V.V
+  login: Makoshina.V.V
+  planned_absences: []
+  products:
+  - DTMS
+  professional_profile: Сопровождение / 3ЛТП / аналитические задачи
+  recommended_max_wip: null
+  regular_non_sprint_load_percent: null
+  team_role: Участник команды
+- allocation_percent: null
+  competencies: {}
+  competency_evidence_file: knowledge/employees/Moiseev_Andrej_Nikolaevic.md
+  email: Moiseev.A.N@sbertech.ru
+  full_name: Моисеев Андрей Николаевич
+  grade: null
+  id: Moiseev.A.N
+  login: Moiseev.A.N
+  planned_absences: []
+  products:
+  - DTMS
+  professional_profile: Ведущий Go-разработчик
+  recommended_max_wip: null
+  regular_non_sprint_load_percent: null
+  team_role: Участник команды
+- allocation_percent: null
+  competencies: {}
+  competency_evidence_file: knowledge/employees/Semavin_Mihail_Mihajlovic.md
+  email: Semavin.M.M@sbertech.ru
+  full_name: Семавин Михаил Михайлович
+  grade: 9
+  id: Semavin.M.M
+  login: Semavin.M.M
+  planned_absences: []
+  products:
+  - DTMS
+  professional_profile: Инженер тестирования
+  recommended_max_wip: null
+  regular_non_sprint_load_percent: null
+  team_role: Участник команды
+- allocation_percent: null
+  competencies: {}
+  competency_evidence_file: knowledge/employees/Goncarov_Aleksandr_Olegovic.md
+  email: Goncharov.A.O@sbertech.ru
+  full_name: Гончаров Александр Олегович
+  grade: 11
+  id: Goncharov.A.O
+  login: Goncharov.A.O
+  planned_absences: []
+  products:
+  - OLAP
+  professional_profile: Java-разработчик
+  recommended_max_wip: null
+  regular_non_sprint_load_percent: null
+  team_role: Участник команды
+- allocation_percent: null
+  competencies: {}
+  competency_evidence_file: knowledge/employees/Aleksandr_Resetnik.md
+  email: Reshetnik.A@sbertech.ru
+  full_name: Александр Решетник
+  grade: 12
+  id: Reshetnik.A
+  login: Reshetnik.A
+  planned_absences: []
+  products:
+  - OLAP
+  professional_profile: Ведущий frontend-разработчик
+  recommended_max_wip: null
+  regular_non_sprint_load_percent: null
+  team_role: Участник команды
+- allocation_percent: null
+  competencies: {}
+  competency_evidence_file: knowledge/employees/Kuznecov_Matvej_Sergeevic.md
+  email: Kuznetsov.M.Se@sbertech.ru
+  full_name: Кузнецов Матвей Сергеевич
+  grade: 9
+  id: Kuznetsov.M.Se
+  login: Kuznetsov.M.Se
+  planned_absences: []
+  products:
+  - DTMS
+  professional_profile: Нагрузочное тестирование
+  recommended_max_wip: null
+  regular_non_sprint_load_percent: null
+  team_role: Участник команды
+- allocation_percent: null
+  competencies: {}
+  competency_evidence_file: knowledge/employees/Bezrukov_Pavel_Sergeevic.md
+  email: Bezrukov.P.S@sbertech.ru
+  full_name: Безруков Павел Сергеевич
+  grade: 12
+  id: Bezrukov.P.S
+  login: Bezrukov.P.S
+  planned_absences: []
+  products:
+  - OLAP
+  - DTMS
+  professional_profile: Архитектор сервиса
+  recommended_max_wip: null
+  regular_non_sprint_load_percent: null
+  team_role: Участник команды
+schema_version: 2

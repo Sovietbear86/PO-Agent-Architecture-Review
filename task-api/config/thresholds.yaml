@@ -1,0 +1,27 @@
+thresholds:
+  predictability:
+    green_min: 0.85
+    yellow_min: 0.70
+
+  carryover_rate:
+    warning: 0.20
+    critical: 0.35
+
+  scope_change_rate:
+    warning: 0.15
+    critical: 0.30
+
+  stale_task_days:
+    warning: 7
+    critical: 14
+
+  utilization:
+    warning: 0.90
+    critical: 1.10
+
+  bus_factor:
+    warning_expert_count: 1
+
+  competency_match:
+    minimum_level: 2
+    preferred_level: 3

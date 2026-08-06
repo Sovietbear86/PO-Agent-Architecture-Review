@@ -1,0 +1,107 @@
+# Сопоставление кодов статусов SWTR с локальными статусами AS21
+# Источник: workflow_statuses.yaml
+
+# Ключ: код статуса из SWTR (из атрибута workflow_status.value.code)
+# Значение: локальный статус (todo, in_progress, done) и имя для отображения
+
+status_mapping:
+  # Closed statuses
+  closed:
+    local_status: done
+    display_name: "Закрыт"
+    category: completed
+  CLSD_YLquKLRWNLxhnnC:
+    local_status: done
+    display_name: "Closed"
+    category: completed
+
+  # Resolved statuses
+  resolved:
+    local_status: done
+    display_name: "Решен"
+    category: completed
+  RSLVD_iDxZrfBaaZfOTL:
+    local_status: done
+    display_name: "Resolved"
+    category: completed
+
+  # In progress statuses
+  "in_progress":
+    local_status: in_progress
+    display_name: "В работе"
+    category: active_work
+  started:
+    local_status: in_progress
+    display_name: "Запущено"
+    category: active_work
+  NPRGRS_isFIvnhYcKLkj:
+    local_status: in_progress
+    display_name: "In progress"
+    category: active_work
+  NRVW_flliPvtmmflZJSi:
+    local_status: in_progress
+    display_name: "In review"
+    category: review
+  Q_ymlStTGiWDtKMqTySr:
+    local_status: in_progress
+    display_name: "QA"
+    category: testing
+
+  # Waiting / Blocked statuses
+  "Need info":
+    local_status: todo
+    display_name: "Требуется информация"
+    category: waiting
+  NDNF_hrFjrvcMrJRqBUB:
+    local_status: todo
+    display_name: "Need info"
+    category: waiting
+  ZRGSTR_JEPgizwlJWGww:
+    local_status: todo
+    display_name: "Зарегистрирован"
+    category: backlog
+
+  # Open statuses
+  PN_wZbmKlgyPwHIFYZAN:
+    local_status: todo
+    display_name: "Open"
+    category: backlog
+
+  # Ready for review
+  RDFR_asxQMlBcBZiouip:
+    local_status: todo
+    display_name: "Ready for review"
+    category: review_queue
+
+  # Ready for QA
+  RDFR_NiewJYNruxzlMLq:
+    local_status: todo
+    display_name: "Ready for QA"
+    category: qa_queue
+
+  # QA
+  qa:
+    local_status: in_progress
+    display_name: "Тестирование"
+    category: testing
+
+  # Cancelled
+  CNCLLD_sGZCjxXGNmqTu:
+    local_status: todo
+    display_name: "Cancelled"
+    category: cancelled
+
+  # Reopened
+  REOPENED:
+    local_status: in_progress
+    display_name: "Переоткрыта"
+    category: active_work
+
+# Fallback для неизвестных статусов
+fallback_mapping:
+  # Статусы с statusType: "done" -> done
+  done: done
+  # Статусы с statusType: "in_progress" -> in_progress  
+  in_progress: in_progress
+  # Остальные -> todo
+  other: todo
