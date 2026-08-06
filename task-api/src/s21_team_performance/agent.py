@@ -841,29 +841,33 @@ class TeamPerformanceAgent:
             if llm and llm.api_key:
                 try:
                     # For member_load_analysis and risk_analysis, don't use LLM at all
-                    # to avoid duplicate details and task lists in response
-                    if skill_name not in ["member_load_analysis", "risk_analysis"]:
+                    # to avoid duplicate details in response - use findings directly
+                    if skill_name in ["member_load_analysis", "risk_analysis"]:
+                        # Just use findings directly, no LLM
+                        pass
+                    else:
                         result_data = result.model_dump()
                         if skill_name in ["member_load_analysis", "risk_analysis"]:
                             result_data["tasks"] = []
-                            result_data["team_members"] = []
                         response = llm.generate_response(query, result_data)
                         result.findings.insert(0, f"LLM Response: {response}")
                 except Exception as e:
                     print(f"LLM generation failed: {e}")
 
-        # For member_load_analysis and risk_analysis, filter findings to show only summary, not member details
+        # For member_load_analysis and risk_analysis, filter findings to remove duplicate details
+        # LLM already includes member metrics, so we need to remove findings with member details
         if skill_name in ["member_load_analysis", "risk_analysis"]:
-            # Keep only the first finding (LLM Response) and last few findings (recommendations/constraints)
             filtered_findings = []
-            for i, finding in enumerate(result.findings):
-                if i == 0:  # Keep LLM Response
+            for finding in result.findings:
+                # Skip member-specific findings like "- Гаранин: 63 задач..."
+                if finding.strip().startswith("- ") and ("задач" in finding.lower() or "риск" in finding.lower()):
+                    continue
+                # Keep findings that start with "Спринт:" or contain "Всего задач" (general metrics)
+                if "Спринт:" in finding or "Всего задач" in finding or "Общая трудоемкость" in finding or "Выполнено" in finding or "Средняя трудоемкость" in finding:
                     filtered_findings.append(finding)
-                elif "Рекомендации" in finding or "constraints" in finding.lower():
+                # Also keep risks and constraints (no member details)
+                elif "Риск" in finding or "Рекомендации" in finding or "Ограничения" in finding or "constraints" in finding.lower():
                     filtered_findings.append(finding)
-                elif "Ограничения" in finding:
-                    filtered_findings.append(finding)
-                # Skip member-specific findings like "- Гаранин: ..." to avoid duplicate details
             result.findings = filtered_findings
 
         return result

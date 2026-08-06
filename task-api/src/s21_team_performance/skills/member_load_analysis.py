@@ -177,7 +177,7 @@ class MemberLoadAnalysisSkill:
         total_tasks = sum(m.get('total_tasks', 0) for m in member_metrics)
         total_effort = sum(m.get('total_effort', 0) for m in member_metrics)
         total_done = sum(m.get('done', 0) for m in member_metrics)
-        
+
         self.findings = [
             f"Спринт: {sprint_id}",
             f"Всего задач: {total_tasks}",
@@ -196,7 +196,7 @@ class MemberLoadAnalysisSkill:
             in_progress = member.get('in_progress', 0)
             done = member.get('done', 0)
             workload = member.get('workload_score', 0)
-            
+
             self.findings.append(
                 f"- {full_name}: {total} задач ({effort:.1f} sp), средняя трудоемкость: {avg:.1f} sp, "
                 f"В работе: {in_progress}, Выполнено: {done}, Загруженность: {workload*100:.0f}%"
