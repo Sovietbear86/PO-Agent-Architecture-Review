@@ -6,7 +6,7 @@ from typing import List, Dict, Any, Optional
 from datetime import datetime
 
 from s21_team_performance.models import AnalysisResult
-from s21_team_performance.services.task_service import TaskService, load_team_members, get_member_full_name
+from s21_team_performance.services.task_service import TaskService, load_team_members, get_member_full_name, get_member_short_name
 
 
 class RiskAnalysisSkill:
@@ -61,7 +61,7 @@ class RiskAnalysisSkill:
             )
 
         # Получить задачи спринта
-        sprint_tasks = await self._fetch_sprint_tasks(sprint_id, team_members)
+        sprint_tasks = await self._fetch_sprint_tasks(sprint_id)
 
         if not sprint_tasks:
             return AnalysisResult(
@@ -76,36 +76,61 @@ class RiskAnalysisSkill:
                 products=[]
             )
 
-        # Группировка задач по сотруднику
+        # Группировка задач по сотруднику - используем правильную фильтрацию через get_member_short_name
         member_tasks: Dict[str, List] = {}
-        for task in sprint_tasks:
-            task_assignee = task.assignee or ""
-            for member_login in team_members:
-                member_short_name = get_member_full_name(member_login).split()[-1]
-                if member_short_name.lower() in task_assignee.lower():
-                    if member_login not in member_tasks:
-                        member_tasks[member_login] = []
-                    member_tasks[member_login].append(task)
-                    break
 
-        # Если не нашли по short_name, попробовать по source_data.responsible
-        if not member_tasks:
+        # For single member, directly filter using get_member_short_name
+        if len(team_members) == 1:
+            member_login = team_members[0]
+            short_name = get_member_short_name(member_login)
+            member_tasks[member_login] = []
+
             for task in sprint_tasks:
+                task_assignee = task.assignee or ""
+                # Check if task is assigned to this member
+                if short_name and task_assignee.lower() == short_name.lower():
+                    member_tasks[member_login].append(task)
+                    continue
+
+                # Also check responsible in source_data
                 source_data = getattr(task, 'source_data', {}) or {}
                 responsible = source_data.get('responsible', {})
+                responsible_login = ''
                 if isinstance(responsible, dict):
                     responsible_login = responsible.get('login', '')
                 elif isinstance(responsible, str):
                     responsible_login = responsible
-                else:
-                    responsible_login = ''
-                
+
+                if responsible_login.lower() == member_login.lower():
+                    member_tasks[member_login].append(task)
+        else:
+            # Multiple members - filter each one
+            for task in sprint_tasks:
+                task_assignee = task.assignee or ""
+
                 for member_login in team_members:
-                    if member_login.lower() in responsible_login.lower() or responsible_login.lower() in member_login.lower():
+                    short_name = get_member_short_name(member_login)
+
+                    # Check if task is assigned to this member
+                    if short_name and task_assignee.lower() == short_name.lower():
                         if member_login not in member_tasks:
                             member_tasks[member_login] = []
                         member_tasks[member_login].append(task)
-                        break
+                        continue
+
+                    # Also check responsible in source_data
+                    source_data = getattr(task, 'source_data', {}) or {}
+                    responsible = source_data.get('responsible', {})
+                    responsible_login = ''
+                    if isinstance(responsible, dict):
+                        responsible_login = responsible.get('login', '')
+                    elif isinstance(responsible, str):
+                        responsible_login = responsible
+
+                    if responsible_login.lower() == member_login.lower():
+                        if member_login not in member_tasks:
+                            member_tasks[member_login] = []
+                        member_tasks[member_login].append(task)
 
         # Если еще не нашли, использовать все задачи спринта
         if not member_tasks:
@@ -254,16 +279,16 @@ class RiskAnalysisSkill:
             tasks=[{"id": str(t.id), "source_id": t.source_id, "title": t.title, "status": t.status} for tasks in member_tasks.values() for t in tasks]
         )
 
-    async def _fetch_sprint_tasks(self, sprint_id: str, team_members: List[str]) -> List[Any]:
+    async def _fetch_sprint_tasks(self, sprint_id: str) -> List[Any]:
         """Получить все задачи спринта."""
         from app.repositories.task_repository import TaskRepository
-        
+
         repository = TaskRepository()
         all_tasks = repository.find_all(limit=10000)
-        
+
         # Filter by sprint_id
         sprint_tasks = [t for t in all_tasks if t.source_data.get("sprint_id") == sprint_id]
-        
+
         return sprint_tasks
 
     def _assess_task_risk(self, task: Any, sprint_id: str) -> str:
