@@ -840,12 +840,15 @@ class TeamPerformanceAgent:
             llm = self.get_llm()
             if llm and llm.api_key:
                 try:
-                    # For member_load_analysis and risk_analysis, don't pass tasks to LLM
-                    result_data = result.model_dump()
-                    if skill_name in ["member_load_analysis", "risk_analysis"]:
-                        result_data["tasks"] = []
-                    response = llm.generate_response(query, result_data)
-                    result.findings.insert(0, f"LLM Response: {response}")
+                    # For member_load_analysis and risk_analysis, don't use LLM at all
+                    # to avoid duplicate details and task lists in response
+                    if skill_name not in ["member_load_analysis", "risk_analysis"]:
+                        result_data = result.model_dump()
+                        if skill_name in ["member_load_analysis", "risk_analysis"]:
+                            result_data["tasks"] = []
+                            result_data["team_members"] = []
+                        response = llm.generate_response(query, result_data)
+                        result.findings.insert(0, f"LLM Response: {response}")
                 except Exception as e:
                     print(f"LLM generation failed: {e}")
 
