@@ -8,6 +8,8 @@ from .competency_matching import CompetencyMatchingSkill
 from .bottleneck_analysis import BottleneckAnalysisSkill
 from .forecasting import ForecastingSkill
 from .release_linkage import ReleaseLinkageSkill
+from .member_load_analysis import MemberLoadAnalysisSkill
+from .risk_analysis import RiskAnalysisSkill
 
 __all__ = [
     "SprintHealthSkill",
@@ -18,4 +20,6 @@ __all__ = [
     "BottleneckAnalysisSkill",
     "ForecastingSkill",
     "ReleaseLinkageSkill",
+    "MemberLoadAnalysisSkill",
+    "RiskAnalysisSkill",
 ]

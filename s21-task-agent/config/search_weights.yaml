@@ -1,0 +1,13 @@
+weights:
+  fulltext: 0.35
+  semantic: 0.35
+  metadata: 0.15
+  freshness: 0.10
+  source_quality: 0.05
+
+freshness:
+  half_life_days: 180
+
+limits:
+  top_k: 20
+  max_candidates: 200

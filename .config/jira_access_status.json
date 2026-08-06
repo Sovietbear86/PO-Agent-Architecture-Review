@@ -1,0 +1,31 @@
+{
+  "status": "incomplete",
+  "message": "Jira API access requires browser-based session (SynGX proxy)",
+  "authentication_methods_tested": {
+    "bearer_token": {
+      "status": "failed",
+      "error": "403 Forbidden",
+      "notes": "Token from /ssd/privileges not accepted"
+    },
+    "platform_session_cookie": {
+      "status": "failed",
+      "error": "401 Unauthorized",
+      "notes": "Cookie only works in browser context, not for direct API calls"
+    }
+  },
+  "available_components": {
+    "http_mcp": "running on port 3000",
+    "sse_mcp": "running on port 8080",
+    "jira_mcp": "running but not connected"
+  },
+  "working_alternatives": [
+    "Use browser to access https://portal.works.prod.sbt",
+    "Use Python FastAPI app in task-api/ for task management",
+    "Use React SPA in task-api/ for task UI"
+  ],
+  "notes": [
+    "SynGX proxy requires browser session for Jira API access",
+    "Corporate network restrictions prevent direct API access",
+    "MCP servers are functional but Jira integration is not available"
+  ]
+}

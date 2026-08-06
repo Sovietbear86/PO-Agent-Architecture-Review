@@ -1,0 +1,23 @@
+agent:
+  name: s21-task-agent
+  version: 0.1.0
+  mode: read_only
+  default_language: ru
+  max_results: 50
+  max_attachment_mb: 50
+  show_sources: true
+  show_confidence: true
+  require_confirmation_for_writes: true
+
+search:
+  exact_first: true
+  fulltext_enabled: true
+  semantic_enabled: false
+  attachment_search_enabled: true
+
+security:
+  redact_secrets_in_logs: true
+  allow_external_llm: false
+  execute_macros: false
+  execute_attachment_code: false
+  cache_encrypted: true

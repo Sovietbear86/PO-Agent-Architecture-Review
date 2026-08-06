@@ -17,6 +17,8 @@ from .skills.competency_matching import CompetencyMatchingSkill
 from .skills.bottleneck_analysis import BottleneckAnalysisSkill
 from .skills.forecasting import ForecastingSkill
 from .skills.release_linkage import ReleaseLinkageSkill
+from .skills.member_load_analysis import MemberLoadAnalysisSkill
+from .skills.risk_analysis import RiskAnalysisSkill
 
 
 class LLMAgent:
@@ -180,6 +182,8 @@ class TeamPerformanceAgent:
             "bottleneck_analysis": BottleneckAnalysisSkill(),
             "forecasting": ForecastingSkill(),
             "release_linkage": ReleaseLinkageSkill(),
+            "member_load_analysis": MemberLoadAnalysisSkill(),
+            "risk_analysis": RiskAnalysisSkill(),
             "help": SprintHealthSkill(),  # Reuse SprintHealthSkill for help (returns static help text)
         }
 
@@ -208,9 +212,10 @@ class TeamPerformanceAgent:
 
         Priority order:
         1. Sprint selection (DMS-SPRNT-1) -> get_tasks
-        2. Simple task search patterns -> get_tasks (no LLM)
-        3. Team performance queries -> specific skills (with LLM)
-        
+        2. Team performance queries with specific keywords -> specific skills (with LLM)
+        3. Simple task search patterns -> get_tasks (no LLM)
+        4. Help queries
+
         Returns None if query doesn't match any known pattern.
         """
         import re
@@ -223,7 +228,33 @@ class TeamPerformanceAgent:
         if sprint_select_match:
             return "get_tasks"
 
-        # Priority 2: Simple task search patterns (NO LLM needed)
+        # Priority 2: Specific team performance queries (order matters - specific first)
+        # These should be checked BEFORE simple task patterns to avoid false positives
+        if "средняя трудоемкость" in query_lower or "трудоемкость задач" in query_lower:
+            return "member_load_analysis"
+        if "загружен" in query_lower or "загрузка" in query_lower:
+            # Check if it's workload_balance (general team) vs member_load_analysis (specific person)
+            if "загрузка" in query_lower and ("команды" in query_lower or "сотрудники" in query_lower):
+                return "workload_balance"
+            return "member_load_analysis"
+        if "риски" in query_lower or "под риском" in query_lower or "не успеет" in query_lower:
+            return "risk_analysis"
+        if "скорость" in query_lower or "velocity" in query_lower or "производительность" in query_lower:
+            return "velocity_analysis"
+        if "поток" in query_lower or "flow" in query_lower:
+            return "flow_metrics"
+        if "баланс" in query_lower:
+            return "workload_balance"
+        if "бутылочное" in query_lower or "узкое" in query_lower:
+            return "bottleneck_analysis"
+        if "прогноз" in query_lower or "дата" in query_lower:
+            return "forecasting"
+        if "релиз" in query_lower or "выпуск" in query_lower:
+            return "release_linkage"
+        if "здоровье спринта" in query_lower:
+            return "sprint_health"
+
+        # Priority 3: Simple task search patterns (NO LLM needed)
         # These should use get_tasks skill without LLM analysis
 
         # Check for simple patterns: member name + "из спринта" + sprint ID
@@ -242,37 +273,16 @@ class TeamPerformanceAgent:
         if has_sprint_keyword and has_member and (has_sprint_id or has_none_sprint):
             return "get_tasks"
 
-        # Priority 2.5: Member task search WITHOUT sprint (return sprint list)
+        # Priority 3.5: Member task search WITHOUT sprint (return sprint list)
         # (e.g., "задачи Гаранина", "задачи моисеева")
         # If query contains member name but NO sprint keyword, return get_tasks with empty sprint_id
         # This allows get_tasks() to return list of available sprints for user to choose
         if has_member and not has_sprint_keyword:
             return "get_tasks"
 
-        # Priority 3.1: Help/what can you do queries
+        # Priority 4: Help/what can you do queries
         if "что ты умеешь" in query_lower or "какие скиллы" in query_lower or "типы запросов" in query_lower or "привет" in query_lower or "помощь" in query_lower:
             return "help"
-
-        # Priority 3: Specific team performance queries (order matters - specific first)
-        if "скорость" in query_lower or "velocity" in query_lower or "производительность" in query_lower:
-            return "velocity_analysis"
-        if "поток" in query_lower or "flow" in query_lower:
-            return "flow_metrics"
-        if "загрузка" in query_lower or "баланс" in query_lower:
-            return "workload_balance"
-        if "бутылочное" in query_lower or "узкое" in query_lower:
-            return "bottleneck_analysis"
-        if "прогноз" in query_lower or "дата" in query_lower:
-            return "forecasting"
-        if "релиз" in query_lower or "выпуск" in query_lower:
-            return "release_linkage"
-        
-        # Sprint health check - use more specific patterns to avoid false positives
-        if "здоровье спринта" in query_lower:
-            return "sprint_health"
-        # Check for sprint-related patterns with specific indicators
-        if "спринт" in query_lower and ("здоровье" in query_lower or "метрик" in query_lower or "performance" in query_lower):
-            return "sprint_health"
 
         # Unknown query - return None to trigger helpful error message
         return None
@@ -518,6 +528,16 @@ class TeamPerformanceAgent:
                     "8. **Релизы** - задачи, привязанные к релизу",
                     "   Пример: 'релизные задачи OLAP'",
                     "",
+                    "### Новые навыки для анализа сотрудников:",
+                    "9. **Средняя трудоемкость** - анализ загрузки сотрудника в спринте",
+                    "   Пример: 'средняя трудоемкость задач у Шалдунова'",
+                    "   Пример: 'насколько загружен Гаранин?'",
+                    "   Пример: 'насколько загружен Долговской в спринте OLP-SPRNT-5'",
+                    "",
+                    "10. **Риски невыполнения** - выявление задач под риском",
+                    "    Пример: 'задачи под риском у Долговского'",
+                    "    Пример: 'риски невыполнения в спринте OLP-SPRNT-5'",
+                    "",
                     "Также я могу показать задачи по участнику или спринту.",
                     "Просто спросите: 'задачи Гаранина в спринте OLP-SPRNT-3'"
                 ],
@@ -579,7 +599,19 @@ class TeamPerformanceAgent:
                 team_members=params.get('team_members') if 'team_members' in params else None,
                 products=params.get('products', [])
             )
-        
+        elif skill_name == "member_load_analysis":
+            return await skill.analyze(
+                sprint_id=params.get('sprint_id', ''),
+                team_members=params.get('team_members') if 'team_members' in params else None,
+                products=params.get('products', [])
+            )
+        elif skill_name == "risk_analysis":
+            return await skill.analyze(
+                sprint_id=params.get('sprint_id', ''),
+                team_members=params.get('team_members') if 'team_members' in params else None,
+                products=params.get('products', [])
+            )
+
         return AnalysisResult(
             status="red",
             findings=["Ошибка в маршрутизации"],
@@ -726,8 +758,9 @@ class TeamPerformanceAgent:
         if sprint_match:
             sprint_id = sprint_match.group(0).upper()
             # Store sprint_id in params for skills that support it
-            if skill_name in ["get_tasks", "sprint_health", "forecasting", "velocity_analysis", 
-                             "flow_metrics", "workload_balance", "bottleneck_analysis"]:
+            if skill_name in ["get_tasks", "sprint_health", "forecasting", "velocity_analysis",
+                             "flow_metrics", "workload_balance", "bottleneck_analysis",
+                             "member_load_analysis", "risk_analysis"]:
                 params["sprint_id"] = sprint_id
             elif skill_name in ["competency_matching", "release_linkage"]:
                 # These skills also need sprint_id for filtering
@@ -736,6 +769,7 @@ class TeamPerformanceAgent:
             # User specified "NONE" as sprint_id
             if skill_name in ["get_tasks", "sprint_health", "forecasting", "velocity_analysis",
                              "flow_metrics", "workload_balance", "bottleneck_analysis",
+                             "member_load_analysis", "risk_analysis",
                              "competency_matching", "release_linkage"]:
                 params["sprint_id"] = "NONE"
         elif skill_name in ["get_tasks", "sprint_health"]:

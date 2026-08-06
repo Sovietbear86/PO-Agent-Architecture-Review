@@ -1,0 +1,5 @@
+{"id":"q1","query":"Найди открытые задачи с PDF-вложениями, где упоминается Apache Iceberg","intent":"search"}
+{"id":"q2","query":"Оцени качество постановки S21-12345","intent":"quality_review"}
+{"id":"q3","query":"Найди Excel-вложения с колонкой Критерий приемки","intent":"attachment_search"}
+{"id":"q4","query":"Найди закрытые задачи, похожие на S21-12345","intent":"duplicate_search"}
+{"id":"q5","query":"Суммаризируй последние 30 комментариев и покажи финальное решение","intent":"summarize_history"}

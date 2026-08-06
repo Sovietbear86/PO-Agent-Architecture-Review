@@ -129,3 +129,17 @@ class ReleaseLinkageRequest(BaseModel):
     release_id: str
     team_members: List[str] = Field(default_factory=list)
     products: List[str] = Field(default_factory=list)
+
+
+class MemberLoadRequest(BaseModel):
+    """Запрос анализа загрузки сотрудника"""
+    sprint_id: str
+    team_members: List[str] = Field(default_factory=list)
+    products: List[str] = Field(default_factory=list)
+
+
+class RiskAnalysisRequest(BaseModel):
+    """Запрос анализа рисков невыполнения"""
+    sprint_id: str
+    team_members: List[str] = Field(default_factory=list)
+    products: List[str] = Field(default_factory=list)

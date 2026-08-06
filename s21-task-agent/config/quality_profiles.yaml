@@ -1,0 +1,30 @@
+profiles:
+  development_ready:
+    thresholds:
+      ready: 90
+      mostly_ready: 75
+      needs_refinement: 50
+    weights:
+      goal: 15
+      business_context: 10
+      requirements_clarity: 15
+      acceptance_criteria: 20
+      scope: 10
+      dependencies: 10
+      non_functional_requirements: 10
+      test_data: 5
+      consistency: 5
+
+  release_ready:
+    thresholds:
+      ready: 90
+      mostly_ready: 75
+      needs_refinement: 50
+    weights:
+      implementation_status: 20
+      acceptance_status: 20
+      test_evidence: 15
+      dependencies: 15
+      risks: 15
+      documentation: 10
+      rollback_plan: 5
