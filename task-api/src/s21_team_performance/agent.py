@@ -337,6 +337,9 @@ class TeamPerformanceAgent:
             if surname:
                 # Try to match surname without common endings
                 base_name = surname.rstrip('а')  # "решетник" -> "решетник"
+                # Also strip 'ой' ending (e.g., "долговской" -> "долговск")
+                if surname.endswith('ой'):
+                    base_name = surname[:-2]
                 if base_name in query_lower or surname in query_lower:
                     if member.login not in result:
                         result.append(member.login)
