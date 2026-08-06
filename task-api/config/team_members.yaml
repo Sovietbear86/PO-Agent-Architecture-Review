@@ -228,4 +228,19 @@ members:
   recommended_max_wip: null
   regular_non_sprint_load_percent: null
   team_role: Участник команды
+- allocation_percent: null
+  competencies: {}
+  competency_evidence_file: knowledge/employees/Saldunov_Aleksandr_Vital_evic.md
+  email: Shaldunov.A.V@sbertech.ru
+  full_name: Шалдунов Александр Витальевич
+  grade: 11
+  id: Shaldunov.A.V
+  login: Shaldunov.A.V
+  planned_absences: []
+  products:
+  - OLAP
+  professional_profile: Java-разработчик
+  recommended_max_wip: null
+  regular_non_sprint_load_percent: null
+  team_role: Участник команды
 schema_version: 2

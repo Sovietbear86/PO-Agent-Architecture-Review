@@ -103,7 +103,7 @@ class SprintHealthSkill:
 
             # Проверить workflow_status в атрибутах
             for attr in source_data.get("swtr_attributes", []):
-                if attr.get("attribute", {}).get("code") == "workflow_status":
+                if attr.get("code") == "workflow_status":
                     attr_value = attr.get("value", {})
                     status_type = attr_value.get("statusType", "")
                     status_name = attr_value.get("name", "").lower()
@@ -249,7 +249,7 @@ class SprintHealthSkill:
             # Проверить, назначена ли задача участнику команды
             assignee_login = None
             for attr in source_data.get("swtr_attributes", []):
-                if attr.get("attribute", {}).get("code") == "assigned_to":
+                if attr.get("code") == "assigned_to":
                     value = attr.get("value", {})
                     if value:
                         assignee_login = value.get("login")
@@ -368,7 +368,7 @@ class SprintHealthSkill:
                 # Extract assignee from attributes
                 assignee = ""
                 for attr in source_data.get("swtr_attributes", []):
-                    if attr.get("attribute", {}).get("code") == "assigned_to":
+                    if attr.get("code") == "assigned_to":
                         value = attr.get("value", {})
                         if value:
                             first_name = value.get("firstName", "")
@@ -378,7 +378,7 @@ class SprintHealthSkill:
                 # Extract deadline from attributes
                 deadline = None
                 for attr in source_data.get("swtr_attributes", []):
-                    if attr.get("attribute", {}).get("code") == "deadline":
+                    if attr.get("code") == "deadline":
                         deadline = attr.get("value", "")
 
                 workflow_status = source_data.get("workflow_status", {})
