@@ -210,6 +210,8 @@ class TeamPerformanceAgent:
         1. Sprint selection (DMS-SPRNT-1) -> get_tasks
         2. Simple task search patterns -> get_tasks (no LLM)
         3. Team performance queries -> specific skills (with LLM)
+        
+        Returns None if query doesn't match any known pattern.
         """
         import re
 
@@ -272,8 +274,8 @@ class TeamPerformanceAgent:
         if "спринт" in query_lower and ("здоровье" in query_lower or "метрик" in query_lower or "performance" in query_lower):
             return "sprint_health"
 
-        # Default: task search (no LLM for simple queries)
-        return "get_tasks"
+        # Unknown query - return None to trigger helpful error message
+        return None
 
     def extract_team_members_from_query(self, query: str) -> list[str]:
         """Извлечь имена участников команды из запроса"""
@@ -597,29 +599,52 @@ class TeamPerformanceAgent:
         skill_name = self.determine_skill(query)
 
         if not skill_name:
-            # Return helpful error message with examples
+            # Build helpful error message with examples
+            available_members = [m.full_name for m in self.team_members]
+            
+            # Generate member-specific examples
+            member_examples = []
+            for member in self.team_members[:3]:  # First 3 members
+                member_name = member.full_name.split()[-1]  # Get surname
+                member_examples.append(f"- Задачи {member_name} из спринта (покажу список спринтов)")
+                member_examples.append(f"- Задачи {member_name} из спринта OLP-SPRNT-5 (покажу задачи)")
+            
+            # Generate skill examples
+            skill_examples = [
+                "### Скиллы для анализа:",
+                "- 'здоровье спринта OLP-SPRNT-5' - метрики спринта",
+                "- 'скорость команды' или 'velocity за последние 6 спринтов'",
+                "- 'поток задач за 30 дней'",
+                "- 'баланс загрузки команды'",
+                "- 'бутылочное горлышко в спринте'",
+                "- 'прогноз завершения спринта'",
+                "- 'кто подходит для задачи'",
+                "- 'релизные задачи OLAP'",
+                "",
+                "### Просто задачи:",
+                "- 'задачи' (покажу список спринтов)",
+                "- 'задачи Шалдунова' (покажу список спринтов)",
+                "- 'задачи Шалдунова из спринта OLP-SPRNT-5' (покажу задачи)",
+                "",
+                "### Доступные участники:",
+                f"- {', '.join(available_members[:5])}"
+            ]
+            
             return AnalysisResult(
-                status="yellow",
+                status="red",
                 findings=[
-                    "Не удалось распознать ваш запрос. Пожалуйста, уточните запрос.\n\nПримеры запросов, которые я понимаю:\n"
-                    "- Задачи Кондратчиковой в спринте (покажу список спринтов)\n"
-                    "- Задачи Кондратчиковой из спринта DMS-SPRNT-1 (покажу задачи из спринта)\n"
-                    "- Задачи Гаранина из спринта DMS-SPRNT-1 (покажу задачи из спринта)\n\n"
-                    "### Скиллы для анализа:\n"
-                    "- Здоровье спринта: 'здоровье спринта OLP-SPRNT-3'\n"
-                    "- Velocity: 'скорость команды' или 'velocity за последние 6 спринтов'\n"
-                    "- Flow metrics: 'поток задач за 30 дней'\n"
-                    "- Баланс загрузки: 'баланс загрузки команды'\n"
-                    "- Узкие места: 'бутылочное горлышко в спринте'\n"
-                    "- Прогноз: 'прогноз завершения спринта'\n"
-                    "- Компетенции: 'кто подходит для задачи'\n"
-                    "- Релизы: 'релизные задачи OLAP'"
+                    "Я не понял ваш запрос.",
+                    "",
+                    "Я понимаю запросы вида:",
+                    *member_examples,
+                    "",
+                    *skill_examples
                 ],
-                risks=["Не удалось определить тип анализа"],
-                recommendations=["Попробуйте уточнить запрос"],
+                risks=["Не удалось определить тип запроса"],
+                recommendations=["Попробуйте один из примеров выше"],
                 sources=[],
-                constraints=["Не удалось автоматически определить скилл"],
-                confidence=0.3,
+                constraints=["Неизвестный запрос"],
+                confidence=0.0,
                 team_members=[],
                 products=[]
             )
