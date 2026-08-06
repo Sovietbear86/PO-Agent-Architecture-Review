@@ -849,4 +849,18 @@ class TeamPerformanceAgent:
                 except Exception as e:
                     print(f"LLM generation failed: {e}")
 
+        # For member_load_analysis and risk_analysis, filter findings to show only summary, not member details
+        if skill_name in ["member_load_analysis", "risk_analysis"]:
+            # Keep only the first finding (LLM Response) and last few findings (recommendations/constraints)
+            filtered_findings = []
+            for i, finding in enumerate(result.findings):
+                if i == 0:  # Keep LLM Response
+                    filtered_findings.append(finding)
+                elif "Рекомендации" in finding or "constraints" in finding.lower():
+                    filtered_findings.append(finding)
+                elif "Ограничения" in finding:
+                    filtered_findings.append(finding)
+                # Skip member-specific findings like "- Гаранин: ..." to avoid duplicate details
+            result.findings = filtered_findings
+
         return result
