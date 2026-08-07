@@ -44,15 +44,18 @@ export function App() {
     filterTasks,
     assignees,
     sprints,
+    spaces,
   } = useTasks()
 
   console.log('App - tasks:', tasks.length, 'tasks')
   console.log('App - assignees:', assignees)
   console.log('App - sprints:', sprints)
+  console.log('App - spaces:', spaces)
 
   const [filterStatus, setFilterStatus] = useState<string | string[]>([])
   const [filterAssignee, setFilterAssignee] = useState<string | string[]>([])
   const [filterSprint, setFilterSprint] = useState<string | string[]>([])
+  const [filterSpace, setFilterSpace] = useState<string | string[]>([])
   const [isSyncing, setIsSyncing] = useState(false)
   const [isDrawerOpen, setIsDrawerOpen] = useState(false)
   const [isAgentOpen, setIsAgentOpen] = useState(false)
@@ -68,11 +71,16 @@ export function App() {
     const sprintValue: string | string[] | undefined =
       !filterSprint || (Array.isArray(filterSprint) && filterSprint.length === 0) ? undefined :
       filterSprint === 'all' ? 'all' : filterSprint
-    const result = filterTasks({ status: statusValue, assignee: filterAssignee || undefined, sprint: sprintValue })
+    // Space filter: undefined if empty, 'all' if explicitly 'all', otherwise the value
+    const spaceValue: string | string[] | undefined =
+      !filterSpace || (Array.isArray(filterSpace) && filterSpace.length === 0) ? undefined :
+      filterSpace === 'all' ? 'all' : filterSpace
+    const result = filterTasks({ status: statusValue, assignee: filterAssignee || undefined, sprint: sprintValue, space: spaceValue })
     console.log('App - filteredTasks:', result.length, 'tasks')
     console.log('App - filterSprint:', filterSprint, '->', sprintValue)
+    console.log('App - filterSpace:', filterSpace, '->', spaceValue)
     return result
-  }, [tasks, filterStatus, filterAssignee, filterSprint, filterTasks])
+  }, [tasks, filterStatus, filterAssignee, filterSprint, filterSpace, filterTasks])
 
   const handleAddTask = (data: CreateTaskInput) => {
     addTask(data)
@@ -206,6 +214,9 @@ export function App() {
               sprint={filterSprint}
               onSprintChange={setFilterSprint}
               sprints={sprints}
+              space={filterSpace}
+              onSpaceChange={setFilterSpace}
+              spaces={spaces}
             />
           </div>
 

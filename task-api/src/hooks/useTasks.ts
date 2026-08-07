@@ -162,6 +162,7 @@ export function useTasks() {
     status?: string | string[]
     assignee?: string | string[]
     sprint?: string | string[]
+    space?: string | string[]
   }): Task[] => {
     // Helper to get status for filtering - prefer workflow_status.code from sourceData
     const getTaskStatus = (task: Task): string => {
@@ -220,6 +221,16 @@ export function useTasks() {
       }
     }
 
+    // Handle multiple spaces - 'all' means no filter
+    let spaceFilter: string[] | null = null
+    if (filters.space && filters.space !== 'all') {
+      if (Array.isArray(filters.space) && filters.space.length > 0) {
+        spaceFilter = filters.space
+      } else if (typeof filters.space === 'string' && filters.space) {
+        spaceFilter = [filters.space]
+      }
+    }
+
     return tasks.filter((task) => {
       const taskStatus = getTaskStatus(task)
       if (statusFilter && !statusFilter.includes(taskStatus)) {
@@ -240,6 +251,13 @@ export function useTasks() {
       // If filterWithoutSprint is true, only tasks without sprint pass
       if (filterWithoutSprint && task.sprint) {
         return false
+      }
+      // Filter by space if filter is set
+      if (spaceFilter && spaceFilter.length > 0) {
+        const taskSpace = (task.sourceData as any)?.swtr_space ?? (task.sourceData as any)['swtr_space']
+        if (!taskSpace || !spaceFilter.includes(taskSpace)) {
+          return false
+        }
       }
       return true
     })
@@ -267,6 +285,13 @@ export function useTasks() {
     return Array.from(new Set(sprints))
   }, [tasks])
 
+  const spaces = useMemo(() => {
+    const spaces = tasks
+      .map((t) => (t.sourceData as any)?.swtr_space ?? (t.sourceData as any)['swtr_space'])
+      .filter((s): s is string => !!s)
+    return Array.from(new Set(spaces))
+  }, [tasks])
+
   return {
     tasks,
     isLoading,
@@ -279,5 +304,6 @@ export function useTasks() {
     updateTaskStatus,
     assignees,
     sprints,
+    spaces,
   }
 }

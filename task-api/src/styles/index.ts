@@ -6,4 +6,6 @@ export {
   radius,
   shadows,
   typography,
+  statusColors,
+  spaceColors,
 } from './theme'

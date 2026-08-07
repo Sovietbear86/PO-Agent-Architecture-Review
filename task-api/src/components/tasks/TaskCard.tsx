@@ -1,5 +1,5 @@
 import React from 'react'
-import { colors, spacing, radius } from '../../styles'
+import { colors, spacing, radius, spaceColors } from '../../styles'
 import { Task } from '../../types/task'
 import TaskStatusBadge from './TaskStatusBadge'
 
@@ -121,6 +121,22 @@ export function TaskCard({
               }}
             >
               [{task.product}]
+            </span>
+          )}
+          {/* Space badge */}
+          {task.sourceData?.swtr_space && (
+            <span
+              style={{
+                backgroundColor: `${spaceColors[task.sourceData.swtr_space] || '#999'}30`,
+                color: spaceColors[task.sourceData.swtr_space] || '#999',
+                padding: '2px 8px',
+                borderRadius: radius.full,
+                fontSize: '11px',
+                fontWeight: 500,
+                marginRight: spacing.xs,
+              }}
+            >
+              {task.sourceData.swtr_space}
             </span>
           )}
           {task.sourceType === 'AS21' && task.sourceCode && (

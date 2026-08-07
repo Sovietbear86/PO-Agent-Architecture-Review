@@ -1,5 +1,5 @@
 import { Status } from '../types/task'
-import { statusColors, colors } from '../styles/statusColors'
+import { statusColors, spaceColors, colors } from '../styles/statusColors'
 import allStatuses from './statusList'
 
 interface FilterBarProps {
@@ -11,6 +11,9 @@ interface FilterBarProps {
   sprint: string | string[]
   onSprintChange: (sprint: string | string[]) => void
   sprints: string[]
+  space: string | string[]
+  onSpaceChange: (space: string | string[]) => void
+  spaces: string[]
 }
 
 export function FilterBar({
@@ -22,6 +25,9 @@ export function FilterBar({
   sprint,
   onSprintChange,
   sprints,
+  space,
+  onSpaceChange,
+  spaces,
 }: FilterBarProps) {
   // Status multi-select logic
   const isAllStatus = status === 'all' || status === '' || (Array.isArray(status) && status.length === 0)
@@ -62,6 +68,27 @@ export function FilterBar({
       onAssigneeChange('all')
     } else {
       onAssigneeChange([])
+    }
+  }
+
+  // Space multi-select logic
+  const isAllSpace = space === 'all' || space === '' || (Array.isArray(space) && space.length === 0)
+  const selectedSpaces = Array.isArray(space) ? space : (space === 'all' || space === '' ? [] : [space])
+
+  const toggleSpace = (value: string) => {
+    if (selectedSpaces.includes(value)) {
+      const newSpaces = selectedSpaces.filter(s => s !== value)
+      onSpaceChange(newSpaces.length > 0 ? newSpaces : 'all')
+    } else {
+      onSpaceChange([...selectedSpaces, value])
+    }
+  }
+
+  const toggleAllSpace = () => {
+    if (isAllSpace || selectedSpaces.length > 0) {
+      onSpaceChange('all')
+    } else {
+      onSpaceChange([])
     }
   }
 
@@ -161,6 +188,77 @@ export function FilterBar({
               </span>
             )
           })}
+        </div>
+      </div>
+
+      {/* Space Filter */}
+      <div style={{ minWidth: '200px' }}>
+        <label>Пространство (multi-select):</label>
+        <div style={{ marginTop: '0.25rem' }}>
+          <button
+            onClick={toggleAllSpace}
+            style={{
+              padding: '0.25rem 0.5rem',
+              marginRight: '0.5rem',
+              backgroundColor: isAllSpace || selectedSpaces.length === 0 ? colors.accentPrimary : '#fff',
+              color: isAllSpace || selectedSpaces.length === 0 ? '#fff' : '#333',
+              border: '1px solid #ddd',
+              borderRadius: '4px',
+              cursor: 'pointer',
+            }}
+          >
+            All
+          </button>
+          <select
+            value=""
+            onChange={(e) => {
+              if (e.target.value) {
+                toggleSpace(e.target.value)
+                e.target.selectedIndex = 0
+              }
+            }}
+            style={{
+              padding: '0.25rem 0.5rem',
+              minWidth: '150px',
+              backgroundColor: '#fff',
+              border: '1px solid #ddd',
+              borderRadius: '4px',
+            }}
+          >
+            <option value="" disabled>
+              + Add space...
+            </option>
+            {spaces.map((space) => {
+              const isSelected = selectedSpaces.includes(space)
+              if (!isSelected) {
+                return <option key={space} value={space}>{space}</option>
+              }
+              return null
+            })}
+          </select>
+        </div>
+        <div style={{ marginTop: '0.5rem', display: 'flex', gap: '0.25rem', flexWrap: 'wrap' }}>
+          {selectedSpaces.length === 0 && !isAllSpace && (
+            <span style={{ fontSize: '0.8rem', color: '#888' }}>No filter</span>
+          )}
+          {isAllSpace && <span style={{ fontSize: '0.8rem', color: colors.accentPrimary }}>All spaces</span>}
+          {!isAllSpace && selectedSpaces.length > 0 && selectedSpaces.map((s) => (
+            <span
+              key={s}
+              onClick={() => toggleSpace(s)}
+              style={{
+                padding: '0.15rem 0.4rem',
+                backgroundColor: spaceColors[s] || '#999',
+                color: '#fff',
+                borderRadius: '3px',
+                fontSize: '0.8rem',
+                cursor: 'pointer',
+              }}
+              title="Click to remove"
+            >
+              {s}
+            </span>
+          ))}
         </div>
       </div>
 
@@ -294,6 +392,77 @@ export function FilterBar({
               style={{
                 padding: '0.15rem 0.4rem',
                 backgroundColor: colors.accentPrimary,
+                color: '#fff',
+                borderRadius: '3px',
+                fontSize: '0.8rem',
+                cursor: 'pointer',
+              }}
+              title="Click to remove"
+            >
+              {s}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      {/* Space Filter */}
+      <div style={{ minWidth: '200px' }}>
+        <label>Пространство (multi-select):</label>
+        <div style={{ marginTop: '0.25rem' }}>
+          <button
+            onClick={toggleAllSpace}
+            style={{
+              padding: '0.25rem 0.5rem',
+              marginRight: '0.5rem',
+              backgroundColor: isAllSpace || selectedSpaces.length === 0 ? colors.accentPrimary : '#fff',
+              color: isAllSpace || selectedSpaces.length === 0 ? '#fff' : '#333',
+              border: '1px solid #ddd',
+              borderRadius: '4px',
+              cursor: 'pointer',
+            }}
+          >
+            All
+          </button>
+          <select
+            value=""
+            onChange={(e) => {
+              if (e.target.value) {
+                toggleSpace(e.target.value)
+                e.target.selectedIndex = 0
+              }
+            }}
+            style={{
+              padding: '0.25rem 0.5rem',
+              minWidth: '150px',
+              backgroundColor: '#fff',
+              border: '1px solid #ddd',
+              borderRadius: '4px',
+            }}
+          >
+            <option value="" disabled>
+              + Add space...
+            </option>
+            {spaces.map((space) => {
+              const isSelected = selectedSpaces.includes(space)
+              if (!isSelected) {
+                return <option key={space} value={space}>{space}</option>
+              }
+              return null
+            })}
+          </select>
+        </div>
+        <div style={{ marginTop: '0.5rem', display: 'flex', gap: '0.25rem', flexWrap: 'wrap' }}>
+          {selectedSpaces.length === 0 && !isAllSpace && (
+            <span style={{ fontSize: '0.8rem', color: '#888' }}>No filter</span>
+          )}
+          {isAllSpace && <span style={{ fontSize: '0.8rem', color: colors.accentPrimary }}>All spaces</span>}
+          {!isAllSpace && selectedSpaces.length > 0 && selectedSpaces.map((s) => (
+            <span
+              key={s}
+              onClick={() => toggleSpace(s)}
+              style={{
+                padding: '0.15rem 0.4rem',
+                backgroundColor: spaceColors[s] || '#999',
                 color: '#fff',
                 borderRadius: '3px',
                 fontSize: '0.8rem',

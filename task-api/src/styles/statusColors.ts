@@ -35,3 +35,12 @@ export const statusColors: Record<string, string> = {
   // Teal - QA queue
   'Ready for QA': '#1abc9c',
 }
+
+// Space colors for badges
+export const spaceColors: Record<string, string> = {
+  'WMB': '#3498db',
+  'OLP': '#2ecc71',
+  'DMS': '#9b59b6',
+  'CRPV': '#f39c12',
+  'STS': '#e74c3c',
+}
