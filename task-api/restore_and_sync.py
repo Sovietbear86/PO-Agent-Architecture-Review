@@ -38,7 +38,7 @@ def is_team_member_task(task, team_members):
 
 def sync_team_tasks():
     """Sync only team member tasks from all spaces."""
-    spaces = ['WMB', 'CRPV', 'OLP', 'DMS']
+    spaces = ['WMB', 'CRPV', 'OLP', 'DMS', 'STS']
     max_results = 5000
     
     # Load team members

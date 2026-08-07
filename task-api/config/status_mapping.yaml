@@ -153,5 +153,63 @@ fallback_mapping:
   done: done
   # Статусы с statusType: "in_progress" -> in_progress  
   in_progress: in_progress
+  # STS statuses
+  PN_xySDTWtJOhUePFpLX:
+    local_status: todo
+    display_name: "Open (STS)"
+    category: backlog
+  PRBLMN_ZghEqKJlAzmUx:
+    local_status: in_progress
+    display_name: "In progress (STS)"
+    category: active_work
+  CNCLLD_KdSyKcQZDXagZ:
+    local_status: done
+    display_name: "Cancelled (STS)"
+    category: cancelled
+  TKRT_ADBwyXrZkGomsLb:
+    local_status: todo
+    display_name: "Unknown (STS)"
+    category: unknown
+  NPRVLN_IWabzIZKVLakQ:
+    local_status: todo
+    display_name: "Review queue (STS)"
+    category: review_queue
+  VCHRD_StSeYYuJOJETLf:
+    local_status: in_progress
+    display_name: "Testing (STS)"
+    category: testing
+  NLZPR_KeDzRVcVYfbBmA:
+    local_status: todo
+    display_name: "Ready for review (STS)"
+    category: review_queue
+  NPRGRS_pCjkadCKRetgB:
+    local_status: in_progress
+    display_name: "In progress (STS)"
+    category: active_work
+  CLSD_fcbOheeIXkmKDVj:
+    local_status: done
+    display_name: "Closed (STS)"
+    category: completed
+  PSD_sGDubPwIYfGTnzvQ:
+    local_status: todo
+    display_name: "Waiting (STS)"
+    category: waiting
+  CNCLD_zpsREmvRWcXUOz:
+    local_status: todo
+    display_name: "Cancelled (STS)"
+    category: cancelled
+  DLD_wQiPNntFtlPQStJG:
+    local_status: todo
+    display_name: "On hold (STS)"
+    category: waiting
+  PBLSHD_ANnEKtHCvosJu:
+    local_status: done
+    display_name: "Published (STS)"
+    category: completed
+  DN_mufbufuXXMHvbHPJb:
+    local_status: in_progress
+    display_name: "В работе"
+    category: active_work
+
   # Остальные -> todo
   other: todo

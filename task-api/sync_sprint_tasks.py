@@ -144,7 +144,7 @@ def sync_sprint_tasks(team_members: list = None, spaces: list = None, max_result
     if team_members is None:
         team_members = load_team_members()
     if spaces is None:
-        spaces = ['WMB', 'OLP', 'DMS', 'CRPV']
+        spaces = ['WMB', 'OLP', 'DMS', 'CRPV', 'STS']
     
     proc = start_mcp_server()
 

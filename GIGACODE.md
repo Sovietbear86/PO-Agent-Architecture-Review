@@ -338,7 +338,7 @@ The project integrates with SberWorks Task Tracker (SWTR) via two MCP servers:
 ### Running Sync
 ```bash
 cd task-api
-python3 sync_sprint_tasks.py --spaces "DMS,OLP,WMB,CRPV" --save
+python3 sync_sprint_tasks.py --spaces "DMS,OLP,WMB,CRPV,STS" --save
 ```
 
 ### Team Member Filtering
@@ -347,8 +347,7 @@ The sync script filters tasks by team members using `s21_team_performance.agent.
 
 ### Allowed Spaces
 
-Currently supported spaces: **WMB**, **OLP**, **DMS**, **CRPV**. 
-Note: **STS** space is not yet configured and should not be used in sync scripts.
+Currently supported spaces: **WMB**, **OLP**, **DMS**, **CRPV**, **STS**.
 
 ---
 

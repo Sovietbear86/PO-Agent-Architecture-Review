@@ -43,4 +43,19 @@ export default [
   { value: 'DRFT_YlusjLBMlyDdMla', label: 'Черновик', aliases: ['Дraft', 'DRFT'] },
   { value: 'GTV_PthReTdXOmlkpGGG', label: 'Готово', aliases: ['Готово', 'GTV'] },
   { value: 'D_rSxCgSKxYYvjyujbJe', label: 'Неизвестный статус', aliases: ['Неизвестный статус', 'D_rSxCgSKxYYvjyujbJe'] },
+
+  // STS statuses
+  { value: 'PN_xySDTWtJOhUePFpLX', label: 'Open (STS)', aliases: ['Open (STS)'] },
+  { value: 'PRBLMN_ZghEqKJlAzmUx', label: 'В работе (STS)', aliases: ['In progress (STS)'] },
+  { value: 'CNCLLD_KdSyKcQZDXagZ', label: 'Отменена (STS)', aliases: ['Cancelled (STS)'] },
+  { value: 'TKRT_ADBwyXrZkGomsLb', label: 'Неизвестный (STS)', aliases: ['Unknown (STS)'] },
+  { value: 'NPRVLN_IWabzIZKVLakQ', label: 'На ревью (STS)', aliases: ['Review queue (STS)'] },
+  { value: 'VCHRD_StSeYYuJOJETLf', label: 'Тестирование (STS)', aliases: ['Testing (STS)'] },
+  { value: 'NLZPR_KeDzRVcVYfbBmA', label: 'Готово к ревью (STS)', aliases: ['Ready for review (STS)'] },
+  { value: 'NPRGRS_pCjkadCKRetgB', label: 'В работе (STS)', aliases: ['In progress (STS)'] },
+  { value: 'CLSD_fcbOheeIXkmKDVj', label: 'Закрыт (STS)', aliases: ['Closed (STS)'] },
+  { value: 'PSD_sGDubPwIYfGTnzvQ', label: 'Ожидание (STS)', aliases: ['Waiting (STS)'] },
+  { value: 'CNCLD_zpsREmvRWcXUOz', label: 'Отменена (STS)', aliases: ['Cancelled (STS)'] },
+  { value: 'DLD_wQiPNntFtlPQStJG', label: 'Отложено (STS)', aliases: ['On hold (STS)'] },
+  { value: 'PBLSHD_ANnEKtHCvosJu', label: 'Опубликовано (STS)', aliases: ['Published (STS)'] },
 ]
