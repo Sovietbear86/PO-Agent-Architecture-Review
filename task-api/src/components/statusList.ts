@@ -1,5 +1,5 @@
 // All available statuses from SWTR
-// Sorted by: OLP/DMS (default) -> CRPV -> STS
+// Sorted by: OLP/DMS (default) -> Canceled -> CRPV -> STS
 // Each status is identified by its SWTR code, with label for display
 // Based on workflow_statuses.yaml (AS21 schema)
 
@@ -19,6 +19,9 @@ export default [
   { value: 'RDFR_aNQSySeLUupRZzl', label: 'Ready for UAT', aliases: ['Ready for UAT'] },
   { value: 'RDFR_NiewJYNruxzlMLq', label: 'Ready for QA', aliases: ['Ready for QA'] },
 
+  // Canceled (no space label) - moved above CRPV/STS
+  { value: 'CNCLLD_sGZCjxXGNmqTu', label: 'Cancelled', aliases: ['Cancelled', 'cancelled'] },
+
   // CRPV statuses
   { value: 'backlog', label: 'Backlog (CRPV)', aliases: ['Backlog'] },
   { value: 'BKLG_dUlfEypttblkBvP', label: 'Бэклог (CRPV)', aliases: ['Бэклог', 'BKLG'] },
@@ -35,7 +38,6 @@ export default [
 
   // STS statuses
   { value: 'in_progress', label: 'В работе (STS)', aliases: ['В работе', 'in_progress'] },
-  { value: 'CNCLLD_sGZCjxXGNmqTu', label: 'Cancelled', aliases: ['Cancelled', 'cancelled'] },
   { value: 'CNCLLD_KdSyKcQZDXagZ', label: 'Cancelled (STS)', aliases: ['CANCELLED'] },
   { value: 'CNCLD_zpsREmvRWcXUOz', label: 'Cancelled (STS)', aliases: ['Canceled'] },
   { value: 'NPRGRS_pCjkadCKRetgB', label: 'In progress (STS)', aliases: ['IN PROGRESS'] },
