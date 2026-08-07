@@ -97,6 +97,56 @@ status_mapping:
     display_name: "Переоткрыта"
     category: active_work
 
+  # CRPV statuses
+  backlog:
+    local_status: todo
+    display_name: "Черновик"
+    category: backlog
+  planning:
+    local_status: todo
+    display_name: "Планирование"
+    category: planning
+  need_discovery:
+    local_status: todo
+    display_name: "Требует анализа"
+    category: waiting
+  на_экспресс_оценке:
+    local_status: todo
+    display_name: "На экспресс-оценке"
+    category: waiting
+  экспресс_оценка_получена:
+    local_status: todo
+    display_name: "Экспресс-оценка получена"
+    category: waiting
+  ready_to_development:
+    local_status: todo
+    display_name: "Готов к разработке"
+    category: backlog
+  BKLG_dUlfEypttblkBvP:
+    local_status: todo
+    display_name: "Backlog"
+    category: backlog
+  DN_mufbufuXXMHvbHPJb:
+    local_status: in_progress
+    display_name: "В работе"
+    category: active_work
+  DRFT_YlusjLBMlyDdMla:
+    local_status: todo
+    display_name: "Черновик"
+    category: backlog
+  RDFR_aNQSySeLUupRZzl:
+    local_status: todo
+    display_name: "Ready for review"
+    category: review_queue
+  GTV_PthReTdXOmlkpGGG:
+    local_status: done
+    display_name: "Готово"
+    category: completed
+  D_rSxCgSKxYYvjyujbJe:
+    local_status: todo
+    display_name: "Неизвестный статус"
+    category: unknown
+
 # Fallback для неизвестных статусов
 fallback_mapping:
   # Статусы с statusType: "done" -> done

@@ -26,7 +26,21 @@ export default [
 
   // Ready for review
   { value: 'RDFR_asxQMlBcBZiouip', label: 'Готово к ревью', aliases: ['Ready for review'] },
+  { value: 'RDFR_aNQSySeLUupRZzl', label: 'Готово к ревью', aliases: ['Ready for review'] },
 
   // Ready for QA
   { value: 'RDFR_NiewJYNruxzlMLq', label: 'Готово к QA', aliases: ['Ready for QA'] },
+
+  // CRPV statuses
+  { value: 'backlog', label: 'Черновик', aliases: ['Backlog', 'backlog'] },
+  { value: 'planning', label: 'Планирование', aliases: ['Planning', 'planning'] },
+  { value: 'need_discovery', label: 'Требует анализа', aliases: ['Need discovery', 'need_discovery'] },
+  { value: 'на_экспресс_оценке', label: 'На экспресс-оценке', aliases: ['На экспресс-оценке'] },
+  { value: 'экспресс_оценка_получена', label: 'Экспресс-оценка получена', aliases: ['Экспресс-оценка получена'] },
+  { value: 'ready_to_development', label: 'Готов к разработке', aliases: ['Ready to development', 'ready_to_development'] },
+  { value: 'BKLG_dUlfEypttblkBvP', label: 'Backlog', aliases: ['Backlog', 'BKLG'] },
+  { value: 'DN_mufbufuXXMHvbHPJb', label: 'В работе', aliases: ['В работе', 'DN'] },
+  { value: 'DRFT_YlusjLBMlyDdMla', label: 'Черновик', aliases: ['Дraft', 'DRFT'] },
+  { value: 'GTV_PthReTdXOmlkpGGG', label: 'Готово', aliases: ['Готово', 'GTV'] },
+  { value: 'D_rSxCgSKxYYvjyujbJe', label: 'Неизвестный статус', aliases: ['Неизвестный статус', 'D_rSxCgSKxYYvjyujbJe'] },
 ]
