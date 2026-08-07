@@ -24,7 +24,8 @@ class WorkloadBalanceSkill:
         self,
         period_days: int = 30,
         team_members: List[str] = None,
-        products: List[str] = None
+        products: List[str] = None,
+        sprint_id: str = None
     ) -> AnalysisResult:
         """Анализировать распределение нагрузки"""
 
@@ -46,8 +47,8 @@ class WorkloadBalanceSkill:
                 products=products or []
             )
 
-        # Получить данные о задачах каждого сотрудника из SWTR
-        member_loads = await self._fetch_member_loads(team_members, period_days)
+        # Получить данные о задачах каждого сотрудника из SWTR (filtered by sprint if specified)
+        member_loads = await self._fetch_member_loads(team_members, period_days, sprint_id)
 
         if not member_loads:
             return AnalysisResult(
@@ -150,15 +151,41 @@ class WorkloadBalanceSkill:
             products=products or []
         )
 
-    async def _fetch_member_loads(self, members: List[str], period_days: int) -> List[Dict[str, Any]]:
-        """Получить нагрузку по каждому сотруднику из SWTR (FastAPI Task Tracker)."""
-        from s21_team_performance.services.task_service import get_member_short_name
+    async def _fetch_member_loads(self, members: List[str], period_days: int, sprint_id: str = None) -> List[Dict[str, Any]]:
+        """Получить нагрузку по каждому сотруднику из SWTR (FastAPI Task Tracker).
         
+        Args:
+            members: List of member logins
+            period_days: Number of days to look back
+            sprint_id: Optional sprint ID to filter tasks by sprint
+        """
+        from s21_team_performance.services.task_service import get_member_short_name
+
         loads = []
 
         for login in members:
-            # Use fetch_tasks_by_assignee which handles name mapping
-            tasks = await self._task_service.fetch_tasks_by_assignee(login)
+            # Fetch all tasks for the member (handles name mapping)
+            all_tasks = await self._task_service.fetch_tasks_by_assignee(login)
+
+            # Filter by sprint_id if specified
+            if sprint_id:
+                filtered_tasks = []
+                for task in all_tasks:
+                    source_data = getattr(task, 'source_data', {}) or {}
+                    if source_data.get("sprint_id") == sprint_id:
+                        filtered_tasks.append(task)
+                tasks = filtered_tasks
+            else:
+                tasks = all_tasks
+
+            # Filter by period_days if specified
+            if period_days and period_days > 0:
+                from datetime import datetime, timedelta, timezone
+                cutoff = datetime.now(timezone.utc) - timedelta(days=period_days)
+                tasks = [
+                    t for t in tasks
+                    if t.created_at and t.created_at >= cutoff
+                ]
 
             total_tasks = len(tasks)
             completed = len([t for t in tasks if t.status == "done"])

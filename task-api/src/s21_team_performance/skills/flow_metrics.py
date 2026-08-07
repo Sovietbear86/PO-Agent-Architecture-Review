@@ -25,12 +25,13 @@ class FlowMetricsSkill:
         self,
         period_days: int = 30,
         team_members: List[str] = None,
-        products: List[str] = None
+        products: List[str] = None,
+        sprint_id: str = None
     ) -> AnalysisResult:
         """Анализировать flow метрики"""
 
         # Получить данные из SWTR
-        flow_data = await self._fetch_flow_data(period_days, team_members)
+        flow_data = await self._fetch_flow_data(period_days, team_members, sprint_id)
 
         if not flow_data.get('completed_tasks'):
             return AnalysisResult(
@@ -119,8 +120,14 @@ class FlowMetricsSkill:
             products=products or []
         )
 
-    async def _fetch_flow_data(self, period_days: int, team_members: List[str] = None) -> Dict[str, Any]:
-        """Получить flow данные из SWTR (FastAPI Task Tracker)."""
+    async def _fetch_flow_data(self, period_days: int, team_members: List[str] = None, sprint_id: str = None) -> Dict[str, Any]:
+        """Получить flow данные из SWTR (FastAPI Task Tracker).
+        
+        Args:
+            period_days: Number of days to look back
+            team_members: List of member logins
+            sprint_id: Optional sprint ID to filter tasks by sprint
+        """
         # Load team members if not provided
         if not team_members:
             members = load_team_members()
@@ -131,6 +138,15 @@ class FlowMetricsSkill:
         for member_login in team_members:
             tasks = await self._task_service.fetch_tasks_by_assignee(member_login)
             all_tasks.extend(tasks)
+
+        # Filter by sprint_id if specified
+        if sprint_id:
+            filtered_tasks = []
+            for task in all_tasks:
+                source_data = getattr(task, 'source_data', {}) or {}
+                if source_data.get("sprint_id") == sprint_id:
+                    filtered_tasks.append(task)
+            all_tasks = filtered_tasks
 
         # Get completed tasks within period
         from datetime import datetime, timedelta

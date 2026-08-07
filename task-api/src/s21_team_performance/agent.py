@@ -256,7 +256,7 @@ class TeamPerformanceAgent:
             return "flow_metrics"
         if "баланс" in query_lower:
             return "workload_balance"
-        if "бутылочное" in query_lower or "узкое" in query_lower:
+        if "бутылочное" in query_lower or "бутылочные" in query_lower or "узкое" in query_lower:
             return "bottleneck_analysis"
         if "прогноз" in query_lower or "дата" in query_lower:
             return "forecasting"
@@ -464,19 +464,34 @@ class TeamPerformanceAgent:
                 findings.append("Пожалуйста, укажите ID спринта (например, DMS-SPRNT-1), чтобы показать задачи")
 
                 # Store pending sprint context for multi-step interaction
-                self.context["pending_sprint"] = {
-                    "team_members": params.get('team_members', []),
-                    "products": params.get('products', [])
-                }
-                
                 # Also save to file for FastAPI compatibility
                 import os, json
                 context_file = os.path.expanduser('~/.task-tracker/pending_sprint.json')
                 try:
+                    # Use original_skill_intent from params if available (passed from analyze_by_query)
+                    # Otherwise use skill_name
+                    original_intent = params.get('original_skill_intent')
+                    print(f"DEBUG: original_skill_intent from params: {original_intent}, skill_name: {skill_name}")
+                    skill_to_restore = original_intent if original_intent else skill_name
+                    pending = {
+                        "team_members": params.get('team_members', []),
+                        "products": params.get('products', []),
+                        "original_skill_name": skill_to_restore
+                    }
+                    pending_str = json.dumps(pending)
+                    print(f"DEBUG: pending JSON: {pending_str}")
                     with open(context_file, 'w') as f:
-                        json.dump({"team_members": params.get('team_members', []), "products": params.get('products', [])}, f)
-                except:
-                    pass
+                        json.dump(pending, f)
+                        f.flush()  # Force flush to disk
+                    # Verify file size
+                    size = os.path.getsize(context_file)
+                    print(f"DEBUG: File size after save: {size} bytes")
+                    self.context["pending_sprint"] = pending
+                    print(f"DEBUG: Saved pending_sprint: {pending}")
+                except Exception as e:
+                    print(f"DEBUG: Error saving pending_sprint: {e}")
+                    import traceback
+                    traceback.print_exc()
 
                 return AnalysisResult(
                     status="yellow",
@@ -571,19 +586,22 @@ class TeamPerformanceAgent:
             return await skill.analyze(
                 period_sprints=params.get('period_sprints', 6),
                 team_members=params.get('team_members') if 'team_members' in params else None,
-                products=params.get('products', [])
+                products=params.get('products', []),
+                sprint_id=params.get('sprint_id')
             )
         elif skill_name == "flow_metrics":
             return await skill.analyze(
                 period_days=params.get('period_days', 30),
                 team_members=params.get('team_members') if 'team_members' in params else None,
-                products=params.get('products', [])
+                products=params.get('products', []),
+                sprint_id=params.get('sprint_id')
             )
         elif skill_name == "workload_balance":
             return await skill.analyze(
                 period_days=params.get('period_days', 30),
                 team_members=params.get('team_members') if 'team_members' in params else None,
-                products=params.get('products', [])
+                products=params.get('products', []),
+                sprint_id=params.get('sprint_id')
             )
         elif skill_name == "competency_matching":
             return await skill.analyze(
@@ -595,7 +613,8 @@ class TeamPerformanceAgent:
             return await skill.analyze(
                 period_days=params.get('period_days', 30),
                 team_members=params.get('team_members') if 'team_members' in params else None,
-                products=params.get('products', [])
+                products=params.get('products', []),
+                sprint_id=params.get('sprint_id')
             )
         elif skill_name == "forecasting":
             return await skill.analyze(
@@ -694,6 +713,17 @@ class TeamPerformanceAgent:
 
         # Извлечь имена участников из запроса
         team_members = self.extract_team_members_from_query(query)
+        
+        # Determine original skill intent based on query content
+        # This will be used when user selects a sprint
+        original_skill_intent = None
+        query_lower = query.lower()
+        if "средняя трудоемкость" in query_lower or "трудоемкость задач" in query_lower:
+            original_skill_intent = "member_load_analysis"
+        elif "загружен" in query_lower or "насколько загружен" in query_lower:
+            original_skill_intent = "member_load_analysis"
+        elif "риски" in query_lower or "под риском" in query_lower:
+            original_skill_intent = "risk_analysis"
 
         # Если не найдено участников, но запрос явно содержит упоминание участника
         if not team_members and self._has_member_mention(query):
@@ -797,6 +827,10 @@ class TeamPerformanceAgent:
         # Add query to params for get_tasks (needed for status filtering)
         if skill_name == "get_tasks":
             params["query"] = query
+            
+            # Pass original_skill_intent through params
+            if original_skill_intent:
+                params["original_skill_intent"] = original_skill_intent
 
         # Check if query is a sprint selection (e.g., "DMS-SPRNT-1" or "OLP-SPRNT-2" or "NONE")
         import re
@@ -814,6 +848,13 @@ class TeamPerformanceAgent:
             if "team_members" in self.context["pending_sprint"]:
                 params["team_members"] = self.context["pending_sprint"]["team_members"]
                 print(f"DEBUG: Restored team_members: {params['team_members']}")
+            # Restore original skill_name from context (for member_load_analysis/risk_analysis)
+            if "original_skill_name" in self.context["pending_sprint"]:
+                original_skill = self.context["pending_sprint"]["original_skill_name"]
+                # Only restore for analytical skills that should be re-executed
+                if original_skill in ["member_load_analysis", "risk_analysis"]:
+                    skill_name = original_skill
+                    print(f"DEBUG: Restored skill_name: {skill_name} from context")
             # Clear pending sprint context
             if "pending_sprint" in self.context:
                 del self.context["pending_sprint"]
@@ -872,17 +913,27 @@ class TeamPerformanceAgent:
         if skill_name in ["member_load_analysis", "risk_analysis"]:
             filtered_findings = []
             for finding in result.findings:
-                # Skip member-specific findings like "- Гаранин: 63 задач..."
+                # Skip member-specific findings like "- Гаранин: 63 задач..." or "- Гаранин Родион Владимирович: риск..."
                 if finding.strip().startswith("- ") and ("задач" in finding.lower() or "риск" in finding.lower()):
+                    continue
+                # For risk_analysis, also keep findings with metrics (not just member details)
+                # Skip lines that are member-specific like "- Гаранин: риск ВЫСОКИЙ..."
+                if skill_name == "risk_analysis" and finding.strip().startswith("- ") and "риски" not in finding.lower():
                     continue
                 # Keep findings that start with "Спринт:" or contain "Всего задач" (general metrics)
                 if "Спринт:" in finding or "Всего задач" in finding or "Общая трудоемкость" in finding or "Выполнено" in finding or "Средняя трудоемкость" in finding:
+                    filtered_findings.append(finding)
+                # Keep findings with risk metrics for risk_analysis
+                elif "Высокорисковых" in finding or "Средним риском" in finding or "Осталось" in finding or "Прогресс" in finding:
                     filtered_findings.append(finding)
                 # Also keep risks and constraints (no member details)
                 elif "Риск" in finding or "Рекомендации" in finding or "Ограничения" in finding or "constraints" in finding.lower():
                     filtered_findings.append(finding)
                 # Keep error messages like "Не указан спринт"
                 elif "Не указан" in finding:
+                    filtered_findings.append(finding)
+                # For risk_analysis, keep all findings that don't contain member details
+                elif skill_name == "risk_analysis" and "- " not in finding:
                     filtered_findings.append(finding)
             result.findings = filtered_findings
 

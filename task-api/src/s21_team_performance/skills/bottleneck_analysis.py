@@ -24,12 +24,13 @@ class BottleneckAnalysisSkill:
         self,
         period_days: int = 30,
         team_members: List[str] = None,
-        products: List[str] = None
+        products: List[str] = None,
+        sprint_id: str = None
     ) -> AnalysisResult:
         """Анализировать узкие места"""
 
         # Получить данные из SWTR
-        bottleneck_data = await self._fetch_bottleneck_data(period_days, team_members)
+        bottleneck_data = await self._fetch_bottleneck_data(period_days, team_members, sprint_id)
 
         if not bottleneck_data.get('tasks'):
             return AnalysisResult(
@@ -131,8 +132,14 @@ class BottleneckAnalysisSkill:
             products=products or []
         )
 
-    async def _fetch_bottleneck_data(self, period_days: int, team_members: List[str] = None) -> Dict[str, Any]:
-        """Получить данные об узких местах из SWTR (FastAPI Task Tracker)."""
+    async def _fetch_bottleneck_data(self, period_days: int, team_members: List[str] = None, sprint_id: str = None) -> Dict[str, Any]:
+        """Получить данные об узких местах из SWTR (FastAPI Task Tracker).
+        
+        Args:
+            period_days: Number of days to look back
+            team_members: List of member logins
+            sprint_id: Optional sprint ID to filter tasks by sprint
+        """
         # Load team members if not provided
         if not team_members:
             members = load_team_members()
@@ -143,6 +150,15 @@ class BottleneckAnalysisSkill:
         for member_login in team_members:
             tasks = await self._task_service.fetch_tasks_by_assignee(member_login)
             all_tasks.extend(tasks)
+
+        # Filter by sprint_id if specified
+        if sprint_id:
+            filtered_tasks = []
+            for task in all_tasks:
+                source_data = getattr(task, 'source_data', {}) or {}
+                if source_data.get("sprint_id") == sprint_id:
+                    filtered_tasks.append(task)
+            all_tasks = filtered_tasks
 
         # Categorize tasks by bottleneck indicators
         review_queue = []
@@ -157,50 +173,50 @@ class BottleneckAnalysisSkill:
 
             # Get original workflow status from source_data if available
             source_data = getattr(task, 'source_data', {}) or {}
-            workflow_status = source_data.get('workflow_status', '').lower()
+            task_workflow_status = source_data.get('workflow_status', '').lower()
             
             # Review queue indicators
             if any(kw in title_lower or kw in desc_lower for kw in ["review", "peer review", "code review"]):
-                if workflow_status == "in progress" or workflow_status == "ready for review":
+                if task_workflow_status == "in progress" or task_workflow_status == "ready for review":
                     review_queue.append({
                         "id": task.source_id or task.id,
                         "title": task.title,
-                        "status": workflow_status or task.status,
+                        "status": task_workflow_status or task.status,
                     })
 
             # Testing queue indicators
             if any(kw in title_lower or kw in desc_lower for kw in ["test", "qa", "testing"]):
-                if workflow_status == "in progress" or workflow_status == "ready for qa":
+                if task_workflow_status == "in progress" or task_workflow_status == "ready for qa":
                     testing_queue.append({
                         "id": task.source_id or task.id,
                         "title": task.title,
-                        "status": workflow_status or task.status,
+                        "status": task_workflow_status or task.status,
                     })
 
             # Blocked tasks (Need info or blocked status)
-            if workflow_status == "need info" or workflow_status == "blocked":
+            if task_workflow_status == "need info" or task_workflow_status == "blocked":
                 blocked_tasks.append({
                     "id": task.source_id or task.id,
                     "title": task.title,
-                    "status": workflow_status or task.status,
+                    "status": task_workflow_status or task.status,
                 })
 
             # Architecture indicators
             if any(kw in title_lower or kw in desc_lower for kw in ["arch", "architecture", "design"]):
-                if workflow_status == "in progress":
+                if task_workflow_status == "in progress":
                     waiting_architecture.append({
                         "id": task.source_id or task.id,
                         "title": task.title,
-                        "status": workflow_status or task.status,
+                        "status": task_workflow_status or task.status,
                     })
 
             # Expert-dependent tasks
             if any(kw in title_lower or kw in desc_lower for kw in ["expert", "bus factor", "key person"]):
                 waiting_expert.append({
                     "id": task.source_id or task.id,
-                    "title": task.title,
-                    "status": workflow_status or task.status,
-                })
+                        "title": task.title,
+                        "status": task_workflow_status or task.status,
+                    })
 
         return {
             "tasks": len(all_tasks),

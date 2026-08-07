@@ -25,12 +25,13 @@ class VelocityAnalysisSkill:
         period_sprints: int = 6,
         team_members: List[str] = None,
         products: List[str] = None,
-        period_days: int = 90
+        period_days: int = 90,
+        sprint_id: str = None
     ) -> AnalysisResult:
         """Анализировать velocity"""
 
         # Получить историю velocity из SWTR
-        velocity_history = await self._fetch_velocity_history(period_days, team_members)
+        velocity_history = await self._fetch_velocity_history(period_days, team_members, sprint_id)
 
         if not velocity_history:
             return AnalysisResult(
@@ -135,8 +136,14 @@ class VelocityAnalysisSkill:
             products=products or []
         )
 
-    async def _fetch_velocity_history(self, period_days: int, team_members: List[str] = None) -> List[Dict[str, Any]]:
-        """Получить историю velocity из SWTR (FastAPI Task Tracker)."""
+    async def _fetch_velocity_history(self, period_days: int, team_members: List[str] = None, sprint_id: str = None) -> List[Dict[str, Any]]:
+        """Получить историю velocity из SWTR (FastAPI Task Tracker).
+        
+        Args:
+            period_days: Number of days to look back
+            team_members: List of member logins
+            sprint_id: Optional sprint ID to filter tasks by sprint
+        """
         from s21_team_performance.services.task_service import get_member_short_name
 
         # Load team members if not provided
@@ -151,6 +158,15 @@ class VelocityAnalysisSkill:
             tasks = await self._task_service.fetch_tasks_by_assignee(member_login, status_filter=["done"])
             all_completed.extend(tasks)
 
+        # Filter by sprint_id if specified
+        if sprint_id:
+            filtered_tasks = []
+            for task in all_completed:
+                source_data = getattr(task, 'source_data', {}) or {}
+                if source_data.get("sprint_id") == sprint_id:
+                    filtered_tasks.append(task)
+            all_completed = filtered_tasks
+
         if not all_completed:
             return []
 
@@ -161,23 +177,23 @@ class VelocityAnalysisSkill:
         for task in all_completed:
             # Try to get sprint_id from source_data
             source_data = getattr(task, 'source_data', {}) or {}
-            sprint_id = source_data.get("sprint_id")
-            
-            # Fallback to week-based grouping if no sprint_id
-            if not sprint_id:
-                week_num = task.updated_at.isocalendar()[:2]
-                sprint_id = f"W{week_num[0]}-{week_num[1]:02d}"
+            task_sprint_id = source_data.get("sprint_id")
 
-            if sprint_id not in sprints:
-                sprints[sprint_id] = []
-            sprints[sprint_id].append(task)
+            # Fallback to week-based grouping if no sprint_id
+            if not task_sprint_id:
+                week_num = task.updated_at.isocalendar()[:2]
+                task_sprint_id = f"W{week_num[0]}-{week_num[1]:02d}"
+
+            if task_sprint_id not in sprints:
+                sprints[task_sprint_id] = []
+            sprints[task_sprint_id].append(task)
 
         # Calculate effort per sprint
         velocity_history = []
-        for sprint_id, tasks in sorted(sprints.items(), reverse=True)[:period_days//7]:  # Last ~period_days days
+        for task_sprint_id, tasks in sorted(sprints.items(), reverse=True)[:period_days//7]:  # Last ~period_days days
             effort = sum(self._task_service._estimate_effort(t) for t in tasks)
             velocity_history.append({
-                "sprint_id": sprint_id,
+                "sprint_id": task_sprint_id,
                 "completed_effort": effort,
                 "task_count": len(tasks),
             })
