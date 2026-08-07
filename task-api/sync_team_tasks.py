@@ -61,7 +61,7 @@ def sync_team_tasks():
     all_tasks = []
     for space in spaces:
         print(f"\nSyncing from space: {space}")
-        tasks = sync_sprint_tasks(space=space, max_results=max_results)
+        tasks = sync_sprint_tasks(spaces=[space], max_results=max_results)
         all_tasks.extend(tasks)
     
     # Filter to team member tasks only
