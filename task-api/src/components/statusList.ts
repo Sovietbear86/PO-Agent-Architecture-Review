@@ -42,7 +42,7 @@ export default [
   { value: 'TKRT_ADBwyXrZkGomsLb', label: 'Открыт (STS)', aliases: ['Открыт'] },
   { value: 'PN_xySDTWtJOhUePFpLX', label: 'Open (STS)', aliases: ['OPEN'] },
   { value: 'NLZPR_KeDzRVcVYfbBmA', label: 'Анализ проблемы (STS)', aliases: ['Анализ проблемы', 'Ready for review'] },
-  { value: 'PSD_sGDubPwIYfGTnzvQ', label: 'Paused', aliases: ['Paused'] },
+  { value: 'PSD_sGDubPwIYfGTnzvQ', label: 'Paused (STS)', aliases: ['Paused'] },
   { value: 'DLD_wQiPNntFtlPQStJG', label: 'Delayed (STS)', aliases: ['DELAYED', 'On hold'] },
   { value: 'PBLSHD_ANnEKtHCvosJu', label: 'Published (STS)', aliases: ['Published'] },
   { value: 'VCHRD_StSeYYuJOJETLf', label: 'В очереди (STS)', aliases: ['В очереди'] },
