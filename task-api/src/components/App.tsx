@@ -193,7 +193,7 @@ export function App() {
             }
           />
 
-          {/* Fixed Filter Bar - same width as TopBar, above task list */}
+          {/* Fixed Filter Bar - same width as task list, above task list */}
           <div style={{
             position: 'sticky',
             top: '64px',
@@ -204,6 +204,8 @@ export function App() {
             padding: '1rem',
             marginRight: '15px',
             marginBottom: '1rem',
+            width: 'calc(100% - 15px)',
+            maxWidth: '1200px',
           }}>
             <FilterBar
               status={filterStatus}
@@ -220,7 +222,7 @@ export function App() {
             />
           </div>
 
-          <div style={{ marginTop: '64px', marginRight: '15px', maxWidth: '1200px' }}>
+          <div style={{ marginTop: '0', marginRight: '15px', width: 'calc(100% - 15px)', maxWidth: '1200px' }}>
             <TaskList
               tasks={filteredTasks}
               onOpenDetails={(task) => setSelectedTask(task)}
