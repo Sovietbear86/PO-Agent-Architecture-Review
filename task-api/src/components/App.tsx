@@ -220,7 +220,7 @@ export function App() {
             />
           </div>
 
-          <div style={{ marginTop: '64px', marginRight: '15px', maxWidth: '1330px' }}>
+          <div style={{ marginTop: '64px', marginRight: '15px', maxWidth: '1395px' }}>
             <TaskList
               tasks={filteredTasks}
               onOpenDetails={(task) => setSelectedTask(task)}
