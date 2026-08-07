@@ -75,6 +75,9 @@ NAME_MAPPINGS: Dict[str, str] = {
     "Макошина Верея": "Makoshina.V.V",
     "Моисеев Андрей": "Moiseev.A.N",
     "Кузнецов Матвей": "Kuznetsov.M.Se",
+    "Гальцов Александр": "Galtsov.A.A",
+    "Шалдунов Александр": "Shaldunov.A.V",
+    "Безруков Павел": "Bezrukov.P.S",
 }
 
 
