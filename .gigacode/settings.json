@@ -108,7 +108,12 @@
       "Bash('shaldunov.a.v@sbertech.ru')",
       "Bash(shaldunov *)",
       "Bash(shaldunov_olp5 *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(pkill *)",
+      "Bash(sleep *)",
+      "Bash(cd *)",
+      "Bash(nohup *)",
+      "Bash(echo *)"
     ]
   }
 }

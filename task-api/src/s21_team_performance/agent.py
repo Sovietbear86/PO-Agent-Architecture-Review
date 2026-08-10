@@ -476,7 +476,8 @@ class TeamPerformanceAgent:
                     pending = {
                         "team_members": params.get('team_members', []),
                         "products": params.get('products', []),
-                        "original_skill_name": skill_to_restore
+                        "original_skill_name": skill_to_restore,
+                        "status_filter": params.get('status_filter')
                     }
                     pending_str = json.dumps(pending)
                     print(f"DEBUG: pending JSON: {pending_str}")
@@ -848,6 +849,10 @@ class TeamPerformanceAgent:
             if "team_members" in self.context["pending_sprint"]:
                 params["team_members"] = self.context["pending_sprint"]["team_members"]
                 print(f"DEBUG: Restored team_members: {params['team_members']}")
+            # Restore status_filter from context (for filtered task searches)
+            if "status_filter" in self.context["pending_sprint"]:
+                params["status_filter"] = self.context["pending_sprint"]["status_filter"]
+                print(f"DEBUG: Restored status_filter: {params['status_filter']}")
             # Restore original skill_name from context (for member_load_analysis/risk_analysis)
             if "original_skill_name" in self.context["pending_sprint"]:
                 original_skill = self.context["pending_sprint"]["original_skill_name"]
