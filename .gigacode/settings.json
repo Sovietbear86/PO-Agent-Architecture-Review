@@ -19,7 +19,7 @@
     "s21_agent": {
       "command": "python3",
       "args": [
-        "/Users/kalachanov.v.v/Desktop/Мои документы/Обучение/GIGACodeCLI/MyTestProject_1/MyTestProject_1/task-api/s21_agent_mcp_server.py"
+        "/Users/kalachanov.v.v/Desktop/Мои документы/Обучение/GIGACodeCLI/MyTestProject_1/MyTestProject_1/s21_mcp_proxy.py"
       ],
       "transport": "stdio"
     }
@@ -108,7 +108,12 @@
       "Bash('shaldunov.a.v@sbertech.ru')",
       "Bash(shaldunov *)",
       "Bash(shaldunov_olp5 *)",
-      "Bash(git commit *)"
+      "Bash(git commit *)",
+      "Bash(set)",
+      "Bash(cd *)",
+      "Bash(nohup *)",
+      "Bash(sleep *)",
+      "Bash(echo *)"
     ]
   }
 }
