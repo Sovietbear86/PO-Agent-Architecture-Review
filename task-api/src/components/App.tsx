@@ -97,8 +97,13 @@ export function App() {
 
   const handleSync = async () => {
     setIsSyncing(true)
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 600000)  // 10 minutes
     try {
-      const response = await fetch('/api/v1/swtr/sync-user', { method: 'POST' })
+      const response = await fetch('/api/v1/swtr/sync-user', {
+        method: 'POST',
+        signal: controller.signal
+      })
       if (response.ok) {
         const data = await response.json()
         // Update tasks with synced data
