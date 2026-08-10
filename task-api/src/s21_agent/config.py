@@ -33,7 +33,7 @@ class Settings(BaseSettings):
 
     # OpenAI settings for LLM-based analysis
     openai_api_key: Optional[str] = None
-    openai_model: str = "Qwen/Qwen3-Coder-Next"
+    openai_model: str = "deepseek-ai/DeepSeek-V4-Flash"
     openai_base_url: str = "https://api.ai.sbt/openai/v1"
     openai_timeout_seconds: int = 60
 
