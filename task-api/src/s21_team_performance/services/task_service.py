@@ -59,25 +59,25 @@ LOGIN_MAPPINGS: Dict[str, str] = {
 }
 
 # Name mappings: short_name (from tasks) -> login (from config)
-# Tasks use format "Last Name First Name" (e.g., "Гаранин Родион")
-# Config uses format "First Name Patronymic Last Name" (e.g., "Калачанов Виктор Вячеславович")
+# Tasks use format "Last Name First Name" (e.g., "Петров Петр")
+# Config uses format "First Name Patronymic Last Name" (e.g., "Иванов Иван Иванович")
 NAME_MAPPINGS: Dict[str, str] = {
     # Format: "Last Name First Name" (from tasks) -> login (from config)
-    "Гаранин Родион": "Garanin.R.V",
-    "Кондратчикова Полина": "Kondratchikova.P.I",
-    "Семавин Михаил": "Semavin.M.M",
-    "Долговской Евгений": "Dolgovskoy.E.N",
-    "Гончаров Александр": "Goncharov.A.O",
-    "Решетник Александр": "Reshetnik.A",
-    "Калачанов Виктор": "Kalachanov.V.V",
-    "Агатаева Айна": "Agataeva.A.Z",
-    "Жданов Александр": "Zhdanov.A.Ni",
-    "Макошина Верея": "Makoshina.V.V",
-    "Моисеев Андрей": "Moiseev.A.N",
+    "Петров Петр": "Petrov.P.P",
+    "Новикова Елена": "Novikova.E.V",
+    "Павлов Игорь": "Pavlov.I.V",
+    "Тимофеев Арсений": "Timofeev.A.M",
+    "Соколов Артём": "Sokolov.A.A",
+    "Лебедев Михаил": "Lebedev.M",
+    "Иванов Иван": "Ivanov.I.I",
+    "Сидорова Анна": "Sidorova.A.S",
+    "Смирнов Алексей": "Smirnov.A.D",
+    "Васильева Ольга": "Vasilieva.O.A",
+    "Михайлов Роман": "Mihailov.R.K",
     "Кузнецов Матвей": "Kuznetsov.M.Se",
-    "Гальцов Александр": "Galtsov.A.A",
-    "Шалдунов Александр": "Shaldunov.A.V",
-    "Безруков Павел": "Bezrukov.P.S",
+    "Кузьмин Максим": "Kuzmin.M.O",
+    "Морозов Денис": "Morozov.D.V",
+    "Андреев Николай": "Andreev.N.S",
 }
 
 

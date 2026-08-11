@@ -5,8 +5,8 @@ Add s21_agent MCP server to system GigaCode settings.
 import json
 import os
 
-system_settings = "/Users/kalachanov.v.v/.gigacode/settings.json"
-backup = "/Users/kalachanov.v.v/.gigacode/settings.json.system-mcp-backup"
+system_settings = "/home/user/.gigacode/settings.json"
+backup = "/home/user/.gigacode/settings.json.system-mcp-backup"
 
 # Read current settings
 with open(system_settings, 'r') as f:
@@ -25,7 +25,7 @@ if "mcpServers" not in settings:
 settings["mcpServers"]["s21_agent"] = {
     "command": "python3",
     "args": [
-        "/Users/kalachanov.v.v/Desktop/Мои документы/Обучение/GIGACodeCLI/MyTestProject_1/MyTestProject_1/s21_mcp_proxy.py"
+        "/home/user/Desktop/Мои документы/Обучение/GIGACodeCLI/MyTestProject_1/MyTestProject_1/s21_mcp_proxy.py"
     ],
     "transport": "stdio"
 }

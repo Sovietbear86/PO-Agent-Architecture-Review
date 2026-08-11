@@ -2,11 +2,11 @@ members:
 - allocation_percent: null
   competencies: {}
   competency_evidence_file: knowledge/employees/Kalacanov_Viktor_Vaceslavovic.md
-  email: Kalachanov.V.V@sbertech.ru
-  full_name: Калачанов Виктор Вячеславович
+  email: Kalachev.V.V@example.com
+  full_name: Иванов Иван Иванович
   grade: 13
-  id: Kalachanov.V.V
-  login: Kalachanov.V.V
+  id: Kalachev.V.V
+  login: Kalachev.V.V
   planned_absences: []
   products:
   - OLAP
@@ -18,11 +18,11 @@ members:
 - allocation_percent: null
   competencies: {}
   competency_evidence_file: knowledge/employees/Garanin_Rodion_Vladimirovic.md
-  email: Garanin.R.V@sbertech.ru
-  full_name: Гаранин Родион Владимирович
+  email: Petrov.P.P@example.com
+  full_name: Петров Петр Петрович
   grade: 13
-  id: Garanin.R.V
-  login: Garanin.R.V
+  id: Petrov.P.P
+  login: Petrov.P.P
   planned_absences: []
   products:
   - OLAP
@@ -34,11 +34,11 @@ members:
 - allocation_percent: null
   competencies: {}
   competency_evidence_file: knowledge/employees/Agataeva_Ajna_Jumagalieva.md
-  email: Agataeva.A.Z@sbertech.ru
-  full_name: Агатаева Айна Жумагалиева
+  email: Sidorova.A.S@example.com
+  full_name: Сидорова Анна Сергеевна
   grade: 11
-  id: Agataeva.A.Z
-  login: Agataeva.A.Z
+  id: Sidorova.A.S
+  login: Sidorova.A.S
   planned_absences: []
   products:
   - DTMS
@@ -49,11 +49,11 @@ members:
 - allocation_percent: null
   competencies: {}
   competency_evidence_file: knowledge/employees/Alekseev_Konstantin_Sergeevic.md
-  email: Alekseev.K.S@sbertech.ru
-  full_name: Алексеев Константин Сергеевич
+  email: Smirnov.A.D@example.com
+  full_name: Смирнов Алексей Дмитриевич
   grade: 10
-  id: Alekseev.K.S
-  login: Alekseev.K.S
+  id: Smirnov.A.D
+  login: Smirnov.A.D
   planned_absences: []
   products:
   - DTMS
@@ -63,12 +63,12 @@ members:
   team_role: Участник команды
 - allocation_percent: null
   competencies: {}
-  competency_evidence_file: knowledge/employees/Gal_cov_Aleksandr_Alekseevic.md
-  email: Galtsov.A.A@sbertech.ru
-  full_name: Гальцов Александр Алексеевич
+  competency_evidence_file: knowledge/employees/Kuzmin.M.O.md
+  email: Kuzmin.M.O@example.com
+  full_name: Кузьмин Максим Олегович
   grade: 12
-  id: Galtsov.A.A
-  login: Galtsov.A.A
+  id: Kuzmin.M.O
+  login: Kuzmin.M.O
   planned_absences: []
   products:
   - DTMS
@@ -78,12 +78,12 @@ members:
   team_role: Участник команды
 - allocation_percent: null
   competencies: {}
-  competency_evidence_file: knowledge/employees/Dolgovskoj_Evgenij_Nikolaevic.md
-  email: Dolgovskoy.E.N@sbertech.ru
-  full_name: Долговской Евгений Николаевич
+  competency_evidence_file: knowledge/employees/Popov.D.A.md
+  email: Popov.D.A@example.com
+  full_name: Попов Денис Алексеевич
   grade: 11
-  id: Dolgovskoy.E.N
-  login: Dolgovskoy.E.N
+  id: Popov.D.A
+  login: Popov.D.A
   planned_absences: []
   products:
   - DTMS
@@ -93,12 +93,12 @@ members:
   team_role: Участник команды
 - allocation_percent: null
   competencies: {}
-  competency_evidence_file: knowledge/employees/Kondratcikova_Polina_Igorevna.md
-  email: Kondratchikova.P.I@sbertech.ru
-  full_name: Кондратчикова Полина Игоревна
+  competency_evidence_file: knowledge/employees/Novikova.E.V.md
+  email: Novikova.E.V@example.com
+  full_name: Новикова Елена Владимировна
   grade: 10
-  id: Kondratchikova.P.I
-  login: Kondratchikova.P.I
+  id: Novikova.E.V
+  login: Novikova.E.V
   planned_absences: []
   products:
   - DTMS
@@ -108,12 +108,12 @@ members:
   team_role: Участник команды
 - allocation_percent: null
   competencies: {}
-  competency_evidence_file: knowledge/employees/Krukov_Vladimir_Aleksandrovic.md
-  email: Kryukov.V.A@sbertech.ru
-  full_name: Крюков Владимир Александрович
+  competency_evidence_file: knowledge/employees/Fedorov.M.S.md
+  email: Fedorov.M.S@example.com
+  full_name: Федоров Михаил Сергеевич
   grade: 12
-  id: Kryukov.V.A
-  login: Kryukov.V.A
+  id: Fedorov.M.S
+  login: Fedorov.M.S
   planned_absences: []
   products:
   - OLAP
@@ -124,12 +124,12 @@ members:
   team_role: Участник команды
 - allocation_percent: null
   competencies: {}
-  competency_evidence_file: knowledge/employees/Makosina_Verea_Valer_evna.md
-  email: Makoshina.V.V@sbertech.ru
-  full_name: Макошина Верея Валерьевна
+  competency_evidence_file: knowledge/employees/Vasilieva.O.A.md
+  email: Vasilieva.O.A@example.com
+  full_name: Васильева Ольга Анатольевна
   grade: 10
-  id: Makoshina.V.V
-  login: Makoshina.V.V
+  id: Vasilieva.O.A
+  login: Vasilieva.O.A
   planned_absences: []
   products:
   - DTMS
@@ -139,12 +139,12 @@ members:
   team_role: Участник команды
 - allocation_percent: null
   competencies: {}
-  competency_evidence_file: knowledge/employees/Moiseev_Andrej_Nikolaevic.md
-  email: Moiseev.A.N@sbertech.ru
-  full_name: Моисеев Андрей Николаевич
+  competency_evidence_file: knowledge/employees/Mihailov.R.K.md
+  email: Mihailov.R.K@example.com
+  full_name: Михайлов Роман Константинович
   grade: null
-  id: Moiseev.A.N
-  login: Moiseev.A.N
+  id: Mihailov.R.K
+  login: Mihailov.R.K
   planned_absences: []
   products:
   - DTMS
@@ -154,12 +154,12 @@ members:
   team_role: Участник команды
 - allocation_percent: null
   competencies: {}
-  competency_evidence_file: knowledge/employees/Semavin_Mihail_Mihajlovic.md
-  email: Semavin.M.M@sbertech.ru
-  full_name: Семавин Михаил Михайлович
+  competency_evidence_file: knowledge/employees/Pavlov.I.V.md
+  email: Pavlov.I.V@example.com
+  full_name: Павлов Игорь Викторович
   grade: 9
-  id: Semavin.M.M
-  login: Semavin.M.M
+  id: Pavlov.I.V
+  login: Pavlov.I.V
   planned_absences: []
   products:
   - DTMS
@@ -169,12 +169,12 @@ members:
   team_role: Участник команды
 - allocation_percent: null
   competencies: {}
-  competency_evidence_file: knowledge/employees/Goncarov_Aleksandr_Olegovic.md
-  email: Goncharov.A.O@sbertech.ru
-  full_name: Гончаров Александр Олегович
+  competency_evidence_file: knowledge/employees/Sokolov.A.A.md
+  email: Sokolov.A.A@example.com
+  full_name: Соколов Артём Андреевич
   grade: 11
-  id: Goncharov.A.O
-  login: Goncharov.A.O
+  id: Sokolov.A.A
+  login: Sokolov.A.A
   planned_absences: []
   products:
   - OLAP
@@ -184,12 +184,12 @@ members:
   team_role: Участник команды
 - allocation_percent: null
   competencies: {}
-  competency_evidence_file: knowledge/employees/Aleksandr_Resetnik.md
-  email: Reshetnik.A@sbertech.ru
-  full_name: Александр Решетник
+  competency_evidence_file: knowledge/employees/Mikhail_Lebedev.md
+  email: Lebedev.M@example.com
+  full_name: Михаил Лебедев
   grade: 12
-  id: Reshetnik.A
-  login: Reshetnik.A
+  id: Lebedev.M
+  login: Lebedev.M
   planned_absences: []
   products:
   - OLAP
@@ -199,12 +199,12 @@ members:
   team_role: Участник команды
 - allocation_percent: null
   competencies: {}
-  competency_evidence_file: knowledge/employees/Kuznecov_Matvej_Sergeevic.md
-  email: Kuznetsov.M.Se@sbertech.ru
-  full_name: Кузнецов Матвей Сергеевич
+  competency_evidence_file: knowledge/employees/Timofeev.A.M.md
+  email: Timofeev.A.M@example.com
+  full_name: Тимофеев Арсений Максимович
   grade: 9
-  id: Kuznetsov.M.Se
-  login: Kuznetsov.M.Se
+  id: Timofeev.A.M
+  login: Timofeev.A.M
   planned_absences: []
   products:
   - DTMS
@@ -214,12 +214,12 @@ members:
   team_role: Участник команды
 - allocation_percent: null
   competencies: {}
-  competency_evidence_file: knowledge/employees/Bezrukov_Pavel_Sergeevic.md
-  email: Bezrukov.P.S@sbertech.ru
-  full_name: Безруков Павел Сергеевич
+  competency_evidence_file: knowledge/employees/Andreev.N.S.md
+  email: Andreev.N.S@example.com
+  full_name: Андреев Николай Сергеевич
   grade: 12
-  id: Bezrukov.P.S
-  login: Bezrukov.P.S
+  id: Andreev.N.S
+  login: Andreev.N.S
   planned_absences: []
   products:
   - OLAP
@@ -230,12 +230,12 @@ members:
   team_role: Участник команды
 - allocation_percent: null
   competencies: {}
-  competency_evidence_file: knowledge/employees/Saldunov_Aleksandr_Vital_evic.md
-  email: Shaldunov.A.V@sbertech.ru
-  full_name: Шалдунов Александр Витальевич
+  competency_evidence_file: knowledge/employees/Morozov.D.V.md
+  email: Morozov.D.V@example.com
+  full_name: Морозов Денис Викторович
   grade: 11
-  id: Shaldunov.A.V
-  login: Shaldunov.A.V
+  id: Morozov.D.V
+  login: Morozov.D.V
   planned_absences: []
   products:
   - OLAP

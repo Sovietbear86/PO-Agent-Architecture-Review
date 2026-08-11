@@ -42,7 +42,7 @@ class Settings(BaseSettings):
         super().__init__(**data)
         if not self.openai_api_key:
             try:
-                with open("/Users/kalachanov.v.v/.config/openai/api_key", "r") as f:
+                with open("/home/user/.config/openai/api_key", "r") as f:
                     self.openai_api_key = f.read().strip()
             except:
                 pass

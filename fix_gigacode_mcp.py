@@ -4,8 +4,8 @@ Fix GigaCode MCP configuration by removing sseServer from system settings.
 """
 import json
 
-system_settings = "/Users/kalachanov.v.v/.gigacode/settings.json"
-backup = "/Users/kalachanov.v.v/.gigacode/settings.json.mcp-fix-20260802"
+system_settings = "/home/user/.gigacode/settings.json"
+backup = "/home/user/.gigacode/settings.json.mcp-fix-20260802"
 
 # Read current settings
 with open(system_settings, 'r') as f:

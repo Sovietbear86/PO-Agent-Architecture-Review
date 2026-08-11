@@ -83,14 +83,14 @@ def get_task(code: str):
                 for attr in data.get('attributes', []):
                     print(f"  {json.dumps(attr)}")
                 
-                # Check for kalachanov.v.v
-                print(f"\nChecking for kalachanov.v.v:")
+                # Check for user_login
+                print(f"\nChecking for user_login:")
                 for attr in data.get('attributes', []):
                     if attr.get('code') in ('assigned_to', 'responsible', 'reporter'):
                         value = attr.get('value', {})
                         if isinstance(value, dict):
                             login = value.get('login', '')
-                            if 'kalachanov' in login.lower():
+                            if 'user_login' in login.lower():
                                 print(f"  FOUND in {attr['code']}: {login}")
 
     finally:

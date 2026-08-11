@@ -5,9 +5,9 @@ Rollback GigaCode MCP configuration fix.
 import json
 import shutil
 
-system_settings = "/Users/kalachanov.v.v/.gigacode/settings.json"
-backup = "/Users/kalachanov.v.v/.gigacode/settings.json.mcp-fix-20260802"
-orig_backup = "/Users/kalachanov.v.v/.gigacode/settings.json.orig"
+system_settings = "/home/user/.gigacode/settings.json"
+backup = "/home/user/.gigacode/settings.json.mcp-fix-20260802"
+orig_backup = "/home/user/.gigacode/settings.json.orig"
 
 # Restore from original backup
 shutil.copy(orig_backup, system_settings)
