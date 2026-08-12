@@ -40,6 +40,7 @@ jobs:
           tests/test_harness_session_context.py
           tests/test_harness_feedback.py
           tests/test_harness_eval_store.py
+          tests/test_harness_failure_miner.py
           tests/test_skill_catalog.py
 
   backend-full-regression:
