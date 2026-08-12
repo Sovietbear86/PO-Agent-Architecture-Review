@@ -35,6 +35,7 @@ jobs:
           tests/test_harness_task_intelligence.py
           tests/test_harness_sprint_intelligence.py
           tests/test_harness_team_intelligence.py
+          tests/test_harness_release_intelligence.py
           tests/test_skill_catalog.py
 
   backend-full-regression:
