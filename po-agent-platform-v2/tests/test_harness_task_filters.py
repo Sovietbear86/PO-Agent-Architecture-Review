@@ -46,11 +46,11 @@ async def test_plain_sprint_health_still_uses_health_skill():
 
 
 @pytest.mark.asyncio
-async def test_search_tasks_in_release_does_not_become_release_health():
+async def test_explicit_release_scope_uses_release_intelligence():
     response = await build_fake_runtime().process(
         HarnessRequest(query="Покажи состав задач WMB-2024-Q3")
     )
-    assert response.skill_id == "task-search-release"
+    assert response.skill_id == "release-scope"
     assert response.data["count"] == 3
 
 
