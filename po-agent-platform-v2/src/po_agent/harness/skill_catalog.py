@@ -1,9 +1,13 @@
 """Canonical PO Agent skill catalog for the harness recovery.
 
-This module is intentionally machine-readable so implementation coverage can be
-measured. A catalog entry is not considered implemented merely because it exists
-here: `status="implemented"` is reserved for skills that have an executable
-handler, source-grounded evidence, and acceptance coverage.
+The original PO_AGENT_PLATFORM_V2_GIGACODE_MASTER_SPEC_V2_1.md is the product
+acceptance baseline. This module turns its user-facing capability surface into a
+machine-readable implementation catalog so coverage cannot be faked by folders
+or placeholder files.
+
+A catalog entry is `implemented` only when it has an executable versioned Skill,
+an allow-listed capability handler, source-grounded evidence and acceptance
+coverage through the production harness path.
 """
 from __future__ import annotations
 from dataclasses import dataclass
@@ -23,7 +27,7 @@ class SkillCatalogEntry:
     requires_write: bool = False
 
 SKILL_CATALOG: tuple[SkillCatalogEntry, ...] = (
-    # Task discovery & retrieval (10)
+    # Task discovery & retrieval (11) — MASTER SPEC STEP 09
     SkillCatalogEntry("task-lookup", "tasks", "task.lookup", "Find an exact task by key.", "implemented"),
     SkillCatalogEntry("task-search", "tasks", "task.search", "Search tasks by phrase/text.", "implemented"),
     SkillCatalogEntry("task-search-attachments", "tasks", "task.search_attachments", "Find tasks containing attachments.", "implemented"),
@@ -34,8 +38,9 @@ SKILL_CATALOG: tuple[SkillCatalogEntry, ...] = (
     SkillCatalogEntry("task-search-status", "tasks", "task.search_status", "Find tasks by normalized workflow status."),
     SkillCatalogEntry("task-search-sprint", "tasks", "task.search_sprint", "Find tasks in a sprint."),
     SkillCatalogEntry("task-search-release", "tasks", "task.search_release", "Find tasks linked to a release."),
+    SkillCatalogEntry("task-search-product", "tasks", "task.search_product", "Find tasks in a configured product/space."),
 
-    # Task intelligence (10)
+    # Task intelligence (10) — MASTER SPEC STEPS 11–12 plus task-agent parity
     SkillCatalogEntry("task-summary", "tasks", "task.summary", "Summarize what must be done in a task.", requires_llm=True),
     SkillCatalogEntry("task-quality", "tasks", "task.quality", "Evaluate task statement quality deterministically."),
     SkillCatalogEntry("task-missing-requirements", "tasks", "task.missing_requirements", "Identify missing task-definition elements."),
@@ -47,7 +52,7 @@ SKILL_CATALOG: tuple[SkillCatalogEntry, ...] = (
     SkillCatalogEntry("task-blocker-analysis", "tasks", "task.blockers", "Explain blockers and blocked-task evidence.", requires_llm=True),
     SkillCatalogEntry("task-similar", "tasks", "task.similar", "Find similar/duplicate tasks.", requires_llm=True),
 
-    # Sprint intelligence & flow metrics (12)
+    # Sprint intelligence & flow metrics (12) — MASTER SPEC STEPS 08, 13
     SkillCatalogEntry("sprint-health", "sprints", "sprint.health", "Summarize deterministic sprint health.", "implemented"),
     SkillCatalogEntry("sprint-current", "sprints", "sprint.current", "Resolve current sprint for a product."),
     SkillCatalogEntry("sprint-scope", "sprints", "sprint.scope", "Show current sprint scope."),
@@ -61,7 +66,7 @@ SKILL_CATALOG: tuple[SkillCatalogEntry, ...] = (
     SkillCatalogEntry("sprint-predictability", "sprints", "sprint.predictability", "Calculate sprint predictability."),
     SkillCatalogEntry("sprint-risk-queue", "sprints", "sprint.risk_queue", "Identify sprint tasks requiring PO attention."),
 
-    # Team intelligence (8)
+    # Team intelligence (8) — MASTER SPEC STEPS 14–15
     SkillCatalogEntry("team-workload", "team", "team.workload", "Analyze workload distribution."),
     SkillCatalogEntry("team-wip", "team", "team.wip", "Show WIP by team member."),
     SkillCatalogEntry("team-blocked", "team", "team.blocked", "Show blocked work by team member."),
@@ -71,13 +76,14 @@ SKILL_CATALOG: tuple[SkillCatalogEntry, ...] = (
     SkillCatalogEntry("team-bottlenecks", "team", "team.bottlenecks", "Detect concentration/bottleneck patterns."),
     SkillCatalogEntry("team-distribution", "team", "team.distribution", "Explain task distribution across competencies."),
 
-    # Release & portfolio intelligence (7)
+    # Release & portfolio intelligence (8) — MASTER SPEC STEP 16
     SkillCatalogEntry("release-health", "releases", "release.health", "Summarize release readiness and risks.", "implemented"),
     SkillCatalogEntry("release-scope", "releases", "release.scope", "Show release task scope."),
     SkillCatalogEntry("release-progress", "releases", "release.progress", "Calculate release completion."),
     SkillCatalogEntry("release-blockers", "releases", "release.blockers", "Identify release blockers."),
     SkillCatalogEntry("release-dependencies", "releases", "release.dependencies", "Analyze release dependencies."),
     SkillCatalogEntry("release-risk-queue", "releases", "release.risk_queue", "Prioritize release risks for PO attention."),
+    SkillCatalogEntry("release-forecast", "releases", "release.forecast", "Provide deterministic forecast inputs and bounded forecast output."),
     SkillCatalogEntry("portfolio-overview", "portfolio", "portfolio.overview", "Provide portfolio overview and attention queue.", "implemented"),
 
     # Product-owner assistance & controlled actions (5)
@@ -85,7 +91,7 @@ SKILL_CATALOG: tuple[SkillCatalogEntry, ...] = (
     SkillCatalogEntry("po-daily-brief", "po", "po.daily_brief", "Generate a grounded daily PO brief.", requires_llm=True),
     SkillCatalogEntry("po-status-report", "po", "po.status_report", "Generate product/sprint/release status report.", requires_llm=True),
     SkillCatalogEntry("po-reminder-draft", "po", "po.reminder_draft", "Draft a contextual reminder/action message.", requires_llm=True),
-    SkillCatalogEntry("po-local-task-draft", "po", "po.local_task_draft", "Prepare a local task draft; write requires explicit approval.", requires_llm=True, requires_write=True),
+    SkillCatalogEntry("po-local-task-draft", "po", "po.local_task_draft", "Prepare a local task draft; any later write requires explicit approval.", requires_llm=True),
 )
 
 
