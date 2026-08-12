@@ -11,7 +11,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  backend:
+  backend-recovery:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -25,7 +25,31 @@ jobs:
           cache-dependency-path: po-agent-platform-v2/pyproject.toml
       - name: Install backend
         run: python -m pip install --upgrade pip && pip install -e '.[dev]'
-      - name: Run backend test suite
+      - name: Run recovery acceptance suite
+        run: >-
+          pytest -q
+          tests/test_harness_recovery_runtime.py
+          tests/test_harness_api_v1.py
+          tests/test_harness_portfolio_skills.py
+          tests/test_harness_task_filters.py
+          tests/test_harness_task_intelligence.py
+          tests/test_skill_catalog.py
+
+  backend-full-regression:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: po-agent-platform-v2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: po-agent-platform-v2/pyproject.toml
+      - name: Install backend
+        run: python -m pip install --upgrade pip && pip install -e '.[dev]'
+      - name: Run full backend regression
         run: pytest -q
 
   frontend:
@@ -37,7 +61,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: npm
           cache-dependency-path: po-agent-platform-v2/frontend/package-lock.json
       - name: Install frontend
