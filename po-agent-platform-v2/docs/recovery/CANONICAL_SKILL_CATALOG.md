@@ -15,16 +15,16 @@ Merely creating a YAML/JSON/MD file does **not** count as implementation.
 
 ## Target
 
-**52 Skills** in six domains. Current executable recovery baseline: **5 implemented / 47 planned**.
+**52 Skills** in six domains. Current executable recovery baseline: **9 implemented / 43 planned**.
 
 ## Tasks — discovery & retrieval (10)
 
 1. `task-lookup` — exact key lookup — **IMPLEMENTED**
 2. `task-search` — phrase/text search — **IMPLEMENTED**
-3. `task-search-attachments` — tasks with any attachments
-4. `task-search-excel` — XLS/XLSX attachments
-5. `task-search-pdf` — PDF attachments
-6. `task-search-msg` — MSG attachments
+3. `task-search-attachments` — tasks with any attachments — **IMPLEMENTED**
+4. `task-search-excel` — XLS/XLSX attachments — **IMPLEMENTED**
+5. `task-search-pdf` — PDF attachments — **IMPLEMENTED**
+6. `task-search-msg` — MSG attachments — **IMPLEMENTED**
 7. `task-search-assignee` — filter by assignee
 8. `task-search-status` — filter by normalized status
 9. `task-search-sprint` — tasks in sprint
@@ -93,7 +93,7 @@ Merely creating a YAML/JSON/MD file does **not** count as implementation.
 
 ## Wave A — Task Agent parity
 
-Implement 3–20 first. This recovers all capabilities that originally made S21 Task Agent useful: phrase/file search, task reading, summarization, completeness/quality, history, dependencies and related-task discovery.
+Implement 7–20 next. This recovers all capabilities that originally made S21 Task Agent useful: filtered/file search, task reading, summarization, completeness/quality, history, dependencies and related-task discovery.
 
 ## Wave B — Sprint deterministic analytics
 
