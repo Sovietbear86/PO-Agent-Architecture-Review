@@ -21,6 +21,7 @@ from po_agent.adapters.fake import FakeAS21Adapter
 from po_agent.domain.models import AttachmentType, Task
 
 from .contracts import CapabilityResult, Evidence, HarnessRequest, HarnessResponse, ResponseStatus
+from .task_intelligence import TaskIntelligenceCapabilities
 
 CapabilityHandler = Callable[[dict[str, str]], Awaitable[CapabilityResult]]
 
@@ -72,7 +73,7 @@ class SkillRegistry:
 
 
 class PortfolioCapabilities:
-    """First source-grounded capability set for the recovery runtime."""
+    """Source-grounded discovery and portfolio capabilities."""
 
     def __init__(self, adapter: AS21Adapter) -> None:
         self.a = adapter
@@ -124,15 +125,7 @@ class PortfolioCapabilities:
             return CapabilityResult(
                 answer=f"Задача {key} не найдена.",
                 data={"task_key": key, "found": False},
-                evidence=[
-                    Evidence(
-                        type="task_lookup",
-                        source="as21",
-                        entity_id=key,
-                        label="lookup",
-                        value="not_found",
-                    )
-                ],
+                evidence=[Evidence(type="task_lookup", source="as21", entity_id=key, label="lookup", value="not_found")],
             )
         return CapabilityResult(
             answer=f"{task.key} — {task.title}. Статус: {task.status.value}. Исполнитель: {task.assignee or 'не назначен'}.",
@@ -149,71 +142,43 @@ class PortfolioCapabilities:
         needle = phrase.casefold()
         tasks = await self.a.search_tasks("")
         matches = [
-            task
-            for task in tasks
+            task for task in tasks
             if needle in task.key.casefold()
             or needle in task.title.casefold()
             or needle in (task.description or "").casefold()
         ]
-        return self.task_list_result(
-            answer=f"Найдено задач: {len(matches)}.",
-            tasks=matches,
-            filters={"phrase": phrase},
-        )
+        return self.task_list_result(answer=f"Найдено задач: {len(matches)}.", tasks=matches, filters={"phrase": phrase})
 
     async def task_search_assignee(self, args: dict[str, str]) -> CapabilityResult:
         assignee = args["assignee"].strip()
         tasks = await self.a.search_tasks(f"assignee = {assignee}")
-        return self.task_list_result(
-            answer=f"У исполнителя {assignee} найдено задач: {len(tasks)}.",
-            tasks=tasks,
-            filters={"assignee": assignee},
-        )
+        return self.task_list_result(answer=f"У исполнителя {assignee} найдено задач: {len(tasks)}.", tasks=tasks, filters={"assignee": assignee})
 
     async def task_search_status(self, args: dict[str, str]) -> CapabilityResult:
         requested = args["status"].strip().casefold()
         tasks = await self.a.search_tasks("")
         matches = [
-            task
-            for task in tasks
+            task for task in tasks
             if requested == task.status.value.casefold()
             or requested == task.status_category.value.casefold()
             or requested in task.status.value.casefold()
         ]
-        return self.task_list_result(
-            answer=f"В статусе «{args['status']}» найдено задач: {len(matches)}.",
-            tasks=matches,
-            filters={"status": args["status"]},
-        )
+        return self.task_list_result(answer=f"В статусе «{args['status']}» найдено задач: {len(matches)}.", tasks=matches, filters={"status": args["status"]})
 
     async def task_search_sprint(self, args: dict[str, str]) -> CapabilityResult:
         sprint_id = args["sprint_id"].upper()
         tasks = await self.a.get_sprint_tasks(sprint_id)
-        return self.task_list_result(
-            answer=f"В спринте {sprint_id} найдено задач: {len(tasks)}.",
-            tasks=tasks,
-            filters={"sprint_id": sprint_id},
-            evidence_type="sprint_task",
-        )
+        return self.task_list_result(answer=f"В спринте {sprint_id} найдено задач: {len(tasks)}.", tasks=tasks, filters={"sprint_id": sprint_id}, evidence_type="sprint_task")
 
     async def task_search_release(self, args: dict[str, str]) -> CapabilityResult:
         release_id = args["release_id"].upper()
         tasks = await self.a.get_release_tasks(release_id)
-        return self.task_list_result(
-            answer=f"В релизе {release_id} найдено задач: {len(tasks)}.",
-            tasks=tasks,
-            filters={"release_id": release_id},
-            evidence_type="release_task",
-        )
+        return self.task_list_result(answer=f"В релизе {release_id} найдено задач: {len(tasks)}.", tasks=tasks, filters={"release_id": release_id}, evidence_type="release_task")
 
     async def task_search_product(self, args: dict[str, str]) -> CapabilityResult:
         product = args["product"].upper()
         tasks = await self.a.search_tasks(f"project = {product}")
-        return self.task_list_result(
-            answer=f"В продукте {product} найдено задач: {len(tasks)}.",
-            tasks=tasks,
-            filters={"product": product},
-        )
+        return self.task_list_result(answer=f"В продукте {product} найдено задач: {len(tasks)}.", tasks=tasks, filters={"product": product})
 
     async def task_search_attachments(self, args: dict[str, str]) -> CapabilityResult:
         requested_type = args.get("attachment_type")
@@ -227,38 +192,18 @@ class PortfolioCapabilities:
                 attachments = [item for item in attachments if item.type == attachment_type]
             if not attachments:
                 continue
-            matches.append(
-                {
-                    "task": self.task(task),
-                    "attachments": [
-                        {
-                            "id": item.id,
-                            "name": item.name,
-                            "type": item.type.value,
-                            "size_bytes": item.size_bytes,
-                        }
-                        for item in attachments
-                    ],
-                }
+            matches.append({
+                "task": self.task(task),
+                "attachments": [{"id": item.id, "name": item.name, "type": item.type.value, "size_bytes": item.size_bytes} for item in attachments],
+            })
+            evidence.extend(
+                Evidence(type="attachment", source="as21", entity_id=task.key, label=item.name, value=item.type.value)
+                for item in attachments
             )
-            for item in attachments:
-                evidence.append(
-                    Evidence(
-                        type="attachment",
-                        source="as21",
-                        entity_id=task.key,
-                        label=item.name,
-                        value=item.type.value,
-                    )
-                )
         type_label = attachment_type.value.upper() if attachment_type else "вложениями"
         return CapabilityResult(
             answer=f"Найдено задач с {type_label}: {len(matches)}.",
-            data={
-                "attachment_type": attachment_type.value if attachment_type else None,
-                "count": len(matches),
-                "results": matches,
-            },
+            data={"attachment_type": attachment_type.value if attachment_type else None, "count": len(matches), "results": matches},
             evidence=evidence,
         )
 
@@ -272,25 +217,8 @@ class PortfolioCapabilities:
         completion_percent = round(completed / total * 100, 1) if total else 0.0
         return CapabilityResult(
             answer=f"{sprint_id}: выполнено {completed}/{total} ({completion_percent}%), заблокировано {blocked}.",
-            data={
-                "sprint_id": sprint_id,
-                "total": total,
-                "completed": completed,
-                "active": active,
-                "blocked": blocked,
-                "completion_percent": completion_percent,
-                "tasks": [self.task(task) for task in tasks],
-            },
-            evidence=[
-                Evidence(
-                    type="sprint_task",
-                    source="as21",
-                    entity_id=task.key,
-                    label=task.title,
-                    value=task.status.value,
-                )
-                for task in tasks
-            ],
+            data={"sprint_id": sprint_id, "total": total, "completed": completed, "active": active, "blocked": blocked, "completion_percent": completion_percent, "tasks": [self.task(task) for task in tasks]},
+            evidence=[Evidence(type="sprint_task", source="as21", entity_id=task.key, label=task.title, value=task.status.value) for task in tasks],
         )
 
     async def release_health(self, args: dict[str, str]) -> CapabilityResult:
@@ -302,24 +230,8 @@ class PortfolioCapabilities:
         completion_percent = round(completed / total * 100, 1) if total else 0.0
         return CapabilityResult(
             answer=f"{release_id}: готовность {completion_percent}%, выполнено {completed}/{total}, заблокировано {blocked}.",
-            data={
-                "release_id": release_id,
-                "total": total,
-                "completed": completed,
-                "blocked": blocked,
-                "completion_percent": completion_percent,
-                "tasks": [self.task(task) for task in tasks],
-            },
-            evidence=[
-                Evidence(
-                    type="release_task",
-                    source="as21",
-                    entity_id=task.key,
-                    label=task.title,
-                    value=task.status.value,
-                )
-                for task in tasks
-            ],
+            data={"release_id": release_id, "total": total, "completed": completed, "blocked": blocked, "completion_percent": completion_percent, "tasks": [self.task(task) for task in tasks]},
+            evidence=[Evidence(type="release_task", source="as21", entity_id=task.key, label=task.title, value=task.status.value) for task in tasks],
         )
 
     async def overview(self, args: dict[str, str]) -> CapabilityResult:
@@ -329,47 +241,16 @@ class PortfolioCapabilities:
         blocked = sum(task.is_blocked for task in tasks)
         active = sum(task.status_category.value == "active_work" for task in tasks)
         unassigned = sum(task.assignee is None for task in tasks)
-        risks = [
-            self.task(task)
-            for task in tasks
-            if task.is_blocked
-            or (
-                task.priority
-                and task.priority.value in ("Critical", "Urgent")
-                and not task.is_completed
-            )
-        ]
+        risks = [self.task(task) for task in tasks if task.is_blocked or (task.priority and task.priority.value in ("Critical", "Urgent") and not task.is_completed)]
         return CapabilityResult(
             answer=f"В контуре {total} задач: {active} в работе, {completed} завершено, {blocked} заблокировано.",
-            data={
-                "tasks_total": total,
-                "active": active,
-                "completed": completed,
-                "blocked": blocked,
-                "unassigned": unassigned,
-                "risks": risks,
-                "adapter": "fake-as21",
-            },
-            evidence=[
-                Evidence(
-                    type="portfolio_task",
-                    source="as21",
-                    entity_id=task.key,
-                    label=task.title,
-                    value=task.status.value,
-                )
-                for task in tasks
-            ],
+            data={"tasks_total": total, "active": active, "completed": completed, "blocked": blocked, "unassigned": unassigned, "risks": risks, "adapter": "fake-as21"},
+            evidence=[Evidence(type="portfolio_task", source="as21", entity_id=task.key, label=task.title, value=task.status.value) for task in tasks],
         )
 
 
 class DeterministicRouter:
-    """Deterministic fast path for explicit user requests.
-
-    Semantic/ambiguous requests will later use the bounded LLM fallback required
-    by MASTER SPEC STEP 18. Explicit task/sprint/release/filter requests never
-    need an LLM.
-    """
+    """Deterministic fast path for explicit user requests."""
 
     TASK_KEY = re.compile(r"\b[A-ZА-Я][A-ZА-Я0-9_]{1,15}-\d+\b", re.I)
     SPRINT_KEY = re.compile(r"\b[A-Z]+-SPRNT-\d+\b", re.I)
@@ -380,6 +261,25 @@ class DeterministicRouter:
 
     def route(self, query: str) -> tuple[str, dict[str, str]]:
         lowered = query.casefold().strip()
+        task_match = self.TASK_KEY.search(query)
+
+        # Task-intelligence intents must win before generic exact-key lookup.
+        if task_match:
+            task_key = task_match.group(0)
+            if any(token in lowered for token in ("суммар", "кратко", "что нужно сделать", "объясни задачу", "описание задачи")):
+                return "task_summary", {"task_key": task_key}
+            if any(token in lowered for token in ("качество постанов", "оцени постанов", "насколько хорошо постав", "quality")):
+                return "task_quality", {"task_key": task_key}
+            if any(token in lowered for token in ("чего не хватает", "что отсутствует", "missing requirements", "не хватает в задач")):
+                return "task_missing_requirements", {"task_key": task_key}
+            if any(token in lowered for token in ("история", "переход", "lifecycle")):
+                return "task_history", {"task_key": task_key}
+            if any(token in lowered for token in ("сколько в статус", "времени в статус", "time in status")):
+                return "task_time_in_status", {"task_key": task_key}
+
+        if any(token in lowered for token in ("старые задачи", "залежал", "aging", "давно не закры")):
+            days = re.search(r"(\d+)\s*(?:дн|дней|дня)", lowered)
+            return "task_aging", {"threshold_days": days.group(1) if days else "7"}
 
         attachment_routes = (
             (("excel", "xlsx", "xls", "эксел"), "task_search_excel", AttachmentType.EXCEL),
@@ -394,35 +294,27 @@ class DeterministicRouter:
 
         if match := self.ASSIGNEE.search(query):
             return "task_search_assignee", {"assignee": match.group(1)}
-
         if match := self.STATUS.search(query):
             return "task_search_status", {"status": match.group(1).strip()}
-
         if match := self.SPRINT_KEY.search(query):
             sprint_id = match.group(0)
             if any(token in lowered for token in ("задач", "scope", "состав")):
                 return "task_search_sprint", {"sprint_id": sprint_id}
             return "sprint_health", {"sprint_id": sprint_id}
-
         if match := self.RELEASE_KEY.search(query):
             release_id = match.group(0)
             if any(token in lowered for token in ("задач", "scope", "состав")):
                 return "task_search_release", {"release_id": release_id}
             return "release_health", {"release_id": release_id}
-
         if match := self.PRODUCT.search(query):
             return "task_search_product", {"product": match.group(1)}
-
-        if match := self.TASK_KEY.search(query):
-            return "task_lookup", {"task_key": match.group(0)}
-
+        if task_match:
+            return "task_lookup", {"task_key": task_match.group(0)}
         if any(token in lowered for token in ("обзор", "сводк", "что происходит", "риски")):
             return "portfolio_overview", {}
-
         for prefix in ("найди ", "поиск ", "search ", "найти "):
             if lowered.startswith(prefix):
                 return "task_search", {"phrase": query[len(prefix):].strip().strip('"“”')}
-
         return "task_search", {"phrase": query.strip()}
 
 
@@ -434,35 +326,34 @@ class HarnessRuntime:
         self.router = DeterministicRouter()
         self.capabilities = CapabilityRegistry()
         self.skills = SkillRegistry()
-        capabilities = PortfolioCapabilities(adapter)
+        discovery = PortfolioCapabilities(adapter)
+        intelligence = TaskIntelligenceCapabilities(adapter)
 
         specs = [
-            ("task-lookup", "task_lookup", "task.lookup", capabilities.task_lookup),
-            ("task-search", "task_search", "task.search", capabilities.task_search),
-            ("task-search-attachments", "task_search_attachments", "task.search_attachments", capabilities.task_search_attachments),
-            ("task-search-excel", "task_search_excel", "task.search_attachment_excel", capabilities.task_search_attachments),
-            ("task-search-pdf", "task_search_pdf", "task.search_attachment_pdf", capabilities.task_search_attachments),
-            ("task-search-msg", "task_search_msg", "task.search_attachment_msg", capabilities.task_search_attachments),
-            ("task-search-assignee", "task_search_assignee", "task.search_assignee", capabilities.task_search_assignee),
-            ("task-search-status", "task_search_status", "task.search_status", capabilities.task_search_status),
-            ("task-search-sprint", "task_search_sprint", "task.search_sprint", capabilities.task_search_sprint),
-            ("task-search-release", "task_search_release", "task.search_release", capabilities.task_search_release),
-            ("task-search-product", "task_search_product", "task.search_product", capabilities.task_search_product),
-            ("sprint-health", "sprint_health", "sprint.health", capabilities.sprint_health),
-            ("release-health", "release_health", "release.health", capabilities.release_health),
-            ("portfolio-overview", "portfolio_overview", "portfolio.overview", capabilities.overview),
+            ("task-lookup", "task_lookup", "task.lookup", discovery.task_lookup),
+            ("task-search", "task_search", "task.search", discovery.task_search),
+            ("task-search-attachments", "task_search_attachments", "task.search_attachments", discovery.task_search_attachments),
+            ("task-search-excel", "task_search_excel", "task.search_attachment_excel", discovery.task_search_attachments),
+            ("task-search-pdf", "task_search_pdf", "task.search_attachment_pdf", discovery.task_search_attachments),
+            ("task-search-msg", "task_search_msg", "task.search_attachment_msg", discovery.task_search_attachments),
+            ("task-search-assignee", "task_search_assignee", "task.search_assignee", discovery.task_search_assignee),
+            ("task-search-status", "task_search_status", "task.search_status", discovery.task_search_status),
+            ("task-search-sprint", "task_search_sprint", "task.search_sprint", discovery.task_search_sprint),
+            ("task-search-release", "task_search_release", "task.search_release", discovery.task_search_release),
+            ("task-search-product", "task_search_product", "task.search_product", discovery.task_search_product),
+            ("task-summary", "task_summary", "task.summary", intelligence.summary),
+            ("task-quality", "task_quality", "task.quality", intelligence.quality_report),
+            ("task-missing-requirements", "task_missing_requirements", "task.missing_requirements", intelligence.missing_requirements),
+            ("task-history", "task_history", "task.history", intelligence.history),
+            ("task-time-in-status", "task_time_in_status", "task.time_in_status", intelligence.time_in_status),
+            ("task-aging", "task_aging", "task.aging", intelligence.aging),
+            ("sprint-health", "sprint_health", "sprint.health", discovery.sprint_health),
+            ("release-health", "release_health", "release.health", discovery.release_health),
+            ("portfolio-overview", "portfolio_overview", "portfolio.overview", discovery.overview),
         ]
         for skill_id, intent, capability_id, handler in specs:
             self.capabilities.register(capability_id, handler)
-            self.skills.register(
-                ExecutableSkill(
-                    skill_id,
-                    "1.0.0",
-                    intent,
-                    capability_id,
-                    f"Executable {intent} skill",
-                )
-            )
+            self.skills.register(ExecutableSkill(skill_id, "1.0.0", intent, capability_id, f"Executable {intent} skill"))
 
     async def process(self, request: HarnessRequest) -> HarnessResponse:
         started = time.perf_counter()
@@ -470,15 +361,7 @@ class HarnessRuntime:
         session_id = request.session_id or str(uuid.uuid4())
         query = request.query.strip()
         if not query:
-            return HarnessResponse(
-                status=ResponseStatus.FAILED,
-                trace_id=trace_id,
-                session_id=session_id,
-                answer="Пустой запрос.",
-                warnings=["query_empty"],
-                latency_ms=(time.perf_counter() - started) * 1000,
-            )
-
+            return HarnessResponse(status=ResponseStatus.FAILED, trace_id=trace_id, session_id=session_id, answer="Пустой запрос.", warnings=["query_empty"], latency_ms=(time.perf_counter() - started) * 1000)
         try:
             intent, arguments = self.router.route(query)
             skill = self.skills.resolve(intent)
@@ -497,16 +380,7 @@ class HarnessRuntime:
                 latency_ms=(time.perf_counter() - started) * 1000,
             )
         except Exception:
-            # Public error contract stays safe. Detailed exception recording will
-            # be attached to the persistent trace store in the observability wave.
-            return HarnessResponse(
-                status=ResponseStatus.FAILED,
-                trace_id=trace_id,
-                session_id=session_id,
-                answer="Не удалось выполнить запрос.",
-                warnings=["runtime_failure"],
-                latency_ms=(time.perf_counter() - started) * 1000,
-            )
+            return HarnessResponse(status=ResponseStatus.FAILED, trace_id=trace_id, session_id=session_id, answer="Не удалось выполнить запрос.", warnings=["runtime_failure"], latency_ms=(time.perf_counter() - started) * 1000)
 
 
 def build_fake_runtime() -> HarnessRuntime:
