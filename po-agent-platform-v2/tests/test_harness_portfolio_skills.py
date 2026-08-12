@@ -13,7 +13,7 @@ async def test_sprint_health_is_deterministic_and_evidenced():
 
 @pytest.mark.asyncio
 async def test_release_health_uses_release_tasks():
-    r=await build_fake_runtime().process(HarnessRequest(query="Риски WMB-2024-Q3"))
+    r=await build_fake_runtime().process(HarnessRequest(query="Покажи состояние WMB-2024-Q3"))
     assert r.skill_id=="release-health"
     assert r.data["total"]==3
     assert r.data["completed"]==1
