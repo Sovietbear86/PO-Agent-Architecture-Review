@@ -38,6 +38,7 @@ jobs:
           tests/test_harness_release_intelligence.py
           tests/test_harness_operational_history.py
           tests/test_harness_session_context.py
+          tests/test_harness_feedback.py
           tests/test_skill_catalog.py
 
   backend-full-regression:
