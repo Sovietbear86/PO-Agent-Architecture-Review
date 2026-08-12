@@ -5,6 +5,8 @@ import { agent, HarnessQueryResponse } from '../api/client'
 type WorkspaceContext = { openAgent(): void }
 type TaskRow = Record<string, unknown>
 type LocalTask = { id: string; title: string; description: string; owner: string; createdAt: string }
+type FilterMode = 'text' | 'assignee' | 'status' | 'sprint' | 'release'
+type IntelligenceMode = 'summary' | 'quality' | 'history' | 'missing'
 
 function useHarness(query: string) {
   const [result, setResult] = useState<HarnessQueryResponse | null>(null)
@@ -62,18 +64,50 @@ function LocalTaskDrawer({ open, onClose, onCreate }: { open: boolean; onClose()
   </>
 }
 
+function intelligenceQuery(key: string, mode: IntelligenceMode) {
+  if (mode === 'summary') return `Кратко что нужно сделать по задаче ${key}`
+  if (mode === 'quality') return `Оцени постановку ${key}`
+  if (mode === 'history') return `Покажи историю ${key}`
+  return `Чего не хватает в задаче ${key}`
+}
+
 function TaskDetailsDrawer({ task, onClose }: { task: TaskRow | null; onClose(): void }) {
+  const [mode, setMode] = useState<IntelligenceMode>('summary')
+  const key = String(task?.key ?? '')
+  const result = useHarness(key ? intelligenceQuery(key, mode) : 'Найди __none__')
+  useEffect(() => { setMode('summary') }, [key])
   return <>
     <div className={`drawer-scrim ${task ? 'visible' : ''}`} onClick={onClose} />
     <aside className={`task-drawer ${task ? 'task-drawer-open' : ''}`} aria-hidden={!task}>
-      <div className="agent-header"><div><div className="agent-kicker">TASK DETAILS</div><strong>{String(task?.key ?? '')}</strong></div><button className="icon-button" onClick={onClose}>×</button></div>
+      <div className="agent-header"><div><div className="agent-kicker">TASK DETAILS</div><strong>{key}</strong></div><button className="icon-button" onClick={onClose}>×</button></div>
       {task && <div className="task-details">
         <h2>{String(task.title ?? '')}</h2>
         <div className="details-grid"><span>Статус</span><b>{String(task.status ?? '—')}</b><span>Исполнитель</span><b>{String(task.assignee ?? 'Не назначен')}</b><span>Приоритет</span><b>{String(task.priority ?? '—')}</b><span>Спринт</span><b>{String(task.sprint_id ?? '—')}</b><span>Релиз</span><b>{String(task.release_id ?? '—')}</b></div>
         <div className="description-box">{String(task.description ?? 'Описание отсутствует')}</div>
+        <div className="intelligence-tabs">
+          <button className={mode === 'summary' ? 'active' : ''} onClick={() => setMode('summary')}>Резюме</button>
+          <button className={mode === 'quality' ? 'active' : ''} onClick={() => setMode('quality')}>Качество</button>
+          <button className={mode === 'missing' ? 'active' : ''} onClick={() => setMode('missing')}>Что не хватает</button>
+          <button className={mode === 'history' ? 'active' : ''} onClick={() => setMode('history')}>История</button>
+        </div>
+        <div className="intelligence-box">
+          <div className="intelligence-title"><strong>Task Intelligence</strong>{result?.skill && <span>{result.skill.id}@{result.skill.version}</span>}</div>
+          <p>{result?.answer ?? 'Загрузка…'}</p>
+          {result?.warnings.length ? <div className="warning">{result.warnings.join(' · ')}</div> : null}
+          {result?.data ? <pre className="json-box compact-json">{JSON.stringify(result.data, null, 2)}</pre> : null}
+        </div>
       </div>}
     </aside>
   </>
+}
+
+function taskQuery(mode: FilterMode, value: string) {
+  const v = value.trim()
+  if (mode === 'assignee') return `Покажи задачи исполнитель ${v}`
+  if (mode === 'status') return `Покажи задачи в статусе ${v}`
+  if (mode === 'sprint') return `Покажи задачи спринта ${v}`
+  if (mode === 'release') return `Покажи задачи релиза ${v}`
+  return `Найди ${v || 'login'}`
 }
 
 export function OverviewPage() {
@@ -88,9 +122,10 @@ export function OverviewPage() {
 }
 
 export function TasksPage() {
+  const [mode, setMode] = useState<FilterMode>('text')
   const [search, setSearch] = useState('login')
-  const [submitted, setSubmitted] = useState('login')
-  const result = useHarness(`Найди ${submitted}`)
+  const [submitted, setSubmitted] = useState({ mode: 'text' as FilterMode, value: 'login' })
+  const result = useHarness(taskQuery(submitted.mode, submitted.value))
   const data = (result?.data ?? {}) as { tasks?: TaskRow[] }
   const tasks = data.tasks ?? []
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -100,8 +135,15 @@ export function TasksPage() {
   })
   useEffect(() => { localStorage.setItem('po-local-tasks', JSON.stringify(localTasks)) }, [localTasks])
   const allCount = useMemo(() => tasks.length + localTasks.length, [tasks.length, localTasks.length])
+  const placeholder = mode === 'text' ? 'Текст или ключ задачи' : mode === 'assignee' ? 'Ivanov.I.I' : mode === 'status' ? 'In Progress' : mode === 'sprint' ? 'WMB-SPRNT-1' : 'WMB-2024-Q3'
   return <section className="page"><PageHeader title="Задачи" subtitle="Поиск, статус, постановка, вложения и task intelligence" />
-    <form className="panel toolbar" onSubmit={e => { e.preventDefault(); if (search.trim()) setSubmitted(search.trim()) }}><input value={search} onChange={e => setSearch(e.target.value)} placeholder="Поиск задач" /><button type="submit">Найти</button><button type="button">Фильтры</button><button type="button" onClick={() => setDrawerOpen(true)}>+ Локальная задача</button></form>
+    <form className="panel filter-toolbar" onSubmit={e => { e.preventDefault(); if (search.trim()) setSubmitted({ mode, value: search.trim() }) }}>
+      <div className="filter-modes">
+        {([['text','Текст'],['assignee','Исполнитель'],['status','Статус'],['sprint','Спринт'],['release','Релиз']] as Array<[FilterMode,string]>).map(([id,label]) => <button type="button" key={id} className={mode === id ? 'active' : ''} onClick={() => { setMode(id); setSearch('') }}>{label}</button>)}
+      </div>
+      <div className="filter-input-row"><input value={search} onChange={e => setSearch(e.target.value)} placeholder={placeholder} /><button type="submit">Найти</button><button type="button" onClick={() => setDrawerOpen(true)}>+ Локальная задача</button></div>
+      <div className="filter-status"><span>Skill: {result?.skill?.id ?? '—'}</span><span>Evidence: {result?.evidence.length ?? 0}</span><span>Trace: {result?.trace_id?.slice(0,8) ?? '—'}</span></div>
+    </form>
     {localTasks.length > 0 && <div className="panel local-panel"><div className="panel-title"><strong>Локальные задачи</strong><span>{localTasks.length}</span></div>{localTasks.map(t => <div className="task-row" key={t.id}><div className="task-key">{t.id}</div><div className="task-main"><b>{t.title}</b><span>{t.owner || 'Без ответственного'}</span></div><div className="status-pill">LOCAL</div></div>)}</div>}
     <div className="panel"><div className="panel-title"><strong>Задачи</strong><span>{allCount}</span></div>{tasks.length ? <div className="task-card-grid">{tasks.map(t => <TaskCard key={String(t.key)} task={t} onOpen={setSelectedTask} />)}</div> : <EmptyData text="Нет данных по задачам" />}</div>
     <LocalTaskDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} onCreate={task => setLocalTasks(items => [task, ...items])} />
