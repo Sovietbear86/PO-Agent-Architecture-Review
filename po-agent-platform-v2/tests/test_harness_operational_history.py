@@ -36,7 +36,7 @@ async def test_failed_execution_is_recorded_with_error_category():
 
 
 @pytest.mark.asyncio
-async def test_session_history_is_ordered_and_not_used_as_implicit_prompt_context():
+async def test_history_stays_audit_log_while_session_memory_resolves_follow_up():
     runtime = build_fake_runtime()
     first = await runtime.process(HarnessRequest(query="Покажи WMB-101", session_id="same-session"))
     second = await runtime.process(HarnessRequest(query="Найди login", session_id="same-session"))
@@ -44,11 +44,14 @@ async def test_session_history_is_ordered_and_not_used_as_implicit_prompt_contex
     records = runtime.history.by_session("same-session")
     assert [record.trace_id for record in records] == [first.trace_id, second.trace_id]
 
-    # Operational history is audit/eval material, not automatic conversational memory.
+    # Session memory may resolve a bounded entity reference, but operational
+    # history must still retain exactly what the user wrote.
     third = await runtime.process(HarnessRequest(query="что с ней?", session_id="same-session"))
-    assert third.skill_id == "task-search"
-    assert third.data["filters"]["phrase"] == "что с ней?"
-    assert third.data["count"] == 0
+    assert third.skill_id == "task-lookup"
+    assert third.data["task"]["key"] == "WMB-101"
+    third_record = runtime.history.get(third.trace_id)
+    assert third_record is not None
+    assert third_record.request == "что с ней?"
 
 
 def test_history_store_is_append_only_for_trace_ids():
