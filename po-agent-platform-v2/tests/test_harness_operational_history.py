@@ -47,7 +47,8 @@ async def test_session_history_is_ordered_and_not_used_as_implicit_prompt_contex
     # Operational history is audit/eval material, not automatic conversational memory.
     third = await runtime.process(HarnessRequest(query="что с ней?", session_id="same-session"))
     assert third.skill_id == "task-search"
-    assert third.data["query"] == "что с ней?"
+    assert third.data["filters"]["phrase"] == "что с ней?"
+    assert third.data["count"] == 0
 
 
 def test_history_store_is_append_only_for_trace_ids():
