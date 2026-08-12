@@ -1,8 +1,7 @@
 """Executable harness core for PO Agent Platform.
 
-This package is the recovery runtime. Business capabilities are executed through
-registered, allow-listed skills instead of intent-specific branches in the
-orchestrator.
+The public factory returns an observed runtime: business execution remains in
+HarnessRuntime while operational history is recorded by a decorator.
 """
 
 from .contracts import (
@@ -12,7 +11,15 @@ from .contracts import (
     HarnessResponse,
     ResponseStatus,
 )
-from .runtime import HarnessRuntime, build_fake_runtime
+from .operational_history import ActiveVersions, ExecutionRecord, SQLiteHistoryStore
+from .observed_runtime import ObservedHarnessRuntime
+from .runtime import HarnessRuntime, build_fake_runtime as _build_unobserved_fake_runtime
+
+
+def build_fake_runtime() -> ObservedHarnessRuntime:
+    """Build deterministic FakeAS21 Harness with append-only execution history."""
+    return ObservedHarnessRuntime(_build_unobserved_fake_runtime())
+
 
 __all__ = [
     "CapabilityResult",
@@ -21,5 +28,9 @@ __all__ = [
     "HarnessResponse",
     "ResponseStatus",
     "HarnessRuntime",
+    "ObservedHarnessRuntime",
+    "ActiveVersions",
+    "ExecutionRecord",
+    "SQLiteHistoryStore",
     "build_fake_runtime",
 ]
