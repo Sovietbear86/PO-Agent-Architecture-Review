@@ -240,6 +240,8 @@ class DeterministicRouter:
             return "task_search_status", {"status": match.group(1).strip()}
         if match := self.SPRINT_KEY.search(query):
             sprint_id = match.group(0)
+            if any(token in lowered for token in ("покажи задачи", "задачи спринта", "задач в спринте")):
+                return "task_search_sprint", {"sprint_id": sprint_id}
             sprint_routes = (
                 (("velocity", "скорост", "велосит"), "sprint_velocity"),
                 (("throughput", "пропуск", "завершен", "завершён"), "sprint_throughput"),
@@ -248,7 +250,7 @@ class DeterministicRouter:
                 (("lead time", "lead-time", "лид тайм"), "sprint_lead_time"),
                 (("predictability", "предсказуем"), "sprint_predictability"),
                 (("risk queue", "очередь риск", "риски спринта", "риск"), "sprint_risk_queue"),
-                (("scope", "состав", "задач"), "sprint_scope"),
+                (("scope", "состав"), "sprint_scope"),
             )
             for tokens, intent in sprint_routes:
                 if any(token in lowered for token in tokens):
