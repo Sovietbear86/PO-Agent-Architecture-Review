@@ -1,0 +1,102 @@
+"""Canonical PO Agent skill catalog for the harness recovery.
+
+This module is intentionally machine-readable so implementation coverage can be
+measured. A catalog entry is not considered implemented merely because it exists
+here: `status="implemented"` is reserved for skills that have an executable
+handler, source-grounded evidence, and acceptance coverage.
+"""
+from __future__ import annotations
+from dataclasses import dataclass
+from typing import Literal
+
+SkillStatus = Literal["implemented", "planned", "blocked"]
+
+@dataclass(frozen=True)
+class SkillCatalogEntry:
+    id: str
+    domain: str
+    capability_id: str
+    description: str
+    status: SkillStatus = "planned"
+    requires_llm: bool = False
+    requires_history: bool = False
+    requires_write: bool = False
+
+SKILL_CATALOG: tuple[SkillCatalogEntry, ...] = (
+    # Task discovery & retrieval (10)
+    SkillCatalogEntry("task-lookup", "tasks", "task.lookup", "Find an exact task by key.", "implemented"),
+    SkillCatalogEntry("task-search", "tasks", "task.search", "Search tasks by phrase/text.", "implemented"),
+    SkillCatalogEntry("task-search-attachments", "tasks", "task.search_attachments", "Find tasks containing attachments."),
+    SkillCatalogEntry("task-search-excel", "tasks", "task.search_attachment_excel", "Find tasks with XLS/XLSX attachments."),
+    SkillCatalogEntry("task-search-pdf", "tasks", "task.search_attachment_pdf", "Find tasks with PDF attachments."),
+    SkillCatalogEntry("task-search-msg", "tasks", "task.search_attachment_msg", "Find tasks with MSG attachments."),
+    SkillCatalogEntry("task-search-assignee", "tasks", "task.search_assignee", "Find tasks assigned to a team member."),
+    SkillCatalogEntry("task-search-status", "tasks", "task.search_status", "Find tasks by normalized workflow status."),
+    SkillCatalogEntry("task-search-sprint", "tasks", "task.search_sprint", "Find tasks in a sprint."),
+    SkillCatalogEntry("task-search-release", "tasks", "task.search_release", "Find tasks linked to a release."),
+
+    # Task intelligence (10)
+    SkillCatalogEntry("task-summary", "tasks", "task.summary", "Summarize what must be done in a task.", requires_llm=True),
+    SkillCatalogEntry("task-quality", "tasks", "task.quality", "Evaluate task statement quality deterministically."),
+    SkillCatalogEntry("task-missing-requirements", "tasks", "task.missing_requirements", "Identify missing task-definition elements."),
+    SkillCatalogEntry("task-acceptance-analysis", "tasks", "task.acceptance_analysis", "Analyze acceptance criteria and testability.", requires_llm=True),
+    SkillCatalogEntry("task-dependency-analysis", "tasks", "task.dependencies", "Analyze task links and dependencies."),
+    SkillCatalogEntry("task-history", "tasks", "task.history", "Explain task lifecycle and status transitions.", requires_history=True),
+    SkillCatalogEntry("task-time-in-status", "tasks", "task.time_in_status", "Calculate time spent in workflow states.", requires_history=True),
+    SkillCatalogEntry("task-aging", "tasks", "task.aging", "Identify aging active tasks."),
+    SkillCatalogEntry("task-blocker-analysis", "tasks", "task.blockers", "Explain blockers and blocked-task evidence.", requires_llm=True),
+    SkillCatalogEntry("task-similar", "tasks", "task.similar", "Find similar/duplicate tasks.", requires_llm=True),
+
+    # Sprint intelligence & flow metrics (12)
+    SkillCatalogEntry("sprint-health", "sprints", "sprint.health", "Summarize deterministic sprint health.", "implemented"),
+    SkillCatalogEntry("sprint-current", "sprints", "sprint.current", "Resolve current sprint for a product."),
+    SkillCatalogEntry("sprint-scope", "sprints", "sprint.scope", "Show current sprint scope."),
+    SkillCatalogEntry("sprint-velocity", "sprints", "sprint.velocity", "Calculate velocity using explicit effort units."),
+    SkillCatalogEntry("sprint-throughput", "sprints", "sprint.throughput", "Calculate completed-task throughput."),
+    SkillCatalogEntry("sprint-wip", "sprints", "sprint.wip", "Calculate work in progress."),
+    SkillCatalogEntry("sprint-cycle-time", "sprints", "sprint.cycle_time", "Calculate cycle-time metrics.", requires_history=True),
+    SkillCatalogEntry("sprint-lead-time", "sprints", "sprint.lead_time", "Calculate lead-time metrics.", requires_history=True),
+    SkillCatalogEntry("sprint-carryover", "sprints", "sprint.carryover", "Measure carryover from committed scope.", requires_history=True),
+    SkillCatalogEntry("sprint-scope-change", "sprints", "sprint.scope_change", "Measure scope change after sprint start.", requires_history=True),
+    SkillCatalogEntry("sprint-predictability", "sprints", "sprint.predictability", "Calculate sprint predictability."),
+    SkillCatalogEntry("sprint-risk-queue", "sprints", "sprint.risk_queue", "Identify sprint tasks requiring PO attention."),
+
+    # Team intelligence (8)
+    SkillCatalogEntry("team-workload", "team", "team.workload", "Analyze workload distribution."),
+    SkillCatalogEntry("team-wip", "team", "team.wip", "Show WIP by team member."),
+    SkillCatalogEntry("team-blocked", "team", "team.blocked", "Show blocked work by team member."),
+    SkillCatalogEntry("team-capacity", "team", "team.capacity", "Compare workload with configured capacity."),
+    SkillCatalogEntry("team-competency-match", "team", "team.competency_match", "Match task requirements to declared competencies.", requires_llm=True),
+    SkillCatalogEntry("team-assignee-recommendation", "team", "team.assignee_recommendation", "Recommend assignee using competencies and load.", requires_llm=True),
+    SkillCatalogEntry("team-bottlenecks", "team", "team.bottlenecks", "Detect concentration/bottleneck patterns."),
+    SkillCatalogEntry("team-distribution", "team", "team.distribution", "Explain task distribution across competencies."),
+
+    # Release & portfolio intelligence (7)
+    SkillCatalogEntry("release-health", "releases", "release.health", "Summarize release readiness and risks.", "implemented"),
+    SkillCatalogEntry("release-scope", "releases", "release.scope", "Show release task scope."),
+    SkillCatalogEntry("release-progress", "releases", "release.progress", "Calculate release completion."),
+    SkillCatalogEntry("release-blockers", "releases", "release.blockers", "Identify release blockers."),
+    SkillCatalogEntry("release-dependencies", "releases", "release.dependencies", "Analyze release dependencies."),
+    SkillCatalogEntry("release-risk-queue", "releases", "release.risk_queue", "Prioritize release risks for PO attention."),
+    SkillCatalogEntry("portfolio-overview", "portfolio", "portfolio.overview", "Provide portfolio overview and attention queue.", "implemented"),
+
+    # Product-owner assistance & controlled actions (5)
+    SkillCatalogEntry("po-attention-queue", "po", "po.attention_queue", "Rank items requiring PO intervention."),
+    SkillCatalogEntry("po-daily-brief", "po", "po.daily_brief", "Generate a grounded daily PO brief.", requires_llm=True),
+    SkillCatalogEntry("po-status-report", "po", "po.status_report", "Generate product/sprint/release status report.", requires_llm=True),
+    SkillCatalogEntry("po-reminder-draft", "po", "po.reminder_draft", "Draft a contextual reminder/action message.", requires_llm=True),
+    SkillCatalogEntry("po-local-task-draft", "po", "po.local_task_draft", "Prepare a local task draft; write requires explicit approval.", requires_llm=True, requires_write=True),
+)
+
+
+def catalog_by_id() -> dict[str, SkillCatalogEntry]:
+    return {entry.id: entry for entry in SKILL_CATALOG}
+
+
+def catalog_summary() -> dict[str, object]:
+    by_domain: dict[str, int] = {}
+    statuses: dict[str, int] = {"implemented": 0, "planned": 0, "blocked": 0}
+    for entry in SKILL_CATALOG:
+        by_domain[entry.domain] = by_domain.get(entry.domain, 0) + 1
+        statuses[entry.status] += 1
+    return {"total": len(SKILL_CATALOG), "by_domain": by_domain, "statuses": statuses}
