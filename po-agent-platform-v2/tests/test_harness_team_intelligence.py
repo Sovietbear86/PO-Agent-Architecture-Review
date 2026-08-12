@@ -1,5 +1,5 @@
 import pytest
-from po_agent.harness.contracts import HarnessRequest
+from po_agent.harness.contracts import HarnessRequest, ResponseStatus
 from po_agent.harness.runtime import build_fake_runtime
 
 @pytest.mark.asyncio
@@ -13,7 +13,7 @@ from po_agent.harness.runtime import build_fake_runtime
 ])
 async def test_team_routes_are_executable(query, skill):
     response = await build_fake_runtime().process(HarnessRequest(query=query))
-    assert response.status.value == "completed"
+    assert response.status is ResponseStatus.COMPLETED
     assert response.skill_id == skill
     assert response.evidence
 
