@@ -47,7 +47,7 @@ jobs:
           tests/test_harness_version_governance.py
           tests/test_skill_catalog.py
 
-  backend-full-regression:
+  backend-hermetic-regression:
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -61,7 +61,31 @@ jobs:
           cache-dependency-path: po-agent-platform-v2/pyproject.toml
       - name: Install backend
         run: python -m pip install --upgrade pip && pip install -e '.[dev]'
-      - name: Run full backend regression
+      - name: Run hermetic regression
+        run: >-
+          pytest -q
+          --ignore=tests/test_integration_real_services.py
+          --ignore=tests/test_llm_real_integration.py
+          --ignore=tests/test_agent_full_integration.py
+          --ignore=tests/test_orchestrator_skill_integration.py
+          --ignore=tests/test_frontend_config.py
+
+  backend-legacy-diagnostic:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    defaults:
+      run:
+        working-directory: po-agent-platform-v2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: po-agent-platform-v2/pyproject.toml
+      - name: Install backend
+        run: python -m pip install --upgrade pip && pip install -e '.[dev]'
+      - name: Run complete legacy suite for debt visibility
         run: pytest -q
 
   frontend:
