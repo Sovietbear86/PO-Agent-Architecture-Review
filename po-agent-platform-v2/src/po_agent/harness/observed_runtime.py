@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from .contracts import HarnessRequest, HarnessResponse, ResponseStatus
+from .eval_store import EvalSeed, EvalSeedStore, SQLiteEvalSeedStore, seed_from_feedback
 from .feedback_store import FeedbackRecord, FeedbackStore, SQLiteFeedbackStore, make_feedback
 from .operational_history import ActiveVersions, HistoryStore, SQLiteHistoryStore, record_from_response
 from .runtime import HarnessRuntime
@@ -9,7 +10,7 @@ from .session_context import SessionContextStore
 
 
 class ObservedHarnessRuntime:
-    """Decorator adding short-lived context, history and explicit user feedback."""
+    """Decorator adding short-lived context, history, feedback and eval seeds."""
 
     def __init__(
         self,
@@ -18,12 +19,14 @@ class ObservedHarnessRuntime:
         versions: ActiveVersions | None = None,
         sessions: SessionContextStore | None = None,
         feedback: FeedbackStore | None = None,
+        evals: EvalSeedStore | None = None,
     ) -> None:
         self.inner = runtime
         self.history = history or SQLiteHistoryStore()
         self.versions = versions or ActiveVersions()
         self.sessions = sessions or SessionContextStore()
         self.feedback = feedback or SQLiteFeedbackStore()
+        self.evals = evals or SQLiteEvalSeedStore()
 
         # Preserve introspection used by acceptance tests and future diagnostics.
         self.adapter = runtime.adapter
@@ -92,3 +95,15 @@ class ObservedHarnessRuntime:
         )
         self.feedback.append(record)
         return record
+
+    def create_eval_seed(self, trace_id: str, feedback_id: str) -> EvalSeed:
+        """Explicitly curate one trace+feedback pair into an offline eval candidate."""
+        trace = self.history.get(trace_id)
+        if trace is None:
+            raise ValueError(f"unknown trace_id: {trace_id}")
+        matches = [item for item in self.feedback.by_trace(trace_id) if item.feedback_id == feedback_id]
+        if not matches:
+            raise ValueError(f"unknown feedback_id for trace: {feedback_id}")
+        seed = seed_from_feedback(trace, matches[0])
+        self.evals.append(seed)
+        return seed
