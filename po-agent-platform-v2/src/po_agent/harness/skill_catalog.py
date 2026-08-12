@@ -40,13 +40,13 @@ SKILL_CATALOG: tuple[SkillCatalogEntry, ...] = (
     SkillCatalogEntry("task-summary", "tasks", "task.summary", "Summarize what must be done in a task.", "implemented", requires_llm=True),
     SkillCatalogEntry("task-quality", "tasks", "task.quality", "Evaluate task statement quality deterministically.", "implemented"),
     SkillCatalogEntry("task-missing-requirements", "tasks", "task.missing_requirements", "Identify missing task-definition elements.", "implemented"),
-    SkillCatalogEntry("task-acceptance-analysis", "tasks", "task.acceptance_analysis", "Analyze acceptance criteria and testability.", requires_llm=True),
-    SkillCatalogEntry("task-dependency-analysis", "tasks", "task.dependencies", "Analyze task links and dependencies."),
+    SkillCatalogEntry("task-acceptance-analysis", "tasks", "task.acceptance_analysis", "Analyze acceptance criteria and testability.", "implemented", requires_llm=True),
+    SkillCatalogEntry("task-dependency-analysis", "tasks", "task.dependencies", "Analyze task links and dependencies.", "implemented"),
     SkillCatalogEntry("task-history", "tasks", "task.history", "Explain task lifecycle and status transitions.", "implemented", requires_history=True),
     SkillCatalogEntry("task-time-in-status", "tasks", "task.time_in_status", "Calculate time spent in workflow states.", "implemented", requires_history=True),
     SkillCatalogEntry("task-aging", "tasks", "task.aging", "Identify aging active tasks.", "implemented"),
-    SkillCatalogEntry("task-blocker-analysis", "tasks", "task.blockers", "Explain blockers and blocked-task evidence.", requires_llm=True),
-    SkillCatalogEntry("task-similar", "tasks", "task.similar", "Find similar/duplicate tasks.", requires_llm=True),
+    SkillCatalogEntry("task-blocker-analysis", "tasks", "task.blockers", "Explain blockers and blocked-task evidence.", "implemented", requires_llm=True),
+    SkillCatalogEntry("task-similar", "tasks", "task.similar", "Find similar/duplicate tasks.", "implemented", requires_llm=True),
 
     # Sprint intelligence & flow metrics (12)
     SkillCatalogEntry("sprint-health", "sprints", "sprint.health", "Summarize deterministic sprint health.", "implemented"),
