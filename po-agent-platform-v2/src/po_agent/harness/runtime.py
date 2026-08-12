@@ -41,7 +41,7 @@ class PortfolioCapabilities:
     async def task_lookup(self,args):
         key=args["task_key"].upper(); t=await self.a.get_task(key)
         if not t:return CapabilityResult(answer=f"Задача {key} не найдена.",data={"task_key":key,"found":False},evidence=[Evidence(type="task_lookup",source="as21",entity_id=key,label="lookup",value="not_found")])
-        return CapabilityResult(answer=f"{t.key} — {t.title}. Статус: {t.status.value}. Исполнитель: {t.assignee or 'не назначен'}.",data={"task":self.task(t)},evidence=[Evidence(type="task",source="as21",entity_id=t.key,label="status",value=t.status.value)])
+        return CapabilityResult(answer=f"{t.key} — {t.title}. Статус: {t.status.value}. Исполнитель: {t.assignee or 'не назначен'}.",data={"task":self.task(t)},evidence=[Evidence(type="task",source="as21",entity_id=t.key,label="title",value=t.title),Evidence(type="task",source="as21",entity_id=t.key,label="status",value=t.status.value),Evidence(type="task",source="as21",entity_id=t.key,label="assignee",value=t.assignee)])
     async def task_search(self,args):
         p=args["phrase"].strip(); n=p.casefold(); tasks=await self.a.search_tasks(""); m=[t for t in tasks if n in t.key.casefold() or n in t.title.casefold() or n in (t.description or "").casefold()]; return self.task_list_result(answer=f"Найдено задач: {len(m)}.",tasks=m,filters={"phrase":p})
     async def task_search_assignee(self,args):
