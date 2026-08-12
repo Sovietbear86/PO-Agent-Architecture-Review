@@ -1,0 +1,172 @@
+{
+  "inspection_date": "2026-08-11T19:02:03.523538",
+  "legacy_base": "/Users/kalachanov.v.v/Desktop/\u041c\u043e\u0438 \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u044b/\u041e\u0431\u0443\u0447\u0435\u043d\u0438\u0435/GIGACodeCLI/PO_Agent_Harness",
+  "components": [
+    {
+      "name": "SWTR Client",
+      "path": "/Users/kalachanov.v.v/Desktop/\u041c\u043e\u0438 \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u044b/\u041e\u0431\u0443\u0447\u0435\u043d\u0438\u0435/GIGACodeCLI/PO_Agent_Harness/swtr_client.py",
+      "type": "transport",
+      "responsibility": "SWTR REST API client with personal access token",
+      "reuse": "YES",
+      "target_module": "adapters.swtr",
+      "risks": [
+        "Bearer token authentication may not work (requires PLATFORM_SESSION cookie)",
+        "May need proxy/ SynGX integration",
+        "Transport-only code should be reused, not authentication"
+      ],
+      "notes": "Extract transport logic only. Do not copy authentication."
+    },
+    {
+      "name": "MCP Server - s21_mcp_proxy.py",
+      "path": "/Users/kalachanov.v.v/Desktop/\u041c\u043e\u0438 \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u044b/\u041e\u0431\u0443\u0447\u0435\u043d\u0438\u0435/GIGACodeCLI/PO_Agent_Harness/s21_mcp_proxy.py",
+      "type": "mcp",
+      "responsibility": "stdio-to-http proxy for agent",
+      "reuse": "PARTIAL",
+      "target_module": "orchestration",
+      "risks": [
+        "Old architecture may have overlapping responsibilities",
+        "Stdio-to-HTTP proxy is needed for new design",
+        "Multiple MCP servers caused conflicts in old design"
+      ],
+      "notes": "Reuse transport only. Avoid overlapping server architecture."
+    },
+    {
+      "name": "MCP Server - jira_mcp_server.py",
+      "path": "/Users/kalachanov.v.v/Desktop/\u041c\u043e\u0438 \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u044b/\u041e\u0431\u0443\u0447\u0435\u043d\u0438\u0435/GIGACodeCLI/PO_Agent_Harness/jira_mcp_server.py",
+      "type": "mcp",
+      "responsibility": "Jira MCP server",
+      "reuse": "PARTIAL",
+      "target_module": "adapters.jira",
+      "risks": [
+        "Old architecture may have overlapping responsibilities",
+        "Stdio-to-HTTP proxy is needed for new design",
+        "Multiple MCP servers caused conflicts in old design"
+      ],
+      "notes": "Reuse transport only. Avoid overlapping server architecture."
+    },
+    {
+      "name": "MCP Server - mcp-swtr/mcp_server.py",
+      "path": "/Users/kalachanov.v.v/Desktop/\u041c\u043e\u0438 \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u044b/\u041e\u0431\u0443\u0447\u0435\u043d\u0438\u0435/GIGACodeCLI/PO_Agent_Harness/mcp-swtr/mcp_server.py",
+      "type": "mcp",
+      "responsibility": "SWTR FastMCP server",
+      "reuse": "PARTIAL",
+      "target_module": "adapters.swtr",
+      "risks": [
+        "Old architecture may have overlapping responsibilities",
+        "Stdio-to-HTTP proxy is needed for new design",
+        "Multiple MCP servers caused conflicts in old design"
+      ],
+      "notes": "Reuse transport only. Avoid overlapping server architecture."
+    },
+    {
+      "name": "s21-task-agent",
+      "path": "/Users/kalachanov.v.v/Desktop/\u041c\u043e\u0438 \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u044b/\u041e\u0431\u0443\u0447\u0435\u043d\u0438\u0435/GIGACodeCLI/PO_Agent_Harness/s21-task-agent",
+      "type": "agent",
+      "responsibility": "Task search and analysis agent with skills",
+      "reuse": "PARTIAL",
+      "target_module": "orchestration",
+      "risks": [
+        "Agent has direct LLM calls for all queries",
+        "Skill routing may need redesign",
+        "Many hardcoded employee names"
+      ],
+      "notes": "Reuse skill definitions, not agent implementation."
+    },
+    {
+      "name": "Team Performance Agent",
+      "path": "/Users/kalachanov.v.v/Desktop/\u041c\u043e\u0438 \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u044b/\u041e\u0431\u0443\u0447\u0435\u043d\u0438\u0435/GIGACodeCLI/PO_Agent_Harness/task-api/src/s21_team_performance",
+      "type": "metrics",
+      "responsibility": "Team performance analysis with skills",
+      "reuse": "PARTIAL",
+      "target_module": "metrics",
+      "risks": [
+        "Metrics calculated by LLM instead of deterministic code",
+        "Duplicated repository access code",
+        "Multiple MCP server calls"
+      ],
+      "notes": "Extract deterministic formulas, not LLM logic."
+    },
+    {
+      "name": "Metrics Config - task-api/config/metrics.yaml",
+      "path": "/Users/kalachanov.v.v/Desktop/\u041c\u043e\u0438 \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u044b/\u041e\u0431\u0443\u0447\u0435\u043d\u0438\u0435/GIGACodeCLI/PO_Agent_Harness/task-api/config/metrics.yaml",
+      "type": "config",
+      "responsibility": "metrics configuration",
+      "reuse": "YES",
+      "target_module": "config",
+      "risks": [],
+      "notes": "Configuration can be reused with minor modifications."
+    },
+    {
+      "name": "Metrics Config - task-api/config/thresholds.yaml",
+      "path": "/Users/kalachanov.v.v/Desktop/\u041c\u043e\u0438 \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u044b/\u041e\u0431\u0443\u0447\u0435\u043d\u0438\u0435/GIGACodeCLI/PO_Agent_Harness/task-api/config/thresholds.yaml",
+      "type": "config",
+      "responsibility": "thresholds configuration",
+      "reuse": "YES",
+      "target_module": "config",
+      "risks": [],
+      "notes": "Configuration can be reused with minor modifications."
+    },
+    {
+      "name": "Workflow Config - task-api/config/workflow_statuses.yaml",
+      "path": "/Users/kalachanov.v.v/Desktop/\u041c\u043e\u0438 \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u044b/\u041e\u0431\u0443\u0447\u0435\u043d\u0438\u0435/GIGACodeCLI/PO_Agent_Harness/task-api/config/workflow_statuses.yaml",
+      "type": "config",
+      "responsibility": "workflow status mappings",
+      "reuse": "YES",
+      "target_module": "config",
+      "risks": [],
+      "notes": "Workflow configuration can be directly reused."
+    },
+    {
+      "name": "Workflow Config - task-api/config/status_mapping.yaml",
+      "path": "/Users/kalachanov.v.v/Desktop/\u041c\u043e\u0438 \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u044b/\u041e\u0431\u0443\u0447\u0435\u043d\u0438\u0435/GIGACodeCLI/PO_Agent_Harness/task-api/config/status_mapping.yaml",
+      "type": "config",
+      "responsibility": "status mapping",
+      "reuse": "YES",
+      "target_module": "config",
+      "risks": [],
+      "notes": "Workflow configuration can be directly reused."
+    },
+    {
+      "name": "Team Members Config",
+      "path": "/Users/kalachanov.v.v/Desktop/\u041c\u043e\u0438 \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u044b/\u041e\u0431\u0443\u0447\u0435\u043d\u0438\u0435/GIGACodeCLI/PO_Agent_Harness/task-api/config/team_members.yaml",
+      "type": "config",
+      "responsibility": "Team member definitions with competencies",
+      "reuse": "PARTIAL",
+      "target_module": "config",
+      "risks": [
+        "Contains PII data (emails, full names)",
+        "May need to use placeholder/ example data"
+      ],
+      "notes": "Use as reference. Do not include PII in public repo."
+    },
+    {
+      "name": "API Routes",
+      "path": "/Users/kalachanov.v.v/Desktop/\u041c\u043e\u0438 \u0434\u043e\u043a\u0443\u043c\u0435\u043d\u0442\u044b/\u041e\u0431\u0443\u0447\u0435\u043d\u0438\u0435/GIGACodeCLI/PO_Agent_Harness/task-api/main.py",
+      "type": "api",
+      "responsibility": "FastAPI routes and application entry",
+      "reuse": "PARTIAL",
+      "target_module": "api",
+      "risks": [
+        "Old API may have overlapping endpoints",
+        "Direct agent calls in routes",
+        "No proper error handling pattern"
+      ],
+      "notes": "Reference only. Redesign API for v2."
+    }
+  ],
+  "summary": {
+    "total": 12,
+    "by_type": {
+      "transport": 1,
+      "mcp": 3,
+      "agent": 1,
+      "metrics": 1,
+      "config": 5,
+      "api": 1
+    },
+    "reuse_by_category": {
+      "YES": 5,
+      "PARTIAL": 7
+    }
+  }
+}

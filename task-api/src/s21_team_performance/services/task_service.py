@@ -407,7 +407,12 @@ class TaskService:
     def _is_within_period(self, task: Task, days: int) -> bool:
         """Check if task was completed within the period."""
         cutoff = datetime.now() - timedelta(days=days)
-        return task.updated_at >= cutoff
+        # Handle both offset-naive and offset-aware datetimes
+        task_updated = task.updated_at
+        if task_updated.tzinfo is not None:
+            # Make cutoff offset-aware if task is
+            cutoff = cutoff.replace(tzinfo=task_updated.tzinfo)
+        return task_updated >= cutoff
 
     def _calculate_cycle_time(self, task: Task) -> Optional[float]:
         """Calculate cycle time for a task (time in in_progress)."""
@@ -421,11 +426,18 @@ class TaskService:
         # Simplified: count active tasks per day
         wip_values = []
         cutoff = datetime.now() - timedelta(days=days)
+        now = datetime.now()
 
         for task in tasks:
-            if task.created_at >= cutoff:
+            # Handle timezone awareness
+            task_created = task.created_at
+            if task_created.tzinfo is not None:
+                cutoff = cutoff.replace(tzinfo=task_created.tzinfo)
+                now = now.replace(tzinfo=task_created.tzinfo)
+
+            if task_created >= cutoff:
                 # Add to WIP for duration of task
-                duration = min((datetime.now() - task.created_at).days, days)
+                duration = min((now - task_created).days, days)
                 if duration > 0:
                     wip_values.append(1.0 / duration)
 
