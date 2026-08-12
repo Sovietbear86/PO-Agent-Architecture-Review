@@ -43,37 +43,22 @@ class TaskIntelligenceCapabilities:
             "open_questions": open_questions,
             "source_title": task.title,
         }
-        answer = (
-            f"{task.key}: {task.title}. "
-            f"По доступным данным требуется: {structured['what_to_do']}"
-        )
-        return CapabilityResult(
-            answer=answer,
-            data=structured,
-            evidence=self._core_evidence(task),
-            warnings=["llm_unavailable_deterministic_summary"],
-        )
+        answer = f"{task.key}: {task.title}. По доступным данным требуется: {structured['what_to_do']}"
+        return CapabilityResult(answer=answer, data=structured, evidence=self._core_evidence(task), warnings=["llm_unavailable_deterministic_summary"])
 
     async def quality_report(self, args: dict[str, str]) -> CapabilityResult:
         task = await self._require_task(args["task_key"])
         if task is None:
             return self._not_found(args["task_key"])
         report = self.quality.generate_quality_report(task)
+        analysis = report["deterministic_analysis"]
+        data = {**analysis, "task_key": task.key, "task_title": task.title, "analysis_timestamp": report["analysis_timestamp"], "summary": report["summary"]}
         return CapabilityResult(
-            answer=(
-                f"Качество постановки {task.key}: {report['score']}/100 "
-                f"({report['quality_level']}). Найдено замечаний: {len(report['issues'])}."
-            ),
-            data=report,
+            answer=f"Качество постановки {task.key}: {analysis['score']}/100 ({analysis['quality_level']}). Найдено замечаний: {len(analysis['issues'])}.",
+            data=data,
             evidence=self._core_evidence(task) + [
-                Evidence(
-                    type="quality_rule",
-                    source="deterministic",
-                    entity_id=task.key,
-                    label=rule["id"],
-                    value={"passed": rule["passed"], "penalty": rule["penalty"]},
-                )
-                for rule in report["rules"]
+                Evidence(type="quality_rule", source="deterministic", entity_id=task.key, label=rule["id"], value={"passed": rule["passed"], "penalty": rule["penalty"]})
+                for rule in analysis["rules"]
             ],
         )
 
@@ -82,19 +67,10 @@ class TaskIntelligenceCapabilities:
         if task is None:
             return self._not_found(args["task_key"])
         report = self.quality.generate_quality_report(task)
+        analysis = report["deterministic_analysis"]
         return CapabilityResult(
-            answer=(
-                f"Для {task.key} отсутствуют/недостаточно определены элементы: "
-                + (", ".join(report["missing_elements"]) if report["missing_elements"] else "нет критичных пробелов")
-                + "."
-            ),
-            data={
-                "task_key": task.key,
-                "missing_elements": report["missing_elements"],
-                "issues": report["issues"],
-                "recommendations": report["recommendations"],
-                "quality_score": report["score"],
-            },
+            answer=f"Для {task.key} отсутствуют/недостаточно определены элементы: " + (", ".join(analysis["missing_elements"]) if analysis["missing_elements"] else "нет критичных пробелов") + ".",
+            data={"task_key": task.key, "missing_elements": analysis["missing_elements"], "issues": analysis["issues"], "recommendations": analysis["recommendations"], "quality_score": analysis["score"]},
             evidence=self._core_evidence(task),
         )
 
@@ -104,28 +80,11 @@ class TaskIntelligenceCapabilities:
         if task is None:
             return self._not_found(key)
         transitions = await self.adapter.get_task_history(key)
-        timeline = [
-            {
-                "from": transition.from_status.value,
-                "to": transition.to_status.value,
-                "timestamp": transition.timestamp.isoformat(),
-                "author": transition.author,
-            }
-            for transition in transitions
-        ]
+        timeline = [{"from": transition.from_status.value, "to": transition.to_status.value, "timestamp": transition.timestamp.isoformat(), "author": transition.author} for transition in transitions]
         return CapabilityResult(
             answer=f"У {key} найдено переходов по статусам: {len(timeline)}.",
             data={"task_key": key, "current_status": task.status.value, "timeline": timeline},
-            evidence=[
-                Evidence(
-                    type="status_transition",
-                    source="as21",
-                    entity_id=key,
-                    label=f"{item['from']} → {item['to']}",
-                    value=item["timestamp"],
-                )
-                for item in timeline
-            ],
+            evidence=[Evidence(type="status_transition", source="as21", entity_id=key, label=f"{item['from']} → {item['to']}", value=item["timestamp"]) for item in timeline],
         )
 
     async def time_in_status(self, args: dict[str, str]) -> CapabilityResult:
@@ -140,63 +99,23 @@ class TaskIntelligenceCapabilities:
             ordered = sorted(transitions, key=lambda item: item.timestamp)
             for index, transition in enumerate(ordered):
                 end = ordered[index + 1].timestamp if index + 1 < len(ordered) else now
-                durations.append(
-                    {
-                        "status": transition.to_status.value,
-                        "hours": round(max(0.0, (end - transition.timestamp).total_seconds() / 3600), 2),
-                        "from": transition.timestamp.isoformat(),
-                        "to": end.isoformat(),
-                    }
-                )
+                durations.append({"status": transition.to_status.value, "hours": round(max(0.0, (end - transition.timestamp).total_seconds() / 3600), 2), "from": transition.timestamp.isoformat(), "to": end.isoformat()})
         return CapabilityResult(
             answer=f"{key}: текущий статус {task.status.value}, рассчитано интервалов: {len(durations)}.",
             data={"task_key": key, "current_status": task.status.value, "durations": durations},
-            evidence=[
-                Evidence(
-                    type="status_duration",
-                    source="as21_history",
-                    entity_id=key,
-                    label=item["status"],
-                    value=item["hours"],
-                )
-                for item in durations
-            ],
+            evidence=[Evidence(type="status_duration", source="as21_history", entity_id=key, label=item["status"], value=item["hours"]) for item in durations],
         )
 
     async def aging(self, args: dict[str, str]) -> CapabilityResult:
         threshold_days = int(args.get("threshold_days", "7"))
         tasks = await self.adapter.search_tasks("")
-        active = [
-            task
-            for task in tasks
-            if not task.is_completed
-            and task.status != TaskStatus.CANCELLED
-            and task.age_days >= threshold_days
-        ]
+        active = [task for task in tasks if not task.is_completed and task.status != TaskStatus.CANCELLED and task.age_days >= threshold_days]
         active.sort(key=lambda task: task.age_days, reverse=True)
-        data = [
-            {
-                "key": task.key,
-                "title": task.title,
-                "status": task.status.value,
-                "assignee": task.assignee,
-                "age_days": task.age_days,
-            }
-            for task in active
-        ]
+        data = [{"key": task.key, "title": task.title, "status": task.status.value, "assignee": task.assignee, "age_days": task.age_days} for task in active]
         return CapabilityResult(
             answer=f"Задач старше {threshold_days} дней: {len(data)}.",
             data={"threshold_days": threshold_days, "count": len(data), "tasks": data},
-            evidence=[
-                Evidence(
-                    type="task_age",
-                    source="as21",
-                    entity_id=item["key"],
-                    label=item["title"],
-                    value=item["age_days"],
-                )
-                for item in data
-            ],
+            evidence=[Evidence(type="task_age", source="as21", entity_id=item["key"], label=item["title"], value=item["age_days"]) for item in data],
         )
 
     async def _require_task(self, task_key: str) -> Task | None:
@@ -213,28 +132,10 @@ class TaskIntelligenceCapabilities:
     @staticmethod
     def _not_found(key: str) -> CapabilityResult:
         normalized = key.upper()
-        return CapabilityResult(
-            answer=f"Задача {normalized} не найдена.",
-            data={"task_key": normalized, "found": False},
-            evidence=[
-                Evidence(
-                    type="task_lookup",
-                    source="as21",
-                    entity_id=normalized,
-                    label="lookup",
-                    value="not_found",
-                )
-            ],
-        )
+        return CapabilityResult(answer=f"Задача {normalized} не найдена.", data={"task_key": normalized, "found": False}, evidence=[Evidence(type="task_lookup", source="as21", entity_id=normalized, label="lookup", value="not_found")])
 
     @staticmethod
     def _has_acceptance_expectations(description: str) -> bool:
         lowered = description.casefold()
-        markers = (
-            "критерии приемки",
-            "критерии приёмки",
-            "acceptance",
-            "definition of done",
-            "ожидаемый результат",
-        )
+        markers = ("критерии приемки", "критерии приёмки", "acceptance", "definition of done", "ожидаемый результат")
         return any(marker in lowered for marker in markers)
