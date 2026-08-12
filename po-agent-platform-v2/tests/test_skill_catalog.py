@@ -4,7 +4,6 @@ from po_agent.harness.skill_catalog import SKILL_CATALOG, catalog_by_id, catalog
 def test_catalog_contains_at_least_48_distinct_skills():
     ids = [entry.id for entry in SKILL_CATALOG]
     capability_ids = [entry.capability_id for entry in SKILL_CATALOG]
-
     assert len(SKILL_CATALOG) >= 48
     assert len(ids) == len(set(ids))
     assert len(capability_ids) == len(set(capability_ids))
@@ -20,6 +19,10 @@ def test_current_recovery_vertical_slices_are_marked_implemented():
     for skill_id in (
         "task-lookup",
         "task-search",
+        "task-search-attachments",
+        "task-search-excel",
+        "task-search-pdf",
+        "task-search-msg",
         "sprint-health",
         "release-health",
         "portfolio-overview",
@@ -36,7 +39,7 @@ def test_write_capabilities_are_explicitly_marked():
 def test_catalog_summary_is_machine_readable():
     summary = catalog_summary()
     assert summary["total"] == 52
-    assert summary["statuses"]["implemented"] == 5
-    assert summary["statuses"]["planned"] == 47
+    assert summary["statuses"]["implemented"] == 9
+    assert summary["statuses"]["planned"] == 43
     assert summary["by_domain"]["tasks"] == 20
     assert summary["by_domain"]["sprints"] == 12
