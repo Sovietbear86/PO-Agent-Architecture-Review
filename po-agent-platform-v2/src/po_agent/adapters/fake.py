@@ -38,8 +38,8 @@ class FakeAS21Adapter(AS21Adapter):
         self._attachments={
             "WMB-101":[Attachment(id="att-001",name="requirements.xlsx",type=AttachmentType.EXCEL,size_bytes=102400,created_at=now-timedelta(days=12),description="Initial requirements")],
             "WMB-102":[Attachment(id="att-002",name="screenshot.png",type=AttachmentType.IMAGE,size_bytes=51200,created_at=now-timedelta(days=6),description="Bug screenshot")],
+            "WMB-103":[Attachment(id="att-004",name="customer-request.msg",type=AttachmentType.MSG,size_bytes=64000,created_at=now-timedelta(days=7),description="Customer email")],
             "DMS-201":[Attachment(id="att-003",name="migration-plan.pdf",type=AttachmentType.PDF,size_bytes=82000,created_at=now-timedelta(days=16),description="Migration plan")],
-            "DMS-202":[Attachment(id="att-004",name="customer-request.msg",type=AttachmentType.MSG,size_bytes=64000,created_at=now-timedelta(days=7),description="Customer email")],
         }
 
     async def get_task(self, task_key: str) -> Optional[Task]: return self._tasks.get(task_key)
@@ -64,4 +64,4 @@ class FakeAS21Adapter(AS21Adapter):
         return [a for a in items if a.id==attachment_id] if attachment_id else items
     async def close(self) -> None: pass
     def get_all_tasks(self) -> list[Task]: return list(self._tasks.values())
-    def get_task_count(self) -> int: return len(self._tasks)
+    def get_task_count(self) -> int: return len(self._tasks.values())
