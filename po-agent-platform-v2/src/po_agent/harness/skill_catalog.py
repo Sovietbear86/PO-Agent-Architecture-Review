@@ -50,17 +50,17 @@ SKILL_CATALOG: tuple[SkillCatalogEntry, ...] = (
 
     # Sprint intelligence & flow metrics (12)
     SkillCatalogEntry("sprint-health", "sprints", "sprint.health", "Summarize deterministic sprint health.", "implemented"),
-    SkillCatalogEntry("sprint-current", "sprints", "sprint.current", "Resolve current sprint for a product."),
-    SkillCatalogEntry("sprint-scope", "sprints", "sprint.scope", "Show current sprint scope."),
-    SkillCatalogEntry("sprint-velocity", "sprints", "sprint.velocity", "Calculate velocity using explicit effort units."),
-    SkillCatalogEntry("sprint-throughput", "sprints", "sprint.throughput", "Calculate completed-task throughput."),
-    SkillCatalogEntry("sprint-wip", "sprints", "sprint.wip", "Calculate work in progress."),
-    SkillCatalogEntry("sprint-cycle-time", "sprints", "sprint.cycle_time", "Calculate cycle-time metrics.", requires_history=True),
-    SkillCatalogEntry("sprint-lead-time", "sprints", "sprint.lead_time", "Calculate lead-time metrics.", requires_history=True),
+    SkillCatalogEntry("sprint-current", "sprints", "sprint.current", "Resolve current sprint for a product.", "implemented"),
+    SkillCatalogEntry("sprint-scope", "sprints", "sprint.scope", "Show current sprint scope.", "implemented"),
+    SkillCatalogEntry("sprint-velocity", "sprints", "sprint.velocity", "Calculate velocity using explicit effort units.", "implemented"),
+    SkillCatalogEntry("sprint-throughput", "sprints", "sprint.throughput", "Calculate completed-task throughput.", "implemented"),
+    SkillCatalogEntry("sprint-wip", "sprints", "sprint.wip", "Calculate work in progress.", "implemented"),
+    SkillCatalogEntry("sprint-cycle-time", "sprints", "sprint.cycle_time", "Calculate cycle-time metrics.", "implemented", requires_history=True),
+    SkillCatalogEntry("sprint-lead-time", "sprints", "sprint.lead_time", "Calculate lead-time metrics.", "implemented", requires_history=True),
     SkillCatalogEntry("sprint-carryover", "sprints", "sprint.carryover", "Measure carryover from committed scope.", requires_history=True),
     SkillCatalogEntry("sprint-scope-change", "sprints", "sprint.scope_change", "Measure scope change after sprint start.", requires_history=True),
-    SkillCatalogEntry("sprint-predictability", "sprints", "sprint.predictability", "Calculate sprint predictability."),
-    SkillCatalogEntry("sprint-risk-queue", "sprints", "sprint.risk_queue", "Identify sprint tasks requiring PO attention."),
+    SkillCatalogEntry("sprint-predictability", "sprints", "sprint.predictability", "Calculate sprint predictability.", "implemented"),
+    SkillCatalogEntry("sprint-risk-queue", "sprints", "sprint.risk_queue", "Identify sprint tasks requiring PO attention.", "implemented"),
 
     # Team intelligence (8)
     SkillCatalogEntry("team-workload", "team", "team.workload", "Analyze workload distribution."),
