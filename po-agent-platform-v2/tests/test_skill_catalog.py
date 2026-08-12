@@ -14,6 +14,12 @@ def test_catalog_preserves_core_po_domains():
     assert {"tasks", "sprints", "team", "releases", "portfolio", "po"} <= domains
 
 
+def test_master_spec_search_and_release_forecast_are_not_lost():
+    skills = catalog_by_id()
+    assert "task-search-product" in skills
+    assert "release-forecast" in skills
+
+
 def test_current_recovery_vertical_slices_are_marked_implemented():
     skills = catalog_by_id()
     for skill_id in (
@@ -30,16 +36,18 @@ def test_current_recovery_vertical_slices_are_marked_implemented():
         assert skills[skill_id].status == "implemented"
 
 
-def test_write_capabilities_are_explicitly_marked():
-    write_skills = [entry for entry in SKILL_CATALOG if entry.requires_write]
-    assert write_skills
-    assert {entry.id for entry in write_skills} == {"po-local-task-draft"}
+def test_draft_skills_do_not_claim_external_write_permission():
+    # MASTER SPEC STEP 43 defines action contracts before real writes. Drafting a
+    # local task/reminder is not itself permission to mutate AS21 or another
+    # external system.
+    assert not [entry for entry in SKILL_CATALOG if entry.requires_write]
 
 
 def test_catalog_summary_is_machine_readable():
     summary = catalog_summary()
-    assert summary["total"] == 52
+    assert summary["total"] == 54
     assert summary["statuses"]["implemented"] == 9
-    assert summary["statuses"]["planned"] == 43
-    assert summary["by_domain"]["tasks"] == 20
+    assert summary["statuses"]["planned"] == 45
+    assert summary["by_domain"]["tasks"] == 21
     assert summary["by_domain"]["sprints"] == 12
+    assert summary["by_domain"]["releases"] == 7
