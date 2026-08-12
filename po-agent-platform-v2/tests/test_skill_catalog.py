@@ -37,9 +37,13 @@ def test_current_recovery_vertical_slices_are_marked_implemented():
         "task-summary",
         "task-quality",
         "task-missing-requirements",
+        "task-acceptance-analysis",
+        "task-dependency-analysis",
         "task-history",
         "task-time-in-status",
         "task-aging",
+        "task-blocker-analysis",
+        "task-similar",
         "sprint-health",
         "release-health",
         "portfolio-overview",
@@ -54,8 +58,8 @@ def test_draft_skills_do_not_claim_external_write_permission():
 def test_catalog_summary_is_machine_readable():
     summary = catalog_summary()
     assert summary["total"] == 54
-    assert summary["statuses"]["implemented"] == 20
-    assert summary["statuses"]["planned"] == 34
+    assert summary["statuses"]["implemented"] == 24
+    assert summary["statuses"]["planned"] == 30
     assert summary["by_domain"]["tasks"] == 21
     assert summary["by_domain"]["sprints"] == 12
     assert summary["by_domain"]["releases"] == 7
