@@ -34,11 +34,11 @@ SKILL_CATALOG: tuple[SkillCatalogEntry, ...] = (
     SkillCatalogEntry("task-search-excel", "tasks", "task.search_attachment_excel", "Find tasks with XLS/XLSX attachments.", "implemented"),
     SkillCatalogEntry("task-search-pdf", "tasks", "task.search_attachment_pdf", "Find tasks with PDF attachments.", "implemented"),
     SkillCatalogEntry("task-search-msg", "tasks", "task.search_attachment_msg", "Find tasks with MSG attachments.", "implemented"),
-    SkillCatalogEntry("task-search-assignee", "tasks", "task.search_assignee", "Find tasks assigned to a team member."),
-    SkillCatalogEntry("task-search-status", "tasks", "task.search_status", "Find tasks by normalized workflow status."),
-    SkillCatalogEntry("task-search-sprint", "tasks", "task.search_sprint", "Find tasks in a sprint."),
-    SkillCatalogEntry("task-search-release", "tasks", "task.search_release", "Find tasks linked to a release."),
-    SkillCatalogEntry("task-search-product", "tasks", "task.search_product", "Find tasks in a configured product/space."),
+    SkillCatalogEntry("task-search-assignee", "tasks", "task.search_assignee", "Find tasks assigned to a team member.", "implemented"),
+    SkillCatalogEntry("task-search-status", "tasks", "task.search_status", "Find tasks by normalized workflow status.", "implemented"),
+    SkillCatalogEntry("task-search-sprint", "tasks", "task.search_sprint", "Find tasks in a sprint.", "implemented"),
+    SkillCatalogEntry("task-search-release", "tasks", "task.search_release", "Find tasks linked to a release.", "implemented"),
+    SkillCatalogEntry("task-search-product", "tasks", "task.search_product", "Find tasks in a configured product/space.", "implemented"),
 
     # Task intelligence (10) — MASTER SPEC STEPS 11–12 plus task-agent parity
     SkillCatalogEntry("task-summary", "tasks", "task.summary", "Summarize what must be done in a task.", requires_llm=True),
