@@ -64,8 +64,8 @@ class TaskQualityAnalysis:
             self._rule("title_specific", len(title) >= 10, 10, "Заголовок слишком короткий и может быть неоднозначным", "Уточнить объект и ожидаемое изменение в заголовке"),
             self._rule("description_present", bool(description), 25, "Отсутствует описание задачи", "Описать цель, требуемое изменение и ожидаемый результат"),
             self._rule("description_substantive", len(description) >= 40, 15, "Описание слишком короткое для однозначной постановки", "Добавить контекст и конкретику о требуемом результате"),
-            self._rule("goal_or_context", self._contains_any(normalized, self.CONTEXT_MARKERS) or len(description) >= 120, 5, "Неочевидны цель или контекст задачи", "Добавить зачем нужна задача / какую проблему она решает"),
-            self._rule("acceptance_expectations", self._contains_any(normalized, self.ACCEPTANCE_MARKERS) or self._has_structured_expectations(description), 10, "Не найдены проверяемые ожидания или критерии приемки", "Добавить критерии, по которым можно однозначно принять результат"),
+            self._rule("goal_or_context", self._contains_any(normalized, self.CONTEXT_MARKERS) or len(description) >= 120, 10, "Неочевидны цель или контекст задачи", "Добавить зачем нужна задача / какую проблему она решает"),
+            self._rule("acceptance_expectations", self._contains_any(normalized, self.ACCEPTANCE_MARKERS) or self._has_structured_expectations(description), 15, "Не найдены проверяемые ожидания или критерии приемки", "Добавить критерии, по которым можно однозначно принять результат"),
         ]
 
         score = max(0, 100 - sum(rule.penalty for rule in rules if not rule.passed))
@@ -100,8 +100,6 @@ class TaskQualityAnalysis:
             f"Детерминированный результат: {deterministic}"
         )
         try:
-            # Keep compatibility with the existing LLM client abstraction without
-            # importing or instantiating a concrete real provider here.
             from po_agent.llm.client import LLMMessage
             response = await self.llm_client.complete([LLMMessage(role="user", content=prompt)])
             if getattr(response, "choices", None):
@@ -109,7 +107,7 @@ class TaskQualityAnalysis:
             else:
                 analysis = str(response)
             llm_result = {"analysis": analysis}
-        except Exception as exc:  # explanation failure must not break deterministic quality
+        except Exception as exc:
             llm_result = {"analysis": None, "error": str(exc)}
         return {"deterministic": deterministic, "llm": llm_result}
 
