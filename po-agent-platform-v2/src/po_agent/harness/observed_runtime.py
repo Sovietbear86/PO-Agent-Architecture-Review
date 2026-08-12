@@ -2,13 +2,14 @@
 from __future__ import annotations
 
 from .contracts import HarnessRequest, HarnessResponse, ResponseStatus
+from .feedback_store import FeedbackRecord, FeedbackStore, SQLiteFeedbackStore, make_feedback
 from .operational_history import ActiveVersions, HistoryStore, SQLiteHistoryStore, record_from_response
 from .runtime import HarnessRuntime
 from .session_context import SessionContextStore
 
 
 class ObservedHarnessRuntime:
-    """Decorator adding short-lived context and append-only execution history."""
+    """Decorator adding short-lived context, history and explicit user feedback."""
 
     def __init__(
         self,
@@ -16,11 +17,13 @@ class ObservedHarnessRuntime:
         history: HistoryStore | None = None,
         versions: ActiveVersions | None = None,
         sessions: SessionContextStore | None = None,
+        feedback: FeedbackStore | None = None,
     ) -> None:
         self.inner = runtime
         self.history = history or SQLiteHistoryStore()
         self.versions = versions or ActiveVersions()
         self.sessions = sessions or SessionContextStore()
+        self.feedback = feedback or SQLiteFeedbackStore()
 
         # Preserve introspection used by acceptance tests and future diagnostics.
         self.adapter = runtime.adapter
@@ -57,3 +60,35 @@ class ObservedHarnessRuntime:
             )
         )
         return response
+
+    def submit_feedback(
+        self,
+        trace_id: str,
+        rating: str,
+        *,
+        correction: str | None = None,
+        expected_intent: str | None = None,
+        expected_entity: str | None = None,
+        comment: str | None = None,
+    ) -> FeedbackRecord:
+        """Attach explicit feedback to a completed/failed execution trace."""
+        trace = self.history.get(trace_id)
+        if trace is None:
+            raise ValueError(f"unknown trace_id: {trace_id}")
+        record = make_feedback(
+            trace_id=trace_id,
+            session_id=trace.session_id,
+            rating=rating,
+            correction=correction,
+            expected_intent=expected_intent,
+            expected_entity=expected_entity,
+            comment=comment,
+            metadata={
+                "skill_id": trace.skill_id,
+                "skill_version": trace.skill_version,
+                "agent_version": trace.versions.agent,
+                "router_version": trace.versions.router,
+            },
+        )
+        self.feedback.append(record)
+        return record
