@@ -18,6 +18,7 @@ from po_agent.adapters.fake import FakeAS21Adapter
 from po_agent.domain.models import AttachmentType, Task
 
 from .contracts import CapabilityResult, Evidence, HarnessRequest, HarnessResponse, ResponseStatus
+from .sprint_intelligence import SprintIntelligenceCapabilities
 from .task_advanced import AdvancedTaskCapabilities
 from .task_intelligence import TaskIntelligenceCapabilities
 
@@ -239,8 +240,19 @@ class DeterministicRouter:
             return "task_search_status", {"status": match.group(1).strip()}
         if match := self.SPRINT_KEY.search(query):
             sprint_id = match.group(0)
-            if any(token in lowered for token in ("задач", "scope", "состав")):
-                return "task_search_sprint", {"sprint_id": sprint_id}
+            sprint_routes = (
+                (("velocity", "скорост", "велосит"), "sprint_velocity"),
+                (("throughput", "пропуск", "завершен", "завершён"), "sprint_throughput"),
+                (("wip", "незаверш", "в работе"), "sprint_wip"),
+                (("cycle time", "cycle-time", "цикл"), "sprint_cycle_time"),
+                (("lead time", "lead-time", "лид тайм"), "sprint_lead_time"),
+                (("predictability", "предсказуем"), "sprint_predictability"),
+                (("risk queue", "очередь риск", "риски спринта", "риск"), "sprint_risk_queue"),
+                (("scope", "состав", "задач"), "sprint_scope"),
+            )
+            for tokens, intent in sprint_routes:
+                if any(token in lowered for token in tokens):
+                    return intent, {"sprint_id": sprint_id}
             return "sprint_health", {"sprint_id": sprint_id}
         if match := self.RELEASE_KEY.search(query):
             release_id = match.group(0)
@@ -248,7 +260,10 @@ class DeterministicRouter:
                 return "task_search_release", {"release_id": release_id}
             return "release_health", {"release_id": release_id}
         if match := self.PRODUCT.search(query):
-            return "task_search_product", {"product": match.group(1)}
+            product = match.group(1)
+            if any(token in lowered for token in ("текущий спринт", "current sprint", "активный спринт")):
+                return "sprint_current", {"product": product}
+            return "task_search_product", {"product": product}
         if task_match:
             return "task_lookup", {"task_key": task_match.group(0)}
         if any(token in lowered for token in ("обзор", "сводк", "что происходит", "риски")):
@@ -270,6 +285,7 @@ class HarnessRuntime:
         discovery = PortfolioCapabilities(adapter)
         intelligence = TaskIntelligenceCapabilities(adapter)
         advanced = AdvancedTaskCapabilities(adapter)
+        sprint = SprintIntelligenceCapabilities(adapter)
         specs = [
             ("task-lookup", "task_lookup", "task.lookup", discovery.task_lookup),
             ("task-search", "task_search", "task.search", discovery.task_search),
@@ -293,6 +309,15 @@ class HarnessRuntime:
             ("task-time-in-status", "task_time_in_status", "task.time_in_status", intelligence.time_in_status),
             ("task-aging", "task_aging", "task.aging", intelligence.aging),
             ("sprint-health", "sprint_health", "sprint.health", discovery.sprint_health),
+            ("sprint-current", "sprint_current", "sprint.current", sprint.current),
+            ("sprint-scope", "sprint_scope", "sprint.scope", sprint.scope),
+            ("sprint-velocity", "sprint_velocity", "sprint.velocity", sprint.velocity),
+            ("sprint-throughput", "sprint_throughput", "sprint.throughput", sprint.throughput),
+            ("sprint-wip", "sprint_wip", "sprint.wip", sprint.wip),
+            ("sprint-cycle-time", "sprint_cycle_time", "sprint.cycle_time", sprint.cycle_time),
+            ("sprint-lead-time", "sprint_lead_time", "sprint.lead_time", sprint.lead_time),
+            ("sprint-predictability", "sprint_predictability", "sprint.predictability", sprint.predictability),
+            ("sprint-risk-queue", "sprint_risk_queue", "sprint.risk_queue", sprint.risk_queue),
             ("release-health", "release_health", "release.health", discovery.release_health),
             ("portfolio-overview", "portfolio_overview", "portfolio.overview", discovery.overview),
         ]
