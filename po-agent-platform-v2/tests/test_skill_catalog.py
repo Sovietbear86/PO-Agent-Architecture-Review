@@ -29,6 +29,11 @@ def test_current_recovery_vertical_slices_are_marked_implemented():
         "task-search-excel",
         "task-search-pdf",
         "task-search-msg",
+        "task-search-assignee",
+        "task-search-status",
+        "task-search-sprint",
+        "task-search-release",
+        "task-search-product",
         "sprint-health",
         "release-health",
         "portfolio-overview",
@@ -46,8 +51,8 @@ def test_draft_skills_do_not_claim_external_write_permission():
 def test_catalog_summary_is_machine_readable():
     summary = catalog_summary()
     assert summary["total"] == 54
-    assert summary["statuses"]["implemented"] == 9
-    assert summary["statuses"]["planned"] == 45
+    assert summary["statuses"]["implemented"] == 14
+    assert summary["statuses"]["planned"] == 40
     assert summary["by_domain"]["tasks"] == 21
     assert summary["by_domain"]["sprints"] == 12
     assert summary["by_domain"]["releases"] == 7
