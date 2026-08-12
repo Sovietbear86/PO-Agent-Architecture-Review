@@ -34,6 +34,12 @@ def test_current_recovery_vertical_slices_are_marked_implemented():
         "task-search-sprint",
         "task-search-release",
         "task-search-product",
+        "task-summary",
+        "task-quality",
+        "task-missing-requirements",
+        "task-history",
+        "task-time-in-status",
+        "task-aging",
         "sprint-health",
         "release-health",
         "portfolio-overview",
@@ -42,17 +48,14 @@ def test_current_recovery_vertical_slices_are_marked_implemented():
 
 
 def test_draft_skills_do_not_claim_external_write_permission():
-    # MASTER SPEC STEP 43 defines action contracts before real writes. Drafting a
-    # local task/reminder is not itself permission to mutate AS21 or another
-    # external system.
     assert not [entry for entry in SKILL_CATALOG if entry.requires_write]
 
 
 def test_catalog_summary_is_machine_readable():
     summary = catalog_summary()
     assert summary["total"] == 54
-    assert summary["statuses"]["implemented"] == 14
-    assert summary["statuses"]["planned"] == 40
+    assert summary["statuses"]["implemented"] == 20
+    assert summary["statuses"]["planned"] == 34
     assert summary["by_domain"]["tasks"] == 21
     assert summary["by_domain"]["sprints"] == 12
     assert summary["by_domain"]["releases"] == 7
