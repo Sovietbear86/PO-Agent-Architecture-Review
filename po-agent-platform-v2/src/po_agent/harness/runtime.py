@@ -76,7 +76,7 @@ class DeterministicRouter:
                 if any(x in l for x in tokens): return intent,{"task_key":k}
         if any(x in l for x in ("старые задачи","залежал","aging","давно не закры")):
             d=re.search(r"(\d+)\s*(?:дн|дней|дня)",l); return "task_aging",{"threshold_days":d.group(1) if d else "7"}
-        if any(x in l for x in ("нагрузка команды","team workload","workload команды")): return "team_workload",{}
+        if any(x in l for x in ("нагрузка команды","загрузка команды","team workload","workload команды")): return "team_workload",{}
         if any(x in l for x in ("wip команды","team wip","незавершенка команды")): return "team_wip",{}
         if any(x in l for x in ("блокировки команды","blocked команды","заблокировано у команды")): return "team_blocked",{}
         if any(x in l for x in ("capacity команды","емкость команды","ёмкость команды","утилизация команды")):
