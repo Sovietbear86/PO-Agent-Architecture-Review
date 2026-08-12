@@ -43,6 +43,7 @@ jobs:
           tests/test_harness_failure_miner.py
           tests/test_harness_improvement_candidates.py
           tests/test_harness_offline_evaluator.py
+          tests/test_candidate_lifecycle.py
           tests/test_skill_catalog.py
 
   backend-full-regression:
