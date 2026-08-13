@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import Literal
+from typing import Iterable, Literal
 
 from po_agent.adapters.as21 import AS21Adapter
 
@@ -107,32 +107,26 @@ def source_facts(adapter: AS21Adapter) -> frozenset[SourceFact]:
     if raw is not None:
         return frozenset(SourceFact(item) for item in raw)
 
-    # Compatibility bridge while adapters are migrated to explicit metadata.
-    # This is still conservative: only capabilities proven by their contracts
-    # are advertised.
     name = adapter.__class__.__name__
     if name == "FakeAS21Adapter":
-        return frozenset(
-            {
-                SourceFact.TASKS,
-                SourceFact.SPRINTS,
-                SourceFact.RELEASES,
-                SourceFact.HISTORY,
-                SourceFact.ATTACHMENTS,
-            }
-        )
+        return frozenset({SourceFact.TASKS, SourceFact.SPRINTS, SourceFact.RELEASES, SourceFact.HISTORY, SourceFact.ATTACHMENTS})
     if name in {"TaskApiAS21Adapter", "LegacyAS21Bridge"}:
         return frozenset({SourceFact.TASKS, SourceFact.SPRINTS, SourceFact.RELEASES})
-
     return frozenset({SourceFact.TASKS})
 
 
-def build_source_readiness(adapter: AS21Adapter) -> SourceReadinessReport:
-    available = source_facts(adapter)
+def build_source_readiness(
+    adapter: AS21Adapter,
+    *,
+    extra_facts: Iterable[str] = (),
+) -> SourceReadinessReport:
+    available = set(source_facts(adapter))
+    available.update(SourceFact(item) for item in extra_facts)
+    available_set = frozenset(available)
     items: list[SkillReadiness] = []
     for entry in SKILL_CATALOG:
         required = required_facts(entry)
-        missing = tuple(f.value for f in required if f not in available)
+        missing = tuple(f.value for f in required if f not in available_set)
         required_names = tuple(f.value for f in required)
         if entry.status == "planned":
             status: ReadinessStatus = "planned"
@@ -143,19 +137,11 @@ def build_source_readiness(adapter: AS21Adapter) -> SourceReadinessReport:
         else:
             status = "ready"
             reason = None
-        items.append(
-            SkillReadiness(
-                skill_id=entry.id,
-                status=status,
-                required_facts=required_names,
-                missing_facts=missing,
-                reason=reason,
-            )
-        )
+        items.append(SkillReadiness(skill_id=entry.id, status=status, required_facts=required_names, missing_facts=missing, reason=reason))
     source_name = getattr(adapter, "source_name", adapter.__class__.__name__)
     return SourceReadinessReport(
         source=str(source_name),
-        available_facts=tuple(sorted(f.value for f in available)),
+        available_facts=tuple(sorted(f.value for f in available_set)),
         skills=tuple(items),
     )
 
