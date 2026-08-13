@@ -347,6 +347,15 @@ class DialogueHarnessRuntime:
             self._decorate(response, frame.llm_used)
             return response
 
+        # Fallback for empty intent_hint (conservative deterministic path)
+        if hint == "":
+            response = await self.inner.process(
+                HarnessRequest(query=frame.canonical_query, session_id=session)
+            )
+            self._decorate(response, frame.llm_used)
+            response.latency_ms = max(response.latency_ms, (time.perf_counter() - started) * 1000)
+            return response
+
         # Generic semantic dispatch: fail closed for unsupported intents
         skill_id = intent_to_skill_id(hint)
         if skill_id is None:
@@ -363,55 +372,6 @@ class DialogueHarnessRuntime:
 
         # Build capability arguments from slots
         capability_args = self._build_capability_args(frame)
-
-        # Validate required arguments
-        is_valid, error_msg = self._validate_required_args(skill_id, capability_args)
-        if not is_valid:
-            return HarnessResponse(
-                status=ResponseStatus.NEEDS_CLARIFICATION,
-                trace_id=str(uuid.uuid4()),
-                session_id=session,
-                question=f"Мне не хватает информации: {error_msg}.",
-                warnings=["semantic_slot_missing"],
-                latency_ms=(time.perf_counter() - started) * 1000,
-            )
-
-        # For task-search with 2+ filters, use composite capability but keep skill_id as task-search
-        refined_skill_id = skill_id  # Default: use original skill_id
-        if skill_id == "task-search":
-            # Count task-search filters
-            filter_count = sum(1 for k in ["assignee", "sprint_id", "release_id", "status", "product"] if k in capability_args)
-            if filter_count >= 2:
-                # Use composite search capability
-                try:
-                    refined_skill_id = "task-search"  # Keep skill_id as task-search
-                    skill = self.skills.resolve_by_id(refined_skill_id)
-                    # Execute composite search
-                    result = await self.capabilities.execute("task.search.composite", capability_args)
-                    response = HarnessResponse(
-                        status=ResponseStatus.COMPLETED,
-                        trace_id=str(uuid.uuid4()),
-                        session_id=session,
-                        answer=result.answer,
-                        intent=hint,
-                        skill_id=refined_skill_id,
-                        skill_version=skill.version,
-                        data=result.data,
-                        evidence=result.evidence,
-                        warnings=result.warnings,
-                        latency_ms=(time.perf_counter() - started) * 1000,
-                    )
-                    self._decorate(response, frame.llm_used)
-                    return response
-                except ValueError:
-                    # Composite not available, fall back to single filter
-                    pass
-                except AS21CapabilityUnavailable:
-                    return self._source_failure(session, "source_capability_unavailable", "Источник AS21 не предоставляет данные, необходимые для этого запроса.", started)
-                except AS21SourceUnavailable:
-                    return self._source_failure(session, "source_unavailable", "Источник AS21 временно недоступен.", started)
-                except AS21SourceError:
-                    return self._source_failure(session, "source_protocol_error", "Источник AS21 вернул некорректные данные.", started)
 
         # Refine skill_id for task-search based on grounded slots (for single filter cases)
         refined_skill_id = self._refine_skill_id_by_slots(skill_id, frame.slots)
@@ -431,7 +391,49 @@ class DialogueHarnessRuntime:
                 latency_ms=(time.perf_counter() - started) * 1000,
             )
 
-        # Execute capability
+        # Validate required arguments by capability_id
+        is_valid, error_msg = self._validate_required_args(skill.capability_id, capability_args)
+        if not is_valid:
+            return HarnessResponse(
+                status=ResponseStatus.NEEDS_CLARIFICATION,
+                trace_id=str(uuid.uuid4()),
+                session_id=session,
+                question=f"Мне не хватает информации: {error_msg}.",
+                warnings=["semantic_slot_missing"],
+                latency_ms=(time.perf_counter() - started) * 1000,
+            )
+
+        # For task-search with 2+ filters, use composite capability
+        if skill_id == "task-search":
+            filter_count = sum(1 for k in ["assignee", "sprint_id", "release_id", "status", "product"] if k in capability_args)
+            if filter_count >= 2 and "task.search.composite" in self.capabilities._handlers:
+                try:
+                    result = await self.capabilities.execute("task.search.composite", capability_args)
+                    response = HarnessResponse(
+                        status=ResponseStatus.COMPLETED,
+                        trace_id=str(uuid.uuid4()),
+                        session_id=session,
+                        answer=result.answer,
+                        intent=hint,
+                        skill_id=skill.id,
+                        skill_version=skill.version,
+                        data=result.data,
+                        evidence=result.evidence,
+                        warnings=result.warnings,
+                        latency_ms=(time.perf_counter() - started) * 1000,
+                    )
+                    self._decorate(response, frame.llm_used)
+                    return response
+                except ValueError:
+                    pass
+                except AS21CapabilityUnavailable:
+                    return self._source_failure(session, "source_capability_unavailable", "Источник AS21 не предоставляет данные, необходимые для этого запроса.", started)
+                except AS21SourceUnavailable:
+                    return self._source_failure(session, "source_unavailable", "Источник AS21 временно недоступен.", started)
+                except AS21SourceError:
+                    return self._source_failure(session, "source_protocol_error", "Источник AS21 вернул некорректные данные.", started)
+
+        # Execute the resolved skill's capability
         try:
             result = await self.capabilities.execute(skill.capability_id, capability_args)
             response = HarnessResponse(

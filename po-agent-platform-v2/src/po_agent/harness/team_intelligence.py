@@ -82,37 +82,3 @@ class TeamIntelligenceCapabilities:
             status_by_member[self._member(task)][task.status_category.value] += 1
         rows = [{"member": member, "tasks": counts[member], "status_distribution": dict(status_by_member[member])} for member in sorted(counts)]
         return CapabilityResult(answer=f"Распределение {len(tasks)} задач показано по {len(rows)} исполнителям/очередям.", data={"members": rows}, evidence=self._evidence(tasks, "team_distribution_task"))
-
-    async def competency_match(self, args: dict[str, str]) -> CapabilityResult:
-        """Match task requirements to team member competencies."""
-        task_key = args.get("task_key", "").strip().upper()
-        if not task_key:
-            return CapabilityResult(answer="Не указан task_key для сопоставления компетенций.", data={"error": "task_key_required"}, warnings=["task_key_required"])
-
-        task = await self.a.get_task(task_key)
-        if task is None:
-            return CapabilityResult(answer=f"Задача {task_key} не найдена.", data={"task_key": task_key, "found": False}, evidence=[Evidence(type="task_lookup", source="as21", entity_id=task_key, label="lookup", value="not_found")])
-
-        # Get all team members with their tasks
-        all_tasks = await self._tasks()
-        members_with_tasks = set(self._member(t) for t in all_tasks if self._member(t) != "unassigned")
-
-        # For each member, check if they have relevant experience
-        matches: list[dict] = []
-        for member in sorted(members_with_tasks):
-            member_tasks = [t for t in all_tasks if self._member(t) == member]
-            # Simple heuristic: member has experience if they've worked on similar tasks
-            # In real implementation, this would compare competencies declared in member profiles
-            experience_count = len([t for t in member_tasks if t.status_category == StatusCategory.COMPLETED])
-            matches.append({
-                "member": member,
-                "total_tasks": len(member_tasks),
-                "completed_tasks": experience_count,
-                "matches": 0,  # Placeholder - would compare competencies
-                "confidence": 0.5 if experience_count > 0 else 0.0
-            })
-
-        matches.sort(key=lambda x: (-x["confidence"], -x["completed_tasks"], x["member"]))
-
-        answer = f"Совместимость {task_key} с командой: {len([m for m in matches if m['confidence'] > 0])} исполнителей/очередей имеют опыт."
-        return CapabilityResult(answer=answer, data={"task_key": task_key, "task_title": task.title, "members": matches}, evidence=self._evidence([task], "team_competency_match_task"))

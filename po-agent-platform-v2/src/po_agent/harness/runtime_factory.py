@@ -83,12 +83,8 @@ def build_runtime_bundle(
     if sprint_snapshots is not None or release_timeline is not None:
         enable_historical_skills(executable, sprint_snapshots=sprint_snapshots, release_timeline=release_timeline)
 
-    # Semantic execution is still allow-listed. The dialogue layer may call this
-    # capability only after all requested filters have been grounded/clarified.
-    structured_search = StructuredTaskSearchCapability(adapter)
-    # Register composite search only if not already registered ( HarnessRuntime does this)
-    if "task.search.composite" not in executable.capabilities._handlers:
-        executable.capabilities.register("task.search.composite", structured_search.execute)
+    # task.search.composite is already registered by HarnessRuntime.
+    # Do not register again to avoid duplicate registration error.
 
     semantics = LearnedSemanticsStore(learned_semantics_path) if learned_semantics_path else None
     directory = TeamDirectory.from_yaml(team_path)
