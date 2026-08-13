@@ -71,9 +71,9 @@ SKILL_CATALOG: tuple[SkillCatalogEntry, ...] = (
     SkillCatalogEntry("release-risk-queue", "releases", "release.risk_queue", "Prioritize release risks for PO attention.", "implemented"),
     SkillCatalogEntry("release-forecast", "releases", "release.forecast", "Provide deterministic forecast inputs and bounded forecast output."),
     SkillCatalogEntry("portfolio-overview", "portfolio", "portfolio.overview", "Provide portfolio overview and attention queue.", "implemented"),
-    SkillCatalogEntry("po-attention-queue", "po", "po.attention_queue", "Rank items requiring PO intervention."),
-    SkillCatalogEntry("po-daily-brief", "po", "po.daily_brief", "Generate a grounded daily PO brief.", requires_llm=True),
-    SkillCatalogEntry("po-status-report", "po", "po.status_report", "Generate product/sprint/release status report.", requires_llm=True),
+    SkillCatalogEntry("po-attention-queue", "po", "po.attention_queue", "Rank items requiring PO intervention.", "implemented"),
+    SkillCatalogEntry("po-daily-brief", "po", "po.daily_brief", "Generate a grounded daily PO brief.", "implemented", requires_llm=True),
+    SkillCatalogEntry("po-status-report", "po", "po.status_report", "Generate product/sprint/release status report.", "implemented", requires_llm=True),
     SkillCatalogEntry("po-reminder-draft", "po", "po.reminder_draft", "Draft a contextual reminder/action message.", requires_llm=True),
     SkillCatalogEntry("po-local-task-draft", "po", "po.local_task_draft", "Prepare a local task draft; external write requires explicit approval.", requires_llm=True),
 )
