@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { agent, HarnessQueryResponse } from '../api/client'
+import './OverviewDashboard.css'
 
 type WorkspaceContext = { openAgent(): void }
 type QueueRow = { task?: Record<string, unknown>; attention_score?: number; reasons?: string[] }
