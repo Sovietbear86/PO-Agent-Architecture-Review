@@ -1,8 +1,8 @@
 """Grounded Product Owner assistant capabilities.
 
-These capabilities aggregate already canonical task facts into PO-facing views.
-The deterministic fallback is intentionally complete; an LLM may later improve
-wording, but cannot change rankings, counts, scores or evidence.
+These capabilities aggregate canonical task facts into PO-facing views and
+produce drafts only. Draft capabilities never perform external writes; later
+action execution must cross a separate approval/write boundary.
 """
 from __future__ import annotations
 
@@ -141,4 +141,73 @@ class POAssistantCapabilities:
             },
             evidence=self._evidence(tasks, "po_status_report_task"),
             warnings=["llm_unavailable_deterministic_status_report"],
+        )
+
+    async def reminder_draft(self, args: dict[str, str]) -> CapabilityResult:
+        key = args.get("task_key", "").upper().strip()
+        task = await self.a.get_task(key) if key else None
+        if task is None and key:
+            return CapabilityResult(
+                answer=f"Задача {key} не найдена; черновик напоминания не создан.",
+                data={"task_key": key, "draft_created": False, "write_performed": False},
+                evidence=[Evidence(type="task_lookup", source="as21", entity_id=key, label="lookup", value="not_found")],
+            )
+        if task is None:
+            tasks = [t for t in await self.a.search_tasks("") if not t.is_completed]
+            ranked = sorted(((self._score(t)[0], t) for t in tasks), key=lambda item: (-item[0], item[1].key))
+            task = ranked[0][1] if ranked else None
+        if task is None:
+            return CapabilityResult(
+                answer="Нет активной задачи, для которой можно подготовить напоминание.",
+                data={"draft_created": False, "write_performed": False},
+                evidence=[],
+            )
+        recipient = task.assignee or "исполнитель задачи"
+        text = (
+            f"Коллега, напомню про {task.key} — {task.title}. "
+            f"Текущий статус: {task.status.value}. Просьба обновить статус/следующий шаг и подсветить блокеры, если они есть."
+        )
+        return CapabilityResult(
+            answer=f"Подготовлен черновик напоминания по {task.key}. Отправка не выполнялась.",
+            data={
+                "draft_created": True,
+                "draft_type": "reminder",
+                "task": self._task(task),
+                "recipient": recipient,
+                "text": text,
+                "write_performed": False,
+                "requires_approval_for_send": True,
+            },
+            evidence=self._evidence([task], "po_reminder_draft_task"),
+            warnings=["draft_only_no_external_write"],
+        )
+
+    async def local_task_draft(self, args: dict[str, str]) -> CapabilityResult:
+        subject = args.get("subject", "").strip()
+        source_key = args.get("task_key", "").upper().strip()
+        source_task = await self.a.get_task(source_key) if source_key else None
+        if source_key and source_task is None:
+            return CapabilityResult(
+                answer=f"Исходная задача {source_key} не найдена; локальный draft не создан.",
+                data={"draft_created": False, "write_performed": False, "task_key": source_key},
+                evidence=[Evidence(type="task_lookup", source="as21", entity_id=source_key, label="lookup", value="not_found")],
+            )
+        title = subject or (f"Follow-up: {source_task.key} — {source_task.title}" if source_task else "Новая локальная задача")
+        description = (
+            f"Локальный follow-up по {source_task.key}. Исходная задача: {source_task.title}."
+            if source_task else "Локальная задача PO. Уточните ожидаемый результат и критерии готовности перед публикацией."
+        )
+        draft = {
+            "title": title,
+            "description": description,
+            "source_task_key": source_task.key if source_task else None,
+            "status": "draft",
+            "write_performed": False,
+            "requires_approval_for_external_write": True,
+        }
+        return CapabilityResult(
+            answer="Подготовлен черновик локальной задачи. Запись в AS21 не выполнялась.",
+            data={"draft_created": True, "draft": draft},
+            evidence=self._evidence([source_task], "po_local_task_draft_source") if source_task else [],
+            warnings=["draft_only_no_external_write"],
         )
