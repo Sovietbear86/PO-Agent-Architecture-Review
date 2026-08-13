@@ -17,6 +17,7 @@ from typing import Protocol, Any
 from po_agent.llm.client import LLMClient, LLMMessage
 
 from .contracts import HarnessRequest, HarnessResponse, ResponseStatus
+from .learned_semantics import LearnedSemanticsStore, LearnedSemanticRule
 
 
 @dataclass(frozen=True)
@@ -41,11 +42,7 @@ class SemanticInterpreter(Protocol):
 
 
 class LLMJsonSemanticInterpreter:
-    """Strict JSON semantic interpreter suitable for Qwen/Qwen-Coder class models.
-
-    The model is allowed to interpret wording only. It must surface uncertainty
-    as clarifications and must not fabricate task/sprint/member identifiers.
-    """
+    """Strict JSON semantic interpreter suitable for Qwen/Qwen-Coder class models."""
 
     SYSTEM = """You are the semantic interpreter of a PO Harness agent.
 Return JSON only with keys canonical_query, intent_hint, slots, clarifications, confidence.
@@ -56,7 +53,8 @@ Rules:
 3. If an entity or business term is ambiguous, add a clarification instead of guessing.
 4. canonical_query must preserve the user's requested operation and only use values explicitly supplied or resolved in context.
 5. Do not calculate metrics; deterministic capabilities do that after interpretation.
-6. For phrases such as 'open tasks', if context does not define the term, clarify its status semantics.
+6. For phrases such as 'open tasks', if learned_semantics does not define the term, clarify its status semantics.
+7. Learned semantics are configuration facts supplied by the Harness; do not extend them by analogy.
 """
 
     def __init__(self, client: LLMClient, *, model: str | None = None) -> None:
@@ -95,17 +93,11 @@ Rules:
 
 
 class ConservativeSemanticInterpreter:
-    """Hermetic fallback, not the primary production NLP layer.
-
-    It performs only high-confidence normalization and otherwise lets the
-    deterministic runtime handle the query. No FIO declension tables are kept.
-    """
+    """Hermetic fallback, not the primary production NLP layer."""
 
     async def interpret(self, query: str, *, context: dict[str, Any] | None = None) -> SemanticFrame:
         text = query.strip()
         low = text.casefold()
-        # One safe normalization fixes grammatical variants without enumerating
-        # complete phrase dictionaries; production should use LLMJsonSemanticInterpreter.
         if "истор" in low and re.search(r"\b[A-ZА-Я][A-ZА-Я0-9_]{1,15}-\d+\b", text, re.I):
             key = re.search(r"\b[A-ZА-Я][A-ZА-Я0-9_]{1,15}-\d+\b", text, re.I).group(0)
             text = f"история {key}"
@@ -122,9 +114,15 @@ class _PendingDialogue:
 class DialogueHarnessRuntime:
     """Stateful semantic/clarification layer over an executable Harness runtime."""
 
-    def __init__(self, inner, interpreter: SemanticInterpreter | None = None) -> None:
+    def __init__(
+        self,
+        inner,
+        interpreter: SemanticInterpreter | None = None,
+        semantics: LearnedSemanticsStore | None = None,
+    ) -> None:
         self.inner = inner
         self.interpreter = interpreter or ConservativeSemanticInterpreter()
+        self.semantics = semantics
         self._pending: dict[str, _PendingDialogue] = {}
         for name in ("adapter", "router", "capabilities", "skills"):
             setattr(self, name, getattr(inner, name))
@@ -154,6 +152,11 @@ class DialogueHarnessRuntime:
                 query = f"{query} {value}"
         return query
 
+    def learn_explicit_definition(self, *, term: str, meaning: str, trace_id: str, scope: str = "global") -> LearnedSemanticRule:
+        if self.semantics is None:
+            raise RuntimeError("learned semantics store is not configured")
+        return self.semantics.learn_explicit_definition(term=term, meaning=meaning, source_trace_id=trace_id, scope=scope)
+
     async def process(self, request: HarnessRequest) -> HarnessResponse:
         session = request.session_id or str(uuid.uuid4())
         started = time.perf_counter()
@@ -170,12 +173,14 @@ class DialogueHarnessRuntime:
             if pending.remaining:
                 return self._clarification_response(session, pending)
             self._pending.pop(session, None)
-            effective = HarnessRequest(query=self._apply_answers(pending.frame, pending.answers), session_id=session)
-            response = await self.inner.process(effective)
+            response = await self.inner.process(HarnessRequest(query=self._apply_answers(pending.frame, pending.answers), session_id=session))
             self._decorate(response, pending.frame.llm_used)
             return response
 
-        frame = await self.interpreter.interpret(request.query, context={"session_id": session})
+        semantic_context: dict[str, Any] = {"session_id": session}
+        if self.semantics is not None:
+            semantic_context["learned_semantics"] = self.semantics.context("global")
+        frame = await self.interpreter.interpret(request.query, context=semantic_context)
         if frame.clarifications:
             pending = _PendingDialogue(frame=frame, remaining=list(frame.clarifications))
             self._pending[session] = pending
