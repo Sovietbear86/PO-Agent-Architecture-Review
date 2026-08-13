@@ -12,14 +12,14 @@ def test_master_spec_search_and_release_forecast_are_not_lost():
 
 def test_current_recovery_vertical_slices_are_marked_implemented():
     skills=catalog_by_id()
-    implemented=("task-lookup","task-search","task-search-attachments","task-search-excel","task-search-pdf","task-search-msg","task-search-assignee","task-search-status","task-search-sprint","task-search-release","task-search-product","task-summary","task-quality","task-missing-requirements","task-acceptance-analysis","task-dependency-analysis","task-history","task-time-in-status","task-aging","task-blocker-analysis","task-similar","sprint-health","sprint-current","sprint-scope","sprint-velocity","sprint-throughput","sprint-wip","sprint-cycle-time","sprint-lead-time","sprint-predictability","sprint-risk-queue","team-workload","team-wip","team-blocked","team-capacity","team-bottlenecks","team-distribution","release-health","release-scope","release-progress","release-blockers","release-dependencies","release-risk-queue","portfolio-overview","po-attention-queue","po-daily-brief","po-status-report","po-reminder-draft","po-local-task-draft")
+    implemented=("task-lookup","task-search","task-search-attachments","task-search-excel","task-search-pdf","task-search-msg","task-search-assignee","task-search-status","task-search-sprint","task-search-release","task-search-product","task-summary","task-quality","task-missing-requirements","task-acceptance-analysis","task-dependency-analysis","task-history","task-time-in-status","task-aging","task-blocker-analysis","task-similar","sprint-health","sprint-current","sprint-scope","sprint-velocity","sprint-throughput","sprint-wip","sprint-cycle-time","sprint-lead-time","sprint-predictability","sprint-risk-queue","team-workload","team-wip","team-blocked","team-capacity","team-competency-match","team-assignee-recommendation","team-bottlenecks","team-distribution","release-health","release-scope","release-progress","release-blockers","release-dependencies","release-risk-queue","portfolio-overview","po-attention-queue","po-daily-brief","po-status-report","po-reminder-draft","po-local-task-draft")
     for skill_id in implemented: assert skills[skill_id].status=="implemented"
 
 def test_history_snapshot_dependent_sprint_metrics_remain_planned():
     skills=catalog_by_id(); assert skills["sprint-carryover"].status=="planned"; assert skills["sprint-scope-change"].status=="planned"
 
-def test_llm_team_recommendations_remain_planned_until_competency_source_is_wired():
-    skills=catalog_by_id(); assert skills["team-competency-match"].status=="planned"; assert skills["team-assignee-recommendation"].status=="planned"
+def test_grounded_team_recommendations_are_implemented_but_source_gated():
+    skills=catalog_by_id(); assert skills["team-competency-match"].status=="implemented"; assert skills["team-assignee-recommendation"].status=="implemented"
 
 def test_release_forecast_remains_planned_without_release_dates_or_history_baseline():
     assert catalog_by_id()["release-forecast"].status=="planned"
@@ -27,4 +27,4 @@ def test_release_forecast_remains_planned_without_release_dates_or_history_basel
 def test_draft_skills_do_not_claim_external_write_permission(): assert not [e for e in SKILL_CATALOG if e.requires_write]
 
 def test_catalog_summary_is_machine_readable():
-    summary=catalog_summary(); assert summary["total"]==54; assert summary["statuses"]["implemented"]==49; assert summary["statuses"]["planned"]==5; assert summary["by_domain"]["tasks"]==21; assert summary["by_domain"]["sprints"]==12; assert summary["by_domain"]["team"]==8; assert summary["by_domain"]["releases"]==7
+    summary=catalog_summary(); assert summary["total"]==54; assert summary["statuses"]["implemented"]==51; assert summary["statuses"]["planned"]==3; assert summary["by_domain"]["tasks"]==21; assert summary["by_domain"]["sprints"]==12; assert summary["by_domain"]["team"]==8; assert summary["by_domain"]["releases"]==7
