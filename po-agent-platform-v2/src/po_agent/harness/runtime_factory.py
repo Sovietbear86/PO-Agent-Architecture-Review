@@ -10,6 +10,7 @@ from po_agent.adapters.as21 import AS21Adapter
 
 from .historical_wiring import enable_historical_skills
 from .runtime import HarnessRuntime
+from .source_aware_runtime import SourceAwareHarnessRuntime
 from .source_contracts import (
     ReleaseTimelineSource,
     SourceDependencyBundle,
@@ -68,7 +69,7 @@ def build_runtime_bundle(
         release_timeline=release_timeline,
     )
 
-    runtime = HarnessRuntime(adapter)
+    runtime = SourceAwareHarnessRuntime(adapter)
     if team_source is not None and team_source.has_declared_profiles():
         enable_team_matching(runtime, team_source)
     if sprint_snapshots is not None or release_timeline is not None:
