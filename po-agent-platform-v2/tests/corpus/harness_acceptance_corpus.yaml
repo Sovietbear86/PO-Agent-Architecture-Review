@@ -1,0 +1,159 @@
+schema_version: 1
+purpose: "Canonical + paraphrase acceptance corpus for all PO Agent Harness Skills"
+legacy_sources:
+  - s21-task-agent/eval/golden_queries.jsonl
+  - task-api/src/s21_team_performance/agent.py
+  - task-api/src/components/AgentChat.tsx
+rules:
+  min_phrases_per_skill: 2
+  language: ru
+  no_hallucination: true
+cases:
+  - skill: task-lookup
+    phrases: ["Покажи WMB-101", "Что за задача WMB-101?"]
+  - skill: task-search
+    phrases: ["Найди Apache Iceberg", "Поиск OAuth login"]
+  - skill: task-search-attachments
+    requires_fact: attachments
+    phrases: ["Найди задачи с вложениями", "Покажи задачи, где есть файлы"]
+  - skill: task-search-excel
+    requires_fact: attachments
+    phrases: ["Найди задачи с Excel вложениями", "Найди XLSX файлы в задачах"]
+  - skill: task-search-pdf
+    requires_fact: attachments
+    phrases: ["Найди задачи с PDF вложениями", "Покажи PDF файлы в задачах"]
+  - skill: task-search-msg
+    requires_fact: attachments
+    phrases: ["Найди задачи с MSG вложениями", "Найди письма MSG в задачах"]
+  - skill: task-search-assignee
+    phrases: ["Покажи задачи исполнителя Ivanov.I.I", "Найди задачи на исполнителе Ivanov.I.I"]
+  - skill: task-search-status
+    phrases: ["Найди задачи в статусе In progress", "Покажи статус Active Work"]
+  - skill: task-search-sprint
+    phrases: ["Покажи задачи спринта WMB-SPRNT-1", "Какие задачи в спринте WMB-SPRNT-1?"]
+  - skill: task-search-release
+    phrases: ["Покажи задачи в релизе WMB-2026-Q3", "Какие задачи релиза WMB-2026-Q3?"]
+  - skill: task-search-product
+    phrases: ["Покажи задачи в продукте WMB", "Найди задачи в пространстве DMS"]
+  - skill: task-summary
+    phrases: ["Суммаризируй WMB-101", "Кратко объясни задачу WMB-101"]
+  - skill: task-quality
+    legacy: true
+    phrases: ["Оцени качество постановки WMB-101", "Quality задачи WMB-101"]
+  - skill: task-missing-requirements
+    phrases: ["Чего не хватает в WMB-101?", "Что отсутствует в постановке WMB-101?"]
+  - skill: task-acceptance-analysis
+    phrases: ["Проверь критерии приемки WMB-101", "Насколько тестируемы acceptance criteria WMB-101?"]
+  - skill: task-dependency-analysis
+    phrases: ["Покажи зависимости WMB-101", "От чего зависит WMB-101?"]
+  - skill: task-history
+    requires_fact: history
+    legacy: true
+    phrases: ["Покажи историю WMB-101", "Суммаризируй переходы lifecycle WMB-101"]
+  - skill: task-time-in-status
+    requires_fact: history
+    phrases: ["Сколько времени WMB-101 в статусах?", "Time in status для WMB-101"]
+  - skill: task-aging
+    phrases: ["Покажи старые задачи старше 7 дней", "Какие задачи залежались 14 дней?"]
+  - skill: task-blocker-analysis
+    phrases: ["Какие блокеры у WMB-101?", "Что мешает выполнить WMB-101?"]
+  - skill: task-similar
+    legacy: true
+    phrases: ["Найди задачи похожие на WMB-101", "Есть дубликаты WMB-101?"]
+  - skill: sprint-health
+    legacy: true
+    phrases: ["Здоровье спринта WMB-SPRNT-1", "Метрики спринта WMB-SPRNT-1"]
+  - skill: sprint-current
+    phrases: ["Какой текущий спринт в продукте WMB?", "Покажи current sprint продукта DMS"]
+  - skill: sprint-scope
+    phrases: ["Покажи scope WMB-SPRNT-1", "Какой состав WMB-SPRNT-1?"]
+  - skill: sprint-velocity
+    legacy: true
+    phrases: ["Velocity WMB-SPRNT-1", "Какая скорость WMB-SPRNT-1?"]
+  - skill: sprint-throughput
+    legacy: true
+    phrases: ["Throughput WMB-SPRNT-1", "Сколько завершено в WMB-SPRNT-1?"]
+  - skill: sprint-wip
+    phrases: ["WIP WMB-SPRNT-1", "Сколько задач в работе в WMB-SPRNT-1?"]
+  - skill: sprint-cycle-time
+    requires_fact: history
+    phrases: ["Cycle time WMB-SPRNT-1", "Цикл выполнения WMB-SPRNT-1"]
+  - skill: sprint-lead-time
+    requires_fact: history
+    phrases: ["Lead time WMB-SPRNT-1", "Лид тайм WMB-SPRNT-1"]
+  - skill: sprint-carryover
+    requires_fact: sprint_snapshots
+    phrases: ["Покажи carryover WMB-SPRNT-1", "Что перенесено из commitment WMB-SPRNT-1?"]
+  - skill: sprint-scope-change
+    requires_fact: sprint_snapshots
+    phrases: ["Scope change WMB-SPRNT-1", "Что добавили и убрали из WMB-SPRNT-1 после старта?"]
+  - skill: sprint-predictability
+    phrases: ["Predictability WMB-SPRNT-1", "Предсказуемость WMB-SPRNT-1"]
+  - skill: sprint-risk-queue
+    phrases: ["Риски спринта WMB-SPRNT-1", "Покажи risk queue WMB-SPRNT-1"]
+  - skill: team-workload
+    legacy: true
+    phrases: ["Баланс загрузки команды", "Покажи загрузку команды"]
+  - skill: team-wip
+    phrases: ["WIP команды", "Покажи незавершенку команды"]
+  - skill: team-blocked
+    phrases: ["Покажи блокировки команды", "Что заблокировано у команды?"]
+  - skill: team-capacity
+    phrases: ["Capacity команды 40 часов", "Покажи емкость команды 40 часов"]
+  - skill: team-competency-match
+    requires_fact: team_competencies
+    legacy: true
+    phrases: ["Кто подходит для задачи WMB-101 по компетенциям?", "Подбор по компетенциям для WMB-101"]
+  - skill: team-assignee-recommendation
+    requires_fact: team_competencies
+    legacy: true
+    phrases: ["Кто может взять задачу WMB-101?", "Рекомендуй исполнителя для WMB-101"]
+  - skill: team-bottlenecks
+    legacy: true
+    phrases: ["Покажи бутылочное горлышко команды", "Какие узкие места команды?"]
+  - skill: team-distribution
+    legacy: true
+    phrases: ["Распределение задач команды", "Покажи team distribution"]
+  - skill: release-health
+    phrases: ["Здоровье релиза WMB-2026-Q3", "Что с релизом WMB-2026-Q3?"]
+  - skill: release-scope
+    phrases: ["Scope релиза WMB-2026-Q3", "Покажи задачи релиза WMB-2026-Q3"]
+  - skill: release-progress
+    phrases: ["Прогресс релиза WMB-2026-Q3", "Готовность WMB-2026-Q3"]
+  - skill: release-blockers
+    phrases: ["Блокеры релиза WMB-2026-Q3", "Что блокирует WMB-2026-Q3?"]
+  - skill: release-dependencies
+    phrases: ["Зависимости релиза WMB-2026-Q3", "От чего зависит WMB-2026-Q3?"]
+  - skill: release-risk-queue
+    phrases: ["Риски релиза WMB-2026-Q3", "Risk queue WMB-2026-Q3"]
+  - skill: release-forecast
+    requires_fact: release_timeline
+    phrases: ["Прогноз релиза WMB-2026-Q3", "Когда будет готов релиз WMB-2026-Q3?"]
+  - skill: portfolio-overview
+    phrases: ["Обзор", "Что происходит по портфелю?"]
+  - skill: po-attention-queue
+    phrases: ["Что требует моего внимания?", "Покажи очередь внимания PO"]
+  - skill: po-daily-brief
+    phrases: ["Дай утреннюю сводку", "Подготовь daily brief"]
+  - skill: po-status-report
+    phrases: ["Подготовь статус-отчет", "Сделай отчет по портфелю"]
+  - skill: po-reminder-draft
+    phrases: ["Подготовь черновик напоминания по WMB-101", "Составь reminder draft для WMB-101"]
+  - skill: po-local-task-draft
+    phrases: ["Создай локальную задачу: проверить релиз", "Подготовь черновик локальной задачи: уточнить критерии WMB-101"]
+
+legacy_language_cases:
+  - query: "Найди открытые задачи с PDF-вложениями, где упоминается Apache Iceberg"
+    note: "Old golden query: attachment + text composition must not hallucinate unsupported composition."
+  - query: "Найди Excel-вложения с колонкой Критерий приемки"
+    note: "Old golden query: content-inside-attachment search requires actual attachment-content source, not metadata only."
+  - query: "Суммаризируй последние 30 комментариев и покажи финальное решение"
+    note: "Old golden query: comments/history source is mandatory."
+  - query: "задачи Гаранина в спринте OLP-SPRNT-3"
+    note: "Old UI example: FIO declension + sprint context."
+  - query: "задачи Гаранина"
+    note: "Old behavior asked for sprint selection; new behavior must resolve member safely or clarify."
+  - query: "скорость команды"
+    note: "Old broad phrase; must clarify period/sprint unless context safely supplies it."
+  - query: "когда закончится спринт"
+    note: "Forecast without historical evidence must not invent a date."
