@@ -80,6 +80,23 @@ SKILL_CATALOG: tuple[SkillCatalogEntry, ...] = (
 
 def catalog_by_id() -> dict[str, SkillCatalogEntry]: return {entry.id: entry for entry in SKILL_CATALOG}
 
+
+def intent_to_skill_id(intent: str | None) -> str | None:
+    """Map canonical semantic intent to an implemented Skill id.
+
+    Semantic intents use snake_case while Skill ids use kebab-case.
+    Unknown/unimplemented intents fail closed by returning None.
+    """
+    if not intent:
+        return None
+    normalized = intent.strip().casefold().replace("-", "_").replace(" ", "_")
+    candidate = normalized.replace("_", "-")
+    entry = catalog_by_id().get(candidate)
+    if entry is None or entry.status != "implemented":
+        return None
+    return entry.id
+
+
 def catalog_summary() -> dict[str, object]:
     by_domain: dict[str, int] = {}
     statuses: dict[str, int] = {"implemented": 0, "planned": 0, "blocked": 0}

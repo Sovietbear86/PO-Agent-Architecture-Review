@@ -86,7 +86,9 @@ def build_runtime_bundle(
     # Semantic execution is still allow-listed. The dialogue layer may call this
     # capability only after all requested filters have been grounded/clarified.
     structured_search = StructuredTaskSearchCapability(adapter)
-    executable.capabilities.register("task.search.composite", structured_search.execute)
+    # Register composite search only if not already registered ( HarnessRuntime does this)
+    if "task.search.composite" not in executable.capabilities._handlers:
+        executable.capabilities.register("task.search.composite", structured_search.execute)
 
     semantics = LearnedSemanticsStore(learned_semantics_path) if learned_semantics_path else None
     directory = TeamDirectory.from_yaml(team_path)

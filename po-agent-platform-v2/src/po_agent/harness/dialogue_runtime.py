@@ -177,24 +177,6 @@ class DialogueHarnessRuntime:
             setattr(self, name, getattr(inner, name))
 
     @staticmethod
-    def _extract_task_key(query: str) -> str | None:
-        """Extract task key (e.g., WMB-101) from query string."""
-        match = re.search(r"\b[A-ZА-Я][A-ZА-Я0-9_]{1,15}-\d+\b", query, re.I)
-        return match.group(0) if match else None
-
-    @staticmethod
-    def _extract_sprint_id(query: str) -> str | None:
-        """Extract sprint ID (e.g., WMB-SPRNT-1) from query string."""
-        match = re.search(r"\b[A-Z]+-SPRNT-\d+\b", query, re.I)
-        return match.group(0) if match else None
-
-    @staticmethod
-    def _extract_release_id(query: str) -> str | None:
-        """Extract release ID (e.g., WMB-2024-Q3) from query string."""
-        match = re.search(r"\b[A-Z]+-\d{4}-Q\d+\b", query, re.I)
-        return match.group(0) if match else None
-
-    @staticmethod
     def _clarification_response(session: str, pending: _PendingDialogue) -> HarnessResponse:
         need = pending.remaining[0]
         return HarnessResponse(
@@ -237,6 +219,78 @@ class DialogueHarnessRuntime:
             raise RuntimeError("learned semantics store is not configured")
         return self.semantics.learn_explicit_definition(term=term, meaning=meaning, source_trace_id=trace_id, scope=scope)
 
+    # Execution slot keys for capability argument building
+    _EXECUTION_SLOT_KEYS = {
+        "task_key",
+        "sprint_id",
+        "release_id",
+        "product",
+        "assignee",
+        "status",
+        "phrase",
+        "attachment_type",
+        "threshold_days",
+        "capacity_hours",
+        "subject",
+    }
+
+    # Required arguments by capability for validation
+    _REQUIRED_ARGS_BY_CAPABILITY = {
+        "task.lookup": ("task_key",),
+        "task.summary": ("task_key",),
+        "task.quality": ("task_key",),
+        "task.missing_requirements": ("task_key",),
+        "task.acceptance_analysis": ("task_key",),
+        "task.dependencies": ("task_key",),
+        "task.blockers": ("task_key",),
+        "task.similar": ("task_key",),
+        "task.history": ("task_key",),
+        "task.time_in_status": ("task_key",),
+        "sprint.health": ("sprint_id",),
+        "sprint.velocity": ("sprint_id",),
+        "sprint.throughput": ("sprint_id",),
+        "sprint.wip": ("sprint_id",),
+        "release.health": ("release_id",),
+        "release.scope": ("release_id",),
+        "release.progress": ("release_id",),
+        "release.blockers": ("release_id",),
+        "release.dependencies": ("release_id",),
+        "release.risk_queue": ("release_id",),
+        "team.competency_match": ("task_key",),
+    }
+
+    @staticmethod
+    def _build_capability_args(frame: SemanticFrame) -> dict[str, str]:
+        """Build capability arguments from semantic frame slots.
+
+        Uses structured slots directly; does NOT parse from canonical_query.
+        Only maps slot keys to capability arg names where needed.
+        """
+        slots = {str(k): str(v) for k, v in frame.slots.items() if v not in (None, "")}
+
+        args = {k: v for k, v in slots.items() if k in DialogueHarnessRuntime._EXECUTION_SLOT_KEYS}
+
+        # Map task_id to task_key if task_key not present
+        if "task_key" not in args and slots.get("task_id"):
+            args["task_key"] = slots["task_id"]
+
+        # Map member_login to assignee if assignee not present
+        if "assignee" not in args and slots.get("member_login"):
+            args["assignee"] = slots["member_login"]
+
+        return args
+
+    def _validate_required_args(self, capability_id: str, args: dict[str, str]) -> tuple[bool, str | None]:
+        """Check if required args are present for capability execution.
+
+        Returns (is_valid, warning_message).
+        """
+        required = self._REQUIRED_ARGS_BY_CAPABILITY.get(capability_id, ())
+        missing = [arg for arg in required if arg not in args or not args[arg]]
+        if missing:
+            return False, f"Missing required slot: {', '.join(missing)}"
+        return True, None
+
     @staticmethod
     def _source_failure(session: str, warning: str, answer: str, started: float, *, data: dict[str, Any] | None = None) -> HarnessResponse:
         return HarnessResponse(
@@ -258,8 +312,8 @@ class DialogueHarnessRuntime:
         return required if required and required not in source_facts else None
 
     async def _execute_frame(self, frame: SemanticFrame, session: str, started: float) -> HarnessResponse:
-        hint = (frame.intent_hint or "").strip().replace("-", "_").casefold()
-        
+        hint = (frame.intent_hint or "").strip().replace("-", "_").replace(" ", "_").casefold()
+
         # Special handling for learning rules
         if hint == "learn_semantic":
             if self.semantics is None:
@@ -293,37 +347,54 @@ class DialogueHarnessRuntime:
             self._decorate(response, frame.llm_used)
             return response
 
-        # Generic semantic dispatch: resolve skill from semantic intent
+        # Generic semantic dispatch: fail closed for unsupported intents
         skill_id = intent_to_skill_id(hint)
-        if skill_id is not None:
-            # Refine skill_id based on slots for better accuracy
-            refined_skill_id = _refine_skill_id_by_slots(skill_id, frame.slots)
-            # Resolve the skill from catalog
-            try:
-                skill = self.skills.resolve_by_id(refined_skill_id)
-            except ValueError:
-                # Skill not found, try original skill_id or fallback
+        if skill_id is None:
+            # No valid skill found for this intent - fail closed
+            return HarnessResponse(
+                status=ResponseStatus.FAILED,
+                trace_id=str(uuid.uuid4()),
+                session_id=session,
+                answer="Интент не распознан или нереализован.",
+                intent=hint,
+                warnings=["unsupported_semantic_intent"],
+                latency_ms=(time.perf_counter() - started) * 1000,
+            )
+
+        # Build capability arguments from slots
+        capability_args = self._build_capability_args(frame)
+
+        # Validate required arguments
+        is_valid, error_msg = self._validate_required_args(skill_id, capability_args)
+        if not is_valid:
+            return HarnessResponse(
+                status=ResponseStatus.NEEDS_CLARIFICATION,
+                trace_id=str(uuid.uuid4()),
+                session_id=session,
+                question=f"Мне не хватает информации: {error_msg}.",
+                warnings=["semantic_slot_missing"],
+                latency_ms=(time.perf_counter() - started) * 1000,
+            )
+
+        # For task-search with 2+ filters, use composite capability but keep skill_id as task-search
+        refined_skill_id = skill_id  # Default: use original skill_id
+        if skill_id == "task-search":
+            # Count task-search filters
+            filter_count = sum(1 for k in ["assignee", "sprint_id", "release_id", "status", "product"] if k in capability_args)
+            if filter_count >= 2:
+                # Use composite search capability
                 try:
-                    skill = self.skills.resolve_by_id(skill_id)
-                except ValueError:
-                    # Skill not found, fall back to text-based processing
-                    pass
-                else:
-                    refined_skill_id = skill_id
-            else:
-                # Execute the skill's declared capability with grounded slots
-                capability_id = skill.capability_id
-                try:
-                    # Map semantic slots to capability args
-                    capability_args = self._build_capability_args(frame, skill_id)
-                    result = await self.capabilities.execute(capability_id, capability_args)
+                    refined_skill_id = "task-search"  # Keep skill_id as task-search
+                    skill = self.skills.resolve_by_id(refined_skill_id)
+                    # Execute composite search
+                    result = await self.capabilities.execute("task.search.composite", capability_args)
                     response = HarnessResponse(
                         status=ResponseStatus.COMPLETED,
                         trace_id=str(uuid.uuid4()),
                         session_id=session,
                         answer=result.answer,
                         intent=hint,
-                        skill_id=skill.id,
+                        skill_id=refined_skill_id,
                         skill_version=skill.version,
                         data=result.data,
                         evidence=result.evidence,
@@ -332,84 +403,85 @@ class DialogueHarnessRuntime:
                     )
                     self._decorate(response, frame.llm_used)
                     return response
+                except ValueError:
+                    # Composite not available, fall back to single filter
+                    pass
                 except AS21CapabilityUnavailable:
                     return self._source_failure(session, "source_capability_unavailable", "Источник AS21 не предоставляет данные, необходимые для этого запроса.", started)
                 except AS21SourceUnavailable:
-                    return self._source_failure(session, "source_unavailable", "Источник AS21 временно недоступен. Данные не интерпретируются как пустой результат.", started)
+                    return self._source_failure(session, "source_unavailable", "Источник AS21 временно недоступен.", started)
                 except AS21SourceError:
                     return self._source_failure(session, "source_protocol_error", "Источник AS21 вернул некорректные данные.", started)
 
-        # Fallback: text-based routing for unknown intents (legacy compatibility)
-        response = await self.inner.process(HarnessRequest(query=frame.canonical_query, session_id=session))
-        self._decorate(response, frame.llm_used)
-        response.latency_ms = max(response.latency_ms, (time.perf_counter() - started) * 1000)
-        return response
+        # Refine skill_id for task-search based on grounded slots (for single filter cases)
+        refined_skill_id = self._refine_skill_id_by_slots(skill_id, frame.slots)
 
-    def _build_capability_args(self, frame: SemanticFrame, skill_id: str) -> dict[str, str]:
-        """Build capability arguments from semantic frame slots based on skill type."""
-        args: dict[str, str] = {}
-        
-        if skill_id == "task-lookup":
-            # task-lookup uses task_key directly
-            if task_key := frame.slots.get("task_key") or frame.slots.get("task_id"):
-                args["task_key"] = task_key
-                
-        elif skill_id == "task-search":
-            # Generic task search
-            if phrase := frame.slots.get("phrase"):
-                args["phrase"] = phrase
-            elif person_raw := frame.slots.get("person_raw"):
-                # Fallback: use person_raw as phrase if no specific filter
-                args["phrase"] = person_raw
-                
-        elif skill_id in ("task-search-assignee", "task-search-status", "task-search-sprint", "task-search-release", "task-search-product"):
-            # Task search with structured filters
-            if assignee := frame.slots.get("member_login") or frame.slots.get("assignee"):
-                args["assignee"] = assignee
-            if sprint_id := frame.slots.get("sprint_id"):
-                args["sprint_id"] = sprint_id
-            if release_id := frame.slots.get("release_id"):
-                args["release_id"] = release_id
-            if product := frame.slots.get("product"):
-                args["product"] = product
-            if status := frame.slots.get("status"):
-                args["status"] = status
-            if phrase := frame.slots.get("phrase"):
-                args["phrase"] = phrase
-                
-        elif skill_id == "task-search-sprint":
-            if sprint_id := frame.slots.get("sprint_id"):
-                args["sprint_id"] = sprint_id
-                
-        elif skill_id == "task-search-release":
-            if release_id := frame.slots.get("release_id"):
-                args["release_id"] = release_id
-                
-        elif skill_id == "task-summary":
-            # task-summary needs task_key for LLM summary generation
-            if task_key := frame.slots.get("task_key") or frame.slots.get("task_id"):
-                args["task_key"] = task_key
-                
-        elif skill_id in ("sprint-health", "sprint-velocity", "sprint-throughput", "sprint-wip"):
-            # Sprint metrics use sprint_id
-            if sprint_id := frame.slots.get("sprint_id"):
-                args["sprint_id"] = sprint_id
-                
-        elif skill_id == "team-workload":
-            # Team workload analysis
-            pass  # No slots needed for team-level aggregation
-                
-        elif skill_id == "team-competency-match":
-            # Team competency matching uses task_key for requirement analysis
-            if task_key := frame.slots.get("task_key") or frame.slots.get("task_id"):
-                args["task_key"] = task_key
-                
-        elif skill_id in ("release-health", "release-progress", "release-scope"):
-            # Release metrics use release_id
-            if release_id := frame.slots.get("release_id"):
-                args["release_id"] = release_id
-                
-        return args
+        # Resolve skill by id
+        try:
+            skill = self.skills.resolve_by_id(refined_skill_id)
+        except ValueError:
+            return HarnessResponse(
+                status=ResponseStatus.FAILED,
+                trace_id=str(uuid.uuid4()),
+                session_id=session,
+                answer="Навык не найден или недоступен.",
+                intent=hint,
+                skill_id=refined_skill_id,
+                warnings=["semantic_skill_unavailable"],
+                latency_ms=(time.perf_counter() - started) * 1000,
+            )
+
+        # Execute capability
+        try:
+            result = await self.capabilities.execute(skill.capability_id, capability_args)
+            response = HarnessResponse(
+                status=ResponseStatus.COMPLETED,
+                trace_id=str(uuid.uuid4()),
+                session_id=session,
+                answer=result.answer,
+                intent=hint,
+                skill_id=skill.id,
+                skill_version=skill.version,
+                data=result.data,
+                evidence=result.evidence,
+                warnings=result.warnings,
+                latency_ms=(time.perf_counter() - started) * 1000,
+            )
+            self._decorate(response, frame.llm_used)
+            return response
+        except AS21CapabilityUnavailable:
+            return self._source_failure(session, "source_capability_unavailable", "Источник AS21 не предоставляет данные, необходимые для этого запроса.", started)
+        except AS21SourceUnavailable:
+            return self._source_failure(session, "source_unavailable", "Источник AS21 временно недоступен. Данные не интерпретируются как пустой результат.", started)
+        except AS21SourceError:
+            return self._source_failure(session, "source_protocol_error", "Источник AS21 вернул некорректные данные.", started)
+
+    @staticmethod
+    def _refine_skill_id_by_slots(skill_id: str, slots: dict[str, str]) -> str:
+        """Refine skill_id based on available slots for better accuracy.
+
+        Only used for task-search to select more specific variant.
+        Uses only grounded slots (member_login/assignee, sprint_id, release_id, status, product).
+        """
+        if skill_id != "task-search":
+            return skill_id
+
+        # Check for more specific search filters in priority order
+        if slots.get("assignee") or slots.get("member_login"):
+            return "task-search-assignee"
+        if slots.get("sprint_id"):
+            return "task-search-sprint"
+        if slots.get("release_id"):
+            return "task-search-release"
+        if slots.get("status"):
+            return "task-search-status"
+        if slots.get("product"):
+            return "task-search-product"
+        if slots.get("phrase"):
+            return "task-search"
+
+        # Default: use generic task search
+        return "task-search"
 
     async def process(self, request: HarnessRequest) -> HarnessResponse:
         session = request.session_id or str(uuid.uuid4())

@@ -178,30 +178,35 @@ class TestLevelA_TaskSearchMemberSurnameGenitiveRussian:
         """Unambiguous genitive surname → resolved member_login."""
         frame = SemanticFrame(
             canonical_query="task search assignee {member_login}",
-            intent_hint="task_search",
+            intent_hint="task_search_assignee",
             slots={"member_login": "Garanin.R.V"},
             clarifications=[],
             confidence=0.95,
             llm_used=False,
         )
-        runtime = build_fake_runtime()
-        response = await runtime.process(HarnessRequest(query="Задачи Гаранина", session_id="la-1"))
-        assert response.status in {ResponseStatus.COMPLETED, ResponseStatus.PARTIAL}
-        assert response.skill_id in {"task-search", "task-search-assignee"}
+        dialogue = DialogueHarnessRuntime(
+            build_fake_runtime().inner,
+            interpreter=ScriptedInterpreter(frame)
+        )
+        response = await dialogue.process(HarnessRequest(query="Задачи Гаранина", session_id="la-1"))
+        assert response.status is ResponseStatus.COMPLETED
+        assert response.skill_id == "task-search-assignee"
 
     @pytest.mark.asyncio
     async def test_harness_clarifies_ambiguous_genitive_surname(self):
         """Ambiguous genitive surname → clarification request (not silent guess)."""
         frame = SemanticFrame(
             canonical_query="task search assignee {member_login}",
-            intent_hint="task_search",
+            intent_hint="task_search_assignee",
             slots={"person_raw": "Калачанова"},
             clarifications=[ClarificationNeed("member_login", "Кого вы имеете в виду?", ("Kalachanov.V.V", "Kalachanov.A.A"))],
             confidence=0.6,
             llm_used=False,
         )
-        from po_agent.harness.dialogue_runtime import DialogueHarnessRuntime
-        dialogue = DialogueHarnessRuntime(build_fake_runtime().inner, interpreter=ScriptedInterpreter(frame))
+        dialogue = DialogueHarnessRuntime(
+            build_fake_runtime().inner,
+            interpreter=ScriptedInterpreter(frame)
+        )
         response = await dialogue.process(HarnessRequest(query="Задачи Калачанова", session_id="la-2"))
         assert response.status is ResponseStatus.NEEDS_CLARIFICATION
         assert "Кого вы имеете в виду?" in response.question
@@ -233,8 +238,8 @@ class TestLevelA_TaskSearchMemberGenitiveMultiple:
         for surname in surnames:
             frame = SemanticFrame(
                 canonical_query="task search assignee {member_login}",
-                intent_hint="task_search",
-                slots={"person_raw": surname},
+                intent_hint="task_search_assignee",
+                slots={"member_login": "TestUser"},
                 clarifications=[],
                 confidence=0.85,
                 llm_used=False,
@@ -244,12 +249,8 @@ class TestLevelA_TaskSearchMemberGenitiveMultiple:
                 interpreter=ScriptedInterpreter(frame)
             )
             response = await dialogue.process(HarnessRequest(query=f"Задачи {surname}", session_id=f"la-gen-{surname}"))
-            assert response.status in {
-                ResponseStatus.COMPLETED,
-                ResponseStatus.PARTIAL,
-                ResponseStatus.NEEDS_CLARIFICATION,
-            }
-            assert response.skill_id in {"task-search", "task-search-assignee"}
+            assert response.status is ResponseStatus.COMPLETED
+            assert response.skill_id == "task-search-assignee"
 
 
 class TestLevelA_TaskSearchSprintID:
@@ -272,7 +273,7 @@ class TestLevelA_TaskSearchSprintID:
         """Unambiguous sprint ID → grounded sprint_id."""
         frame = SemanticFrame(
             canonical_query="task search sprint {sprint_id}",
-            intent_hint="task_search",
+            intent_hint="task_search_sprint",
             slots={"sprint_id": "WMB-SPRNT-1"},
             clarifications=[],
             confidence=0.95,
@@ -283,15 +284,15 @@ class TestLevelA_TaskSearchSprintID:
             interpreter=ScriptedInterpreter(frame)
         )
         response = await dialogue.process(HarnessRequest(query="Задачи спринта WMB-SPRNT-1", session_id="la-sprint-1"))
-        assert response.status in {ResponseStatus.COMPLETED, ResponseStatus.PARTIAL}
-        assert response.skill_id in {"task-search", "task-search-sprint"}
+        assert response.status is ResponseStatus.COMPLETED
+        assert response.skill_id == "task-search-sprint"
 
     @pytest.mark.asyncio
     async def test_harness_clarifies_ambiguous_sprint_shorthand(self):
         """Ambiguous sprint shorthand → clarification (not silent guess)."""
         frame = SemanticFrame(
             canonical_query="task search sprint {sprint_id}",
-            intent_hint="task_search",
+            intent_hint="task_search_sprint",
             slots={"sprint_raw": "OLP 4"},
             clarifications=[ClarificationNeed("sprint_id", "Какой именно спринт?", ("OLP-SPRNT-4", "OLP-SPRNT-14"))],
             confidence=0.6,
@@ -330,7 +331,7 @@ class TestLevelA_TaskSummary:
         frame = SemanticFrame(
             canonical_query="task summary WMB-101",
             intent_hint="task_summary",
-            slots={},
+            slots={"task_key": "WMB-101"},
             clarifications=[],
             confidence=0.95,
             llm_used=False,
@@ -370,7 +371,7 @@ class TestLevelA_TaskQuality:
         frame = SemanticFrame(
             canonical_query="task quality WMB-101",
             intent_hint="task_quality",
-            slots={},
+            slots={"task_key": "WMB-101"},
             clarifications=[],
             confidence=0.95,
             llm_used=False,
@@ -411,7 +412,7 @@ class TestLevelA_Velocity:
         frame = SemanticFrame(
             canonical_query="sprint velocity WMB-SPRNT-1",
             intent_hint="sprint_velocity",
-            slots={},
+            slots={"sprint_id": "WMB-SPRNT-1"},
             clarifications=[],
             confidence=0.95,
             llm_used=False,
@@ -421,7 +422,7 @@ class TestLevelA_Velocity:
             interpreter=ScriptedInterpreter(frame)
         )
         response = await dialogue.process(HarnessRequest(query="Скорость команды WMB-SPRNT-1", session_id="la-velocity"))
-        assert response.status in {ResponseStatus.COMPLETED, ResponseStatus.PARTIAL}
+        assert response.status is ResponseStatus.COMPLETED
         assert response.skill_id == "sprint-velocity"
         assert "velocity" in response.data or "metrics" in response.data or "committed" in response.data
 
@@ -494,7 +495,7 @@ class TestLevelA_SprintHealth:
         frame = SemanticFrame(
             canonical_query="sprint health WMB-SPRNT-1",
             intent_hint="sprint_health",
-            slots={},
+            slots={"sprint_id": "WMB-SPRNT-1"},
             clarifications=[],
             confidence=0.95,
             llm_used=False,
@@ -504,7 +505,7 @@ class TestLevelA_SprintHealth:
             interpreter=ScriptedInterpreter(frame)
         )
         response = await dialogue.process(HarnessRequest(query="Здоровье спринта WMB-SPRNT-1", session_id="la-sprint-health"))
-        assert response.status in {ResponseStatus.COMPLETED, ResponseStatus.PARTIAL}
+        assert response.status is ResponseStatus.COMPLETED
         assert response.skill_id == "sprint-health"
         # Sprint health data uses completion_percent, not health/metrics/score
         assert "completion_percent" in response.data or "sprint_id" in response.data
@@ -548,9 +549,9 @@ class TestLevelA_CompetencyMatch:
             interpreter=ScriptedInterpreter(frame)
         )
         response = await dialogue.process(HarnessRequest(query="Кто подходит для задачи WMB-101 по компетенциям?", session_id="la-comp"))
-        assert response.status in {ResponseStatus.COMPLETED, ResponseStatus.PARTIAL}
+        assert response.status is ResponseStatus.COMPLETED
         assert response.skill_id == "team-competency-match"
-        assert "matches" in response.data or "recommendations" in response.data or "candidates" in response.data
+        assert "members" in response.data
 
 
 class TestLevelA_ReleaseHealth:
@@ -581,7 +582,7 @@ class TestLevelA_ReleaseHealth:
         frame = SemanticFrame(
             canonical_query="release health WMB-2024-Q3",
             intent_hint="release_health",
-            slots={},
+            slots={"release_id": "WMB-2024-Q3"},
             clarifications=[],
             confidence=0.95,
             llm_used=False,
@@ -591,7 +592,7 @@ class TestLevelA_ReleaseHealth:
             interpreter=ScriptedInterpreter(frame)
         )
         response = await dialogue.process(HarnessRequest(query="Релиз готов WMB-2024-Q3?", session_id="la-release"))
-        assert response.status in {ResponseStatus.COMPLETED, ResponseStatus.PARTIAL}
+        assert response.status is ResponseStatus.COMPLETED
         assert response.skill_id == "release-health"
         # Release health data uses completion_percent, not health/status/progress
         assert "completion_percent" in response.data or "release_id" in response.data
