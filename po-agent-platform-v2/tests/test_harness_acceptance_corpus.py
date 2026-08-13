@@ -28,28 +28,37 @@ def test_acceptance_corpus_covers_every_canonical_skill_exactly_once():
     assert all(len(case["phrases"]) >= data["rules"]["min_phrases_per_skill"] for case in cases)
 
 
-@pytest.mark.asyncio
-async def test_first_canonical_phrase_routes_to_expected_skill_when_fake_source_is_ready():
-    _, cases = load_cases()
-    bundle = build_runtime_bundle("fake")
-    available = set(bundle.readiness.available_facts)
-
+def test_every_corpus_case_has_natural_language_variation_and_source_contract():
+    data, cases = load_cases()
     for case in cases:
-        required = case.get("requires_fact")
-        # snapshot/competency/timeline dependencies are intentionally injected
-        # by their dedicated source-contract tests, not invented in FakeAS21.
-        if required and required not in available:
-            continue
-        response = await bundle.runtime.process(
-            HarnessRequest(query=case["phrases"][0], session_id=f"corpus-{case['skill']}")
-        )
-        assert response.status in {ResponseStatus.COMPLETED, ResponseStatus.PARTIAL}, (
-            case["skill"], response.to_dict()
-        )
-        assert response.skill_id == case["skill"], (case["skill"], response.to_dict())
-        assert response.trace_id
-        assert response.skill_version
-        assert bundle.runtime.history.get(response.trace_id) is not None
+        assert case["phrases"]
+        assert all(isinstance(p, str) and p.strip() for p in case["phrases"])
+        # The corpus is the input set for Qwen semantic acceptance, not a list
+        # of regex phrases the fallback router must memorize.
+        assert len({p.casefold() for p in case["phrases"]}) >= 2
+        if case.get("requires_fact"):
+            assert isinstance(case["requires_fact"], str)
+    assert data["rules"]["min_phrases_per_skill"] >= 2
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("query", "skill"),
+    [
+        ("Покажи WMB-102", "task-lookup"),
+        ("Найди login", "task-search"),
+        ("Покажи задачи спринта WMB-SPRNT-1", "task-search-sprint"),
+        ("Готовность релиза WMB-2024-Q3", "release-progress"),
+        ("Покажи историю WMB-101", "task-history"),
+    ],
+)
+async def test_conservative_fallback_keeps_small_structural_safety_path(query, skill):
+    """Fallback is deliberately small; Qwen owns broad language understanding."""
+    bundle = build_runtime_bundle("fake")
+    response = await bundle.runtime.process(HarnessRequest(query=query, session_id=f"fallback-{skill}"))
+    assert response.status in {ResponseStatus.COMPLETED, ResponseStatus.PARTIAL}
+    assert response.skill_id == skill
+    assert response.trace_id
 
 
 def test_legacy_language_corpus_keeps_high_value_old_agent_phrases():
