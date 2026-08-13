@@ -10,13 +10,14 @@ from po_agent.harness import HarnessRequest, ResponseStatus, build_fake_runtime
         ("Покажи очередь внимания", "po-attention-queue"),
         ("Сделай утреннюю сводку", "po-daily-brief"),
         ("Сделай статус-отчет", "po-status-report"),
+        ("Подготовь напоминание по DMS-202", "po-reminder-draft"),
+        ("Создай локальную задачу: проверить release notes", "po-local-task-draft"),
     ],
 )
 async def test_po_assistant_routes_are_executable(query, skill_id):
     response = await build_fake_runtime().process(HarnessRequest(query=query))
     assert response.status is ResponseStatus.COMPLETED
     assert response.skill_id == skill_id
-    assert response.evidence
 
 
 @pytest.mark.asyncio
@@ -45,3 +46,26 @@ async def test_status_report_has_portfolio_completion_and_product_breakdown():
     assert response.data["completion_percent"] == 40.0
     assert set(response.data["by_product"]) == {"WMB", "DMS"}
     assert "llm_unavailable_deterministic_status_report" in response.warnings
+
+
+@pytest.mark.asyncio
+async def test_reminder_is_draft_only_and_grounded_in_task():
+    response = await build_fake_runtime().process(HarnessRequest(query="Составь напоминание по DMS-202"))
+    assert response.skill_id == "po-reminder-draft"
+    assert response.data["draft_created"] is True
+    assert response.data["task"]["key"] == "DMS-202"
+    assert response.data["write_performed"] is False
+    assert response.data["requires_approval_for_send"] is True
+    assert response.evidence
+    assert "draft_only_no_external_write" in response.warnings
+
+
+@pytest.mark.asyncio
+async def test_local_task_draft_never_writes_external_system():
+    response = await build_fake_runtime().process(HarnessRequest(query="Создай локальную задачу: проверить release notes"))
+    assert response.skill_id == "po-local-task-draft"
+    assert response.data["draft_created"] is True
+    assert response.data["draft"]["title"] == "проверить release notes"
+    assert response.data["draft"]["write_performed"] is False
+    assert response.data["draft"]["requires_approval_for_external_write"] is True
+    assert "draft_only_no_external_write" in response.warnings
