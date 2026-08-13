@@ -9,7 +9,7 @@ from po_agent.adapters import FakeAS21Adapter, TaskApiAS21Adapter
 from po_agent.adapters.as21 import AS21Adapter
 
 from .historical_wiring import enable_historical_skills
-from .runtime import HarnessRuntime
+from .observed_runtime import ObservedHarnessRuntime
 from .source_aware_runtime import SourceAwareHarnessRuntime
 from .source_contracts import (
     ReleaseTimelineSource,
@@ -26,7 +26,7 @@ RuntimeMode = Literal["fake", "task-api"]
 @dataclass(frozen=True)
 class RuntimeBundle:
     mode: RuntimeMode
-    runtime: HarnessRuntime
+    runtime: ObservedHarnessRuntime
     adapter: AS21Adapter
     readiness: SourceReadinessReport
     dependencies: SourceDependencyBundle
@@ -68,17 +68,19 @@ def build_runtime_bundle(
         team_competencies=team_source,
         release_timeline=release_timeline,
     )
+    readiness = build_source_readiness(adapter, extra_facts=dependencies.facts)
 
-    runtime = SourceAwareHarnessRuntime(adapter)
+    inner = SourceAwareHarnessRuntime(adapter, source_facts=readiness.available_facts)
     if team_source is not None and team_source.has_declared_profiles():
-        enable_team_matching(runtime, team_source)
+        enable_team_matching(inner, team_source)
     if sprint_snapshots is not None or release_timeline is not None:
-        enable_historical_skills(runtime, sprint_snapshots=sprint_snapshots, release_timeline=release_timeline)
+        enable_historical_skills(inner, sprint_snapshots=sprint_snapshots, release_timeline=release_timeline)
+    runtime = ObservedHarnessRuntime(inner)
 
     return RuntimeBundle(
         mode=selected,
         runtime=runtime,
         adapter=adapter,
-        readiness=build_source_readiness(adapter, extra_facts=dependencies.facts),
+        readiness=readiness,
         dependencies=dependencies,
     )
