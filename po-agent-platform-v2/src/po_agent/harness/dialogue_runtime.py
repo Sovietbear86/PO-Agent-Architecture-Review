@@ -14,6 +14,7 @@ import uuid
 from dataclasses import dataclass, field
 from typing import Protocol, Any
 
+from po_agent.adapters.task_api import AS21CapabilityUnavailable, AS21SourceError, AS21SourceUnavailable
 from po_agent.llm.client import LLMClient, LLMMessage
 
 from .contracts import HarnessRequest, HarnessResponse, ResponseStatus
@@ -53,7 +54,7 @@ class LLMJsonSemanticInterpreter:
 Return JSON only with keys canonical_query, intent_hint, slots, clarifications, confidence.
 clarifications is an array of {field, question, options}.
 Use placeholders {member_login}, {sprint_id}, {release_id}, {status} when a grounded value is not yet known.
-Useful slots: person_raw, member_login, sprint_raw, sprint_id, release_raw, release_id, status_raw, status_semantic.
+Useful slots: person_raw, member_login, sprint_raw, sprint_id, release_raw, release_id, status_raw, status_semantic, product, phrase.
 Rules:
 1. Understand free-form Russian/English wording, names, grammatical cases and shorthand.
 2. NEVER invent task IDs, sprint IDs, release IDs, logins, statuses or source facts.
@@ -63,6 +64,7 @@ Rules:
 6. For business concepts such as 'open tasks', use a learned semantic rule only if it exists; otherwise set status_semantic and leave {status} unresolved.
 7. team_members, known_sprints, known_releases and known_statuses are source-backed candidates. Use them only when the match is unambiguous.
 8. Learned semantics are configuration facts supplied by the Harness; do not extend them by analogy.
+9. For multi-filter task searches set intent_hint to task_search and put each filter in slots. The Harness executes all filters deterministically.
 """
 
     def __init__(self, client: LLMClient, *, model: str | None = None) -> None:
@@ -160,20 +162,83 @@ class DialogueHarnessRuntime:
         )
 
     @staticmethod
-    def _apply_answers(frame: SemanticFrame, answers: dict[str, str]) -> str:
+    def _apply_answers(frame: SemanticFrame, answers: dict[str, str]) -> SemanticFrame:
         query = frame.canonical_query
+        slots = dict(frame.slots)
         for field, value in answers.items():
+            slots[field] = value
             token = "{" + field + "}"
             if token in query:
                 query = query.replace(token, value)
             elif value and value.casefold() not in query.casefold():
                 query = f"{query} {value}"
-        return query
+        return SemanticFrame(
+            canonical_query=query,
+            intent_hint=frame.intent_hint,
+            slots=slots,
+            clarifications=[],
+            confidence=frame.confidence,
+            llm_used=frame.llm_used,
+        )
 
     def learn_explicit_definition(self, *, term: str, meaning: str, trace_id: str, scope: str = "global") -> LearnedSemanticRule:
         if self.semantics is None:
             raise RuntimeError("learned semantics store is not configured")
         return self.semantics.learn_explicit_definition(term=term, meaning=meaning, source_trace_id=trace_id, scope=scope)
+
+    @staticmethod
+    def _source_failure(session: str, warning: str, answer: str, started: float) -> HarnessResponse:
+        return HarnessResponse(
+            status=ResponseStatus.FAILED,
+            trace_id=str(uuid.uuid4()),
+            session_id=session,
+            answer=answer,
+            warnings=[warning],
+            latency_ms=(time.perf_counter() - started) * 1000,
+        )
+
+    async def _execute_frame(self, frame: SemanticFrame, session: str, started: float) -> HarnessResponse:
+        hint = (frame.intent_hint or "").strip().replace("-", "_").casefold()
+        structured_filters = {
+            "assignee": frame.slots.get("member_login") or frame.slots.get("assignee"),
+            "sprint_id": frame.slots.get("sprint_id"),
+            "release_id": frame.slots.get("release_id"),
+            "product": frame.slots.get("product"),
+            "status": frame.slots.get("status"),
+            "phrase": frame.slots.get("phrase"),
+        }
+        args = {k: str(v) for k, v in structured_filters.items() if v not in (None, "")}
+
+        if hint in {"task_search", "task_search_composite"} and args:
+            try:
+                result = await self.capabilities.execute("task.search.composite", args)
+                skill = self.skills.resolve("task_search")
+                response = HarnessResponse(
+                    status=ResponseStatus.COMPLETED,
+                    trace_id=str(uuid.uuid4()),
+                    session_id=session,
+                    answer=result.answer,
+                    intent="task_search",
+                    skill_id=skill.id,
+                    skill_version=skill.version,
+                    data=result.data,
+                    evidence=result.evidence,
+                    warnings=result.warnings,
+                    latency_ms=(time.perf_counter() - started) * 1000,
+                )
+                self._decorate(response, frame.llm_used)
+                return response
+            except AS21CapabilityUnavailable:
+                return self._source_failure(session, "source_capability_unavailable", "Источник AS21 не предоставляет данные, необходимые для этого запроса.", started)
+            except AS21SourceUnavailable:
+                return self._source_failure(session, "source_unavailable", "Источник AS21 временно недоступен. Данные не интерпретируются как пустой результат.", started)
+            except AS21SourceError:
+                return self._source_failure(session, "source_protocol_error", "Источник AS21 вернул некорректные данные.", started)
+
+        response = await self.inner.process(HarnessRequest(query=frame.canonical_query, session_id=session))
+        self._decorate(response, frame.llm_used)
+        response.latency_ms = max(response.latency_ms, (time.perf_counter() - started) * 1000)
+        return response
 
     async def process(self, request: HarnessRequest) -> HarnessResponse:
         session = request.session_id or str(uuid.uuid4())
@@ -191,43 +256,45 @@ class DialogueHarnessRuntime:
             if pending.remaining:
                 return self._clarification_response(session, pending)
             self._pending.pop(session, None)
-            response = await self.inner.process(HarnessRequest(query=self._apply_answers(pending.frame, pending.answers), session_id=session))
-            self._decorate(response, pending.frame.llm_used)
-            return response
+            return await self._execute_frame(self._apply_answers(pending.frame, pending.answers), session, started)
 
         semantic_context: dict[str, Any] = {"session_id": session}
         if self.semantics is not None:
             semantic_context["learned_semantics"] = self.semantics.context("global")
         if self.grounder is not None:
-            semantic_context.update(await self.grounder.semantic_context())
+            try:
+                semantic_context.update(await self.grounder.semantic_context())
+            except AS21CapabilityUnavailable:
+                return self._source_failure(session, "source_capability_unavailable", "Источник AS21 не предоставляет данные для проверки контекста запроса.", started)
+            except AS21SourceUnavailable:
+                return self._source_failure(session, "source_unavailable", "Источник AS21 временно недоступен. Нельзя безопасно интерпретировать запрос без проверки источника.", started)
+            except AS21SourceError:
+                return self._source_failure(session, "source_protocol_error", "Источник AS21 вернул некорректные данные при проверке контекста.", started)
 
         try:
             frame = await self.interpreter.interpret(request.query, context=semantic_context)
         except Exception:
-            return HarnessResponse(
-                status=ResponseStatus.FAILED,
-                trace_id=str(uuid.uuid4()),
-                session_id=session,
-                answer="Не удалось безопасно интерпретировать запрос. Попробуйте переформулировать его.",
-                warnings=["semantic_interpretation_failure"],
-                latency_ms=(time.perf_counter() - started) * 1000,
-            )
+            return self._source_failure(session, "semantic_interpretation_failure", "Не удалось безопасно интерпретировать запрос. Попробуйте переформулировать его.", started)
 
         if frame.confidence < 0.45 and not frame.clarifications:
             frame.clarifications.append(ClarificationNeed("intent", "Я не уверен, что правильно понял запрос. Что именно вы хотите получить?"))
 
         if self.grounder is not None:
-            frame = await self.grounder.ground(frame, request.query)
+            try:
+                frame = await self.grounder.ground(frame, request.query)
+            except AS21CapabilityUnavailable:
+                return self._source_failure(session, "source_capability_unavailable", "Источник AS21 не предоставляет данные для проверки сущностей запроса.", started)
+            except AS21SourceUnavailable:
+                return self._source_failure(session, "source_unavailable", "Источник AS21 временно недоступен. Нельзя подтвердить сущности запроса.", started)
+            except AS21SourceError:
+                return self._source_failure(session, "source_protocol_error", "Источник AS21 вернул некорректные данные при проверке сущностей.", started)
 
         if frame.clarifications:
             pending = _PendingDialogue(frame=frame, remaining=list(frame.clarifications))
             self._pending[session] = pending
             return self._clarification_response(session, pending)
 
-        response = await self.inner.process(HarnessRequest(query=frame.canonical_query, session_id=session))
-        self._decorate(response, frame.llm_used)
-        response.latency_ms = max(response.latency_ms, (time.perf_counter() - started) * 1000)
-        return response
+        return await self._execute_frame(frame, session, started)
 
     @staticmethod
     def _decorate(response: HarnessResponse, llm_used: bool) -> None:
