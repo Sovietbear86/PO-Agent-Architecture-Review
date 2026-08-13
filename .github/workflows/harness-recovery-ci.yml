@@ -33,6 +33,7 @@ jobs:
           tests/test_harness_runtime_factory.py
           tests/test_final_architecture_regressions.py
           tests/test_harness_dialogue_runtime.py
+          tests/test_harness_dialogue_learning.py
           tests/test_harness_llm_semantic_interpreter.py
           tests/test_harness_entity_grounding.py
           tests/test_harness_learned_semantics.py
