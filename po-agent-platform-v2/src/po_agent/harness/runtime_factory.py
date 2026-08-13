@@ -10,6 +10,7 @@ from po_agent.adapters.as21 import AS21Adapter
 
 from .dialogue_runtime import DialogueHarnessRuntime, SemanticInterpreter
 from .historical_wiring import enable_historical_skills
+from .learned_semantics import LearnedSemanticsStore
 from .observed_runtime import ObservedHarnessRuntime
 from .source_aware_runtime import SourceAwareHarnessRuntime
 from .source_contracts import (
@@ -31,6 +32,7 @@ class RuntimeBundle:
     adapter: AS21Adapter
     readiness: SourceReadinessReport
     dependencies: SourceDependencyBundle
+    semantics: LearnedSemanticsStore | None = None
 
 
 def _resolve_team_config(explicit: str | None, mode: RuntimeMode) -> Path | None:
@@ -52,6 +54,7 @@ def build_runtime_bundle(
     sprint_snapshots: SprintSnapshotSource | None = None,
     release_timeline: ReleaseTimelineSource | None = None,
     semantic_interpreter: SemanticInterpreter | None = None,
+    learned_semantics_path: str | None = None,
 ) -> RuntimeBundle:
     normalized = mode.strip().lower()
     if normalized == "fake":
@@ -78,10 +81,8 @@ def build_runtime_bundle(
     if sprint_snapshots is not None or release_timeline is not None:
         enable_historical_skills(executable, sprint_snapshots=sprint_snapshots, release_timeline=release_timeline)
 
-    # Natural-language interpretation and clarification are a distinct Harness
-    # layer. Deterministic capabilities remain the only place where business
-    # metrics and source-backed answers are produced.
-    dialogue = DialogueHarnessRuntime(executable, interpreter=semantic_interpreter)
+    semantics = LearnedSemanticsStore(learned_semantics_path) if learned_semantics_path else None
+    dialogue = DialogueHarnessRuntime(executable, interpreter=semantic_interpreter, semantics=semantics)
     runtime = ObservedHarnessRuntime(dialogue)
 
     return RuntimeBundle(
@@ -90,4 +91,5 @@ def build_runtime_bundle(
         adapter=adapter,
         readiness=readiness,
         dependencies=dependencies,
+        semantics=semantics,
     )
