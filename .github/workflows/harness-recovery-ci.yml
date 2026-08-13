@@ -32,6 +32,11 @@ jobs:
           tests/test_harness_api_v1.py
           tests/test_harness_runtime_factory.py
           tests/test_final_architecture_regressions.py
+          tests/test_harness_dialogue_runtime.py
+          tests/test_harness_llm_semantic_interpreter.py
+          tests/test_harness_entity_grounding.py
+          tests/test_harness_learned_semantics.py
+          tests/test_harness_acceptance_corpus.py
           tests/test_harness_portfolio_skills.py
           tests/test_harness_task_filters.py
           tests/test_harness_task_intelligence.py
