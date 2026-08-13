@@ -9,6 +9,7 @@ from po_agent.adapters import FakeAS21Adapter, TaskApiAS21Adapter
 from po_agent.adapters.as21 import AS21Adapter
 
 from .dialogue_runtime import DialogueHarnessRuntime, SemanticInterpreter
+from .entity_grounding import GroundedEntityResolver, TeamDirectory
 from .historical_wiring import enable_historical_skills
 from .learned_semantics import LearnedSemanticsStore
 from .observed_runtime import ObservedHarnessRuntime
@@ -82,7 +83,14 @@ def build_runtime_bundle(
         enable_historical_skills(executable, sprint_snapshots=sprint_snapshots, release_timeline=release_timeline)
 
     semantics = LearnedSemanticsStore(learned_semantics_path) if learned_semantics_path else None
-    dialogue = DialogueHarnessRuntime(executable, interpreter=semantic_interpreter, semantics=semantics)
+    directory = TeamDirectory.from_yaml(team_path)
+    grounder = GroundedEntityResolver(adapter, team=directory, semantics=semantics)
+    dialogue = DialogueHarnessRuntime(
+        executable,
+        interpreter=semantic_interpreter,
+        semantics=semantics,
+        grounder=grounder,
+    )
     runtime = ObservedHarnessRuntime(dialogue)
 
     return RuntimeBundle(
