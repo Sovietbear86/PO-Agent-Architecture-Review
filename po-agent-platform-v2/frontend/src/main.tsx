@@ -7,8 +7,8 @@ import {
   ReleasesPage,
   SprintPage,
   TasksPage,
-  TeamPage,
 } from './recovery/Pages'
+import { TeamDashboard } from './recovery/TeamDashboard'
 import './index.css'
 
 function App() {
@@ -20,7 +20,7 @@ function App() {
           <Route path="tasks" element={<TasksPage />} />
           <Route path="sprint" element={<SprintPage />} />
           <Route path="releases" element={<ReleasesPage />} />
-          <Route path="team" element={<TeamPage />} />
+          <Route path="team" element={<TeamDashboard />} />
           <Route path="quality" element={<QualityPage />} />
         </Route>
       </Routes>
