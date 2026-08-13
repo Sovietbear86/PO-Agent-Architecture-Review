@@ -77,6 +77,12 @@ class ObservedHarnessRuntime:
         expected_entity: str | None = None,
         comment: str | None = None,
     ) -> FeedbackRecord:
+        """Attach explicit feedback and automatically curate corrective traces.
+
+        Negative/corrective feedback becomes an offline eval seed. It never
+        rewrites code or promotes a Skill by itself; promotion remains governed
+        by the existing evaluation/lifecycle gate.
+        """
         trace = self.history.get(trace_id)
         if trace is None:
             raise ValueError(f"unknown trace_id: {trace_id}")
@@ -96,6 +102,8 @@ class ObservedHarnessRuntime:
             },
         )
         self.feedback.append(record)
+        if rating.strip().casefold() in {"down", "negative", "bad", "no"} or correction or expected_intent or expected_entity:
+            self.evals.append(seed_from_feedback(trace, record))
         return record
 
     def create_eval_seed(self, trace_id: str, feedback_id: str) -> EvalSeed:
