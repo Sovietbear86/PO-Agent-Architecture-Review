@@ -1,5 +1,5 @@
 /**
- * Typed API client for PO Agent Platform recovery runtime.
+ * Typed API client for PO Agent Platform dialogue runtime.
  * React components talk only to this module; they never call MCP/SWTR directly.
  */
 
@@ -45,15 +45,29 @@ export interface HarnessQueryRequest {
   session_id?: string
 }
 
+export interface FeedbackRequest {
+  rating: 'up' | 'down'
+  correction?: string
+  expected_intent?: string
+  expected_entity?: string
+  comment?: string
+}
+
 export const agent = {
   query: async (request: HarnessQueryRequest): Promise<HarnessQueryResponse> => {
     const response = await api.post<HarnessQueryResponse>('/query', request)
     return response.data
   },
+  feedback: async (traceId: string, request: FeedbackRequest) => {
+    const response = await api.post(`/feedback/${traceId}`, request)
+    return response.data
+  },
+  learnSemantic: async (request: { term: string; meaning: string; source_trace_id: string; scope?: string }) => {
+    const response = await api.post('/learning/semantic', request)
+    return response.data
+  },
 }
 
-// Existing domain endpoints remain behind the same client while their backend
-// implementations are migrated to harness capabilities route-by-route.
 export const tasks = {
   getAll: (params?: { status?: string; assignee?: string; limit?: number; offset?: number }) =>
     api.get('/tasks', { params }),
