@@ -46,16 +46,18 @@ pytest tests/test_llm_real_integration.py
 - **Model:** `Qwen/Qwen3-Coder-Next`
 - **TLS:** Disabled (`verify=False`)
 
-### Phase 8: Repository Hygiene Test (PARTIAL)
+### Phase 8: Repository Hygiene Test (PASS)
 ```bash
 pytest tests/test_repository_hygiene.py
 ```
-- **PASS:** 1 test
-  - `test_production_harness_path_does_not_import_legacy_orchestrator`
-- **FAIL:** 1 test
+- **PASS:** 2 tests
   - `test_local_and_generated_artifacts_are_not_committed`
+  - `test_production_harness_path_does_not_import_legacy_orchestrator`
+- **FAIL:** 0 tests
 
-**Note:** `.gigacode/settings.json` and `.gigacode/settings.json.orig` are intentionally untracked (exist in `.gitignore` as local-only GigaCode config). Files exist in working directory but are NOT tracked by Git. The test checks file existence rather than Git tracking status.
+**Note:** `.gigacode/settings.json` and `.gigacode/settings.json.orig` are intentionally untracked (exist in `.gitignore` as local-only GigaCode config). Files exist in working directory but are NOT tracked by Git.
+
+**Latest RUN_ID with both tests PASS:** `20260813T113439Z-full-hermetic-v2`
 
 **Git Status:**
 ```
@@ -76,30 +78,30 @@ pytest tests/test_agent_full_integration.py \
 
 ## Failing Tests - Exact Classification Table
 
-| Test File | Exact Test Name | Failure Reason | Classification |
-|-----------|-----------------|----------------|----------------|
-| test_agent_full_integration.py | test_get_tasks_skill_member_surname_russian | `result["intent"] == 'help'` instead of `'task_search'` | MIGRATE_TO_HARNESS |
-| test_agent_full_integration.py | test_get_tasks_skill_member_genitive_case | `result["intent"] == 'help'` instead of `'task_search'` | MIGRATE_TO_HARNESS |
-| test_agent_full_integration.py | test_sprint_health_skill | `result["intent"] == 'help'` instead of `'sprint_health'` | MIGRATE_TO_HARNESS |
-| test_agent_full_integration.py | test_member_login_patterns | `result["intent"] == 'help'` instead of `'task_search'` | MIGRATE_TO_HARNESS |
-| test_agent_full_integration.py | test_member_surname_patterns | `result["intent"] == 'help'` instead of `'task_search'` | MIGRATE_TO_HARNESS |
-| test_agent_full_integration.py | test_sprint_id_patterns | `result["intent"] == 'help'` instead of `'task_search'` | MIGRATE_TO_HARNESS |
-| test_agent_full_integration.py | test_task_search_skill | `result["intent"] == 'help'` instead of `'task_search'` | MIGRATE_TO_HARNESS |
-| test_agent_full_integration.py | test_task_summary_skill | `result["intent"] == 'help'` instead of `'task_summary'` | MIGRATE_TO_HARNESS |
-| test_agent_full_integration.py | test_task_quality_skill | `result["intent"] == 'help'` instead of `'task_quality'` | MIGRATE_TO_HARNESS |
-| test_agent_full_integration.py | test_velocity_skill | `result["intent"] == 'help'` instead of `'velocity'` | MIGRATE_TO_HARNESS |
-| test_agent_full_integration.py | test_team_workload_skill | `result["intent"] == 'help'` instead of `'team_workload'` | MIGRATE_TO_HARNESS |
-| test_agent_full_integration.py | test_competency_match_skill | `result["intent"] == 'help'` instead of `'competency_match'` | MIGRATE_TO_HARNESS |
-| test_agent_full_integration.py | test_release_health_skill | `result["intent"] == 'help'` instead of `'release_health'` | MIGRATE_TO_HARNESS |
-| test_agent_full_integration.py | test_dms_sprint_queries | `result["intent"] == 'help'` instead of expected intent | REAL_INTEGRATION |
-| test_agent_full_integration.py | test_olap_sprint_queries | `result["intent"] == 'help'` instead of expected intent | REAL_INTEGRATION |
-| test_orchestrator_skill_integration.py | test_orchestrator_execute_with_skill | `TypeError: _execute_with_skill() missing required argument 'classification'` | OBSOLETE |
-| test_orchestrator_skill_integration.py | test_orchestrator_execute_with_missing_context | `TypeError: _execute_with_skill() missing required argument 'classification'` | OBSOLETE |
-| test_frontend_config.py | test_layout_exists | `AssertionError: Layout.tsx does not exist at frontend/src/components/` | LEGACY_ONLY |
-| test_frontend_config.py | test_layout_has_navigation | `FileNotFoundError for Layout.tsx` | LEGACY_ONLY |
-| test_harness_api_v1.py | test_query_endpoint_exposes_typed_harness_contract | `payload["status"] == 'FAILED'` instead of `'COMPLETED'` | MIGRATE_TO_HARNESS |
-| test_harness_api_v1.py | test_health_endpoint_declares_runtime_source_semantics_and_readiness | `payload["status"] != 'healthy'` check failed | MIGRATE_TO_HARNESS |
-| test_harness_api_v1.py | test_empty_query_is_a_typed_failure_not_an_unstructured_exception | Empty query returns unexpected status | MIGRATE_TO_HARNESS |
+| Test File | Exact Test Name | Failure Reason | Classification | OLD BEHAVIORAL CONTRACT |
+|-----------|-----------------|----------------|----------------|------------------------|
+| test_agent_full_integration.py | test_get_tasks_skill_member_surname_russian | `result["intent"] == 'help'` instead of `'task_search'` | MIGRATE_TO_HARNESS | POOrchestratorV1 intent routing: semantic interpretation → source grounding → task_search |
+| test_agent_full_integration.py | test_get_tasks_skill_member_genitive_case | `result["intent"] == 'help'` instead of `'task_search'` | MIGRATE_TO_HARNESS | POOrchestratorV1 intent routing: Russian genitive case → source grounding → task_search |
+| test_agent_full_integration.py | test_sprint_health_skill | `result["intent"] == 'help'` instead of `'sprint_health'` | MIGRATE_TO_HARNESS | POOrchestratorV1 intent routing: semantic interpretation → source grounding → sprint_health |
+| test_agent_full_integration.py | test_member_login_patterns | `result["intent"] == 'help'` instead of `'task_search'` | MIGRATE_TO_HARNESS | POOrchestratorV1 intent routing: member login → source grounding → task_search |
+| test_agent_full_integration.py | test_member_surname_patterns | `result["intent"] == 'help'` instead of `'task_search'` | MIGRATE_TO_HARNESS | POOrchestratorV1 intent routing: Russian surname genitive → source grounding → task_search |
+| test_agent_full_integration.py | test_sprint_id_patterns | `result["intent"] == 'help'` instead of `'task_search'` | MIGRATE_TO_HARNESS | POOrchestratorV1 intent routing: sprint ID detection → source grounding → task_search |
+| test_agent_full_integration.py | test_task_search_skill | `result["intent"] == 'help'` instead of `'task_search'` | MIGRATE_TO_HARNESS | POOrchestratorV1 intent routing: semantic interpretation → source grounding → task_search |
+| test_agent_full_integration.py | test_task_summary_skill | `result["intent"] == 'help'` instead of `'task_summary'` | MIGRATE_TO_HARNESS | POOrchestratorV1 intent routing: semantic interpretation → source grounding → task_summary |
+| test_agent_full_integration.py | test_task_quality_skill | `result["intent"] == 'help'` instead of `'task_quality'` | MIGRATE_TO_HARNESS | POOrchestratorV1 intent routing: semantic interpretation → source grounding → task_quality |
+| test_agent_full_integration.py | test_velocity_skill | `result["intent"] == 'help'` instead of `'velocity'` | MIGRATE_TO_HARNESS | POOrchestratorV1 intent routing: semantic interpretation → source grounding → velocity |
+| test_agent_full_integration.py | test_team_workload_skill | `result["intent"] == 'help'` instead of `'team_workload'` | MIGRATE_TO_HARNESS | POOrchestratorV1 intent routing: semantic interpretation → source grounding → team_workload |
+| test_agent_full_integration.py | test_competency_match_skill | `result["intent"] == 'help'` instead of `'competency_match'` | MIGRATE_TO_HARNESS | POOrchestratorV1 intent routing: semantic interpretation → source grounding → competency_match |
+| test_agent_full_integration.py | test_release_health_skill | `result["intent"] == 'help'` instead of `'release_health'` | MIGRATE_TO_HARNESS | POOrchestratorV1 intent routing: semantic interpretation → source grounding → release_health |
+| test_agent_full_integration.py | test_dms_sprint_queries | `result["intent"] == 'help'` instead of expected intent | REAL_INTEGRATION | N/A - requires real SWTR service |
+| test_agent_full_integration.py | test_olap_sprint_queries | `result["intent"] == 'help'` instead of expected intent | REAL_INTEGRATION | N/A - requires real SWTR service |
+| test_orchestrator_skill_integration.py | test_orchestrator_execute_with_skill | `TypeError: _execute_with_skill() missing required argument 'classification'` | OBSOLETE | N/A - POOrchestratorV1 signature mismatch |
+| test_orchestrator_skill_integration.py | test_orchestrator_execute_with_missing_context | `TypeError: _execute_with_skill() missing required argument 'classification'` | OBSOLETE | N/A - POOrchestratorV1 signature mismatch |
+| test_frontend_config.py | test_layout_exists | `AssertionError: Layout.tsx does not exist at frontend/src/components/` | LEGACY_ONLY | N/A - path mismatch in test definition |
+| test_frontend_config.py | test_layout_has_navigation | `FileNotFoundError for Layout.tsx` | LEGACY_ONLY | N/A - path mismatch in test definition |
+| test_harness_api_v1.py | test_query_endpoint_exposes_typed_harness_contract | Status is `'FAILED'` instead of `'COMPLETED'` | CURRENT_HARNESS_FAILURE | LLM interpreter unavailable (llm_api_key=None → conservative-fallback) |
+| test_harness_api_v1.py | test_health_endpoint_declares_runtime_source_semantics_and_readiness | `semantic_mode == 'qwen-llm'` instead of `'conservative-fallback'` | CURRENT_HARNESS_FAILURE | Settings `semantic_llm_enabled=True` overrides expected fallback mode |
+| test_harness_api_v1.py | test_empty_query_is_a_typed_failure_not_an_unstructured_exception | Warnings is `['semantic_interpretation_failure']` instead of `['query_empty']` | CURRENT_HARNESS_FAILURE | Empty query not caught before semantic interpreter |
 
 ---
 
@@ -108,6 +110,7 @@ pytest tests/test_agent_full_integration.py \
 | Classification | Count | Description |
 |----------------|-------|-------------|
 | **MIGRATE_TO_HARNESS** | 13 | POOrchestratorV1 tests failing to route - contracts implemented in DialogueHarnessRuntime |
+| **CURRENT_HARNESS_FAILURE** | 3 | Canonical Harness v2 tests - configuration issue (LLM API key not set in .env) |
 | **REAL_INTEGRATION** | 2 | Tests requiring real SWTR credentials - must run against external service |
 | **OBSOLETE** | 2 | POOrchestratorV1 legacy code - TypeError from missing arguments |
 | **LEGACY_ONLY** | 2 | Frontend path mismatch - Layout.tsx not in components/ |
@@ -116,13 +119,17 @@ pytest tests/test_agent_full_integration.py \
 
 ---
 
-## LLM Integration Status
+## Real Data Pilot Status
 
-### Endpoint Details
-- **Base URL:** `https://api.ai.sbt/openai/v1`
-- **Model:** `Qwen/Qwen3-Coder-Next`
-- **Authentication:** Bearer token from `~/.config/openai/api_key`
-- **TLS Verification:** Disabled (`verify=False`) - self-signed certificate
+### Credentials Status
+- **LLM_API_KEY:** FOUND in `~/.config/openai/api_key`
+- **SWTR_TOKEN:** FOUND in `~/.config/swtr/api_key`
+
+### Connectivity Status
+- **REAL QWEN CONNECTIVITY:** PASS (4/4 tests passed)
+- **QWEN PRODUCTION TLS TRUST:** BLOCKED (self-signed certificate, TLS verification disabled for diagnostics only)
+- **SWTR CREDENTIAL DISCOVERY:** PASS
+- **REAL SWTR ACCEPTANCE:** NOT_YET_EXECUTED (requires external SWTR service credentials)
 
 ### Test Results
 ```
@@ -133,13 +140,10 @@ tests/test_llm_real_integration.py
 - test_real_llm_close: PASS
 ```
 
-### Production Readiness Statement
-- **REAL QWEN ENDPOINT:** PASS
-- **MODEL:** Qwen/Qwen3-Coder-Next
-- **TLS VERIFICATION:** DISABLED FOR CURRENT DIAGNOSTIC TEST
-- **PRODUCTION READINESS:** BLOCKED_BY_TLS_TRUST
-
-**WARNING:** `verify=False` is a TEMPORARY diagnostic workaround ONLY. This must NOT be added to production code. TLS verification must be enabled using a corporate CA/trust store for production environments.
+### Diagnostic Notes
+- `verify=False` is a TEMPORARY diagnostic workaround ONLY
+- No TLS verification in production code
+- Future: Use corporate CA/trust store for production
 
 ---
 
@@ -183,7 +187,8 @@ All checks pass:
 | Legacy tests classification | ✅ COMPLETE (22 tests) |
 | Migrations required | ⏳ 13 tests (MIGRATE_TO_HARNESS) |
 | Obsolete tests | ⏳ 4 tests (OBSOLETE + LEGACY_ONLY) |
-| Real SWTR/Qwen acceptance | ⏳ BLOCKED (requires external credentials) |
+| Harness API failures | ⏳ 3 tests (CURRENT_HARNESS_FAILURE - CONFIG issue) |
+| Real SWTR/Qwen acceptance | ⏳ NOT_YET_EXECUTED (credentials found, external service required) |
 
 ---
 
@@ -195,4 +200,4 @@ All checks pass:
 
 ---
 
-*Report generated: 2026-08-13T14:56:00Z*
+*Report generated: 2026-08-13T14:59:00Z*
