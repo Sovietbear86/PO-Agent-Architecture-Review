@@ -22,12 +22,10 @@ def teardown_function():
 
 def test_query_endpoint_exposes_typed_harness_contract():
     client = build_client()
-
     response = client.post(
         "/api/v1/query",
         json={"query": "Покажи WMB-102", "session_id": "ui-session-1"},
     )
-
     assert response.status_code == 200
     payload = response.json()
     assert payload["status"] == "COMPLETED"
@@ -40,23 +38,22 @@ def test_query_endpoint_exposes_typed_harness_contract():
     assert payload["correlation_id"]
 
 
-def test_health_endpoint_declares_recovery_runtime_and_fake_adapter():
+def test_health_endpoint_declares_runtime_source_and_readiness():
     client = build_client()
-
     response = client.get("/api/v1/health")
-
     assert response.status_code == 200
     payload = response.json()
     assert payload["status"] == "healthy"
     assert payload["runtime"] == "harness-recovery"
-    assert payload["adapter"] == "fake-as21"
+    assert payload["adapter"] == "fake"
+    assert payload["source_status"] == "healthy"
+    assert "history" in payload["source_facts"]
+    assert payload["skill_readiness"]["ready"] > 0
 
 
 def test_empty_query_is_a_typed_failure_not_an_unstructured_exception():
     client = build_client()
-
     response = client.post("/api/v1/query", json={"query": ""})
-
     assert response.status_code == 200
     payload = response.json()
     assert payload["status"] == "FAILED"
