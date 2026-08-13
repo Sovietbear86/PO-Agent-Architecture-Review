@@ -78,6 +78,30 @@ async def test_malformed_protocol_fails_closed():
 
 
 @pytest.mark.asyncio
+async def test_invalid_json_is_protocol_error_not_transport_outage():
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, content=b"not-json", headers={"content-type": "application/json"})
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="http://task-api")
+    adapter = TaskApiAS21Adapter(client=client)
+    with pytest.raises(AS21SourceError, match="invalid JSON"):
+        await adapter.search_tasks("")
+    await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_unmappable_task_item_fails_closed_instead_of_disappearing():
+    async def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=[{"unexpected": "shape"}])
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="http://task-api")
+    adapter = TaskApiAS21Adapter(client=client)
+    with pytest.raises(AS21SourceError, match="canonical Task"):
+        await adapter.search_tasks("")
+    await client.aclose()
+
+
+@pytest.mark.asyncio
 async def test_missing_history_and_attachments_are_explicitly_unsupported():
     client = httpx.AsyncClient(transport=httpx.MockTransport(lambda request: httpx.Response(200, json=[])), base_url="http://task-api")
     adapter = TaskApiAS21Adapter(client=client)
