@@ -8,6 +8,7 @@ type Message = {
   role: 'user' | 'agent'
   text: string
   result?: HarnessQueryResponse
+  feedback?: 'up' | 'down'
 }
 
 const nav = [
@@ -57,7 +58,7 @@ function AgentChat({ open, onClose }: { open: boolean; onClose(): void }) {
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
   const [messages, setMessages] = useState<Message[]>([{
-    id: 'hello', role: 'agent', text: 'Я PO Agent. Работаю через versioned Skills, AS21 Adapter и evidence.'
+    id: 'hello', role: 'agent', text: 'Я PO Agent. Если запрос неоднозначен — уточню, а не буду угадывать. Ответы строю через Skills и evidence.'
   }])
 
   async function send(textOverride?: string) {
@@ -76,6 +77,24 @@ function AgentChat({ open, onClose }: { open: boolean; onClose(): void }) {
       setMessages(items => [...items, { id: crypto.randomUUID(), role: 'agent', text: 'Harness API недоступен. Проверьте backend.' }])
     } finally {
       setBusy(false)
+    }
+  }
+
+  async function submitFeedback(messageId: string, result: HarnessQueryResponse, rating: 'up' | 'down') {
+    try {
+      await agent.feedback(result.trace_id, {
+        rating,
+        comment: rating === 'down' ? 'User requested improvement from PO Agent chat' : 'User confirmed answer',
+      })
+      setMessages(items => items.map(item => item.id === messageId ? { ...item, feedback: rating } : item))
+      if (rating === 'down') {
+        setMessages(items => [...items, {
+          id: crypto.randomUUID(), role: 'agent',
+          text: 'Что именно было неверно или чего не хватило? Напишите исправление — я сохраню его как feedback/eval-кандидат, а повторяющееся правило смогу запомнить в конфигурации.'
+        }])
+      }
+    } catch {
+      setMessages(items => [...items, { id: crypto.randomUUID(), role: 'agent', text: 'Не удалось сохранить обратную связь.' }])
     }
   }
 
@@ -102,9 +121,22 @@ function AgentChat({ open, onClose }: { open: boolean; onClose(): void }) {
                 ))}
               </div>
             )}
+            {message.role === 'agent' && message.result && ['COMPLETED', 'PARTIAL'].includes(message.result.status) && (
+              <div className="feedback-row">
+                {message.feedback ? (
+                  <span>{message.feedback === 'up' ? 'Ответ принят' : 'ОС сохранена · уточните, что улучшить'}</span>
+                ) : (
+                  <>
+                    <span>Ответ помог?</span>
+                    <button onClick={() => void submitFeedback(message.id, message.result!, 'up')}>Да</button>
+                    <button onClick={() => void submitFeedback(message.id, message.result!, 'down')}>Нет / улучшить</button>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         ))}
-        {busy && <div className="typing">Harness выполняет skill…</div>}
+        {busy && <div className="typing">Harness анализирует запрос и проверяет source facts…</div>}
       </div>
       <form className="chat-compose" onSubmit={submit}>
         <textarea
@@ -116,7 +148,7 @@ function AgentChat({ open, onClose }: { open: boolean; onClose(): void }) {
               void send()
             }
           }}
-          placeholder="Спросите о задаче, спринте, релизе или команде…"
+          placeholder="Спросите естественным языком — агент уточнит неоднозначности…"
           rows={3}
         />
         <button type="submit" disabled={!input.trim() || busy}>Отправить</button>
@@ -143,7 +175,7 @@ export function WorkspaceApp() {
           ))}
         </nav>
         <div className="sidebar-footer">
-          <span className="status-dot" /> Harness Recovery
+          <span className="status-dot" /> Harness Dialogue
         </div>
       </aside>
       <main className="main-area">
