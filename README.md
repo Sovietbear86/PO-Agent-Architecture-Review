@@ -20,6 +20,7 @@ The LLM interprets natural language. It is **not** a source of AS21/SWTR facts a
 - [`po-agent-platform-v2/docs/review/FINAL_CODE_ARCHITECTURE_REVIEW.md`](po-agent-platform-v2/docs/review/FINAL_CODE_ARCHITECTURE_REVIEW.md) — current review verdict and open real-data gates.
 - [`po-agent-platform-v2/docs/testing/COMPREHENSIVE_AGENT_TEST_PLAN.md`](po-agent-platform-v2/docs/testing/COMPREHENSIVE_AGENT_TEST_PLAN.md) — complete test strategy.
 - [`po-agent-platform-v2/docs/operations/REAL_DATA_PILOT_ACCEPTANCE_CHECKLIST.md`](po-agent-platform-v2/docs/operations/REAL_DATA_PILOT_ACCEPTANCE_CHECKLIST.md) — controlled Qwen + SWTR pilot checklist.
+- [`po-agent-platform-v2/docs/testing/GIGACODE_QWENCODER_REAL_DATA_RUNBOOK.md`](po-agent-platform-v2/docs/testing/GIGACODE_QWENCODER_REAL_DATA_RUNBOOK.md) — required GigaCode CLI/QwenCoder deployment, testing, failure triage and ChatGPT handoff procedure.
 
 ## Test contract
 
@@ -33,9 +34,11 @@ Legacy and environment-dependent tests are intentionally isolated in `.github/wo
 
 The natural-language acceptance corpus is `po-agent-platform-v2/tests/corpus/harness_acceptance_corpus.yaml` and covers all 54 canonical Skills.
 
+All local real-data/QwenCoder validation must be launched through `po-agent-platform-v2/tools/diagnostic_runner.py`. It stores a local raw log plus a redacted `sanitized.log` and machine-readable `summary.json` under `.artifacts/diagnostics/<run_id>/`. `.artifacts/` is gitignored. Only sanitized diagnostics are intended for external review or upload to ChatGPT.
+
 ## Repository hygiene
 
-Do not commit virtual environments, IDE state, local GigaCode settings, `.env`, tokens, certificates, logs, archives or generated reports. `.gigacode/agents` and `.gigacode/skills` are intentional project assets; local `.gigacode/settings.json` is not.
+Do not commit virtual environments, IDE state, local GigaCode settings, `.env`, MCP configs containing credentials, tokens, certificates, logs, archives, real SWTR data snapshots or generated reports. `.gigacode/agents` and `.gigacode/skills` are intentional project assets; local `.gigacode/settings.json` is not.
 
 ## Current release state
 
