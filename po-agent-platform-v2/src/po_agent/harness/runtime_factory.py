@@ -2,13 +2,16 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Literal
 
 from po_agent.adapters import FakeAS21Adapter, TaskApiAS21Adapter
 from po_agent.adapters.as21 import AS21Adapter
 
 from .runtime import HarnessRuntime
+from .source_contracts import SourceDependencyBundle, YamlTeamCompetencySource
 from .source_readiness import SourceReadinessReport, build_source_readiness
+from .team_matching_wiring import enable_team_matching
 
 RuntimeMode = Literal["fake", "task-api"]
 
@@ -19,6 +22,20 @@ class RuntimeBundle:
     runtime: HarnessRuntime
     adapter: AS21Adapter
     readiness: SourceReadinessReport
+    dependencies: SourceDependencyBundle
+
+
+def _resolve_team_config(explicit: str | None, mode: RuntimeMode) -> Path | None:
+    if explicit:
+        path = Path(explicit)
+        return path if path.exists() else None
+    if mode != "task-api":
+        return None
+    candidates = (
+        Path("../task-api/config/team_members.yaml"),
+        Path("task-api/config/team_members.yaml"),
+    )
+    return next((path for path in candidates if path.exists()), None)
 
 
 def build_runtime_bundle(
@@ -26,6 +43,7 @@ def build_runtime_bundle(
     *,
     task_api_base_url: str = "http://localhost:8003",
     task_api_timeout_seconds: float = 30.0,
+    team_config_path: str | None = None,
 ) -> RuntimeBundle:
     normalized = mode.strip().lower()
     if normalized == "fake":
@@ -40,9 +58,18 @@ def build_runtime_bundle(
     else:
         raise ValueError(f"Unsupported PO_AGENT_AS21_MODE: {mode}")
 
+    team_path = _resolve_team_config(team_config_path, selected)
+    team_source = YamlTeamCompetencySource(team_path) if team_path is not None else None
+    dependencies = SourceDependencyBundle(team_competencies=team_source)
+
+    runtime = HarnessRuntime(adapter)
+    if team_source is not None and team_source.has_declared_profiles():
+        enable_team_matching(runtime, team_source)
+
     return RuntimeBundle(
         mode=selected,
-        runtime=HarnessRuntime(adapter),
+        runtime=runtime,
         adapter=adapter,
-        readiness=build_source_readiness(adapter),
+        readiness=build_source_readiness(adapter, extra_facts=dependencies.facts),
+        dependencies=dependencies,
     )
