@@ -31,6 +31,9 @@ class AS21CapabilityUnavailable(AS21SourceError):
 class TaskApiAS21Adapter(AS21Adapter):
     """Async, fail-closed adapter for the existing task-api service."""
 
+    source_name = "task-api"
+    source_facts = frozenset({"tasks", "sprints", "releases"})
+
     def __init__(
         self,
         base_url: str = "http://localhost:8003",
@@ -48,8 +51,6 @@ class TaskApiAS21Adapter(AS21Adapter):
 
     @staticmethod
     def _map(data: dict) -> Task | None:
-        # Reuse the already regression-tested canonical mapping while the
-        # transport is strangled away from LegacyAS21Bridge.
         return LegacyAS21Bridge._map_fastapi_task(None, data)
 
     async def _get_tasks(self, query: str, limit: int) -> list[Task]:
@@ -86,7 +87,7 @@ class TaskApiAS21Adapter(AS21Adapter):
         max_results: int = 50,
         fields: Optional[list[str]] = None,
     ) -> list[Task]:
-        del fields  # task-api controls the canonical response shape.
+        del fields
         return await self._get_tasks(jql, max_results)
 
     async def get_sprint_tasks(self, sprint_id: str, space: Optional[str] = None) -> list[Task]:
