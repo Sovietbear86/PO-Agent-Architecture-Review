@@ -22,7 +22,7 @@ class SourceAwareHarnessRuntime(HarnessRuntime):
         text = query.casefold()
         if any(x in text for x in ("вложен", "attachment", "excel", "xlsx", "pdf", "msg")):
             return "attachments"
-        if any(x in text for x in ("история", "lifecycle", "времени в статус", "time in status", "cycle time", "lead time")):
+        if any(x in text for x in ("истори", "lifecycle", "времени в статус", "time in status", "cycle time", "lead time")):
             return "history"
         if any(x in text for x in ("carryover", "перенос", "scope change", "изменение scope", "изменение состава", "что добавили", "что убрали")):
             return "sprint_snapshots"
@@ -54,7 +54,8 @@ class SourceAwareHarnessRuntime(HarnessRuntime):
                 trace_id=trace,
                 session_id=session,
                 answer=f"Источник AS21 не предоставляет обязательные данные для этого запроса: {required}.",
-                warnings=["source_capability_unavailable", f"missing_source_fact:{required}"],
+                data={"missing_source_fact": required},
+                warnings=["source_capability_unavailable"],
                 latency_ms=(time.perf_counter() - started) * 1000,
             )
 
