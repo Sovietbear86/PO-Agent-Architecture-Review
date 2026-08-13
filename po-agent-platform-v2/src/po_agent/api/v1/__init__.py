@@ -32,6 +32,7 @@ def get_runtime_bundle() -> RuntimeBundle:
             settings.as21_mode,
             task_api_base_url=settings.task_api_base_url,
             task_api_timeout_seconds=settings.task_api_timeout_seconds,
+            team_config_path=settings.team_config_path,
         )
         _runtime = _bundle.runtime
     return _bundle
