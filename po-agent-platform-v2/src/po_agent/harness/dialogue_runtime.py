@@ -54,7 +54,7 @@ class LLMJsonSemanticInterpreter:
 Return JSON only with keys canonical_query, intent_hint, slots, clarifications, confidence.
 clarifications is an array of {field, question, options}.
 Use placeholders {member_login}, {sprint_id}, {release_id}, {status} when a grounded value is not yet known.
-Useful slots: person_raw, member_login, sprint_raw, sprint_id, release_raw, release_id, status_raw, status_semantic, product, phrase.
+Useful slots: person_raw, member_login, sprint_raw, sprint_id, release_raw, release_id, status_raw, status_semantic, product, phrase, learn_term, learn_meaning, learn_scope.
 Rules:
 1. Understand free-form Russian/English wording, names, grammatical cases and shorthand.
 2. NEVER invent task IDs, sprint IDs, release IDs, logins, statuses or source facts.
@@ -65,6 +65,7 @@ Rules:
 7. team_members, known_sprints, known_releases and known_statuses are source-backed candidates. Use them only when the match is unambiguous.
 8. Learned semantics are configuration facts supplied by the Harness; do not extend them by analogy.
 9. For multi-filter task searches set intent_hint to task_search and put each filter in slots. The Harness executes all filters deterministically.
+10. Only if the user explicitly asks to remember a reusable definition (for example 'always treat open tasks as all unresolved'), set intent_hint=learn_semantic and slots learn_term, learn_meaning, optionally learn_scope. Prefer canonical learn_meaning values such as not_completed or a comma-separated list of explicit statuses.
 """
 
     def __init__(self, client: LLMClient, *, model: str | None = None) -> None:
@@ -187,18 +188,59 @@ class DialogueHarnessRuntime:
         return self.semantics.learn_explicit_definition(term=term, meaning=meaning, source_trace_id=trace_id, scope=scope)
 
     @staticmethod
-    def _source_failure(session: str, warning: str, answer: str, started: float) -> HarnessResponse:
+    def _source_failure(session: str, warning: str, answer: str, started: float, *, data: dict[str, Any] | None = None) -> HarnessResponse:
         return HarnessResponse(
             status=ResponseStatus.FAILED,
             trace_id=str(uuid.uuid4()),
             session_id=session,
             answer=answer,
+            data=data,
             warnings=[warning],
             latency_ms=(time.perf_counter() - started) * 1000,
         )
 
+    def _missing_required_source_fact(self, query: str) -> str | None:
+        required_fact = getattr(self.inner, "_required_fact", None)
+        source_facts = getattr(self.inner, "source_facts", None)
+        if not callable(required_fact) or source_facts is None:
+            return None
+        required = required_fact(query)
+        return required if required and required not in source_facts else None
+
     async def _execute_frame(self, frame: SemanticFrame, session: str, started: float) -> HarnessResponse:
         hint = (frame.intent_hint or "").strip().replace("-", "_").casefold()
+        if hint == "learn_semantic":
+            if self.semantics is None:
+                return self._source_failure(session, "learning_store_unavailable", "Хранилище обучаемой конфигурации недоступно.", started)
+            term = (frame.slots.get("learn_term") or "").strip()
+            meaning = (frame.slots.get("learn_meaning") or "").strip()
+            scope = (frame.slots.get("learn_scope") or "global").strip()
+            if not term or not meaning:
+                pending = _PendingDialogue(
+                    frame=frame,
+                    remaining=[ClarificationNeed("learn_meaning", "Какое точное правило вы хотите запомнить?")],
+                )
+                self._pending[session] = pending
+                return self._clarification_response(session, pending)
+            trace = str(uuid.uuid4())
+            rule = self.semantics.learn_explicit_definition(term=term, meaning=meaning, source_trace_id=trace, scope=scope)
+            answer = (
+                f"Запомнил правило «{rule.term}» = «{rule.meaning}»."
+                if rule.status == "active"
+                else "Новое правило конфликтует с уже активным. Я сохранил его как candidate и не изменил текущее поведение."
+            )
+            response = HarnessResponse(
+                status=ResponseStatus.COMPLETED,
+                trace_id=trace,
+                session_id=session,
+                answer=answer,
+                data={"learning_rule": {"id": rule.rule_id, "term": rule.term, "meaning": rule.meaning, "scope": rule.scope, "version": rule.version, "status": rule.status}},
+                warnings=[] if rule.status == "active" else ["learning_conflict_pending"],
+                latency_ms=(time.perf_counter() - started) * 1000,
+            )
+            self._decorate(response, frame.llm_used)
+            return response
+
         structured_filters = {
             "assignee": frame.slots.get("member_login") or frame.slots.get("assignee"),
             "sprint_id": frame.slots.get("sprint_id"),
@@ -258,6 +300,16 @@ class DialogueHarnessRuntime:
             self._pending.pop(session, None)
             return await self._execute_frame(self._apply_answers(pending.frame, pending.answers), session, started)
 
+        missing_fact = self._missing_required_source_fact(request.query)
+        if missing_fact:
+            return self._source_failure(
+                session,
+                "source_capability_unavailable",
+                f"Источник AS21 не предоставляет обязательные данные для этого запроса: {missing_fact}.",
+                started,
+                data={"missing_source_fact": missing_fact},
+            )
+
         semantic_context: dict[str, Any] = {"session_id": session}
         if self.semantics is not None:
             semantic_context["learned_semantics"] = self.semantics.context("global")
@@ -279,7 +331,7 @@ class DialogueHarnessRuntime:
         if frame.confidence < 0.45 and not frame.clarifications:
             frame.clarifications.append(ClarificationNeed("intent", "Я не уверен, что правильно понял запрос. Что именно вы хотите получить?"))
 
-        if self.grounder is not None:
+        if self.grounder is not None and (frame.intent_hint or "").strip().casefold() != "learn_semantic":
             try:
                 frame = await self.grounder.ground(frame, request.query)
             except AS21CapabilityUnavailable:
