@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     as21_mode: str = Field(default="fake", description="fake or task-api")
     task_api_base_url: str = Field(default="http://localhost:8003")
     task_api_timeout_seconds: float = Field(default=30.0)
+    team_config_path: Optional[str] = Field(default=None)
     swtr_base_url: str = Field(default="https://portal.works.prod.sbt/swtr")
     swtr_token: Optional[str] = Field(default=None)
 
