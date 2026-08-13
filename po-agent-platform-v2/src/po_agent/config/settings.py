@@ -1,6 +1,5 @@
 """Settings configuration for PO Agent Platform v2."""
 
-import os
 from typing import Optional
 
 from pydantic import Field
@@ -31,7 +30,10 @@ class Settings(BaseSettings):
     # Correlation ID
     correlation_id_header: str = Field(default="X-Request-ID")
 
-    # AS21/SWTR Adapter
+    # AS21/SWTR runtime boundary
+    as21_mode: str = Field(default="fake", description="fake or task-api")
+    task_api_base_url: str = Field(default="http://localhost:8003")
+    task_api_timeout_seconds: float = Field(default=30.0)
     swtr_base_url: str = Field(default="https://portal.works.prod.sbt/swtr")
     swtr_token: Optional[str] = Field(default=None)
 
@@ -50,12 +52,10 @@ class Settings(BaseSettings):
     scripts_dir: str = Field(default="scripts")
 
 
-# Global settings instance
 _settings: Optional[Settings] = None
 
 
 def get_settings() -> Settings:
-    """Get global settings instance."""
     global _settings
     if _settings is None:
         _settings = Settings()
@@ -63,6 +63,5 @@ def get_settings() -> Settings:
 
 
 def reset_settings() -> None:
-    """Reset global settings (useful for testing)."""
     global _settings
     _settings = None
