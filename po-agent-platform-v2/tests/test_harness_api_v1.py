@@ -1,4 +1,4 @@
-"""API acceptance coverage for the recovered Harness Core."""
+"""API acceptance coverage for the dialogue-first Harness Core."""
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -33,18 +33,21 @@ def test_query_endpoint_exposes_typed_harness_contract():
     assert payload["intent"] == "task_lookup"
     assert payload["skill"] == {"id": "task-lookup", "version": "1.0.0"}
     assert payload["data"]["task"]["key"] == "WMB-102"
+    assert payload["data"]["_harness"]["dialogue_state"] == "answered"
+    assert "Ответ помог" in payload["data"]["_harness"]["feedback_prompt"]
     assert payload["evidence"]
     assert payload["trace_id"]
     assert payload["correlation_id"]
 
 
-def test_health_endpoint_declares_runtime_source_and_readiness():
+def test_health_endpoint_declares_runtime_source_semantics_and_readiness():
     client = build_client()
     response = client.get("/api/v1/health")
     assert response.status_code == 200
     payload = response.json()
     assert payload["status"] == "healthy"
-    assert payload["runtime"] == "harness-recovery"
+    assert payload["runtime"] == "harness-dialogue-v2"
+    assert payload["semantic_mode"] == "conservative-fallback"
     assert payload["adapter"] == "fake"
     assert payload["source_status"] == "healthy"
     assert "history" in payload["source_facts"]
