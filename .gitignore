@@ -64,6 +64,12 @@ Thumbs.db
 !.env.example
 *.pem
 *.key
+mcp-gigacode-config.json
+mcp-gigacode-config.json.*
+
+### Local real-data diagnostics ###
+.artifacts/
+po-agent-platform-v2/.artifacts/
 
 ### Temporary / backup / generated artifacts ###
 *.bak
