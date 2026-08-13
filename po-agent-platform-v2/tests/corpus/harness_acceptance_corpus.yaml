@@ -143,6 +143,7 @@ cases:
     phrases: ["Создай локальную задачу: проверить релиз", "Подготовь черновик локальной задачи: уточнить критерии WMB-101"]
 
 legacy_language_cases:
+  # Original legacy phrases from old agent
   - query: "Найди открытые задачи с PDF-вложениями, где упоминается Apache Iceberg"
     note: "Old golden query: attachment + text composition must not hallucinate unsupported composition."
   - query: "Найди Excel-вложения с колонкой Критерий приемки"
@@ -157,3 +158,117 @@ legacy_language_cases:
     note: "Old broad phrase; must clarify period/sprint unless context safely supplies it."
   - query: "когда закончится спринт"
     note: "Forecast without historical evidence must not invent a date."
+
+  # Legacy behavioral contracts - Level B corpus cases for 13 migrations
+  # Contract #1: test_get_tasks_skill_member_surname_russian
+  - query: "задачи Гаранина"
+    expected_skill: "task-search-assignee"
+    note: "Russian surname genitive case (Гаранина) → tasks"
+  
+  # Contract #2: test_get_tasks_skill_member_genitive_case
+  - query: "задачи Шалдунова"
+    expected_skill: "task-search-assignee"
+    note: "Russian genitive case → tasks"
+  - query: "задачи Долговского"
+    expected_skill: "task-search-assignee"
+    note: "Russian genitive case → tasks"
+  - query: "задачи Агатаевой"
+    expected_skill: "task-search-assignee"
+    note: "Russian genitive case → tasks"
+  
+  # Contract #4: test_member_login_patterns
+  - query: "задачи Kalachanov.V.V"
+    expected_skill: "task-search-assignee"
+    note: "Member login pattern → tasks"
+  - query: "задачи Garanin.R.V"
+    expected_skill: "task-search-assignee"
+    note: "Member login pattern → tasks"
+  - query: "задачи Agataeva.A.Z"
+    expected_skill: "task-search-assignee"
+    note: "Member login pattern → tasks"
+  
+  # Contract #5: test_member_surname_patterns (additional genitive)
+  - query: "задачи Калачанова"
+    expected_skill: "task-search-assignee"
+    note: "Russian surname genitive (Калачанова) → tasks"
+  - query: "задачи Гаранина"
+    expected_skill: "task-search-assignee"
+    note: "Russian surname genitive (Гаранина) → tasks"
+  - query: "задачи Агатаеву"
+    expected_skill: "task-search-assignee"
+    note: "Russian surname genitive (Агатаеву) → tasks"
+  
+  # Contract #6: test_sprint_id_patterns
+  - query: "DMS-SPRNT-1"
+    expected_skill: "task-search-sprint"
+    note: "Sprint ID detection → task search"
+  - query: "задачи спринта WMB-SPRNT-1"
+    expected_skill: "task-search-sprint"
+    note: "Sprint selection phrase → task search"
+  - query: "OLP-SPRNT-3"
+    expected_skill: "task-search-sprint"
+    note: "Sprint ID detection → task search"
+  
+  # Contract #7: test_task_search_skill
+  - query: "покажи задачи из спринта DMS-SPRNT-1"
+    expected_skill: "task-search"
+    note: "Task search by sprint"
+  - query: "задачи по всем спринтам"
+    expected_skill: "task-search"
+    note: "Task search all sprints"
+  
+  # Contract #8: test_task_summary_skill
+  - query: "что по задаче WMB-101"
+    expected_skill: "task-summary"
+    note: "'что по задаче' → task summary"
+  - query: "описание задачи WMB-101"
+    expected_skill: "task-summary"
+    note: "Task description request"
+  
+  # Contract #9: test_task_quality_skill
+  - query: "качество задачи WMB-101"
+    expected_skill: "task-quality"
+    note: "Quality assessment request"
+  - query: "дефекты в задаче WMB-101"
+    expected_skill: "task-quality"
+    note: "Defects analysis request"
+  
+  # Contract #10: test_velocity_skill
+  - query: "скорость команды WMB-SPRNT-1"
+    expected_skill: "sprint-velocity"
+    note: "'скорость команды' → velocity"
+  - query: "velocity за последние 6 спринтов"
+    expected_skill: "sprint-velocity"
+    note: "Velocity historical request"
+  
+  # Contract #11: test_team_workload_skill
+  - query: "баланс загрузки команды"
+    expected_skill: "team-workload"
+    note: "'баланс загрузки' → workload"
+  - query: "загрузка сотрудников"
+    expected_skill: "team-workload"
+    note: "Team load distribution"
+  
+  # Contract #12: test_competency_match_skill
+  - query: "кто подходит для задачи WMB-101 по компетенциям?"
+    expected_skill: "team-competency-match"
+    note: "'кто подходит' → competency match"
+  - query: "кто умеет работать с задачей WMB-101?"
+    expected_skill: "team-competency-match"
+    note: "Competency-based assignment"
+  
+  # Contract #13: test_release_health_skill
+  - query: "релиз готов WMB-2024-Q3?"
+    expected_skill: "release-health"
+    note: "'релиз готов' → release health"
+  - query: "статус релиза WMB-2024-Q3?"
+    expected_skill: "release-health"
+    note: "Release status request"
+  
+  # Multiline queries from test_multiline_team_member_queries
+  - query: "задачи Гаранина и Шалдунова из спринта OLP-SPRNT-5"
+    expected_skill: "task-search"
+    note: "Multiple members + sprint context"
+  - query: "баланс загрузки команды (Калачанов, Долговской, Агатаева)"
+    expected_skill: "team-workload"
+    note: "Multiple members in workload query"
