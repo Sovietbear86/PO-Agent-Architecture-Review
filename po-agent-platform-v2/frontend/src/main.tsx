@@ -2,13 +2,13 @@ import { createRoot } from 'react-dom/client'
 import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { WorkspaceApp } from './recovery/WorkspaceApp'
 import {
-  OverviewPage,
   ReleasesPage,
   SprintPage,
   TasksPage,
 } from './recovery/Pages'
-import { TeamDashboard } from './recovery/TeamDashboard'
+import { OverviewDashboard } from './recovery/OverviewDashboard'
 import { QualityDashboard } from './recovery/QualityDashboard'
+import { TeamDashboard } from './recovery/TeamDashboard'
 import './index.css'
 
 function App() {
@@ -16,7 +16,7 @@ function App() {
     <BrowserRouter>
       <Routes>
         <Route path="/" element={<WorkspaceApp />}>
-          <Route index element={<OverviewPage />} />
+          <Route index element={<OverviewDashboard />} />
           <Route path="tasks" element={<TasksPage />} />
           <Route path="sprint" element={<SprintPage />} />
           <Route path="releases" element={<ReleasesPage />} />
