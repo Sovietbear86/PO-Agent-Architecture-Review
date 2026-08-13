@@ -1,7 +1,8 @@
 """Deterministic grounding for entities proposed by the semantic LLM.
 
 The LLM may normalize language, but source identifiers are accepted only when
-explicitly supplied by the user or resolved against source-backed candidates.
+resolved against source-backed candidates. User wording is evidence of intent,
+not proof that an identifier exists in AS21.
 """
 from __future__ import annotations
 
@@ -76,6 +77,8 @@ class TeamDirectory:
 class GroundedEntityResolver:
     """Resolve person/sprint/release/status semantics against real source facts."""
 
+    _VIRTUAL_STATUS_FILTERS = {"all", "not_completed", "completed"}
+
     def __init__(
         self,
         adapter: AS21Adapter,
@@ -110,7 +113,16 @@ class GroundedEntityResolver:
                 out.append(candidate)
         return out
 
+    @staticmethod
+    def _canonical_candidate(value: str, candidates: list[str]) -> str | None:
+        wanted = value.strip().casefold()
+        for candidate in candidates:
+            if str(candidate).casefold() == wanted:
+                return str(candidate)
+        return None
+
     async def ground(self, frame: SemanticFrame, original_query: str) -> SemanticFrame:
+        del original_query  # raw user text never bypasses source validation
         context = await self.semantic_context()
         needs = list(frame.clarifications)
         slots = dict(frame.slots)
@@ -119,13 +131,17 @@ class GroundedEntityResolver:
         person_raw = slots.get("person_raw") or slots.get("member_name")
         member_login = slots.get("member_login")
         if member_login:
-            known_logins = {str(x).casefold() for x in context["known_assignees"]}
-            if member_login.casefold() not in known_logins and member_login.casefold() not in original_query.casefold():
+            grounded_login = self._canonical_candidate(member_login, context["known_assignees"])
+            if grounded_login is None:
+                slots.pop("member_login", None)
                 needs.append(ClarificationNeed(
                     "member_login",
-                    f"Не могу подтвердить исполнителя «{member_login}». Кого вы имеете в виду?",
+                    f"Не могу подтвердить исполнителя «{member_login}» по данным источника. Кого вы имеете в виду?",
                     tuple(context["known_assignees"]),
                 ))
+            else:
+                slots["member_login"] = grounded_login
+                canonical = canonical.replace("{member_login}", grounded_login)
         elif person_raw:
             people = self.team.resolve_person(person_raw)
             if len(people) == 1:
@@ -134,7 +150,6 @@ class GroundedEntityResolver:
             elif len(people) > 1:
                 needs.append(ClarificationNeed("member_login", f"Нашёл несколько участников для «{person_raw}». Кого выбрать?", tuple(x.login for x in people)))
             else:
-                # Login-like raw values can still be grounded against task assignees.
                 assignee_matches = [x for x in context["known_assignees"] if person_raw.casefold() in str(x).casefold()]
                 if len(assignee_matches) == 1:
                     slots["member_login"] = str(assignee_matches[0])
@@ -146,8 +161,21 @@ class GroundedEntityResolver:
                         tuple(assignee_matches or context["known_assignees"]),
                     ))
 
+        sprint_id = slots.get("sprint_id")
         sprint_raw = slots.get("sprint_raw")
-        if sprint_raw and "{sprint_id}" in canonical:
+        if sprint_id:
+            grounded_sprint = self._canonical_candidate(sprint_id, context["known_sprints"])
+            if grounded_sprint is None:
+                slots.pop("sprint_id", None)
+                needs.append(ClarificationNeed(
+                    "sprint_id",
+                    f"Не могу подтвердить спринт «{sprint_id}» по данным источника. Какой спринт выбрать?",
+                    tuple(context["known_sprints"]),
+                ))
+            else:
+                slots["sprint_id"] = grounded_sprint
+                canonical = canonical.replace("{sprint_id}", grounded_sprint)
+        elif sprint_raw and "{sprint_id}" in canonical:
             matches = self._match_shorthand(sprint_raw, context["known_sprints"])
             if len(matches) == 1:
                 slots["sprint_id"] = matches[0]
@@ -155,8 +183,21 @@ class GroundedEntityResolver:
             else:
                 needs.append(ClarificationNeed("sprint_id", f"Какой именно спринт соответствует «{sprint_raw}»?", tuple(matches or context["known_sprints"])))
 
+        release_id = slots.get("release_id")
         release_raw = slots.get("release_raw")
-        if release_raw and "{release_id}" in canonical:
+        if release_id:
+            grounded_release = self._canonical_candidate(release_id, context["known_releases"])
+            if grounded_release is None:
+                slots.pop("release_id", None)
+                needs.append(ClarificationNeed(
+                    "release_id",
+                    f"Не могу подтвердить релиз «{release_id}» по данным источника. Какой релиз выбрать?",
+                    tuple(context["known_releases"]),
+                ))
+            else:
+                slots["release_id"] = grounded_release
+                canonical = canonical.replace("{release_id}", grounded_release)
+        elif release_raw and "{release_id}" in canonical:
             matches = self._match_shorthand(release_raw, context["known_releases"])
             if len(matches) == 1:
                 slots["release_id"] = matches[0]
@@ -171,7 +212,21 @@ class GroundedEntityResolver:
                 slots["status"] = learned
                 canonical = canonical.replace("{status}", learned)
             else:
+                slots.pop("status", None)
                 needs.append(ClarificationNeed("status", f"Что считать «{slots.get('status_raw', semantic_term)}»? Укажите статус или правило отбора.", tuple(context["known_statuses"])))
+        elif slots.get("status"):
+            status = str(slots["status"])
+            grounded_status = self._canonical_candidate(status, context["known_statuses"])
+            if grounded_status is not None:
+                slots["status"] = grounded_status
+                canonical = canonical.replace("{status}", grounded_status)
+            elif status.casefold() not in self._VIRTUAL_STATUS_FILTERS:
+                slots.pop("status", None)
+                needs.append(ClarificationNeed(
+                    "status",
+                    f"Не могу подтвердить статус «{status}» по данным источника. Что именно использовать?",
+                    tuple(context["known_statuses"]),
+                ))
 
         return SemanticFrame(
             canonical_query=canonical,
