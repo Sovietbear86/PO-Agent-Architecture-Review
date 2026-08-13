@@ -286,6 +286,18 @@ class DialogueHarnessRuntime:
         session = request.session_id or str(uuid.uuid4())
         started = time.perf_counter()
 
+        # Early validation: reject empty queries before any semantic processing
+        if not request.query or not request.query.strip():
+            return HarnessResponse(
+                status=ResponseStatus.FAILED,
+                trace_id=str(uuid.uuid4()),
+                session_id=session,
+                answer="Запрос пуст. Пожалуйста, уточните, что вы хотите получить.",
+                data=None,
+                warnings=["query_empty"],
+                latency_ms=(time.perf_counter() - started) * 1000,
+            )
+
         if session in self._pending:
             pending = self._pending[session]
             need = pending.remaining.pop(0)

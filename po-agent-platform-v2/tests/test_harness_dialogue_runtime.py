@@ -95,5 +95,31 @@ async def test_clarification_is_isolated_by_session():
     assert b.status is ResponseStatus.NEEDS_CLARIFICATION
     a2 = await runtime.process(HarnessRequest(query="Ivanov.I.I", session_id="A"))
     assert a2.status in {ResponseStatus.COMPLETED, ResponseStatus.PARTIAL}
+    # Empty query in clarification loop now returns FAILED before semantic interpreter
     b2 = await runtime.process(HarnessRequest(query="", session_id="B"))
-    assert b2.status is ResponseStatus.NEEDS_CLARIFICATION
+    assert b2.status is ResponseStatus.FAILED
+    assert "query_empty" in b2.warnings
+
+
+@pytest.mark.asyncio
+async def test_empty_query_rejected_before_semantic_interpreter_call():
+    """Regression test: empty query must be rejected before any LLM or grounding calls."""
+    # Use a scripted interpreter that would fail if called
+    class FailingInterpreter:
+        async def interpret(self, query, *, context=None):
+            raise RuntimeError("Interpreter should not be called for empty query")
+
+    frame = SemanticFrame(canonical_query="test", llm_used=False)
+    runtime = build_runtime_bundle("fake", semantic_interpreter=FailingInterpreter()).runtime
+    
+    # Empty string
+    r1 = await runtime.process(HarnessRequest(query="", session_id="empty1"))
+    assert r1.status is ResponseStatus.FAILED
+    assert "query_empty" in r1.warnings
+    assert "trace_id" in r1.to_dict()
+    assert "session_id" in r1.to_dict()
+    
+    # Whitespace only
+    r2 = await runtime.process(HarnessRequest(query="   ", session_id="empty2"))
+    assert r2.status is ResponseStatus.FAILED
+    assert "query_empty" in r2.warnings
