@@ -41,6 +41,7 @@ jobs:
           tests/test_harness_release_intelligence.py
           tests/test_harness_po_assistant.py
           tests/test_task_api_as21_adapter.py
+          tests/test_harness_task_api_e2e.py
           tests/test_harness_source_readiness.py
           tests/test_harness_source_contracts.py
           tests/test_harness_operational_history.py
