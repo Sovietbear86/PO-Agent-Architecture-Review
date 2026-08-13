@@ -1,0 +1,22 @@
+name: Legacy Diagnostic (Manual)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  legacy-diagnostic:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: po-agent-platform-v2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+          cache-dependency-path: po-agent-platform-v2/pyproject.toml
+      - name: Install backend
+        run: python -m pip install --upgrade pip && pip install -e '.[dev]'
+      - name: Run full legacy/environment-dependent suite
+        run: pytest -q
