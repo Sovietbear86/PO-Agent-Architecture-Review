@@ -11,7 +11,6 @@ async def test_runtime_factory_runtime_records_production_execution_history():
         return httpx.Response(200, json=[])
 
     bundle = build_runtime_bundle("task-api")
-    # Replace the task-api client's transport without changing runtime wiring.
     bundle.adapter._client = httpx.AsyncClient(
         transport=httpx.MockTransport(handler), base_url="http://task-api"
     )
@@ -42,8 +41,8 @@ async def test_source_dependent_request_cannot_be_reinterpreted_when_fact_is_mis
     response = await bundle.runtime.process(HarnessRequest(query=query, session_id="source-gate"))
 
     assert response.status is ResponseStatus.FAILED
-    assert response.warnings[0] == "source_capability_unavailable"
-    assert f"missing_source_fact:{fact}" in response.warnings
+    assert response.warnings == ["source_capability_unavailable"]
+    assert response.data["missing_source_fact"] == fact
     assert bundle.runtime.history.get(response.trace_id) is not None
 
 
