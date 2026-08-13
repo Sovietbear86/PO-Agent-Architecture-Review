@@ -1,201 +1,157 @@
 # PO Agent Platform v2.1
 
-Harness-based assistant for product owner with AI PDLC, memory, and evaluation.
+Harness-based PO workspace with deterministic metrics, source-aware Skills and a controlled AI-PDLC improvement loop.
 
-## Overview
+## Current recovery status
 
-PO Agent Platform v2.1 is a new application built next to the existing legacy project. It provides:
+The recovery branch implements the new runtime as a strangler next to the legacy agent. The recovery CI treats the new Harness as the product boundary and keeps legacy/external-service tests as a separate diagnostic lane.
 
-- Intelligent task search in AS21/SWTR
-- Task search by text, attachment type, and metadata
-- Task summarization and quality analysis
-- Sprint health, velocity, throughput, WIP, cycle time, lead time analysis
-- Team capacity and competency matching
-- Release scope, risk, and forecast
-- Product/team/workflow knowledge
-- Execution history and conversation memory
-- Evaluation datasets and failure mining
-- Controlled self-improvement with shadow mode and human approval
+- 54 canonical Skills are implemented in code.
+- Skill availability is source-aware: implemented does not mean usable when required source facts are absent.
+- `fake` mode provides deterministic local fixtures for development and acceptance tests.
+- `task-api` mode uses an asynchronous, fail-closed adapter over the existing task-api/SWTR boundary.
+- Source outages, unsupported capabilities and malformed source contracts are returned as typed failures, never as an empty portfolio.
+- Metrics and scoring remain deterministic; LLM use is limited to interpretation/drafting layers.
+- Feedback cannot directly mutate production behaviour. Changes pass evals, failure mining, candidate generation, offline/shadow evaluation, regression gate and explicit human approval before version promotion; rollback is auditable.
+- The recovery frontend is a PO Workspace with persistent agent chat plus task, sprint, release, team and quality workspaces.
 
 ## Architecture
 
-```
-                     PO Workspace
-                          |
-                          v
-                   PO Orchestrator
-                          |
-          +---------------+---------------+
-          |               |               |
-          v               v               v
-   Task Intelligence  Sprint Intelligence  Team Intelligence
-          |               |               |
-          +---------------+---------------+
-                          |
-                   Release Intelligence
-                          |
-                          v
-                   Shared Services
-          +---------------+---------------+
-          |               |               |
-          v               v               v
-     AS21 Adapter      Metrics Engine    Knowledge Layer
+```text
+PO Workspace / Agent Chat
           |
           v
-       AS21/SWTR
+  Source-aware Harness
+          |
+   Intent -> Versioned Skill -> Allow-listed Capability
+          |                         |
+          |                         +-> deterministic Metrics / PO logic
+          v
+      AS21Adapter
+       /      \
+ FakeAS21   TaskApiAS21Adapter
+                 |
+              task-api
+                 |
+              AS21/SWTR
 ```
 
-AI PDLC / learning loop:
-- Runtime execution → Trace recorder → Session memory + History + Feedback
-- Eval store → Failure miner → Improvement candidate generator
-- Shadow evaluation → Regression gate → Human approval → Version registry
+Additional source contracts are injected independently for facts that task-api does not currently expose:
 
-## Project Structure
+- `TeamCompetencySource` — declared team profiles/competencies;
+- `SprintSnapshotSource` — committed sprint scope snapshots;
+- `ReleaseTimelineSource` — historical release progress points.
 
-```
-po-agent-platform-v2/
-├── README.md
-├── pyproject.toml
-├── .env.example
-├── .gitignore
-├── docs/
-│   ├── architecture/
-│   ├── adr/
-│   ├── metrics/
-│   ├── ai_pdlc/
-│   └── runbooks/
-├── config/
-│   ├── products.yaml
-│   ├── team.example.yaml
-│   ├── workflow.yaml
-│   └── quality_rules.yaml
-├── data/
-│   └── .gitkeep
-├── src/
-│   └── po_agent/
-│       ├── api/
-│       ├── config/
-│       ├── domain/
-│       ├── contracts/
-│       ├── adapters/
-│       ├── workflow/
-│       ├── metrics/
-│       ├── capabilities/
-│       ├── orchestration/
-│       ├── llm/
-│       ├── knowledge/
-│       ├── memory/
-│       ├── history/
-│       ├── feedback/
-│       ├── evaluation/
-│       ├── improvement/
-│       ├── versions/
-│       └── observability/
-├── tests/
-│   ├── unit/
-│   ├── contract/
-│   ├── golden/
-│   ├── integration/
-│   ├── regression/
-│   └── fixtures/
-├── scripts/
-│   ├── inspect_legacy.py
-│   ├── validate_config.py
-│   ├── run_eval.py
-│   ├── compare_versions.py
-│   └── run_dev.py
-└── frontend/
+The runtime advertises source facts and calculates readiness for every Skill. A Skill that needs history, attachments, snapshots, competencies or a release timeline is marked unavailable when that fact is not connected.
+
+## AI-PDLC / Harness learning loop
+
+```text
+Execution
+  -> Operational History
+  -> Explicit Feedback
+  -> Eval Seeds
+  -> Failure Mining
+  -> Improvement Candidate
+  -> Offline / Shadow Evaluation
+  -> Regression Gate
+  -> Human Approval
+  -> Version Promotion
+  -> Rollback
 ```
 
-## Quick Start
+Operational history is not silently reused as conversational memory. Session context is scoped separately. Improvement candidates are inert until approval.
 
-### Prerequisites
+## Quick start
 
-- Python 3.11+
-- pip
-
-### Installation
+Prerequisites: Python 3.11+, Node.js 22+ for the frontend.
 
 ```bash
 cd po-agent-platform-v2
-
-# Create virtual environment
 python3 -m venv .venv
 source .venv/bin/activate
-
-# Install dependencies
-pip install -e .
-
-# Copy environment template
+python -m pip install --upgrade pip
+pip install -e '.[dev]'
 cp .env.example .env
-
-# Edit .env and set your values (especially SWTR_TOKEN and LLM_API_KEY)
 ```
 
-### Running the Application
+### Run with deterministic fake AS21
 
 ```bash
-# Start development server
+export AS21_MODE=fake
 uvicorn po_agent.main:app --reload --port 8004
-
-# Run tests
-pytest
 ```
 
-### API Endpoints
+### Run through task-api / SWTR boundary
 
-- `GET /` - Root endpoint
-- `GET /health` - Health check
-- `GET /version` - Version info
-- `GET /docs` - Swagger UI documentation
-- `GET /redoc` - ReDoc documentation
+Start task-api first, then:
 
-## Environment Variables
+```bash
+export AS21_MODE=task-api
+export TASK_API_BASE_URL=http://localhost:8003
+# optional; otherwise runtime probes the canonical task-api config locations
+export TEAM_CONFIG_PATH=../task-api/config/team_members.yaml
+uvicorn po_agent.main:app --reload --port 8004
+```
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `APP_NAME` | Application name | `po-agent-platform-v2` |
-| `APP_VERSION` | Application version | `0.1.0` |
-| `APP_ENV` | Environment (development/production) | `development` |
-| `APP_PORT` | Application port | `8004` |
-| `LOG_LEVEL` | Logging level | `INFO` |
-| `LOG_FORMAT` | Log format (json/text) | `json` |
-| `CORRELATION_ID_HEADER` | Request ID header | `X-Request-ID` |
-| `SWTR_BASE_URL` | SWTR API base URL | `https://portal.works.prod.sbt/swtr` |
-| `SWTR_TOKEN` | SWTR personal access token | - |
-| `LLM_API_BASE_URL` | LLM API base URL | `https://api.ai.sbt/v1` |
-| `LLM_API_KEY` | LLM API key | - |
-| `LLM_MODEL_NAME` | LLM model name | `qwen-coder-3.7` |
-| `DATABASE_URL` | SQLite database path | `sqlite:///data/app.db` |
+The task-api adapter currently advertises `tasks`, `sprints` and `releases`. History and attachment Skills intentionally remain unavailable until task-api exposes those facts. Sprint carryover/scope-change require a snapshot source; release forecast requires a timeline source.
 
-## Development Stages
+### Frontend
 
-See `PO_AGENT_PLATFORM_V2_GIGACODE_MASTER_SPEC_V2_1.md` for full specification.
+```bash
+cd frontend
+npm ci
+npm run dev
+```
 
-1. ✅ **Step 01** - Create application skeleton (this step)
-2. **Step 02** - Legacy discovery tool
-3. **Step 03** - Canonical domain models
-4. **Step 04** - Workflow configuration
-5. **Step 05** - AS21 adapter contract
-6. **Step 06** - Legacy AS21 bridge
-7. **Step 07** - Workflow engine
-8. **Step 08** - Metrics engine core
-9. **Step 09** - Task intelligence search
-10. **Step 10** - LLM client abstraction
-11. **Step 11** - Task summary
-12. **Step 12** - Task quality analysis
-13. **Step 13** - Sprint intelligence
-14. **Step 14** - Team config
-15. **Step 15** - Team intelligence
-16. **Step 16** - Release intelligence
+## API
 
-## Contributing
+- `POST /api/v1/query` — execute a Harness request.
+- `GET /api/v1/health` — readiness, adapter mode, source health, source facts and ready/unavailable Skill counts.
+- `GET /health` — process liveness.
+- `GET /version` — application version.
+- `GET /docs` — OpenAPI UI.
 
-1. Follow the development stages in the master specification
-2. Write tests for all new functionality
-3. Update documentation
-4. Run `pytest` before committing
+Example query payload:
 
-## License
+```json
+{
+  "query": "Покажи WMB-101",
+  "session_id": "po-session-1"
+}
+```
 
-MIT License - see LICENSE file for details.
+Responses include `trace_id`, resolved Skill/version, evidence, warnings and structured data.
+
+## Environment variables
+
+| Variable | Purpose | Default |
+|---|---|---|
+| `AS21_MODE` | `fake` or `task-api` | `fake` |
+| `TASK_API_BASE_URL` | task-api URL | `http://localhost:8003` |
+| `TASK_API_TIMEOUT_SECONDS` | source timeout | `30` |
+| `TEAM_CONFIG_PATH` | optional canonical team profile YAML | auto-probe in task-api mode |
+| `LLM_API_BASE_URL` | OpenAI-compatible LLM endpoint | `https://api.ai.sbt/v1` |
+| `LLM_API_KEY` | LLM credential | unset |
+| `LLM_MODEL_NAME` | model name | `qwen-coder-3.7` |
+| `DATABASE_URL` | local persistence | `sqlite:///data/app.db` |
+
+Legacy `SWTR_BASE_URL`/`SWTR_TOKEN` remain only for compatibility code paths; the recovered production boundary is `Harness -> TaskApiAS21Adapter -> task-api -> SWTR`.
+
+## CI and release gates
+
+`Harness Recovery CI` contains four lanes:
+
+1. `backend-recovery` — canonical acceptance suites for the recovered Harness.
+2. `backend-hermetic-regression` — deterministic backend regression without real LLM/SWTR dependencies.
+3. `frontend` — TypeScript typecheck + Vite production build.
+4. `backend-legacy-diagnostic` — complete old suite, intentionally non-blocking while legacy real-service debt is retired.
+
+Before merge, the first three lanes must be green. The legacy diagnostic lane remains visible but does not define recovery correctness.
+
+## Source of truth
+
+- `PO_AGENT_PLATFORM_V2_GIGACODE_MASTER_SPEC_V2_1.md` — product/master specification.
+- `docs/recovery/CANONICAL_SKILL_CATALOG.md` — capability inventory.
+- `docs/recovery/LEGACY_TEST_DEBT.md` — quarantined legacy test debt.
+- `docs/recovery/FINAL_HARDENING_STATUS.md` — merge-readiness checklist and remaining external prerequisites.
