@@ -28,6 +28,7 @@ jobs:
       - name: Run recovery acceptance suite
         run: >-
           pytest -q
+          tests/test_repository_hygiene.py
           tests/test_harness_recovery_runtime.py
           tests/test_harness_api_v1.py
           tests/test_harness_runtime_factory.py
