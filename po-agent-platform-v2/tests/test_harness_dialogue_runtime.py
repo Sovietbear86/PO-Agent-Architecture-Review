@@ -39,8 +39,34 @@ async def test_dialogue_clarifies_multiple_ambiguous_slots_before_execution():
     r4 = await runtime.process(HarnessRequest(query="OLP-SPRNT-4", session_id="d1"))
     assert r4.status in {ResponseStatus.COMPLETED, ResponseStatus.PARTIAL}
     assert isinstance(r4.data, dict)
+    assert r4.data["filters"] == {"assignee": "Garanin.R.V", "sprint_id": "OLP-SPRNT-4", "status": "In Progress"}
     assert r4.data["_harness"]["llm_used"] is True
     assert "Ответ помог" in r4.data["_harness"]["feedback_prompt"]
+
+
+@pytest.mark.asyncio
+async def test_grounded_composite_search_applies_all_filters_not_only_first_one():
+    frame = SemanticFrame(
+        canonical_query="task search",
+        intent_hint="task_search",
+        slots={
+            "member_login": "Sidorov.S.S",
+            "sprint_id": "WMB-SPRNT-1",
+            "status": "not_completed",
+        },
+        llm_used=True,
+    )
+    runtime = build_runtime_bundle("fake", semantic_interpreter=ScriptedInterpreter(frame)).runtime
+    response = await runtime.process(HarnessRequest(query="Покажи открытые задачи Сидорова в первом WMB спринте", session_id="multi"))
+    assert response.status is ResponseStatus.COMPLETED
+    assert response.skill_id == "task-search"
+    assert response.data["count"] == 1
+    assert response.data["tasks"][0]["key"] == "WMB-102"
+    assert response.data["filters"] == {
+        "assignee": "Sidorov.S.S",
+        "sprint_id": "WMB-SPRNT-1",
+        "status": "not_completed",
+    }
 
 
 @pytest.mark.asyncio
