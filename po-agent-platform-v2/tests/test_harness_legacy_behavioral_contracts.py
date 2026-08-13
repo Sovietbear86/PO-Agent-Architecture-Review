@@ -538,7 +538,7 @@ class TestLevelA_CompetencyMatch:
         frame = SemanticFrame(
             canonical_query="team competency_match WMB-101",
             intent_hint="team_competency_match",
-            slots={},
+            slots={"task_key": "WMB-101"},
             clarifications=[],
             confidence=0.95,
             llm_used=False,

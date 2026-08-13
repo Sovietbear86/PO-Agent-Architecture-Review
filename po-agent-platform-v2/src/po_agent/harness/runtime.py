@@ -26,14 +26,43 @@ class CapabilityRegistry:
         if capability_id not in self._handlers: raise ValueError(f"Capability is not allow-listed: {capability_id}")
         return await self._handlers[capability_id](arguments)
 class SkillRegistry:
-    def __init__(self): self._by_intent={}
-    def register(self, skill):
-        if skill.intent in self._by_intent: raise ValueError(f"Intent already has an active skill: {skill.intent}")
-        self._by_intent[skill.intent]=skill
-    def resolve(self,intent):
-        if intent not in self._by_intent: raise ValueError(f"No active skill for intent: {intent}")
+    """Registry for skills supporting both intent-based and id-based lookups."""
+
+    def __init__(self):
+        self._by_intent = {}
+        self._by_id = {}
+
+    def register(self, skill: ExecutableSkill) -> None:
+        """Register a skill by both intent and id for bidirectional lookup."""
+        if skill.intent in self._by_intent:
+            raise ValueError(f"Intent already has an active skill: {skill.intent}")
+        if skill.id in self._by_id:
+            raise ValueError(f"Skill id already registered: {skill.id}")
+        self._by_intent[skill.intent] = skill
+        self._by_id[skill.id] = skill
+
+    def resolve_by_intent(self, intent: str) -> ExecutableSkill:
+        """Resolve skill by canonical intent (underscore format)."""
+        if intent not in self._by_intent:
+            raise ValueError(f"No active skill for intent: {intent}")
         return self._by_intent[intent]
-    def catalog(self): return list(self._by_intent.values())
+
+    def resolve_by_id(self, skill_id: str) -> ExecutableSkill:
+        """Resolve skill by skill id (hyphen format)."""
+        if skill_id not in self._by_id:
+            raise ValueError(f"No active skill for skill_id: {skill_id}")
+        return self._by_id[skill_id]
+
+    def resolve(self, key: str) -> ExecutableSkill:
+        """Legacy resolve: try intent first, then skill_id for backwards compatibility."""
+        if key in self._by_intent:
+            return self._by_intent[key]
+        if key in self._by_id:
+            return self._by_id[key]
+        raise ValueError(f"No active skill for: {key}")
+
+    def catalog(self) -> list[ExecutableSkill]:
+        return list(self._by_id.values())
 class PortfolioCapabilities:
     def __init__(self,adapter): self.a=adapter
     @staticmethod
@@ -62,6 +91,29 @@ class PortfolioCapabilities:
             items=await self.a.get_attachment_metadata(t.key); items=[i for i in items if not kind or i.type==kind]
             if items: matches.append({"task":self.task(t),"attachments":[{"id":i.id,"name":i.name,"type":i.type.value,"size_bytes":i.size_bytes} for i in items]}); ev.extend(Evidence(type="attachment",source="as21",entity_id=t.key,label=i.name,value=i.type.value) for i in items)
         return CapabilityResult(answer=f"Найдено задач с {(kind.value.upper() if kind else 'вложениями')}: {len(matches)}.",data={"attachment_type":kind.value if kind else None,"count":len(matches),"results":matches},evidence=ev)
+    async def task_search_composite(self,args):
+        # Composite search with multiple filters
+        sprint_id = args.get("sprint_id", "").strip().upper()
+        release_id = args.get("release_id", "").strip().upper()
+        assignee = args.get("assignee", "").strip()
+        status = args.get("status", "").strip()
+        
+        # Start with all tasks and apply filters
+        tasks = await self.a.search_tasks("")
+        if sprint_id:
+            sprint_tasks = await self.a.get_sprint_tasks(sprint_id)
+            tasks = [t for t in tasks if t in sprint_tasks]
+        if release_id:
+            release_tasks = await self.a.get_release_tasks(release_id)
+            tasks = [t for t in tasks if t in release_tasks]
+        if assignee:
+            tasks = [t for t in tasks if t.assignee == assignee]
+        if status:
+            status_lower = status.casefold()
+            tasks = [t for t in tasks if status_lower in t.status.value.casefold() or status_lower in t.status_category.value.casefold()]
+        
+        filters = {k: v for k, v in args.items() if v}
+        return self.task_list_result(answer=f"Составной поиск: найдено задач: {len(tasks)}.",tasks=tasks,filters=filters)
     async def sprint_health(self,args):
         s=args["sprint_id"].upper(); tasks=await self.a.get_sprint_tasks(s); total=len(tasks); done=sum(t.is_completed for t in tasks); blocked=sum(t.is_blocked for t in tasks); active=sum(t.status_category.value=="active_work" for t in tasks); pct=round(done/total*100,1) if total else 0.0; return CapabilityResult(answer=f"{s}: выполнено {done}/{total} ({pct}%), заблокировано {blocked}.",data={"sprint_id":s,"total":total,"completed":done,"active":active,"blocked":blocked,"completion_percent":pct,"tasks":[self.task(t) for t in tasks]},evidence=[Evidence(type="sprint_task",source="as21",entity_id=t.key,label=t.title,value=t.status.value) for t in tasks])
     async def release_health(self,args):
@@ -123,12 +175,30 @@ class DeterministicRouter:
 class HarnessRuntime:
     def __init__(self,adapter):
         self.adapter=adapter; self.router=DeterministicRouter(); self.capabilities=CapabilityRegistry(); self.skills=SkillRegistry(); d=PortfolioCapabilities(adapter); i=TaskIntelligenceCapabilities(adapter); a=AdvancedTaskCapabilities(adapter); s=SprintIntelligenceCapabilities(adapter); t=TeamIntelligenceCapabilities(adapter); r=ReleaseIntelligenceCapabilities(adapter); p=POAssistantCapabilities(adapter)
-        specs=[("task-lookup","task_lookup","task.lookup",d.task_lookup),("task-search","task_search","task.search",d.task_search),("task-search-attachments","task_search_attachments","task.search_attachments",d.task_search_attachments),("task-search-excel","task_search_excel","task.search_attachment_excel",d.task_search_attachments),("task-search-pdf","task_search_pdf","task.search_attachment_pdf",d.task_search_attachments),("task-search-msg","task_search_msg","task.search_attachment_msg",d.task_search_attachments),("task-search-assignee","task_search_assignee","task.search_assignee",d.task_search_assignee),("task-search-status","task_search_status","task.search_status",d.task_search_status),("task-search-sprint","task_search_sprint","task.search_sprint",d.task_search_sprint),("task-search-release","task_search_release","task.search_release",d.task_search_release),("task-search-product","task_search_product","task.search_product",d.task_search_product),("task-summary","task_summary","task.summary",i.summary),("task-quality","task_quality","task.quality",i.quality_report),("task-missing-requirements","task_missing_requirements","task.missing_requirements",i.missing_requirements),("task-acceptance-analysis","task_acceptance_analysis","task.acceptance_analysis",a.acceptance_analysis),("task-dependency-analysis","task_dependency_analysis","task.dependencies",a.dependencies),("task-blocker-analysis","task_blocker_analysis","task.blockers",a.blockers),("task-similar","task_similar","task.similar",a.similar),("task-history","task_history","task.history",i.history),("task-time-in-status","task_time_in_status","task.time_in_status",i.time_in_status),("task-aging","task_aging","task.aging",i.aging),("sprint-health","sprint_health","sprint.health",d.sprint_health),("sprint-current","sprint_current","sprint.current",s.current),("sprint-scope","sprint_scope","sprint.scope",s.scope),("sprint-velocity","sprint_velocity","sprint.velocity",s.velocity),("sprint-throughput","sprint_throughput","sprint.throughput",s.throughput),("sprint-wip","sprint_wip","sprint.wip",s.wip),("sprint-cycle-time","sprint_cycle_time","sprint.cycle_time",s.cycle_time),("sprint-lead-time","sprint_lead_time","sprint.lead_time",s.lead_time),("sprint-predictability","sprint_predictability","sprint.predictability",s.predictability),("sprint-risk-queue","sprint_risk_queue","sprint.risk_queue",s.risk_queue),("team-workload","team_workload","team.workload",t.workload),("team-wip","team_wip","team.wip",t.wip),("team-blocked","team_blocked","team.blocked",t.blocked),("team-capacity","team_capacity","team.capacity",t.capacity),("team-bottlenecks","team_bottlenecks","team.bottlenecks",t.bottlenecks),("team-distribution","team_distribution","team.distribution",t.distribution),("release-health","release_health","release.health",d.release_health),("release-scope","release_scope","release.scope",r.scope),("release-progress","release_progress","release.progress",r.progress),("release-blockers","release_blockers","release.blockers",r.blockers),("release-dependencies","release_dependencies","release.dependencies",r.dependencies),("release-risk-queue","release_risk_queue","release.risk_queue",r.risk_queue),("portfolio-overview","portfolio_overview","portfolio.overview",d.overview),("po-attention-queue","po_attention_queue","po.attention_queue",p.attention_queue),("po-daily-brief","po_daily_brief","po.daily_brief",p.daily_brief),("po-status-report","po_status_report","po.status_report",p.status_report),("po-reminder-draft","po_reminder_draft","po.reminder_draft",p.reminder_draft),("po-local-task-draft","po_local_task_draft","po.local_task_draft",p.local_task_draft)]
+        specs=[("task-lookup","task_lookup","task.lookup",d.task_lookup),("task-search","task_search","task.search",d.task_search),("task-search-attachments","task_search_attachments","task.search_attachments",d.task_search_attachments),("task-search-excel","task_search_excel","task.search_attachment_excel",d.task_search_attachments),("task-search-pdf","task_search_pdf","task.search_attachment_pdf",d.task_search_attachments),("task-search-msg","task_search_msg","task.search_attachment_msg",d.task_search_attachments),("task-search-assignee","task_search_assignee","task.search_assignee",d.task_search_assignee),("task-search-status","task_search_status","task.search_status",d.task_search_status),("task-search-sprint","task_search_sprint","task.search_sprint",d.task_search_sprint),("task-search-release","task_search_release","task.search_release",d.task_search_release),("task-search-product","task_search_product","task.search_product",d.task_search_product),("task-summary","task_summary","task.summary",i.summary),("task-quality","task_quality","task.quality",i.quality_report),("task-missing-requirements","task_missing_requirements","task.missing_requirements",i.missing_requirements),("task-acceptance-analysis","task_acceptance_analysis","task.acceptance_analysis",a.acceptance_analysis),("task-dependency-analysis","task_dependency_analysis","task.dependencies",a.dependencies),("task-blocker-analysis","task_blocker_analysis","task.blockers",a.blockers),("task-similar","task_similar","task.similar",a.similar),("task-history","task_history","task.history",i.history),("task-time-in-status","task_time_in_status","task.time_in_status",i.time_in_status),("task-aging","task_aging","task.aging",i.aging),("sprint-health","sprint_health","sprint.health",d.sprint_health),("sprint-current","sprint_current","sprint.current",s.current),("sprint-scope","sprint_scope","sprint.scope",s.scope),("sprint-velocity","sprint_velocity","sprint.velocity",s.velocity),("sprint-throughput","sprint_throughput","sprint.throughput",s.throughput),("sprint-wip","sprint_wip","sprint.wip",s.wip),("sprint-cycle-time","sprint_cycle_time","sprint.cycle_time",s.cycle_time),("sprint-lead-time","sprint_lead_time","sprint.lead_time",s.lead_time),("sprint-predictability","sprint_predictability","sprint.predictability",s.predictability),("sprint-risk-queue","sprint_risk_queue","sprint.risk_queue",s.risk_queue),("team-workload","team_workload","team.workload",t.workload),("team-wip","team_wip","team.wip",t.wip),("team-blocked","team_blocked","team.blocked",t.blocked),("team-capacity","team_capacity","team.capacity",t.capacity),("team-bottlenecks","team_bottlenecks","team.bottlenecks",t.bottlenecks),("team-distribution","team_distribution","team.distribution",t.distribution),("team-competency-match","team_competency_match","team.competency_match",t.competency_match),("release-health","release_health","release.health",d.release_health),("release-scope","release_scope","release.scope",r.scope),("release-progress","release_progress","release.progress",r.progress),("release-blockers","release_blockers","release.blockers",r.blockers),("release-dependencies","release_dependencies","release.dependencies",r.dependencies),("release-risk-queue","release_risk_queue","release.risk_queue",r.risk_queue),("portfolio-overview","portfolio_overview","portfolio.overview",d.overview),("po-attention-queue","po_attention_queue","po.attention_queue",p.attention_queue),("po-daily-brief","po_daily_brief","po.daily_brief",p.daily_brief),("po-status-report","po_status_report","po.status_report",p.status_report),("po-reminder-draft","po_reminder_draft","po.reminder_draft",p.reminder_draft),("po-local-task-draft","po_local_task_draft","po.local_task_draft",p.local_task_draft)]
         for sid,intent,cid,h in specs:self.capabilities.register(cid,h);self.skills.register(ExecutableSkill(sid,"1.0.0",intent,cid,f"Executable {intent} skill"))
+        # Register composite search capability (used by generic semantic dispatch)
+        self.capabilities.register("task.search.composite",d.task_search_composite)
     async def process(self,request):
         started=time.perf_counter(); trace=str(uuid.uuid4()); session=request.session_id or str(uuid.uuid4()); q=request.query.strip()
         if not q:return HarnessResponse(status=ResponseStatus.FAILED,trace_id=trace,session_id=session,answer="Пустой запрос.",warnings=["query_empty"],latency_ms=(time.perf_counter()-started)*1000)
         try:
-            intent,args=self.router.route(q); skill=self.skills.resolve(intent); result=await self.capabilities.execute(skill.capability_id,args); return HarnessResponse(status=ResponseStatus.COMPLETED,trace_id=trace,session_id=session,answer=result.answer,intent=intent,skill_id=skill.id,skill_version=skill.version,data=result.data,evidence=result.evidence,warnings=result.warnings,latency_ms=(time.perf_counter()-started)*1000)
-        except Exception:return HarnessResponse(status=ResponseStatus.FAILED,trace_id=trace,session_id=session,answer="Не удалось выполнить запрос.",warnings=["runtime_failure"],latency_ms=(time.perf_counter()-started)*1000)
+            intent, args = self.router.route(q)
+            skill = self.skills.resolve_by_intent(intent)
+            result = await self.capabilities.execute(skill.capability_id, args)
+            return HarnessResponse(
+                status=ResponseStatus.COMPLETED,
+                trace_id=trace,
+                session_id=session,
+                answer=result.answer,
+                intent=intent,
+                skill_id=skill.id,
+                skill_version=skill.version,
+                data=result.data,
+                evidence=result.evidence,
+                warnings=result.warnings,
+                latency_ms=(time.perf_counter() - started) * 1000,
+            )
+        except Exception:
+            return HarnessResponse(status=ResponseStatus.FAILED, trace_id=trace, session_id=session, answer="Не удалось выполнить запрос.", warnings=["runtime_failure"], latency_ms=(time.perf_counter() - started) * 1000)
 def build_fake_runtime(): return HarnessRuntime(FakeAS21Adapter())
