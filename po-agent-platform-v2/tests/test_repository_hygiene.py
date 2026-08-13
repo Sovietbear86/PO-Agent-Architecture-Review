@@ -8,19 +8,30 @@ REPO = PROJECT.parent
 
 def test_local_and_generated_artifacts_are_not_committed():
     """Test that generated/ignored files are NOT committed to Git.
-    
+
     Key distinction: This test checks Git tracking status, not file existence.
     Local-only config files like .gigacode/settings.json may exist but must be:
     1. In .gitignore OR
     2. Untracked (git ls-files returns empty)
     """
+    # Check IDE dirs are NOT tracked by Git (they may exist locally)
     forbidden_dirs = {
-        REPO / ".venv",
-        REPO / ".idea",
-        REPO / ".gigaide",
-        REPO / "mcp-swtr",  # historical broken gitlink; real source is an external integration
+        ".venv",
+        ".idea",
+        ".gigaide",
+        "mcp-swtr",  # historical broken gitlink; real source is an external integration
     }
-    assert not [str(path.relative_to(REPO)) for path in forbidden_dirs if path.exists()]
+    tracked = []
+    for dir_name in forbidden_dirs:
+        result = subprocess.run(
+            ["git", "ls-files", dir_name],
+            capture_output=True,
+            text=True,
+            cwd=REPO
+        )
+        if result.stdout.strip():
+            tracked.append(dir_name)
+    assert tracked == [], f"Tracked forbidden directories: {tracked}"
 
     # For .gigacode/settings.json and settings.json.orig:
     # - They MUST exist in working directory (local GigaCode config)

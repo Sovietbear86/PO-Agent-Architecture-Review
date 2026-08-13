@@ -13,7 +13,6 @@ from .entity_grounding import GroundedEntityResolver, TeamDirectory
 from .historical_wiring import enable_historical_skills
 from .learned_semantics import LearnedSemanticsStore
 from .observed_runtime import ObservedHarnessRuntime
-from .semantic_capabilities import StructuredTaskSearchCapability
 from .source_aware_runtime import SourceAwareHarnessRuntime
 from .source_contracts import (
     ReleaseTimelineSource,

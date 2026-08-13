@@ -406,7 +406,7 @@ class DialogueHarnessRuntime:
         # For task-search with 2+ filters, use composite capability
         if skill_id == "task-search":
             filter_count = sum(1 for k in ["assignee", "sprint_id", "release_id", "status", "product"] if k in capability_args)
-            if filter_count >= 2 and "task.search.composite" in self.capabilities._handlers:
+            if filter_count >= 2:
                 try:
                     result = await self.capabilities.execute("task.search.composite", capability_args)
                     response = HarnessResponse(

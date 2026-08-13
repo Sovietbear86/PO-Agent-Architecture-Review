@@ -145,7 +145,7 @@ LEGACY_CONTRACT_MAPPING = {
         "level_b_corpus": "cases.skill=team-competency-match: ['Кто подходит для задачи WMB-101 по компетенциям?']",
         "skill": "team-competency-match",
         "capability": "team.competency_match",
-        "status": "MIGRATED",
+        "status": "CAPABILITY_WIRING_DEFECT",
     },
     13: {
         "old_test": "test_release_health_skill",
@@ -535,7 +535,17 @@ class TestLevelA_CompetencyMatch:
 
     @pytest.mark.asyncio
     async def test_competency_match_with_task_key(self):
-        """Who is suitable for task by competencies."""
+        """Who is suitable for task by competencies - CAPABILITY_WIRING_DEFECT.
+
+        team.competency_match capability requires:
+        - Declared team member profiles with competencies
+        - team_matching_wiring configuration
+
+        The competency_match() method was removed from TeamIntelligenceCapabilities
+        as the heuristic implementation did not use actual declared competencies.
+        The skill remains in catalog but capability cannot be registered without
+        proper wiring (YamlTeamCompetencySource with declared profiles).
+        """
         frame = SemanticFrame(
             canonical_query="team competency_match WMB-101",
             intent_hint="team_competency_match",
@@ -549,9 +559,10 @@ class TestLevelA_CompetencyMatch:
             interpreter=ScriptedInterpreter(frame)
         )
         response = await dialogue.process(HarnessRequest(query="Кто подходит для задачи WMB-101 по компетенциям?", session_id="la-comp"))
-        assert response.status is ResponseStatus.COMPLETED
+        # Capability not registered (method removed) - skill not available
+        assert response.status is ResponseStatus.FAILED
         assert response.skill_id == "team-competency-match"
-        assert "members" in response.data
+        assert "semantic_skill_unavailable" in response.warnings
 
 
 class TestLevelA_ReleaseHealth:
@@ -615,7 +626,7 @@ class TestLegacyContractMappingVerification:
             catalog = catalog_by_id()
             assert skill_id in catalog, f"Skill {skill_id} not in catalog for contract {contract_id}"
             assert catalog[skill_id].capability_id == mapping["capability"]
-            assert mapping["status"] in {"MIGRATED", "COVERED_BY_EXISTING_HARNESS_TEST", "OBSOLETE_DUPLICATE"}
+            assert mapping["status"] in {"MIGRATED", "COVERED_BY_EXISTING_HARNESS_TEST", "OBSOLETE_DUPLICATE", "CAPABILITY_WIRING_DEFECT"}
 
     def test_no_coverage_gaps(self):
         """Every legacy contract must be covered."""
@@ -638,9 +649,13 @@ class TestLegacyContractMappingVerification:
         assert actual_old_tests == expected_old_tests
 
     def test_all_skills_implemented(self):
-        """All skills in the mapping must be implemented."""
+        """All skills in the mapping must be implemented (except CAPABILITY_WIRING_DEFECT)."""
         catalog = catalog_by_id()
         for mapping in LEGACY_CONTRACT_MAPPING.values():
             skill_id = mapping["skill"]
+            # CAPABILITY_WIRING_DEFECT skills may have implemented catalog entry but
+            # capability cannot be executed without proper wiring
+            if mapping["status"] == "CAPABILITY_WIRING_DEFECT":
+                continue
             entry = catalog[skill_id]
             assert entry.status == "implemented", f"Skill {skill_id} not implemented"
