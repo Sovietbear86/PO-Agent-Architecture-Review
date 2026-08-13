@@ -30,6 +30,7 @@ jobs:
           pytest -q
           tests/test_harness_recovery_runtime.py
           tests/test_harness_api_v1.py
+          tests/test_harness_runtime_factory.py
           tests/test_harness_portfolio_skills.py
           tests/test_harness_task_filters.py
           tests/test_harness_task_intelligence.py
