@@ -57,9 +57,13 @@ class TaskApiAS21Adapter(AS21Adapter):
         try:
             response = await self._client.get("/api/v1/tasks", params={"q": query, "limit": limit})
             response.raise_for_status()
-            payload = response.json()
-        except (httpx.HTTPError, ValueError) as exc:
+        except httpx.HTTPError as exc:
             raise AS21SourceUnavailable(f"task-api request failed: {type(exc).__name__}") from exc
+
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            raise AS21SourceError("task-api returned invalid JSON") from exc
 
         if not isinstance(payload, list):
             raise AS21SourceError("task-api /api/v1/tasks must return a JSON array")
@@ -68,9 +72,13 @@ class TaskApiAS21Adapter(AS21Adapter):
         for item in payload:
             if not isinstance(item, dict):
                 raise AS21SourceError("task-api returned a non-object task item")
-            mapped = self._map(item)
-            if mapped is not None:
-                tasks.append(mapped)
+            try:
+                mapped = self._map(item)
+            except Exception as exc:
+                raise AS21SourceError("task-api task item cannot be mapped to canonical Task") from exc
+            if mapped is None:
+                raise AS21SourceError("task-api task item cannot be mapped to canonical Task")
+            tasks.append(mapped)
         return tasks
 
     async def get_task(self, task_key: str) -> Optional[Task]:
