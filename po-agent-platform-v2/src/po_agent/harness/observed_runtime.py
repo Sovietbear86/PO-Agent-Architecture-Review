@@ -28,7 +28,6 @@ class ObservedHarnessRuntime:
         self.feedback = feedback or SQLiteFeedbackStore()
         self.evals = evals or SQLiteEvalSeedStore()
 
-        # Preserve introspection used by acceptance tests and future diagnostics.
         self.adapter = runtime.adapter
         self.router = runtime.router
         self.capabilities = runtime.capabilities
@@ -50,15 +49,19 @@ class ObservedHarnessRuntime:
         if response.status is ResponseStatus.FAILED:
             error_category = response.warnings[0] if response.warnings else "runtime_failure"
 
-        # Audit the user's original request. Session state is intentionally not
-        # serialized into operational history as hidden prompt context.
+        llm_used = False
+        if isinstance(response.data, dict):
+            meta = response.data.get("_harness")
+            if isinstance(meta, dict):
+                llm_used = bool(meta.get("llm_used"))
+
         self.history.append(
             record_from_response(
                 request,
                 response,
                 capability_id=capability_id,
                 versions=self.versions,
-                llm_used=False,
+                llm_used=llm_used,
                 error_category=error_category,
             )
         )
@@ -74,7 +77,6 @@ class ObservedHarnessRuntime:
         expected_entity: str | None = None,
         comment: str | None = None,
     ) -> FeedbackRecord:
-        """Attach explicit feedback to a completed/failed execution trace."""
         trace = self.history.get(trace_id)
         if trace is None:
             raise ValueError(f"unknown trace_id: {trace_id}")
@@ -97,7 +99,6 @@ class ObservedHarnessRuntime:
         return record
 
     def create_eval_seed(self, trace_id: str, feedback_id: str) -> EvalSeed:
-        """Explicitly curate one trace+feedback pair into an offline eval candidate."""
         trace = self.history.get(trace_id)
         if trace is None:
             raise ValueError(f"unknown trace_id: {trace_id}")
