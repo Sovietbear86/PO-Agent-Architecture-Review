@@ -13,6 +13,7 @@ from .entity_grounding import GroundedEntityResolver, TeamDirectory
 from .historical_wiring import enable_historical_skills
 from .learned_semantics import LearnedSemanticsStore
 from .observed_runtime import ObservedHarnessRuntime
+from .semantic_capabilities import StructuredTaskSearchCapability
 from .source_aware_runtime import SourceAwareHarnessRuntime
 from .source_contracts import (
     ReleaseTimelineSource,
@@ -81,6 +82,11 @@ def build_runtime_bundle(
         enable_team_matching(executable, team_source)
     if sprint_snapshots is not None or release_timeline is not None:
         enable_historical_skills(executable, sprint_snapshots=sprint_snapshots, release_timeline=release_timeline)
+
+    # Semantic execution is still allow-listed. The dialogue layer may call this
+    # capability only after all requested filters have been grounded/clarified.
+    structured_search = StructuredTaskSearchCapability(adapter)
+    executable.capabilities.register("task.search.composite", structured_search.execute)
 
     semantics = LearnedSemanticsStore(learned_semantics_path) if learned_semantics_path else None
     directory = TeamDirectory.from_yaml(team_path)
