@@ -31,6 +31,10 @@ function EmptyData({ text }: { text: string }) {
   return <div className="panel empty-panel"><strong>{text}</strong><span>Данные появятся после ответа Harness API.</span></div>
 }
 
+function HarnessMeta({ result }: { result: HarnessQueryResponse | null }) {
+  return <div className="filter-status"><span>Skill: {result?.skill?.id ?? '—'}</span><span>Evidence: {result?.evidence.length ?? 0}</span><span>Trace: {result?.trace_id?.slice(0,8) ?? '—'}</span></div>
+}
+
 function TaskCard({ task, onOpen }: { task: TaskRow; onOpen(task: TaskRow): void }) {
   return <button className="task-card" onClick={() => onOpen(task)}>
     <div className="task-card-top"><span className="task-key">{String(task.key ?? '')}</span><span className="status-pill">{String(task.status ?? '')}</span></div>
@@ -142,7 +146,7 @@ export function TasksPage() {
         {([['text','Текст'],['assignee','Исполнитель'],['status','Статус'],['sprint','Спринт'],['release','Релиз']] as Array<[FilterMode,string]>).map(([id,label]) => <button type="button" key={id} className={mode === id ? 'active' : ''} onClick={() => { setMode(id); setSearch('') }}>{label}</button>)}
       </div>
       <div className="filter-input-row"><input value={search} onChange={e => setSearch(e.target.value)} placeholder={placeholder} /><button type="submit">Найти</button><button type="button" onClick={() => setDrawerOpen(true)}>+ Локальная задача</button></div>
-      <div className="filter-status"><span>Skill: {result?.skill?.id ?? '—'}</span><span>Evidence: {result?.evidence.length ?? 0}</span><span>Trace: {result?.trace_id?.slice(0,8) ?? '—'}</span></div>
+      <HarnessMeta result={result} />
     </form>
     {localTasks.length > 0 && <div className="panel local-panel"><div className="panel-title"><strong>Локальные задачи</strong><span>{localTasks.length}</span></div>{localTasks.map(t => <div className="task-row" key={t.id}><div className="task-key">{t.id}</div><div className="task-main"><b>{t.title}</b><span>{t.owner || 'Без ответственного'}</span></div><div className="status-pill">LOCAL</div></div>)}</div>}
     <div className="panel"><div className="panel-title"><strong>Задачи</strong><span>{allCount}</span></div>{tasks.length ? <div className="task-card-grid">{tasks.map(t => <TaskCard key={String(t.key)} task={t} onOpen={setSelectedTask} />)}</div> : <EmptyData text="Нет данных по задачам" />}</div>
@@ -152,13 +156,57 @@ export function TasksPage() {
 }
 
 export function SprintPage() {
-  const result = useHarness('Покажи состояние WMB-SPRNT-1'); const d = (result?.data ?? {}) as Record<string, unknown>
-  return <section className="page"><PageHeader title="Спринты" subtitle="Velocity, WIP, throughput, predictability и риски" /><div className="metric-grid"><MetricCard label="Scope" value={String(d.total ?? '—')} /><MetricCard label="Completed" value={String(d.completed ?? '—')} /><MetricCard label="Active" value={String(d.active ?? '—')} /><MetricCard label="Готовность" value={`${String(d.completion_percent ?? '—')}%`} /></div><div className="panel"><div className="panel-title"><strong>Текущий спринт</strong><span>{String(d.sprint_id ?? 'WMB-SPRNT-1')}</span></div><div className="muted">Метрики считаются детерминированно. LLM используется только для объяснения.</div></div></section>
+  const [sprintId, setSprintId] = useState('WMB-SPRNT-1')
+  const [submitted, setSubmitted] = useState('WMB-SPRNT-1')
+  const health = useHarness(`Покажи состояние ${submitted}`)
+  const velocity = useHarness(`Покажи velocity ${submitted}`)
+  const throughput = useHarness(`Покажи throughput ${submitted}`)
+  const wip = useHarness(`Покажи WIP ${submitted}`)
+  const predictability = useHarness(`Покажи predictability ${submitted}`)
+  const risks = useHarness(`Покажи риски спринта ${submitted}`)
+  const hd = (health?.data ?? {}) as Record<string, unknown>
+  const vd = (velocity?.data ?? {}) as Record<string, unknown>
+  const td = (throughput?.data ?? {}) as Record<string, unknown>
+  const wd = (wip?.data ?? {}) as Record<string, unknown>
+  const pd = (predictability?.data ?? {}) as Record<string, unknown>
+  const rd = (risks?.data ?? {}) as { risks?: Array<Record<string, unknown>>; count?: number }
+  const riskRows = rd.risks ?? []
+  return <section className="page">
+    <PageHeader title="Спринты" subtitle="Velocity, throughput, WIP, predictability и очередь рисков" />
+    <form className="panel entity-toolbar" onSubmit={e => { e.preventDefault(); if (sprintId.trim()) setSubmitted(sprintId.trim().toUpperCase()) }}><div><span>Спринт</span><input value={sprintId} onChange={e => setSprintId(e.target.value)} /></div><button type="submit">Обновить</button></form>
+    <div className="metric-grid"><MetricCard label="Scope" value={String(hd.total ?? '—')} /><MetricCard label="Completed" value={String(hd.completed ?? '—')} /><MetricCard label="Velocity" value={`${String(vd.velocity ?? '—')} ${String(vd.unit ?? '')}`} /><MetricCard label="Predictability" value={`${String(pd.predictability_percent ?? '—')}%`} hint={predictability?.warnings.includes('current_scope_used_as_commitment_baseline') ? 'current scope baseline' : undefined} /></div>
+    <div className="insight-grid">
+      <div className="panel insight-card"><div className="panel-title"><strong>Throughput</strong><span>{throughput?.skill?.id ?? '—'}</span></div><div className="insight-value">{String(td.throughput_tasks ?? '—')}</div><div className="muted">завершённых задач · unit {String(td.unit ?? 'tasks')}</div><HarnessMeta result={throughput} /></div>
+      <div className="panel insight-card"><div className="panel-title"><strong>WIP</strong><span>{wip?.skill?.id ?? '—'}</span></div><div className="insight-value">{String(wd.wip ?? '—')}</div><div className="muted">задач в активной работе</div><HarnessMeta result={wip} /></div>
+      <div className="panel insight-card"><div className="panel-title"><strong>Готовность</strong><span>{health?.skill?.id ?? '—'}</span></div><div className="insight-value">{String(hd.completion_percent ?? '—')}%</div><div className="muted">{String(hd.completed ?? '—')} из {String(hd.total ?? '—')} задач</div><HarnessMeta result={health} /></div>
+    </div>
+    <div className="panel"><div className="panel-title"><strong>Risk Queue</strong><span>{String(rd.count ?? riskRows.length)}</span></div>{riskRows.length ? riskRows.map(row => <div className="risk-row" key={String(row.key)}><div><b>{String(row.key)}</b><span>{String(row.title ?? '')} · {(row.reasons as string[] | undefined)?.join(', ')}</span></div><em>{String(row.risk_score ?? '')}</em></div>) : <div className="muted">Риски не выявлены.</div>}<HarnessMeta result={risks} /></div>
+  </section>
 }
 
 export function ReleasesPage() {
-  const result = useHarness('Риски WMB-2024-Q3'); const d = (result?.data ?? {}) as Record<string, unknown>
-  return <section className="page"><PageHeader title="Релизы" subtitle="Готовность, blockers, dependencies, risk queue и forecast inputs" /><div className="metric-grid"><MetricCard label="Scope" value={String(d.total ?? '—')} /><MetricCard label="Completed" value={String(d.completed ?? '—')} /><MetricCard label="Blocked" value={String(d.blocked ?? '—')} /><MetricCard label="Готовность" value={`${String(d.completion_percent ?? '—')}%`} /></div><div className="panel"><div className="panel-title"><strong>{String(d.release_id ?? 'Release')}</strong><span className="green-badge">TRACKED</span></div><div className="muted">Forecast будет активирован только после появления честного исторического baseline.</div></div></section>
+  const [releaseId, setReleaseId] = useState('WMB-2024-Q3')
+  const [submitted, setSubmitted] = useState('WMB-2024-Q3')
+  const scope = useHarness(`Покажи scope ${submitted}`)
+  const progress = useHarness(`Покажи прогресс ${submitted}`)
+  const blockers = useHarness(`Покажи блокеры ${submitted}`)
+  const dependencies = useHarness(`Покажи зависимости ${submitted}`)
+  const risks = useHarness(`Покажи риски релиза ${submitted}`)
+  const sd = (scope?.data ?? {}) as { count?: number; tasks?: TaskRow[] }
+  const pd = (progress?.data ?? {}) as Record<string, unknown>
+  const bd = (blockers?.data ?? {}) as { count?: number; tasks?: TaskRow[] }
+  const dd = (dependencies?.data ?? {}) as { internal?: Array<Record<string, unknown>>; external?: Array<Record<string, unknown>> }
+  const rd = (risks?.data ?? {}) as { risk_queue?: Array<Record<string, unknown>> }
+  const riskRows = rd.risk_queue ?? []
+  return <section className="page">
+    <PageHeader title="Релизы" subtitle="Progress, blockers, dependencies и deterministic risk queue" />
+    <form className="panel entity-toolbar" onSubmit={e => { e.preventDefault(); if (releaseId.trim()) setSubmitted(releaseId.trim().toUpperCase()) }}><div><span>Релиз</span><input value={releaseId} onChange={e => setReleaseId(e.target.value)} /></div><button type="submit">Обновить</button></form>
+    <div className="metric-grid"><MetricCard label="Scope" value={String(sd.count ?? '—')} /><MetricCard label="Completed" value={String(pd.completed ?? '—')} /><MetricCard label="Blocked" value={String(pd.blocked ?? '—')} /><MetricCard label="Готовность" value={`${String(pd.task_completion_percent ?? '—')}%`} hint={pd.effort_completion_percent != null ? `effort ${String(pd.effort_completion_percent)}%` : undefined} /></div>
+    <div className="content-grid"><div className="panel"><div className="panel-title"><strong>Очередь рисков релиза</strong><span>{riskRows.length}</span></div>{riskRows.length ? riskRows.map((row, index) => { const task = (row.task ?? {}) as TaskRow; return <div className="risk-row" key={String(task.key ?? index)}><div><b>{String(task.key ?? '')}</b><span>{String(task.title ?? '')} · {((row.reasons ?? []) as string[]).join(', ')}</span></div><em>{String(row.risk_score ?? '')}</em></div> }) : <div className="muted">Риски не выявлены.</div>}<HarnessMeta result={risks} /></div>
+      <div className="panel"><div className="panel-title"><strong>Dependencies</strong><span>{(dd.internal?.length ?? 0) + (dd.external?.length ?? 0)}</span></div><div className="fact-row"><span>Внутренние</span><b>{dd.internal?.length ?? 0}</b></div><div className="fact-row"><span>Внешние</span><b>{dd.external?.length ?? 0}</b></div><HarnessMeta result={dependencies} /></div></div>
+    <div className="panel"><div className="panel-title"><strong>Blockers</strong><span>{bd.count ?? 0}</span></div>{bd.tasks?.length ? bd.tasks.map(task => <div className="task-row" key={String(task.key)}><div className="task-key">{String(task.key)}</div><div className="task-main"><b>{String(task.title ?? '')}</b><span>{String(task.assignee ?? 'Не назначен')}</span></div><div className="status-pill">{String(task.status ?? '')}</div></div>) : <div className="muted">Заблокированных задач нет.</div>}<HarnessMeta result={blockers} /></div>
+    <div className="form-note release-note">Forecast не активирован: master-spec требует честный исторический baseline. До появления source data UI не показывает псевдопрогноз.</div>
+  </section>
 }
 
 export function TeamPage() {
