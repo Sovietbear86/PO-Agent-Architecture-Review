@@ -8,6 +8,7 @@ from typing import Literal
 from po_agent.adapters import FakeAS21Adapter, TaskApiAS21Adapter
 from po_agent.adapters.as21 import AS21Adapter
 
+from .dialogue_runtime import DialogueHarnessRuntime, SemanticInterpreter
 from .historical_wiring import enable_historical_skills
 from .observed_runtime import ObservedHarnessRuntime
 from .source_aware_runtime import SourceAwareHarnessRuntime
@@ -50,6 +51,7 @@ def build_runtime_bundle(
     team_config_path: str | None = None,
     sprint_snapshots: SprintSnapshotSource | None = None,
     release_timeline: ReleaseTimelineSource | None = None,
+    semantic_interpreter: SemanticInterpreter | None = None,
 ) -> RuntimeBundle:
     normalized = mode.strip().lower()
     if normalized == "fake":
@@ -70,12 +72,17 @@ def build_runtime_bundle(
     )
     readiness = build_source_readiness(adapter, extra_facts=dependencies.facts)
 
-    inner = SourceAwareHarnessRuntime(adapter, source_facts=readiness.available_facts)
+    executable = SourceAwareHarnessRuntime(adapter, source_facts=readiness.available_facts)
     if team_source is not None and team_source.has_declared_profiles():
-        enable_team_matching(inner, team_source)
+        enable_team_matching(executable, team_source)
     if sprint_snapshots is not None or release_timeline is not None:
-        enable_historical_skills(inner, sprint_snapshots=sprint_snapshots, release_timeline=release_timeline)
-    runtime = ObservedHarnessRuntime(inner)
+        enable_historical_skills(executable, sprint_snapshots=sprint_snapshots, release_timeline=release_timeline)
+
+    # Natural-language interpretation and clarification are a distinct Harness
+    # layer. Deterministic capabilities remain the only place where business
+    # metrics and source-backed answers are produced.
+    dialogue = DialogueHarnessRuntime(executable, interpreter=semantic_interpreter)
+    runtime = ObservedHarnessRuntime(dialogue)
 
     return RuntimeBundle(
         mode=selected,
