@@ -1,9 +1,9 @@
 """Dialogue-first Harness orchestration.
 
-Natural language understanding is intentionally separated from deterministic
-capabilities. An LLM may interpret language and propose a semantic frame, but it
-may not invent source entities or calculate business metrics. Ambiguities are
-resolved through explicit user clarification before execution.
+Natural-language understanding is separated from deterministic capabilities.
+The LLM may interpret wording and propose a semantic frame, but source entity
+identifiers and business semantics are grounded before execution. Uncertainty
+becomes an explicit clarification turn instead of a silent guess.
 """
 from __future__ import annotations
 
@@ -41,20 +41,28 @@ class SemanticInterpreter(Protocol):
     async def interpret(self, query: str, *, context: dict[str, Any] | None = None) -> SemanticFrame: ...
 
 
+class SemanticGrounder(Protocol):
+    async def semantic_context(self) -> dict[str, Any]: ...
+    async def ground(self, frame: SemanticFrame, original_query: str) -> SemanticFrame: ...
+
+
 class LLMJsonSemanticInterpreter:
-    """Strict JSON semantic interpreter suitable for Qwen/Qwen-Coder class models."""
+    """Strict JSON semantic interpreter suitable for Qwen/Qwen-Coder models."""
 
     SYSTEM = """You are the semantic interpreter of a PO Harness agent.
 Return JSON only with keys canonical_query, intent_hint, slots, clarifications, confidence.
 clarifications is an array of {field, question, options}.
+Use placeholders {member_login}, {sprint_id}, {release_id}, {status} when a grounded value is not yet known.
+Useful slots: person_raw, member_login, sprint_raw, sprint_id, release_raw, release_id, status_raw, status_semantic.
 Rules:
 1. Understand free-form Russian/English wording, names, grammatical cases and shorthand.
 2. NEVER invent task IDs, sprint IDs, release IDs, logins, statuses or source facts.
 3. If an entity or business term is ambiguous, add a clarification instead of guessing.
-4. canonical_query must preserve the user's requested operation and only use values explicitly supplied or resolved in context.
+4. canonical_query must preserve the requested operation and only use values explicitly supplied or resolved in context.
 5. Do not calculate metrics; deterministic capabilities do that after interpretation.
-6. For phrases such as 'open tasks', if learned_semantics does not define the term, clarify its status semantics.
-7. Learned semantics are configuration facts supplied by the Harness; do not extend them by analogy.
+6. For business concepts such as 'open tasks', use a learned semantic rule only if it exists; otherwise set status_semantic and leave {status} unresolved.
+7. team_members, known_sprints, known_releases and known_statuses are source-backed candidates. Use them only when the match is unambiguous.
+8. Learned semantics are configuration facts supplied by the Harness; do not extend them by analogy.
 """
 
     def __init__(self, client: LLMClient, *, model: str | None = None) -> None:
@@ -82,12 +90,16 @@ Rules:
             if not isinstance(item, dict) or not item.get("field") or not item.get("question"):
                 continue
             needs.append(ClarificationNeed(str(item["field"]), str(item["question"]), tuple(str(x) for x in item.get("options", []) if x)))
+        try:
+            confidence = float(data.get("confidence", 1.0))
+        except (TypeError, ValueError):
+            confidence = 0.0
         return SemanticFrame(
             canonical_query=data["canonical_query"].strip() or query,
             intent_hint=str(data.get("intent_hint")) if data.get("intent_hint") else None,
             slots={str(k): str(v) for k, v in (data.get("slots") or {}).items() if v is not None},
             clarifications=needs,
-            confidence=float(data.get("confidence", 1.0)),
+            confidence=max(0.0, min(1.0, confidence)),
             llm_used=True,
         )
 
@@ -119,10 +131,12 @@ class DialogueHarnessRuntime:
         inner,
         interpreter: SemanticInterpreter | None = None,
         semantics: LearnedSemanticsStore | None = None,
+        grounder: SemanticGrounder | None = None,
     ) -> None:
         self.inner = inner
         self.interpreter = interpreter or ConservativeSemanticInterpreter()
         self.semantics = semantics
+        self.grounder = grounder
         self._pending: dict[str, _PendingDialogue] = {}
         for name in ("adapter", "router", "capabilities", "skills"):
             setattr(self, name, getattr(inner, name))
@@ -137,7 +151,11 @@ class DialogueHarnessRuntime:
             question=need.question,
             options=list(need.options),
             clarification_id=f"{session}:{need.field}",
-            data={"missing_field": need.field, "semantic_frame": pending.frame.slots},
+            data={
+                "missing_field": need.field,
+                "semantic_frame": dict(pending.frame.slots),
+                "_harness": {"llm_used": pending.frame.llm_used, "dialogue_state": "clarifying"},
+            },
             warnings=["clarification_required"],
         )
 
@@ -180,7 +198,27 @@ class DialogueHarnessRuntime:
         semantic_context: dict[str, Any] = {"session_id": session}
         if self.semantics is not None:
             semantic_context["learned_semantics"] = self.semantics.context("global")
-        frame = await self.interpreter.interpret(request.query, context=semantic_context)
+        if self.grounder is not None:
+            semantic_context.update(await self.grounder.semantic_context())
+
+        try:
+            frame = await self.interpreter.interpret(request.query, context=semantic_context)
+        except Exception:
+            return HarnessResponse(
+                status=ResponseStatus.FAILED,
+                trace_id=str(uuid.uuid4()),
+                session_id=session,
+                answer="Не удалось безопасно интерпретировать запрос. Попробуйте переформулировать его.",
+                warnings=["semantic_interpretation_failure"],
+                latency_ms=(time.perf_counter() - started) * 1000,
+            )
+
+        if frame.confidence < 0.45 and not frame.clarifications:
+            frame.clarifications.append(ClarificationNeed("intent", "Я не уверен, что правильно понял запрос. Что именно вы хотите получить?"))
+
+        if self.grounder is not None:
+            frame = await self.grounder.ground(frame, request.query)
+
         if frame.clarifications:
             pending = _PendingDialogue(frame=frame, remaining=list(frame.clarifications))
             self._pending[session] = pending
@@ -199,4 +237,5 @@ class DialogueHarnessRuntime:
             meta = response.data.setdefault("_harness", {})
             if isinstance(meta, dict):
                 meta["llm_used"] = llm_used
+                meta["dialogue_state"] = "answered"
                 meta["feedback_prompt"] = "Ответ помог? Что бы вы хотели улучшить?"
