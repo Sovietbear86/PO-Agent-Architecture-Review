@@ -68,8 +68,6 @@ class TeamDirectory:
         matches = []
         for entry in self.entries:
             hay = self._tokens(f"{entry.full_name} {entry.login}")
-            # Semantic LLM may normalize a declined surname to nominative, but
-            # the directory itself never contains hand-written declension rules.
             if all(any(h == w or h.startswith(w) or w.startswith(h) for h in hay) for w in wanted):
                 matches.append(entry)
         return tuple(matches)
@@ -91,8 +89,11 @@ class GroundedEntityResolver:
 
     async def semantic_context(self) -> dict[str, Any]:
         tasks = await self.adapter.search_tasks("")
+        directory_logins = {x.login for x in self.team.entries}
+        task_logins = {t.assignee for t in tasks if t.assignee}
         return {
             "team_members": self.team.public_context(),
+            "known_assignees": sorted(directory_logins | task_logins),
             "known_sprints": sorted({t.sprint_id for t in tasks if t.sprint_id}),
             "known_releases": sorted({t.release_id for t in tasks if t.release_id}),
             "known_statuses": sorted({t.status.value for t in tasks if t.status}),
@@ -118,9 +119,13 @@ class GroundedEntityResolver:
         person_raw = slots.get("person_raw") or slots.get("member_name")
         member_login = slots.get("member_login")
         if member_login:
-            known = {x.login.casefold(): x for x in self.team.entries}
-            if member_login.casefold() not in known and member_login.casefold() not in original_query.casefold():
-                needs.append(ClarificationNeed("member_login", f"Не могу подтвердить исполнителя «{member_login}». Кого вы имеете в виду?", tuple(x.login for x in self.team.entries)))
+            known_logins = {str(x).casefold() for x in context["known_assignees"]}
+            if member_login.casefold() not in known_logins and member_login.casefold() not in original_query.casefold():
+                needs.append(ClarificationNeed(
+                    "member_login",
+                    f"Не могу подтвердить исполнителя «{member_login}». Кого вы имеете в виду?",
+                    tuple(context["known_assignees"]),
+                ))
         elif person_raw:
             people = self.team.resolve_person(person_raw)
             if len(people) == 1:
@@ -129,7 +134,17 @@ class GroundedEntityResolver:
             elif len(people) > 1:
                 needs.append(ClarificationNeed("member_login", f"Нашёл несколько участников для «{person_raw}». Кого выбрать?", tuple(x.login for x in people)))
             else:
-                needs.append(ClarificationNeed("member_login", f"Не нашёл участника «{person_raw}» в справочнике команды. Уточните ФИО или login.", tuple(x.login for x in self.team.entries)))
+                # Login-like raw values can still be grounded against task assignees.
+                assignee_matches = [x for x in context["known_assignees"] if person_raw.casefold() in str(x).casefold()]
+                if len(assignee_matches) == 1:
+                    slots["member_login"] = str(assignee_matches[0])
+                    canonical = canonical.replace("{member_login}", str(assignee_matches[0]))
+                else:
+                    needs.append(ClarificationNeed(
+                        "member_login",
+                        f"Не нашёл однозначного участника «{person_raw}». Уточните ФИО или login.",
+                        tuple(assignee_matches or context["known_assignees"]),
+                    ))
 
         sprint_raw = slots.get("sprint_raw")
         if sprint_raw and "{sprint_id}" in canonical:
