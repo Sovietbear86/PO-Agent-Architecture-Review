@@ -3,12 +3,12 @@ import { BrowserRouter, Route, Routes } from 'react-router-dom'
 import { WorkspaceApp } from './recovery/WorkspaceApp'
 import {
   OverviewPage,
-  QualityPage,
   ReleasesPage,
   SprintPage,
   TasksPage,
 } from './recovery/Pages'
 import { TeamDashboard } from './recovery/TeamDashboard'
+import { QualityDashboard } from './recovery/QualityDashboard'
 import './index.css'
 
 function App() {
@@ -21,7 +21,7 @@ function App() {
           <Route path="sprint" element={<SprintPage />} />
           <Route path="releases" element={<ReleasesPage />} />
           <Route path="team" element={<TeamDashboard />} />
-          <Route path="quality" element={<QualityPage />} />
+          <Route path="quality" element={<QualityDashboard />} />
         </Route>
       </Routes>
     </BrowserRouter>
