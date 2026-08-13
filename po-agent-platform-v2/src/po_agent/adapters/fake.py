@@ -18,6 +18,9 @@ from po_agent.domain.models import (
 class FakeAS21Adapter(AS21Adapter):
     """Deterministic AS21 adapter used for harness acceptance without SWTR."""
 
+    source_name = "fake-as21"
+    source_facts = frozenset({"tasks", "sprints", "releases", "history", "attachments"})
+
     def __init__(self):
         self._tasks: dict[str, Task] = {}
         self._sprints: dict[str, list[str]] = {}
