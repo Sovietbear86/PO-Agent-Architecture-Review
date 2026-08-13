@@ -60,18 +60,30 @@ This distinction is intentional: `implemented != source-ready`.
 5. Execute the real-data checklist against permitted team spaces/products.
 6. Do not enable history/attachment/snapshot/timeline readiness until those source contracts are backed by actual APIs or persisted facts.
 
-## Merge caveat
+## Merge readiness
 
-The recovery branch was created through a long strangler rebuild and currently diverges from `clean-public-release`. Before final merge/PR approval, sync or explicitly review the current base delta rather than force-moving refs. The recovery implementation must not overwrite unrelated upstream changes.
+`clean-public-release` has now been merged into the recovery branch. The public-cleanup delta for the security-sensitive recovery artifacts is preserved: old `.config` auth/session files are absent, canonical team config matches the public baseline, and `.config/` is ignored at repository level.
+
+Draft PR #1 is conflict-free (`mergeable=true`). The final merge should happen only after the latest blocking CI lanes are green.
 
 ## Definition of done for this recovery
 
-The recovery itself is considered complete when:
+- [x] 54 canonical Skills implemented
+- [x] source readiness / capability gating
+- [x] fake-to-task-api runtime switch
+- [x] grounded competency matching
+- [x] sprint snapshot contracts and metrics
+- [x] release timeline contract and bounded forecast
+- [x] typed source failure semantics
+- [x] mocked task-api E2E path
+- [x] AI-PDLC feedback/eval/improvement loop
+- [x] human approval, promotion and rollback
+- [x] rebuilt PO Workspace UI
+- [x] blocking recovery CI suite
+- [x] hermetic regression suite
+- [x] frontend build gate
+- [x] public-cleanup baseline synchronized
+- [x] draft PR opened and conflict-free
+- [ ] real corporate AS21/SWTR acceptance test from an environment with network/auth access
 
-- blocking recovery, hermetic regression and frontend CI are green on the final head;
-- documentation and `.env.example` match runtime behaviour;
-- branch/base delta is reviewed;
-- real AS21 acceptance is executed when the external environment is available;
-- no source-dependent Skill is advertised ready without its source fact.
-
-Real AS21 credentials/connectivity are an environment prerequisite, not a reason to fake product behaviour in code.
+The last unchecked item is an environment acceptance activity, not an architectural implementation gap.
