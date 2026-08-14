@@ -3,6 +3,11 @@
 `PO_AGENT_PLATFORM_V2_GIGACODE_MASTER_SPEC_V2_1.md` is the product acceptance
 baseline. `implemented` means executable versioned Skill + allow-listed handler
 + source evidence + typed result + acceptance coverage.
+
+The catalog is also the authority for executable semantic vocabulary. The LLM
+may use natural semantic labels, but routing is normalized deterministically at
+this boundary before any capability is executed. Unknown semantics remain
+fail-closed.
 """
 from __future__ import annotations
 from dataclasses import dataclass
@@ -78,19 +83,55 @@ SKILL_CATALOG: tuple[SkillCatalogEntry, ...] = (
     SkillCatalogEntry("po-local-task-draft", "po", "po.local_task_draft", "Prepare a local task draft; external write requires explicit approval.", "implemented", requires_llm=True),
 )
 
-def catalog_by_id() -> dict[str, SkillCatalogEntry]: return {entry.id: entry for entry in SKILL_CATALOG}
+
+def catalog_by_id() -> dict[str, SkillCatalogEntry]:
+    return {entry.id: entry for entry in SKILL_CATALOG}
+
+
+# Curated semantic aliases observed from real LLM E2E runs. They normalize
+# natural semantic labels to the canonical executable vocabulary. The mapping
+# is intentionally centralized and conservative: only explicitly reviewed
+# equivalents are accepted; unknown labels still fail closed.
+_SEMANTIC_INTENT_ALIASES: dict[str, str] = {
+    "task_details": "task-lookup",
+    "task_detail": "task-lookup",
+    "task_by_id": "task-lookup",
+    "show_task": "task-lookup",
+    "task_info": "task-lookup",
+    "sprint_details": "sprint-health",
+    "sprint_detail": "sprint-health",
+    "sprint_status": "sprint-health",
+    "sprint_info": "sprint-health",
+    "team_matching": "team-assignee-recommendation",
+    "team_match": "team-assignee-recommendation",
+    "best_assignee": "team-assignee-recommendation",
+    "assignee_recommendation": "team-assignee-recommendation",
+    "recommend_assignee": "team-assignee-recommendation",
+}
+
+
+def canonical_semantic_intents() -> tuple[str, ...]:
+    """Return the canonical semantic vocabulary exposed to the interpreter."""
+    return tuple(
+        entry.id.replace("-", "_")
+        for entry in SKILL_CATALOG
+        if entry.status == "implemented"
+    )
 
 
 def intent_to_skill_id(intent: str | None) -> str | None:
-    """Map canonical semantic intent to an implemented Skill id.
+    """Normalize semantic intent to an implemented Skill id.
 
-    Semantic intents use snake_case while Skill ids use kebab-case.
-    Unknown/unimplemented intents fail closed by returning None.
+    Canonical semantic intents use snake_case while Skill ids use kebab-case.
+    A small reviewed alias table handles equivalent labels emitted by the real
+    LLM. Unknown/unimplemented intents fail closed by returning None; there is
+    no fuzzy or closest-match routing.
     """
     if not intent:
         return None
     normalized = intent.strip().casefold().replace("-", "_").replace(" ", "_")
-    candidate = normalized.replace("_", "-")
+    alias_target = _SEMANTIC_INTENT_ALIASES.get(normalized)
+    candidate = alias_target or normalized.replace("_", "-")
     entry = catalog_by_id().get(candidate)
     if entry is None or entry.status != "implemented":
         return None
