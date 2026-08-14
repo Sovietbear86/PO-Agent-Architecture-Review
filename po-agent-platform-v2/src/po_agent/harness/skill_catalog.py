@@ -88,30 +88,22 @@ def catalog_by_id() -> dict[str, SkillCatalogEntry]:
     return {entry.id: entry for entry in SKILL_CATALOG}
 
 
-# Curated semantic aliases observed from real LLM E2E runs. They normalize
-# natural semantic labels to the canonical executable vocabulary. The mapping
-# is intentionally centralized and conservative: only explicitly reviewed
-# equivalents are accepted; unknown labels still fail closed.
+# This is deliberately NOT a natural-language phrase dictionary. It is a tiny
+# compatibility boundary for non-canonical schema labels actually observed in
+# real Qwen E2E traces. Natural language remains the LLM's responsibility; the
+# Harness only converts reviewed semantic labels into its canonical vocabulary.
+# Unknown labels still fail closed rather than using fuzzy/closest-match routing.
 _SEMANTIC_INTENT_ALIASES: dict[str, str] = {
     "task_details": "task-lookup",
-    "task_detail": "task-lookup",
     "task_by_id": "task-lookup",
-    "show_task": "task-lookup",
-    "task_info": "task-lookup",
     "sprint_details": "sprint-health",
-    "sprint_detail": "sprint-health",
-    "sprint_status": "sprint-health",
-    "sprint_info": "sprint-health",
     "team_matching": "team-assignee-recommendation",
-    "team_match": "team-assignee-recommendation",
-    "best_assignee": "team-assignee-recommendation",
     "assignee_recommendation": "team-assignee-recommendation",
-    "recommend_assignee": "team-assignee-recommendation",
 }
 
 
 def canonical_semantic_intents() -> tuple[str, ...]:
-    """Return the canonical semantic vocabulary exposed to the interpreter."""
+    """Return canonical interpreter vocabulary generated from implemented skills."""
     return tuple(
         entry.id.replace("-", "_")
         for entry in SKILL_CATALOG
@@ -120,12 +112,12 @@ def canonical_semantic_intents() -> tuple[str, ...]:
 
 
 def intent_to_skill_id(intent: str | None) -> str | None:
-    """Normalize semantic intent to an implemented Skill id.
+    """Normalize semantic schema output to an implemented Skill id.
 
     Canonical semantic intents use snake_case while Skill ids use kebab-case.
-    A small reviewed alias table handles equivalent labels emitted by the real
-    LLM. Unknown/unimplemented intents fail closed by returning None; there is
-    no fuzzy or closest-match routing.
+    Only reviewed E2E-observed schema aliases are translated. Unknown or
+    unimplemented semantics return None, preserving the Harness fail-closed
+    contract and keeping probabilistic LLM output out of execution authority.
     """
     if not intent:
         return None
