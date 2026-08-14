@@ -23,19 +23,8 @@ from .skill_catalog import intent_to_skill_id
 
 
 def _refine_skill_id_by_slots(skill_id: str, slots: dict[str, str]) -> str:
-    """Refine skill_id based on available slots for better accuracy.
-    
-    Examples:
-    - task_search + assignee → task-search-assignee
-    - task_search + sprint_id → task-search-sprint
-    - task_search + release_id → task-search-release
-    - task_search + status → task-search-status
-    - task_search + product → task-search-product
-    """
     if skill_id != "task-search":
         return skill_id
-    
-    # Check for more specific search filters
     if slots.get("assignee") or slots.get("member_login"):
         return "task-search-assignee"
     if slots.get("sprint_id"):
@@ -46,10 +35,6 @@ def _refine_skill_id_by_slots(skill_id: str, slots: dict[str, str]) -> str:
         return "task-search-status"
     if slots.get("product"):
         return "task-search-product"
-    if slots.get("phrase"):
-        return "task-search"
-    
-    # Default: use generic task search
     return "task-search"
 
 
@@ -85,8 +70,8 @@ class LLMJsonSemanticInterpreter:
     SYSTEM = """You are the semantic interpreter of a PO Harness agent.
 Return JSON only with keys canonical_query, intent_hint, slots, clarifications, confidence.
 clarifications is an array of {field, question, options}.
-Use placeholders {member_login}, {sprint_id}, {release_id}, {status} when a grounded value is not yet known.
-Useful slots: person_raw, member_login, sprint_raw, sprint_id, release_raw, release_id, status_raw, status_semantic, product, phrase, learn_term, learn_meaning, learn_scope.
+Use placeholders {task_key}, {member_login}, {sprint_id}, {release_id}, {status} when a grounded value is not yet known.
+Useful slots: task_raw, task_key, person_raw, member_login, sprint_raw, sprint_id, release_raw, release_id, status_raw, status_semantic, product, phrase, learn_term, learn_meaning, learn_scope.
 Rules:
 1. Understand free-form Russian/English wording, names, grammatical cases and shorthand.
 2. NEVER invent task IDs, sprint IDs, release IDs, logins, statuses or source facts.
@@ -94,10 +79,11 @@ Rules:
 4. canonical_query must preserve the requested operation and only use values explicitly supplied or resolved in context.
 5. Do not calculate metrics; deterministic capabilities do that after interpretation.
 6. For business concepts such as 'open tasks', use a learned semantic rule only if it exists; otherwise set status_semantic and leave {status} unresolved.
-7. team_members, known_sprints, known_releases and known_statuses are source-backed candidates. Use them only when the match is unambiguous.
+7. team_members, known_tasks, known_sprints, known_releases and known_statuses are source-backed candidates. Use them only when the match is unambiguous.
 8. Learned semantics are configuration facts supplied by the Harness; do not extend them by analogy.
 9. For multi-filter task searches set intent_hint to task_search and put each filter in slots. The Harness executes all filters deterministically.
-10. Only if the user explicitly asks to remember a reusable definition (for example 'always treat open tasks as all unresolved'), set intent_hint=learn_semantic and slots learn_term, learn_meaning, optionally learn_scope. Prefer canonical learn_meaning values such as not_completed or a comma-separated list of explicit statuses.
+10. When the user explicitly supplies a task key such as OLP-3134 or DMS-341, copy that exact source identifier into slots.task_key. Do not rewrite, infer, or generate task keys. For task lookup/details use a task lookup semantic intent; for assignee/team matching preserve the same task_key in slots.
+11. Only if the user explicitly asks to remember a reusable definition (for example 'always treat open tasks as all unresolved'), set intent_hint=learn_semantic and slots learn_term, learn_meaning, optionally learn_scope. Prefer canonical learn_meaning values such as not_completed or a comma-separated list of explicit statuses.
 """
 
     def __init__(self, client: LLMClient, *, model: str | None = None) -> None:
@@ -161,13 +147,7 @@ class _PendingDialogue:
 class DialogueHarnessRuntime:
     """Stateful semantic/clarification layer over an executable Harness runtime."""
 
-    def __init__(
-        self,
-        inner,
-        interpreter: SemanticInterpreter | None = None,
-        semantics: LearnedSemanticsStore | None = None,
-        grounder: SemanticGrounder | None = None,
-    ) -> None:
+    def __init__(self, inner, interpreter: SemanticInterpreter | None = None, semantics: LearnedSemanticsStore | None = None, grounder: SemanticGrounder | None = None) -> None:
         self.inner = inner
         self.interpreter = interpreter or ConservativeSemanticInterpreter()
         self.semantics = semantics
@@ -179,20 +159,7 @@ class DialogueHarnessRuntime:
     @staticmethod
     def _clarification_response(session: str, pending: _PendingDialogue) -> HarnessResponse:
         need = pending.remaining[0]
-        return HarnessResponse(
-            status=ResponseStatus.NEEDS_CLARIFICATION,
-            trace_id=str(uuid.uuid4()),
-            session_id=session,
-            question=need.question,
-            options=list(need.options),
-            clarification_id=f"{session}:{need.field}",
-            data={
-                "missing_field": need.field,
-                "semantic_frame": dict(pending.frame.slots),
-                "_harness": {"llm_used": pending.frame.llm_used, "dialogue_state": "clarifying"},
-            },
-            warnings=["clarification_required"],
-        )
+        return HarnessResponse(status=ResponseStatus.NEEDS_CLARIFICATION, trace_id=str(uuid.uuid4()), session_id=session, question=need.question, options=list(need.options), clarification_id=f"{session}:{need.field}", data={"missing_field": need.field, "semantic_frame": dict(pending.frame.slots), "_harness": {"llm_used": pending.frame.llm_used, "dialogue_state": "clarifying"}}, warnings=["clarification_required"])
 
     @staticmethod
     def _apply_answers(frame: SemanticFrame, answers: dict[str, str]) -> SemanticFrame:
@@ -205,86 +172,38 @@ class DialogueHarnessRuntime:
                 query = query.replace(token, value)
             elif value and value.casefold() not in query.casefold():
                 query = f"{query} {value}"
-        return SemanticFrame(
-            canonical_query=query,
-            intent_hint=frame.intent_hint,
-            slots=slots,
-            clarifications=[],
-            confidence=frame.confidence,
-            llm_used=frame.llm_used,
-        )
+        return SemanticFrame(canonical_query=query, intent_hint=frame.intent_hint, slots=slots, clarifications=[], confidence=frame.confidence, llm_used=frame.llm_used)
 
     def learn_explicit_definition(self, *, term: str, meaning: str, trace_id: str, scope: str = "global") -> LearnedSemanticRule:
         if self.semantics is None:
             raise RuntimeError("learned semantics store is not configured")
         return self.semantics.learn_explicit_definition(term=term, meaning=meaning, source_trace_id=trace_id, scope=scope)
 
-    # Execution slot keys for capability argument building
-    _EXECUTION_SLOT_KEYS = {
-        "task_key",
-        "sprint_id",
-        "release_id",
-        "product",
-        "assignee",
-        "status",
-        "phrase",
-        "attachment_type",
-        "threshold_days",
-        "capacity_hours",
-        "subject",
-    }
+    _EXECUTION_SLOT_KEYS = {"task_key", "sprint_id", "release_id", "product", "assignee", "status", "phrase", "attachment_type", "threshold_days", "capacity_hours", "subject"}
 
-    # Required arguments by capability for validation
     _REQUIRED_ARGS_BY_CAPABILITY = {
-        "task.lookup": ("task_key",),
-        "task.summary": ("task_key",),
-        "task.quality": ("task_key",),
-        "task.missing_requirements": ("task_key",),
-        "task.acceptance_analysis": ("task_key",),
-        "task.dependencies": ("task_key",),
-        "task.blockers": ("task_key",),
-        "task.similar": ("task_key",),
-        "task.history": ("task_key",),
-        "task.time_in_status": ("task_key",),
-        "sprint.health": ("sprint_id",),
-        "sprint.velocity": ("sprint_id",),
-        "sprint.throughput": ("sprint_id",),
-        "sprint.wip": ("sprint_id",),
-        "release.health": ("release_id",),
-        "release.scope": ("release_id",),
-        "release.progress": ("release_id",),
-        "release.blockers": ("release_id",),
-        "release.dependencies": ("release_id",),
-        "release.risk_queue": ("release_id",),
-        "team.competency_match": ("task_key",),
+        "task.lookup": ("task_key",), "task.summary": ("task_key",), "task.quality": ("task_key",),
+        "task.missing_requirements": ("task_key",), "task.acceptance_analysis": ("task_key",), "task.dependencies": ("task_key",),
+        "task.blockers": ("task_key",), "task.similar": ("task_key",), "task.history": ("task_key",), "task.time_in_status": ("task_key",),
+        "sprint.health": ("sprint_id",), "sprint.velocity": ("sprint_id",), "sprint.throughput": ("sprint_id",), "sprint.wip": ("sprint_id",),
+        "release.health": ("release_id",), "release.scope": ("release_id",), "release.progress": ("release_id",), "release.blockers": ("release_id",),
+        "release.dependencies": ("release_id",), "release.risk_queue": ("release_id",),
+        "team.competency_match": ("task_key",), "team.assignee_recommendation": ("task_key",),
     }
 
     @staticmethod
     def _build_capability_args(frame: SemanticFrame) -> dict[str, str]:
-        """Build capability arguments from semantic frame slots.
-
-        Uses structured slots directly; does NOT parse from canonical_query.
-        Only maps slot keys to capability arg names where needed.
-        """
         slots = {str(k): str(v) for k, v in frame.slots.items() if v not in (None, "")}
-
         args = {k: v for k, v in slots.items() if k in DialogueHarnessRuntime._EXECUTION_SLOT_KEYS}
-
-        # Map task_id to task_key if task_key not present
         if "task_key" not in args and slots.get("task_id"):
             args["task_key"] = slots["task_id"]
-
-        # Map member_login to assignee if assignee not present
+        if "task_key" not in args and slots.get("issue_key"):
+            args["task_key"] = slots["issue_key"]
         if "assignee" not in args and slots.get("member_login"):
             args["assignee"] = slots["member_login"]
-
         return args
 
     def _validate_required_args(self, capability_id: str, args: dict[str, str]) -> tuple[bool, str | None]:
-        """Check if required args are present for capability execution.
-
-        Returns (is_valid, warning_message).
-        """
         required = self._REQUIRED_ARGS_BY_CAPABILITY.get(capability_id, ())
         missing = [arg for arg in required if arg not in args or not args[arg]]
         if missing:
@@ -293,15 +212,7 @@ class DialogueHarnessRuntime:
 
     @staticmethod
     def _source_failure(session: str, warning: str, answer: str, started: float, *, data: dict[str, Any] | None = None) -> HarnessResponse:
-        return HarnessResponse(
-            status=ResponseStatus.FAILED,
-            trace_id=str(uuid.uuid4()),
-            session_id=session,
-            answer=answer,
-            data=data,
-            warnings=[warning],
-            latency_ms=(time.perf_counter() - started) * 1000,
-        )
+        return HarnessResponse(status=ResponseStatus.FAILED, trace_id=str(uuid.uuid4()), session_id=session, answer=answer, data=data, warnings=[warning], latency_ms=(time.perf_counter() - started) * 1000)
 
     def _missing_required_source_fact(self, query: str) -> str | None:
         required_fact = getattr(self.inner, "_required_fact", None)
@@ -313,8 +224,6 @@ class DialogueHarnessRuntime:
 
     async def _execute_frame(self, frame: SemanticFrame, session: str, started: float) -> HarnessResponse:
         hint = (frame.intent_hint or "").strip().replace("-", "_").replace(" ", "_").casefold()
-
-        # Special handling for learning rules
         if hint == "learn_semantic":
             if self.semantics is None:
                 return self._source_failure(session, "learning_store_unavailable", "Хранилище обучаемой конфигурации недоступно.", started)
@@ -322,106 +231,38 @@ class DialogueHarnessRuntime:
             meaning = (frame.slots.get("learn_meaning") or "").strip()
             scope = (frame.slots.get("learn_scope") or "global").strip()
             if not term or not meaning:
-                pending = _PendingDialogue(
-                    frame=frame,
-                    remaining=[ClarificationNeed("learn_meaning", "Какое точное правило вы хотите запомнить?")],
-                )
+                pending = _PendingDialogue(frame=frame, remaining=[ClarificationNeed("learn_meaning", "Какое точное правило вы хотите запомнить?")])
                 self._pending[session] = pending
                 return self._clarification_response(session, pending)
             trace = str(uuid.uuid4())
             rule = self.semantics.learn_explicit_definition(term=term, meaning=meaning, source_trace_id=trace, scope=scope)
-            answer = (
-                f"Запомнил правило «{rule.term}» = «{rule.meaning}»."
-                if rule.status == "active"
-                else "Новое правило конфликтует с уже активным. Я сохранил его как candidate и не изменил текущее поведение."
-            )
-            response = HarnessResponse(
-                status=ResponseStatus.COMPLETED,
-                trace_id=trace,
-                session_id=session,
-                answer=answer,
-                data={"learning_rule": {"id": rule.rule_id, "term": rule.term, "meaning": rule.meaning, "scope": rule.scope, "version": rule.version, "status": rule.status}},
-                warnings=[] if rule.status == "active" else ["learning_conflict_pending"],
-                latency_ms=(time.perf_counter() - started) * 1000,
-            )
+            answer = f"Запомнил правило «{rule.term}» = «{rule.meaning}»." if rule.status == "active" else "Новое правило конфликтует с уже активным. Я сохранил его как candidate и не изменил текущее поведение."
+            response = HarnessResponse(status=ResponseStatus.COMPLETED, trace_id=trace, session_id=session, answer=answer, data={"learning_rule": {"id": rule.rule_id, "term": rule.term, "meaning": rule.meaning, "scope": rule.scope, "version": rule.version, "status": rule.status}}, warnings=[] if rule.status == "active" else ["learning_conflict_pending"], latency_ms=(time.perf_counter() - started) * 1000)
             self._decorate(response, frame.llm_used)
             return response
-
-        # Fallback for empty intent_hint (conservative deterministic path)
         if hint == "":
-            response = await self.inner.process(
-                HarnessRequest(query=frame.canonical_query, session_id=session)
-            )
+            response = await self.inner.process(HarnessRequest(query=frame.canonical_query, session_id=session))
             self._decorate(response, frame.llm_used)
             response.latency_ms = max(response.latency_ms, (time.perf_counter() - started) * 1000)
             return response
-
-        # Generic semantic dispatch: fail closed for unsupported intents
         skill_id = intent_to_skill_id(hint)
         if skill_id is None:
-            # No valid skill found for this intent - fail closed
-            return HarnessResponse(
-                status=ResponseStatus.FAILED,
-                trace_id=str(uuid.uuid4()),
-                session_id=session,
-                answer="Интент не распознан или нереализован.",
-                intent=hint,
-                warnings=["unsupported_semantic_intent"],
-                latency_ms=(time.perf_counter() - started) * 1000,
-            )
-
-        # Build capability arguments from slots
+            return HarnessResponse(status=ResponseStatus.FAILED, trace_id=str(uuid.uuid4()), session_id=session, answer="Интент не распознан или нереализован.", intent=hint, warnings=["unsupported_semantic_intent"], latency_ms=(time.perf_counter() - started) * 1000)
         capability_args = self._build_capability_args(frame)
-
-        # Refine skill_id for task-search based on grounded slots (for single filter cases)
         refined_skill_id = self._refine_skill_id_by_slots(skill_id, frame.slots)
-
-        # Resolve skill by id
         try:
             skill = self.skills.resolve_by_id(refined_skill_id)
         except ValueError:
-            return HarnessResponse(
-                status=ResponseStatus.FAILED,
-                trace_id=str(uuid.uuid4()),
-                session_id=session,
-                answer="Навык не найден или недоступен.",
-                intent=hint,
-                skill_id=refined_skill_id,
-                warnings=["semantic_skill_unavailable"],
-                latency_ms=(time.perf_counter() - started) * 1000,
-            )
-
-        # Validate required arguments by capability_id
+            return HarnessResponse(status=ResponseStatus.FAILED, trace_id=str(uuid.uuid4()), session_id=session, answer="Навык не найден или недоступен.", intent=hint, skill_id=refined_skill_id, warnings=["semantic_skill_unavailable"], latency_ms=(time.perf_counter() - started) * 1000)
         is_valid, error_msg = self._validate_required_args(skill.capability_id, capability_args)
         if not is_valid:
-            return HarnessResponse(
-                status=ResponseStatus.NEEDS_CLARIFICATION,
-                trace_id=str(uuid.uuid4()),
-                session_id=session,
-                question=f"Мне не хватает информации: {error_msg}.",
-                warnings=["semantic_slot_missing"],
-                latency_ms=(time.perf_counter() - started) * 1000,
-            )
-
-        # For task-search with 2+ filters, use composite capability
+            return HarnessResponse(status=ResponseStatus.NEEDS_CLARIFICATION, trace_id=str(uuid.uuid4()), session_id=session, question=f"Мне не хватает информации: {error_msg}.", warnings=["semantic_slot_missing"], latency_ms=(time.perf_counter() - started) * 1000)
         if skill_id == "task-search":
             filter_count = sum(1 for k in ["assignee", "sprint_id", "release_id", "status", "product"] if k in capability_args)
             if filter_count >= 2:
                 try:
                     result = await self.capabilities.execute("task.search.composite", capability_args)
-                    response = HarnessResponse(
-                        status=ResponseStatus.COMPLETED,
-                        trace_id=str(uuid.uuid4()),
-                        session_id=session,
-                        answer=result.answer,
-                        intent=hint,
-                        skill_id=skill.id,
-                        skill_version=skill.version,
-                        data=result.data,
-                        evidence=result.evidence,
-                        warnings=result.warnings,
-                        latency_ms=(time.perf_counter() - started) * 1000,
-                    )
+                    response = HarnessResponse(status=ResponseStatus.COMPLETED, trace_id=str(uuid.uuid4()), session_id=session, answer=result.answer, intent=hint, skill_id=skill.id, skill_version=skill.version, data=result.data, evidence=result.evidence, warnings=result.warnings, latency_ms=(time.perf_counter() - started) * 1000)
                     self._decorate(response, frame.llm_used)
                     return response
                 except ValueError:
@@ -432,23 +273,9 @@ class DialogueHarnessRuntime:
                     return self._source_failure(session, "source_unavailable", "Источник AS21 временно недоступен.", started)
                 except AS21SourceError:
                     return self._source_failure(session, "source_protocol_error", "Источник AS21 вернул некорректные данные.", started)
-
-        # Execute the resolved skill's capability
         try:
             result = await self.capabilities.execute(skill.capability_id, capability_args)
-            response = HarnessResponse(
-                status=ResponseStatus.COMPLETED,
-                trace_id=str(uuid.uuid4()),
-                session_id=session,
-                answer=result.answer,
-                intent=hint,
-                skill_id=skill.id,
-                skill_version=skill.version,
-                data=result.data,
-                evidence=result.evidence,
-                warnings=result.warnings,
-                latency_ms=(time.perf_counter() - started) * 1000,
-            )
+            response = HarnessResponse(status=ResponseStatus.COMPLETED, trace_id=str(uuid.uuid4()), session_id=session, answer=result.answer, intent=hint, skill_id=skill.id, skill_version=skill.version, data=result.data, evidence=result.evidence, warnings=result.warnings, latency_ms=(time.perf_counter() - started) * 1000)
             self._decorate(response, frame.llm_used)
             return response
         except AS21CapabilityUnavailable:
@@ -460,47 +287,13 @@ class DialogueHarnessRuntime:
 
     @staticmethod
     def _refine_skill_id_by_slots(skill_id: str, slots: dict[str, str]) -> str:
-        """Refine skill_id based on available slots for better accuracy.
-
-        Only used for task-search to select more specific variant.
-        Uses only grounded slots (member_login/assignee, sprint_id, release_id, status, product).
-        """
-        if skill_id != "task-search":
-            return skill_id
-
-        # Check for more specific search filters in priority order
-        if slots.get("assignee") or slots.get("member_login"):
-            return "task-search-assignee"
-        if slots.get("sprint_id"):
-            return "task-search-sprint"
-        if slots.get("release_id"):
-            return "task-search-release"
-        if slots.get("status"):
-            return "task-search-status"
-        if slots.get("product"):
-            return "task-search-product"
-        if slots.get("phrase"):
-            return "task-search"
-
-        # Default: use generic task search
-        return "task-search"
+        return _refine_skill_id_by_slots(skill_id, slots)
 
     async def process(self, request: HarnessRequest) -> HarnessResponse:
         session = request.session_id or str(uuid.uuid4())
         started = time.perf_counter()
-
-        # Early validation: reject empty queries before any semantic processing
         if not request.query or not request.query.strip():
-            return HarnessResponse(
-                status=ResponseStatus.FAILED,
-                trace_id=str(uuid.uuid4()),
-                session_id=session,
-                answer="Запрос пуст. Пожалуйста, уточните, что вы хотите получить.",
-                data=None,
-                warnings=["query_empty"],
-                latency_ms=(time.perf_counter() - started) * 1000,
-            )
-
+            return HarnessResponse(status=ResponseStatus.FAILED, trace_id=str(uuid.uuid4()), session_id=session, answer="Запрос пуст. Пожалуйста, уточните, что вы хотите получить.", data=None, warnings=["query_empty"], latency_ms=(time.perf_counter() - started) * 1000)
         if session in self._pending:
             pending = self._pending[session]
             need = pending.remaining.pop(0)
@@ -514,62 +307,33 @@ class DialogueHarnessRuntime:
                 return self._clarification_response(session, pending)
             self._pending.pop(session, None)
             return await self._execute_frame(self._apply_answers(pending.frame, pending.answers), session, started)
-
         missing_fact = self._missing_required_source_fact(request.query)
         if missing_fact:
-            return self._source_failure(
-                session,
-                "source_capability_unavailable",
-                f"Источник AS21 не предоставляет обязательные данные для этого запроса: {missing_fact}.",
-                started,
-                data={"missing_source_fact": missing_fact},
-            )
-
-        semantic_context: dict[str, Any] = {"session_id": session}
-        if self.semantics is not None:
-            semantic_context["learned_semantics"] = self.semantics.context("global")
+            return self._source_failure(session, "required_source_fact_missing", "Запрос требует данных, которых нет в подтверждённом источнике.", started, data={"missing_source_fact": missing_fact})
+        semantic_context: dict[str, Any] = {}
         if self.grounder is not None:
-            try:
-                semantic_context.update(await self.grounder.semantic_context())
-            except AS21CapabilityUnavailable:
-                return self._source_failure(session, "source_capability_unavailable", "Источник AS21 не предоставляет данные для проверки контекста запроса.", started)
-            except AS21SourceUnavailable:
-                return self._source_failure(session, "source_unavailable", "Источник AS21 временно недоступен. Нельзя безопасно интерпретировать запрос без проверки источника.", started)
-            except AS21SourceError:
-                return self._source_failure(session, "source_protocol_error", "Источник AS21 вернул некорректные данные при проверке контекста.", started)
-
+            semantic_context.update(await self.grounder.semantic_context())
+        if self.semantics is not None:
+            semantic_context["learned_semantics"] = [{"term": r.term, "meaning": r.meaning, "scope": r.scope, "version": r.version} for r in self.semantics.list_active()]
         try:
             frame = await self.interpreter.interpret(request.query, context=semantic_context)
-        except Exception:
-            return self._source_failure(session, "semantic_interpretation_failure", "Не удалось безопасно интерпретировать запрос. Попробуйте переформулировать его.", started)
-
-        if frame.confidence < 0.45 and not frame.clarifications:
-            frame.clarifications.append(ClarificationNeed("intent", "Я не уверен, что правильно понял запрос. Что именно вы хотите получить?"))
-
-        if self.grounder is not None and (frame.intent_hint or "").strip().casefold() != "learn_semantic":
+        except Exception as exc:
+            return self._source_failure(session, "semantic_interpretation_failure", "Не удалось безопасно интерпретировать запрос.", started, data={"error_type": type(exc).__name__})
+        if self.grounder is not None:
             try:
                 frame = await self.grounder.ground(frame, request.query)
-            except AS21CapabilityUnavailable:
-                return self._source_failure(session, "source_capability_unavailable", "Источник AS21 не предоставляет данные для проверки сущностей запроса.", started)
-            except AS21SourceUnavailable:
-                return self._source_failure(session, "source_unavailable", "Источник AS21 временно недоступен. Нельзя подтвердить сущности запроса.", started)
-            except AS21SourceError:
-                return self._source_failure(session, "source_protocol_error", "Источник AS21 вернул некорректные данные при проверке сущностей.", started)
-
+            except Exception as exc:
+                return self._source_failure(session, "semantic_grounding_failure", "Не удалось безопасно сопоставить сущности с источником.", started, data={"error_type": type(exc).__name__})
         if frame.clarifications:
             pending = _PendingDialogue(frame=frame, remaining=list(frame.clarifications))
             self._pending[session] = pending
             return self._clarification_response(session, pending)
-
         return await self._execute_frame(frame, session, started)
 
     @staticmethod
     def _decorate(response: HarnessResponse, llm_used: bool) -> None:
-        if response.data is None:
-            response.data = {}
-        if isinstance(response.data, dict):
-            meta = response.data.setdefault("_harness", {})
-            if isinstance(meta, dict):
-                meta["llm_used"] = llm_used
-                meta["dialogue_state"] = "answered"
-                meta["feedback_prompt"] = "Ответ помог? Что бы вы хотели улучшить?"
+        data = dict(response.data or {})
+        meta = dict(data.get("_harness") or {})
+        meta["llm_used"] = llm_used
+        data["_harness"] = meta
+        response.data = data
