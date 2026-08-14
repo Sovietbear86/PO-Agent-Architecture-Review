@@ -8,8 +8,8 @@ from datetime import datetime, timezone
 from uuid import uuid4
 
 # Add paths
-task_api_path = '/home/user/Desktop/Мои документы/Обучение/GIGACodeCLI/MyTestProject_1/MyTestProject_1/task-api'
-mcp_swtr_path = '/home/user/Desktop/Мои документы/Обучение/GIGACodeCLI/MyTestProject_1/MyTestProject_1/mcp-swtr'
+task_api_path = '/Users/kalachanov.v.v/Desktop/Мои документы/Обучение/GIGACodeCLI/MyTestProject_1/MyTestProject_1/task-api'
+mcp_swtr_path = '/Users/kalachanov.v.v/Desktop/Мои документы/Обучение/GIGACodeCLI/MyTestProject_1/MyTestProject_1/mcp-swtr'
 
 sys.path.insert(0, task_api_path)
 

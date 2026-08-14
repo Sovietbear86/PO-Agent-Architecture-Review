@@ -1,0 +1,171 @@
+# Workflow configuration for PO Agent Platform v2
+# Based on AS21 workflow_statuses.yaml from legacy project
+
+# Status definitions with metadata
+statuses:
+  # Backlog
+  Open:
+    display_name: "Открыта"
+    category: "backlog"
+    description: "Задача создана, но активная работа еще не началась"
+
+  # Waiting / Blocked
+  "Need info":
+    display_name: "Требуется информация"
+    category: "waiting"
+    description: "Для продолжения не хватает данных, решения или ответа"
+
+  # Active Work
+  "In progress":
+    display_name: "В работе"
+    category: "active_work"
+    description: "По задаче ведется активная работа"
+
+  Reopened:
+    display_name: "Переоткрыта"
+    category: "active_work"
+    description: "Задача возвращена на доработку после проверки"
+
+  # Review Queue
+  "Ready for review":
+    display_name: "Готово к ревью"
+    category: "review_queue"
+    description: "Результат подготовлен и ожидает проверки"
+
+  # Review
+  "In review":
+    display_name: "На ревью"
+    category: "review"
+    description: "Выполняется code review, техническое или аналитическое ревью"
+
+  # QA Queue
+  "Ready for QA":
+    display_name: "Готово к QA"
+    category: "qa_queue"
+    description: "Реализация готова и ожидает передачи в тестирование"
+
+  # Testing (QA)
+  QA:
+    display_name: "Тестирование"
+    category: "testing"
+    description: "Выполняется проверка качества или приемка"
+
+  # Completed - Conditional
+  Resolved:
+    display_name: "Решена"
+    category: "completed_pending"
+    description: "Исполнитель считает работу завершенной, но может требоваться финальное закрытие"
+
+  # Completed - Final
+  Closed:
+    display_name: "Закрыта"
+    category: "completed"
+    description: "Задача окончательно завершена"
+
+  # Cancelled
+  Cancelled:
+    display_name: "Отменена"
+    category: "cancelled"
+    description: "Задача исключена из актуального объема работ"
+
+
+# Analytics groupings
+analytics:
+  # Backlog - incoming queue
+  backlog_statuses:
+    - "Open"
+
+  # Waiting / Blocked
+  waiting_statuses:
+    - "Need info"
+
+  # Active Work
+  active_work_statuses:
+    - "In progress"
+    - "Reopened"
+
+  # Review Queue
+  review_queue_statuses:
+    - "Ready for review"
+
+  # Review
+  review_statuses:
+    - "In review"
+
+  # QA Queue
+  qa_queue_statuses:
+    - "Ready for QA"
+
+  # Testing
+  testing_statuses:
+    - "QA"
+
+  # Completed Pending
+  completed_pending_statuses:
+    - "Resolved"
+
+  # Completed
+  completed_statuses:
+    - "Closed"
+
+  # Cancelled
+  cancelled_statuses:
+    - "Cancelled"
+
+
+# Cycle Time configuration
+cycle_time:
+  # Status where active work begins
+  start_status: "In progress"
+
+  # Default end status
+  default_end_status: "Closed"
+
+  # Alternative end status (if confirmed)
+  optional_end_status: "Resolved"
+
+
+# WIP (Work In Progress) configuration
+wip:
+  # Basic WIP - actual work states
+  basic:
+    - "In progress"
+    - "In review"
+    - "QA"
+    - "Reopened"
+
+  # Extended WIP - includes queues
+  extended:
+    - "In progress"
+    - "In review"
+    - "QA"
+    - "Reopened"
+    - "Ready for review"
+    - "Ready for QA"
+
+
+# Throughput configuration
+throughput:
+  # Successful throughput - completed tasks
+  successful_statuses:
+    - "Closed"
+
+  # Excluded from successful throughput
+  excluded_statuses:
+    - "Cancelled"
+
+
+# Blockage detection configuration
+blockage:
+  # Blocked time statuses
+  blocked_statuses:
+    - "Need info"
+
+  # Thresholds (in days)
+  thresholds:
+    need_info_days: 2
+    review_days: 3
+    qa_days: 5
+    reopen_count: 1
+    reopen_after_resolved_days: 1
+    resolved_to_closed_days: 3
