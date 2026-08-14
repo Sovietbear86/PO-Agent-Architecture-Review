@@ -131,34 +131,20 @@ Rules:
 
     DOMAIN_CANDIDATE_SYSTEM = """You are a semantic candidate ranker for PO Harness domains.
 Return JSON only: {\"domain\": <exactly one supplied domain>, \"confidence\": <0..1>}.
-
-Candidate ranking is NOT authorization. When at least one domain signature is supplied, ALWAYS return exactly one supplied domain: the best semantic candidate for the user's primary business object and requested operation.
-Use the intents and capability descriptions in each catalog-derived domain signature as semantic evidence. Rank by meaning, not literal token similarity.
-Ignore whether any entity, ID, person, sprint name, task key, status or other slot exists, is valid, is ambiguous or has been source-grounded.
-Do not reject unsupported requests here; a separate semantic entailment gate decides whether the ranked capability may proceed.
-Never invent a domain and never return null when candidates are supplied.
+Candidate ranking is NOT authorization. ALWAYS return exactly one supplied domain when candidates are supplied. Rank the best semantic candidate by requested business object and outcome. Never return null, even for unsupported requests; authorization happens later.
 """
 
     CAPABILITY_CANDIDATE_SYSTEM = """You are a semantic candidate ranker for capabilities inside one selected PO Harness domain.
 Return JSON only: {\"intent_hint\": <exactly one supplied canonical intent>, \"confidence\": <0..1>}.
-
-Candidate ranking is NOT authorization. When at least one capability is supplied, ALWAYS return exactly one supplied canonical intent: the best semantic candidate for the requested operation/outcome.
-Rank by the capability descriptions and intended outcome, not literal intent-name similarity.
-Ignore whether source entities, IDs, people, sprint names, task keys, statuses, products or slots are known, valid, ambiguous or grounded.
-Do not reject unsupported requests here; a separate semantic entailment gate decides whether the ranked capability may proceed.
-Never invent an intent and never return null when candidates are supplied.
+Candidate ranking is NOT authorization. ALWAYS return exactly one supplied canonical intent when candidates are supplied. Rank the best semantic candidate by requested operation/outcome. Never return null, even for unsupported requests; authorization happens later.
 """
 
     SEMANTIC_ENTAILMENT_SYSTEM = """You are the semantic support gate for a PO Harness.
 Return JSON only: {\"supported\": <true or false>, \"confidence\": <0..1>}.
-
-Decide whether the single selected catalog capability can actually perform the OPERATION or produce the OUTCOME requested by the user.
-Evaluate semantic entailment only between the original request and the selected capability metadata.
-Ignore whether concrete source entities, IDs, people, sprint names, task keys, statuses, products or required slots exist, are valid, are ambiguous, or are source-grounded; grounding happens later.
-Return supported=true only when the capability's described purpose directly satisfies the requested operation/outcome.
-Return supported=false when the request is unrelated, asks for a different operation, or is outside the selected capability's scope.
-Do not choose another capability, do not infer source facts, and do not authorize execution beyond this semantic support decision.
+Decide whether the single selected catalog capability can actually perform the OPERATION or produce the OUTCOME requested by the user. Ignore whether source entities or required slots exist or are grounded. Return true only when the capability directly satisfies the requested operation/outcome. Return false for unrelated, different, or unsupported operations. Never choose another capability and never infer source facts.
 """
+
+    CANDIDATE_CONTRACT_REPAIR = """Your previous candidate response violated the ranking contract. You MUST return exactly one value from the supplied non-empty candidate set. Candidate ranking is not authorization, so uncertainty or an unsupported request is not a reason to return null. Return JSON only."""
 
     def __init__(self, client: LLMClient, *, model: str | None = None) -> None:
         self.client = client
@@ -177,126 +163,78 @@ Do not choose another capability, do not infer source facts, and do not authoriz
 
     @staticmethod
     def _domain_signatures(capabilities: list[dict[str, Any]]) -> list[dict[str, Any]]:
-        """Aggregate semantic domain evidence directly from capability metadata."""
         domains: dict[str, dict[str, Any]] = {}
         for item in capabilities:
             domain = str(item.get("domain") or "").strip()
             if not domain:
                 continue
-            signature = domains.setdefault(
-                domain,
-                {"domain": domain, "intents": [], "capability_descriptions": []},
-            )
-            intent = item.get("intent")
-            description = item.get("description")
-            if intent:
-                signature["intents"].append(str(intent))
-            if description:
-                signature["capability_descriptions"].append(str(description))
+            signature = domains.setdefault(domain, {"domain": domain, "intents": [], "capability_descriptions": []})
+            if item.get("intent"):
+                signature["intents"].append(str(item["intent"]))
+            if item.get("description"):
+                signature["capability_descriptions"].append(str(item["description"]))
         return [domains[name] for name in sorted(domains)]
 
+    async def _required_choice(self, system: str, payload: str, key: str, allowed: list[str], max_tokens: int) -> str | None:
+        for repair in (False, True):
+            messages = [LLMMessage(role="system", content=system)]
+            if repair:
+                messages.append(LLMMessage(role="system", content=self.CANDIDATE_CONTRACT_REPAIR))
+            messages.append(LLMMessage(role="user", content=payload))
+            try:
+                response = await self.client.complete(messages, model=self.model, temperature=0.0, max_tokens=max_tokens)
+                if not response.choices:
+                    continue
+                data = self._parse_json_content(response.choices[0].message.content)
+                candidate = data.get(key) if data else None
+                candidate = str(candidate).strip() if candidate else None
+                if candidate in allowed:
+                    return candidate
+            except Exception:
+                continue
+        return None
+
     async def _select_domain_candidate(self, query: str, capabilities: list[dict[str, Any]]) -> str | None:
-        domain_signatures = self._domain_signatures(capabilities)
-        domains = [str(item["domain"]) for item in domain_signatures]
+        signatures = self._domain_signatures(capabilities)
+        domains = [str(item["domain"]) for item in signatures]
         if not domains:
             return None
-        payload = json.dumps(
-            {"query": query, "available_domain_signatures": domain_signatures},
-            ensure_ascii=False,
-        )
-        try:
-            response = await self.client.complete(
-                [
-                    LLMMessage(role="system", content=self.DOMAIN_CANDIDATE_SYSTEM),
-                    LLMMessage(role="user", content=payload),
-                ],
-                model=self.model,
-                temperature=0.0,
-                max_tokens=120,
-            )
-            if not response.choices:
-                return None
-            data = self._parse_json_content(response.choices[0].message.content)
-            candidate = data.get("domain") if data else None
-            candidate = str(candidate).strip() if candidate else None
-            return candidate if candidate in domains else None
-        except Exception:
-            return None
+        payload = json.dumps({"query": query, "available_domain_signatures": signatures}, ensure_ascii=False)
+        return await self._required_choice(self.DOMAIN_CANDIDATE_SYSTEM, payload, "domain", domains, 120)
 
-    async def _select_capability_candidate(
-        self,
-        query: str,
-        domain: str,
-        allowed: list[str],
-        capabilities: list[dict[str, Any]],
-    ) -> str | None:
+    async def _select_capability_candidate(self, query: str, domain: str, allowed: list[str], capabilities: list[dict[str, Any]]) -> str | None:
         domain_capabilities = [item for item in capabilities if str(item.get("domain")) == domain]
         domain_intents = [str(item.get("intent")) for item in domain_capabilities if item.get("intent") in allowed]
         if not domain_capabilities or not domain_intents:
             return None
-        payload = json.dumps(
-            {
-                "query": query,
-                "selected_domain": domain,
-                "allowed_intents": domain_intents,
-                "available_capabilities": domain_capabilities,
-            },
-            ensure_ascii=False,
-        )
-        try:
-            response = await self.client.complete(
-                [
-                    LLMMessage(role="system", content=self.CAPABILITY_CANDIDATE_SYSTEM),
-                    LLMMessage(role="user", content=payload),
-                ],
-                model=self.model,
-                temperature=0.0,
-                max_tokens=140,
-            )
-            if not response.choices:
-                return None
-            data = self._parse_json_content(response.choices[0].message.content)
-            candidate = data.get("intent_hint") if data else None
-            candidate = str(candidate).strip() if candidate else None
-            return candidate if candidate in domain_intents else None
-        except Exception:
-            return None
+        payload = json.dumps({"query": query, "selected_domain": domain, "allowed_intents": domain_intents, "available_capabilities": domain_capabilities}, ensure_ascii=False)
+        return await self._required_choice(self.CAPABILITY_CANDIDATE_SYSTEM, payload, "intent_hint", domain_intents, 140)
 
-    async def _semantic_entails_capability(
-        self,
-        query: str,
-        domain: str,
-        intent: str,
-        capabilities: list[dict[str, Any]],
-    ) -> bool:
-        selected = next(
-            (
-                item
-                for item in capabilities
-                if str(item.get("domain")) == domain and str(item.get("intent")) == intent
-            ),
-            None,
-        )
+    @staticmethod
+    def _canonical_capability_for_intent(intent: str, allowed: list[str], capabilities: list[dict[str, Any]]) -> tuple[str, dict[str, Any]] | None:
+        normalized = intent.strip().replace("-", "_").replace(" ", "_").casefold()
+        if normalized in allowed:
+            selected = next((item for item in capabilities if str(item.get("intent")) == normalized), None)
+            return (normalized, selected) if selected is not None else None
+        skill_id = intent_to_skill_id(normalized)
+        if skill_id is None:
+            return None
+        selected = next((item for item in capabilities if str(item.get("skill_id")) == skill_id), None)
+        if selected is None:
+            return None
+        canonical = str(selected.get("intent") or "")
+        return (canonical, selected) if canonical in allowed else None
+
+    async def _semantic_entails_capability(self, query: str, intent: str, capabilities: list[dict[str, Any]]) -> bool:
+        selected = next((item for item in capabilities if str(item.get("intent")) == intent), None)
         if selected is None:
             return False
-        payload = json.dumps(
-            {
-                "query": query,
-                "selected_domain": domain,
-                "selected_capability": selected,
-            },
-            ensure_ascii=False,
-        )
+        payload = json.dumps({"query": query, "selected_domain": selected.get("domain"), "selected_capability": selected}, ensure_ascii=False)
         try:
-            response = await self.client.complete(
-                [
-                    LLMMessage(role="system", content=self.SEMANTIC_ENTAILMENT_SYSTEM),
-                    LLMMessage(role="user", content=payload),
-                ],
-                model=self.model,
-                temperature=0.0,
-                max_tokens=100,
-            )
+            response = await self.client.complete([
+                LLMMessage(role="system", content=self.SEMANTIC_ENTAILMENT_SYSTEM),
+                LLMMessage(role="user", content=payload),
+            ], model=self.model, temperature=0.0, max_tokens=100)
             if not response.choices:
                 return False
             data = self._parse_json_content(response.choices[0].message.content)
@@ -305,13 +243,6 @@ Do not choose another capability, do not infer source facts, and do not authoriz
             return False
 
     async def _repair_missing_intent(self, query: str, context: dict[str, Any]) -> str | None:
-        """Rank a catalog candidate, then authorize it only through semantic entailment.
-
-        Candidate selection deliberately cannot reject a non-empty catalog.
-        The separate entailment gate preserves fail-closed behavior for
-        unsupported operations. Source/entity uncertainty stays outside all
-        three semantic stages and is handled later by grounding.
-        """
         allowed = [str(x) for x in context.get("allowed_intents", []) if x]
         capabilities = [item for item in context.get("available_capabilities", []) if isinstance(item, dict)]
         domain = await self._select_domain_candidate(query, capabilities)
@@ -320,9 +251,7 @@ Do not choose another capability, do not infer source facts, and do not authoriz
         intent = await self._select_capability_candidate(query, domain, allowed, capabilities)
         if intent is None:
             return None
-        if not await self._semantic_entails_capability(query, domain, intent, capabilities):
-            return None
-        return intent
+        return intent if await self._semantic_entails_capability(query, intent, capabilities) else None
 
     async def interpret(self, query: str, *, context: dict[str, Any] | None = None) -> SemanticFrame:
         semantic_context = context or {}
@@ -341,20 +270,39 @@ Do not choose another capability, do not infer source facts, and do not authoriz
         data = json.loads(raw)
         if not isinstance(data, dict) or not isinstance(data.get("canonical_query"), str):
             raise ValueError("semantic interpreter contract violation")
-        if not data.get("intent_hint"):
+
+        allowed = [str(x) for x in semantic_context.get("allowed_intents", []) if x]
+        capabilities = [item for item in semantic_context.get("available_capabilities", []) if isinstance(item, dict)]
+        original_intent = str(data.get("intent_hint") or "").strip()
+        semantic_rejected = False
+
+        if original_intent and original_intent.strip().casefold() == "learn_semantic":
+            data["intent_hint"] = "learn_semantic"
+        elif original_intent:
+            resolved = self._canonical_capability_for_intent(original_intent, allowed, capabilities)
+            if resolved is None:
+                data["intent_hint"] = None
+                semantic_rejected = True
+            else:
+                canonical_intent, _ = resolved
+                if await self._semantic_entails_capability(query, canonical_intent, capabilities):
+                    data["intent_hint"] = canonical_intent
+                else:
+                    data["intent_hint"] = None
+                    semantic_rejected = True
+        else:
             repaired_intent = await self._repair_missing_intent(query, semantic_context)
             if repaired_intent:
                 data["intent_hint"] = repaired_intent
+            else:
+                semantic_rejected = True
+
         needs = []
         for item in data.get("clarifications", []) or []:
             if isinstance(item, dict) and item.get("field") and item.get("question"):
-                needs.append(
-                    ClarificationNeed(
-                        str(item["field"]),
-                        str(item["question"]),
-                        tuple(str(x) for x in item.get("options", []) if x),
-                    )
-                )
+                needs.append(ClarificationNeed(str(item["field"]), str(item["question"]), tuple(str(x) for x in item.get("options", []) if x)))
+        if semantic_rejected and not needs:
+            needs.append(ClarificationNeed("intent", "Я не нашёл поддерживаемую операцию для этого запроса. Уточните, что вы хотите получить в рамках возможностей PO Agent."))
         try:
             confidence = float(data.get("confidence", 1.0))
         except (TypeError, ValueError):
@@ -477,7 +425,6 @@ class DialogueHarnessRuntime:
 
     @staticmethod
     def _enrich_explicit_task_key(frame: SemanticFrame, original_query: str) -> SemanticFrame:
-        """Enrich an absent task_key before grounding, never replacing an existing value."""
         if frame.slots.get("task_key"):
             return frame
         task_key = _extract_explicit_task_key(original_query)
@@ -485,26 +432,11 @@ class DialogueHarnessRuntime:
             return frame
         new_slots = dict(frame.slots)
         new_slots["task_key"] = task_key
-        return SemanticFrame(
-            canonical_query=frame.canonical_query,
-            intent_hint=frame.intent_hint,
-            slots=new_slots,
-            clarifications=frame.clarifications,
-            confidence=frame.confidence,
-            llm_used=frame.llm_used,
-        )
+        return SemanticFrame(frame.canonical_query, frame.intent_hint, new_slots, frame.clarifications, frame.confidence, frame.llm_used)
 
     @staticmethod
     def _source_failure(session, warning, answer, started, *, data=None):
-        return HarnessResponse(
-            status=ResponseStatus.FAILED,
-            trace_id=str(uuid.uuid4()),
-            session_id=session,
-            answer=answer,
-            data=data,
-            warnings=[warning],
-            latency_ms=(time.perf_counter() - started) * 1000,
-        )
+        return HarnessResponse(status=ResponseStatus.FAILED, trace_id=str(uuid.uuid4()), session_id=session, answer=answer, data=data, warnings=[warning], latency_ms=(time.perf_counter() - started) * 1000)
 
     def _missing_required_source_fact(self, query):
         required_fact = getattr(self.inner, "_required_fact", None)
@@ -528,15 +460,7 @@ class DialogueHarnessRuntime:
                 return self._clarification_response(session, pending)
             trace = str(uuid.uuid4())
             rule = self.semantics.learn_explicit_definition(term=term, meaning=meaning, source_trace_id=trace, scope=scope)
-            response = HarnessResponse(
-                status=ResponseStatus.COMPLETED,
-                trace_id=trace,
-                session_id=session,
-                answer=(f"Запомнил правило «{rule.term}» = «{rule.meaning}»." if rule.status == "active" else "Новое правило конфликтует с уже активным. Я сохранил его как candidate и не изменил текущее поведение."),
-                data={"learning_rule": {"id": rule.rule_id, "term": rule.term, "meaning": rule.meaning, "scope": rule.scope, "version": rule.version, "status": rule.status}},
-                warnings=[] if rule.status == "active" else ["learning_conflict_pending"],
-                latency_ms=(time.perf_counter() - started) * 1000,
-            )
+            response = HarnessResponse(status=ResponseStatus.COMPLETED, trace_id=trace, session_id=session, answer=(f"Запомнил правило «{rule.term}» = «{rule.meaning}»." if rule.status == "active" else "Новое правило конфликтует с уже активным. Я сохранил его как candidate и не изменил текущее поведение."), data={"learning_rule": {"id": rule.rule_id, "term": rule.term, "meaning": rule.meaning, "scope": rule.scope, "version": rule.version, "status": rule.status}}, warnings=[] if rule.status == "active" else ["learning_conflict_pending"], latency_ms=(time.perf_counter() - started) * 1000)
             self._decorate(response, frame.llm_used)
             return response
         if hint == "":
@@ -545,58 +469,22 @@ class DialogueHarnessRuntime:
             return response
         skill_id = intent_to_skill_id(hint)
         if skill_id is None:
-            return HarnessResponse(
-                status=ResponseStatus.FAILED,
-                trace_id=str(uuid.uuid4()),
-                session_id=session,
-                answer="Интент не распознан или нереализован.",
-                intent=hint,
-                warnings=["unsupported_semantic_intent"],
-                latency_ms=(time.perf_counter() - started) * 1000,
-            )
+            return HarnessResponse(status=ResponseStatus.FAILED, trace_id=str(uuid.uuid4()), session_id=session, answer="Интент не распознан или нереализован.", intent=hint, warnings=["unsupported_semantic_intent"], latency_ms=(time.perf_counter() - started) * 1000)
         capability_args = self._build_capability_args(frame)
         refined = self._refine_skill_id_by_slots(skill_id, frame.slots)
         try:
             skill = self.skills.resolve_by_id(refined)
         except ValueError:
-            return HarnessResponse(
-                status=ResponseStatus.FAILED,
-                trace_id=str(uuid.uuid4()),
-                session_id=session,
-                answer="Навык не найден или недоступен.",
-                intent=hint,
-                skill_id=refined,
-                warnings=["semantic_skill_unavailable"],
-                latency_ms=(time.perf_counter() - started) * 1000,
-            )
+            return HarnessResponse(status=ResponseStatus.FAILED, trace_id=str(uuid.uuid4()), session_id=session, answer="Навык не найден или недоступен.", intent=hint, skill_id=refined, warnings=["semantic_skill_unavailable"], latency_ms=(time.perf_counter() - started) * 1000)
         valid, error = self._validate_required_args(skill.capability_id, capability_args)
         if not valid:
-            return HarnessResponse(
-                status=ResponseStatus.NEEDS_CLARIFICATION,
-                trace_id=str(uuid.uuid4()),
-                session_id=session,
-                question=f"Мне не хватает информации: {error}.",
-                warnings=["semantic_slot_missing"],
-                latency_ms=(time.perf_counter() - started) * 1000,
-            )
+            return HarnessResponse(status=ResponseStatus.NEEDS_CLARIFICATION, trace_id=str(uuid.uuid4()), session_id=session, question=f"Мне не хватает информации: {error}.", warnings=["semantic_slot_missing"], latency_ms=(time.perf_counter() - started) * 1000)
         try:
             if skill_id == "task-search" and sum(1 for k in ["assignee", "sprint_id", "release_id", "status", "product"] if k in capability_args) >= 2:
                 result = await self.capabilities.execute("task.search.composite", capability_args)
             else:
                 result = await self.capabilities.execute(skill.capability_id, capability_args)
-            response = HarnessResponse(
-                status=ResponseStatus.COMPLETED,
-                trace_id=str(uuid.uuid4()),
-                session_id=session,
-                answer=result.answer,
-                intent=hint,
-                skill_id=skill.id,
-                skill_version=skill.version,
-                data=result.data,
-                evidence=result.evidence,
-                warnings=result.warnings,
-                latency_ms=(time.perf_counter() - started) * 1000,
-            )
+            response = HarnessResponse(status=ResponseStatus.COMPLETED, trace_id=str(uuid.uuid4()), session_id=session, answer=result.answer, intent=hint, skill_id=skill.id, skill_version=skill.version, data=result.data, evidence=result.evidence, warnings=result.warnings, latency_ms=(time.perf_counter() - started) * 1000)
             self._decorate(response, frame.llm_used)
             return response
         except AS21CapabilityUnavailable:
@@ -614,15 +502,7 @@ class DialogueHarnessRuntime:
         session = request.session_id or str(uuid.uuid4())
         started = time.perf_counter()
         if not request.query or not request.query.strip():
-            return HarnessResponse(
-                status=ResponseStatus.FAILED,
-                trace_id=str(uuid.uuid4()),
-                session_id=session,
-                answer="Запрос пуст. Пожалуйста, уточните, что вы хотите получить.",
-                data=None,
-                warnings=["query_empty"],
-                latency_ms=(time.perf_counter() - started) * 1000,
-            )
+            return HarnessResponse(status=ResponseStatus.FAILED, trace_id=str(uuid.uuid4()), session_id=session, answer="Запрос пуст. Пожалуйста, уточните, что вы хотите получить.", data=None, warnings=["query_empty"], latency_ms=(time.perf_counter() - started) * 1000)
         if session in self._pending:
             pending = self._pending[session]
             need = pending.remaining.pop(0)
@@ -638,20 +518,10 @@ class DialogueHarnessRuntime:
             return await self._execute_frame(self._apply_answers(pending.frame, pending.answers), session, started)
         missing_fact = self._missing_required_source_fact(request.query)
         if missing_fact:
-            return self._source_failure(
-                session,
-                "source_capability_unavailable",
-                f"Источник AS21 не предоставляет обязательные данные для этого запроса: {missing_fact}.",
-                started,
-                data={"missing_source_fact": missing_fact},
-            )
+            return self._source_failure(session, "source_capability_unavailable", f"Источник AS21 не предоставляет обязательные данные для этого запроса: {missing_fact}.", started, data={"missing_source_fact": missing_fact})
 
         allowed_intents, available_capabilities = _semantic_capability_contract()
-        semantic_context = {
-            "session_id": session,
-            "allowed_intents": allowed_intents,
-            "available_capabilities": available_capabilities,
-        }
+        semantic_context = {"session_id": session, "allowed_intents": allowed_intents, "available_capabilities": available_capabilities}
         if self.semantics is not None:
             semantic_context["learned_semantics"] = self.semantics.context("global")
         if self.grounder is not None:
