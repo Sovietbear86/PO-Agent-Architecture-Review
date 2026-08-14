@@ -161,8 +161,22 @@ LEGACY_CONTRACT_MAPPING = {
 
 
 class TestLevelA_TaskSearchMemberSurnameGenitiveRussian:
+    """Level A: task-search-assignee with Russian surname in genitive case.
+
+    OLD CONTRACT:
+      test_get_tasks_skill_member_surname_russian:
+        "задачи Гаранина" → task_search intent
+
+    MAPPING:
+      OLD TEST → TestLevelA_TaskSearchMemberSurnameGenitiveRussian
+      LEVEL B CORPUS → legacy_language_cases: 'задачи Гаранина'
+      SKILL → task-search-assignee
+      CAPABILITY → task.search_assignee
+    """
+
     @pytest.mark.asyncio
     async def test_harness_resolves_unambiguous_genitive_surname(self):
+        """Unambiguous genitive surname → resolved member_login."""
         frame = SemanticFrame(
             canonical_query="task search assignee {member_login}",
             intent_hint="task_search_assignee",
@@ -171,13 +185,17 @@ class TestLevelA_TaskSearchMemberSurnameGenitiveRussian:
             confidence=0.95,
             llm_used=False,
         )
-        dialogue = DialogueHarnessRuntime(build_fake_runtime().inner, interpreter=ScriptedInterpreter(frame))
+        dialogue = DialogueHarnessRuntime(
+            build_fake_runtime().inner,
+            interpreter=ScriptedInterpreter(frame)
+        )
         response = await dialogue.process(HarnessRequest(query="Задачи Гаранина", session_id="la-1"))
         assert response.status is ResponseStatus.COMPLETED
         assert response.skill_id == "task-search-assignee"
 
     @pytest.mark.asyncio
     async def test_harness_clarifies_ambiguous_genitive_surname(self):
+        """Ambiguous genitive surname → clarification request (not silent guess)."""
         frame = SemanticFrame(
             canonical_query="task search assignee {member_login}",
             intent_hint="task_search_assignee",
@@ -186,15 +204,37 @@ class TestLevelA_TaskSearchMemberSurnameGenitiveRussian:
             confidence=0.6,
             llm_used=False,
         )
-        dialogue = DialogueHarnessRuntime(build_fake_runtime().inner, interpreter=ScriptedInterpreter(frame))
+        dialogue = DialogueHarnessRuntime(
+            build_fake_runtime().inner,
+            interpreter=ScriptedInterpreter(frame)
+        )
         response = await dialogue.process(HarnessRequest(query="Задачи Калачанова", session_id="la-2"))
         assert response.status is ResponseStatus.NEEDS_CLARIFICATION
         assert "Кого вы имеете в виду?" in response.question
 
 
 class TestLevelA_TaskSearchMemberGenitiveMultiple:
+    """Level A: Multiple Russian genitive case patterns for task search.
+
+    OLD CONTRACT:
+      test_get_tasks_skill_member_genitive_case:
+        queries = [
+          ("задачи Шалдунова", "genitive"),
+          ("задачи Долговского", "genitive"),
+          ("задачи Агатаевой", "genitive"),
+        ]
+        → task_search intent
+
+    MAPPING:
+      OLD TEST → TestLevelA_TaskSearchMemberGenitiveMultiple
+      LEVEL B CORPUS → legacy_language_cases with these surnames
+      SKILL → task-search-assignee
+      CAPABILITY → task.search_assignee
+    """
+
     @pytest.mark.asyncio
     async def test_multiple_genitive_patterns_produce_same_intent(self):
+        """Different genitive cases → same task_search intent."""
         surnames = ["Гаранина", "Долговского", "Агатаеву", "Шалдунова"]
         for surname in surnames:
             frame = SemanticFrame(
@@ -205,15 +245,33 @@ class TestLevelA_TaskSearchMemberGenitiveMultiple:
                 confidence=0.85,
                 llm_used=False,
             )
-            dialogue = DialogueHarnessRuntime(build_fake_runtime().inner, interpreter=ScriptedInterpreter(frame))
+            dialogue = DialogueHarnessRuntime(
+                build_fake_runtime().inner,
+                interpreter=ScriptedInterpreter(frame)
+            )
             response = await dialogue.process(HarnessRequest(query=f"Задачи {surname}", session_id=f"la-gen-{surname}"))
             assert response.status is ResponseStatus.COMPLETED
             assert response.skill_id == "task-search-assignee"
 
 
 class TestLevelA_TaskSearchSprintID:
+    """Level A: Sprint ID detection for task search.
+
+    OLD CONTRACT:
+      test_sprint_id_patterns:
+        sprint_ids = ["DMS-SPRNT-1", "DMS-SPRNT-2", "OLP-SPRNT-1", ...]
+        → task_search or sprint_health intent
+
+    MAPPING:
+      OLD TEST → TestLevelA_TaskSearchSprintID
+      LEVEL B CORPUS → cases.skill=task-search-sprint
+      SKILL → task-search-sprint
+      CAPABILITY → task.search_sprint
+    """
+
     @pytest.mark.asyncio
     async def test_harness_resolves_unambiguous_sprint_id(self):
+        """Unambiguous sprint ID → grounded sprint_id."""
         frame = SemanticFrame(
             canonical_query="task search sprint {sprint_id}",
             intent_hint="task_search_sprint",
@@ -222,13 +280,17 @@ class TestLevelA_TaskSearchSprintID:
             confidence=0.95,
             llm_used=False,
         )
-        dialogue = DialogueHarnessRuntime(build_fake_runtime().inner, interpreter=ScriptedInterpreter(frame))
+        dialogue = DialogueHarnessRuntime(
+            build_fake_runtime().inner,
+            interpreter=ScriptedInterpreter(frame)
+        )
         response = await dialogue.process(HarnessRequest(query="Задачи спринта WMB-SPRNT-1", session_id="la-sprint-1"))
         assert response.status is ResponseStatus.COMPLETED
         assert response.skill_id == "task-search-sprint"
 
     @pytest.mark.asyncio
     async def test_harness_clarifies_ambiguous_sprint_shorthand(self):
+        """Ambiguous sprint shorthand → clarification (not silent guess)."""
         frame = SemanticFrame(
             canonical_query="task search sprint {sprint_id}",
             intent_hint="task_search_sprint",
@@ -237,14 +299,36 @@ class TestLevelA_TaskSearchSprintID:
             confidence=0.6,
             llm_used=False,
         )
-        dialogue = DialogueHarnessRuntime(build_fake_runtime().inner, interpreter=ScriptedInterpreter(frame))
+        dialogue = DialogueHarnessRuntime(
+            build_fake_runtime().inner,
+            interpreter=ScriptedInterpreter(frame)
+        )
         response = await dialogue.process(HarnessRequest(query="Задачи OLP 4", session_id="la-sprint-amb"))
         assert response.status is ResponseStatus.NEEDS_CLARIFICATION
 
 
 class TestLevelA_TaskSummary:
+    """Level A: Task summary skill with specific patterns.
+
+    OLD CONTRACT:
+      test_task_summary_skill:
+        queries = [
+          "что по задаче WMB-123",
+          "описание задачи",
+          "анализ задачи",
+        ]
+        → task_summary intent
+
+    MAPPING:
+      OLD TEST → TestLevelA_TaskSummary
+      LEVEL B CORPUS → cases.skill=task-summary
+      SKILL → task-summary
+      CAPABILITY → task.summary
+    """
+
     @pytest.mark.asyncio
     async def test_task_summary_with_wmb_key(self):
+        """Task summary for WMB-101."""
         frame = SemanticFrame(
             canonical_query="task summary WMB-101",
             intent_hint="task_summary",
@@ -253,7 +337,10 @@ class TestLevelA_TaskSummary:
             confidence=0.95,
             llm_used=False,
         )
-        dialogue = DialogueHarnessRuntime(build_fake_runtime().inner, interpreter=ScriptedInterpreter(frame))
+        dialogue = DialogueHarnessRuntime(
+            build_fake_runtime().inner,
+            interpreter=ScriptedInterpreter(frame)
+        )
         response = await dialogue.process(HarnessRequest(query="Что по задаче WMB-101", session_id="la-summary"))
         assert response.status is ResponseStatus.COMPLETED
         assert response.skill_id == "task-summary"
@@ -261,8 +348,27 @@ class TestLevelA_TaskSummary:
 
 
 class TestLevelA_TaskQuality:
+    """Level A: Task quality assessment.
+
+    OLD CONTRACT:
+      test_task_quality_skill:
+        queries = [
+          "качество задачи",
+          "дефекты в задаче",
+          "анализ качества",
+        ]
+        → task_quality intent
+
+    MAPPING:
+      OLD TEST → TestLevelA_TaskQuality
+      LEVEL B CORPUS → cases.skill=task-quality (legacy)
+      SKILL → task-quality
+      CAPABILITY → task.quality
+    """
+
     @pytest.mark.asyncio
     async def test_task_quality_deterministic_scoring(self):
+        """Task quality returns deterministic score."""
         frame = SemanticFrame(
             canonical_query="task quality WMB-101",
             intent_hint="task_quality",
@@ -271,7 +377,10 @@ class TestLevelA_TaskQuality:
             confidence=0.95,
             llm_used=False,
         )
-        dialogue = DialogueHarnessRuntime(build_fake_runtime().inner, interpreter=ScriptedInterpreter(frame))
+        dialogue = DialogueHarnessRuntime(
+            build_fake_runtime().inner,
+            interpreter=ScriptedInterpreter(frame)
+        )
         response = await dialogue.process(HarnessRequest(query="Качество задачи WMB-101", session_id="la-quality"))
         assert response.status is ResponseStatus.COMPLETED
         assert response.skill_id == "task-quality"
@@ -280,8 +389,27 @@ class TestLevelA_TaskQuality:
 
 
 class TestLevelA_Velocity:
+    """Level A: Sprint velocity metrics.
+
+    OLD CONTRACT:
+      test_velocity_skill:
+        queries = [
+          "скорость команды",
+          "velocity за последние 6 спринтов",
+          "производительность команды",
+        ]
+        → velocity intent
+
+    MAPPING:
+      OLD TEST → TestLevelA_Velocity
+      LEVEL B CORPUS → cases.skill=sprint-velocity (legacy)
+      SKILL → sprint-velocity
+      CAPABILITY → sprint.velocity
+    """
+
     @pytest.mark.asyncio
     async def test_velocity_with_sprint_id(self):
+        """Velocity for specific sprint."""
         frame = SemanticFrame(
             canonical_query="sprint velocity WMB-SPRNT-1",
             intent_hint="sprint_velocity",
@@ -290,7 +418,10 @@ class TestLevelA_Velocity:
             confidence=0.95,
             llm_used=False,
         )
-        dialogue = DialogueHarnessRuntime(build_fake_runtime().inner, interpreter=ScriptedInterpreter(frame))
+        dialogue = DialogueHarnessRuntime(
+            build_fake_runtime().inner,
+            interpreter=ScriptedInterpreter(frame)
+        )
         response = await dialogue.process(HarnessRequest(query="Скорость команды WMB-SPRNT-1", session_id="la-velocity"))
         assert response.status is ResponseStatus.COMPLETED
         assert response.skill_id == "sprint-velocity"
@@ -298,8 +429,27 @@ class TestLevelA_Velocity:
 
 
 class TestLevelA_TeamWorkload:
+    """Level A: Team workload distribution.
+
+    OLD CONTRACT:
+      test_team_workload_skill:
+        queries = [
+          "баланс загрузки команды",
+          "загрузка сотрудников",
+          "распределение задач",
+        ]
+        → team_workload intent
+
+    MAPPING:
+      OLD TEST → TestLevelA_TeamWorkload
+      LEVEL B CORPUS → cases.skill=team-workload (legacy)
+      SKILL → team-workload
+      CAPABILITY → team.workload
+    """
+
     @pytest.mark.asyncio
     async def test_team_workload_metrics(self):
+        """Team workload distribution."""
         frame = SemanticFrame(
             canonical_query="team workload",
             intent_hint="team_workload",
@@ -308,7 +458,10 @@ class TestLevelA_TeamWorkload:
             confidence=0.95,
             llm_used=False,
         )
-        dialogue = DialogueHarnessRuntime(build_fake_runtime().inner, interpreter=ScriptedInterpreter(frame))
+        dialogue = DialogueHarnessRuntime(
+            build_fake_runtime().inner,
+            interpreter=ScriptedInterpreter(frame)
+        )
         response = await dialogue.process(HarnessRequest(query="Баланс загрузки команды", session_id="la-workload"))
         assert response.status in {ResponseStatus.COMPLETED, ResponseStatus.PARTIAL}
         assert response.skill_id == "team-workload"
@@ -316,8 +469,30 @@ class TestLevelA_TeamWorkload:
 
 
 class TestLevelA_SprintHealth:
+    """Level A: Sprint health metrics.
+
+    OLD CONTRACT:
+      test_sprint_health_skill:
+        queries = [
+          "здоровье спринта OLP-SPRNT-3",
+          "метрики спринта DMS-SPRNT-1",
+          "OLP-SPRNT-2",
+        ]
+        → sprint_health or task_search intent
+
+    NOTE: NOT legacy-only just because old implementation exists.
+    The capability is deterministic and valuable.
+
+    MAPPING:
+      OLD TEST → TestLevelA_SprintHealth
+      LEVEL B CORPUS → cases.skill=sprint-health
+      SKILL → sprint-health
+      CAPABILITY → sprint.health
+    """
+
     @pytest.mark.asyncio
     async def test_sprint_health_metrics(self):
+        """Sprint health metrics for WMB-SPRNT-1."""
         frame = SemanticFrame(
             canonical_query="sprint health WMB-SPRNT-1",
             intent_hint="sprint_health",
@@ -326,7 +501,10 @@ class TestLevelA_SprintHealth:
             confidence=0.95,
             llm_used=False,
         )
-        dialogue = DialogueHarnessRuntime(build_fake_runtime().inner, interpreter=ScriptedInterpreter(frame))
+        dialogue = DialogueHarnessRuntime(
+            build_fake_runtime().inner,
+            interpreter=ScriptedInterpreter(frame)
+        )
         response = await dialogue.process(HarnessRequest(query="Здоровье спринта WMB-SPRNT-1", session_id="la-sprint-health"))
         assert response.status is ResponseStatus.COMPLETED
         assert response.skill_id == "sprint-health"
@@ -334,10 +512,27 @@ class TestLevelA_SprintHealth:
 
 
 class TestLevelA_CompetencyMatch:
-    """Level A: competency matching through the real declared-profile wiring."""
+    """Level A: Team competency matching through declared profile evidence.
+
+    OLD CONTRACT:
+      test_competency_match_skill:
+        queries = [
+          "кто подходит для задачи",
+          "совпадение навыков",
+          "кто умеет",
+        ]
+        → competency_match intent
+
+    MAPPING:
+      OLD TEST → TestLevelA_CompetencyMatch
+      LEVEL B CORPUS → cases.skill=team-competency-match
+      SKILL → team-competency-match
+      CAPABILITY → team.competency_match
+    """
 
     @pytest.mark.asyncio
     async def test_competency_match_with_task_key(self):
+        """Configured declared profiles make the versioned Skill executable."""
         frame = SemanticFrame(
             canonical_query="team competency_match WMB-101",
             intent_hint="team_competency_match",
@@ -363,8 +558,30 @@ class TestLevelA_CompetencyMatch:
 
 
 class TestLevelA_ReleaseHealth:
+    """Level A: Release health.
+
+    OLD CONTRACT:
+      test_release_health_skill:
+        queries = [
+          "релизные задачи",
+          "релиз готов",
+          "статус релиза?",
+        ]
+        → release_health intent
+
+    NOTE: NOT legacy-only just because old implementation exists.
+    The release_health capability is implemented and valuable.
+
+    MAPPING:
+      OLD TEST → TestLevelA_ReleaseHealth
+      LEVEL B CORPUS → cases.skill=release-health
+      SKILL → release-health
+      CAPABILITY → release.health
+    """
+
     @pytest.mark.asyncio
     async def test_release_health_metrics(self):
+        """Release health for WMB-2024-Q3."""
         frame = SemanticFrame(
             canonical_query="release health WMB-2024-Q3",
             intent_hint="release_health",
@@ -373,7 +590,10 @@ class TestLevelA_ReleaseHealth:
             confidence=0.95,
             llm_used=False,
         )
-        dialogue = DialogueHarnessRuntime(build_fake_runtime().inner, interpreter=ScriptedInterpreter(frame))
+        dialogue = DialogueHarnessRuntime(
+            build_fake_runtime().inner,
+            interpreter=ScriptedInterpreter(frame)
+        )
         response = await dialogue.process(HarnessRequest(query="Релиз готов WMB-2024-Q3?", session_id="la-release"))
         assert response.status is ResponseStatus.COMPLETED
         assert response.skill_id == "release-health"
@@ -381,10 +601,14 @@ class TestLevelA_ReleaseHealth:
 
 
 class TestLegacyContractMappingVerification:
+    """Verify all 13 legacy contracts have proven replacement coverage."""
+
     def test_all_13_contracts_mapped(self):
+        """All 13 contracts must have mapping entries."""
         assert len(LEGACY_CONTRACT_MAPPING) == 13
 
     def test_mapping_has_required_fields(self):
+        """Each mapping must have old_test, level_a_test, level_b_corpus, skill, capability."""
         for contract_id, mapping in LEGACY_CONTRACT_MAPPING.items():
             required_fields = ["old_test", "level_a_test", "level_b_corpus", "skill", "capability"]
             for field in required_fields:
@@ -396,6 +620,7 @@ class TestLegacyContractMappingVerification:
             assert mapping["status"] in {"MIGRATED", "COVERED_BY_EXISTING_HARNESS_TEST", "OBSOLETE_DUPLICATE"}
 
     def test_no_coverage_gaps(self):
+        """Every legacy contract must be covered."""
         expected_old_tests = {
             "test_get_tasks_skill_member_surname_russian",
             "test_get_tasks_skill_member_genitive_case",
@@ -415,6 +640,7 @@ class TestLegacyContractMappingVerification:
         assert actual_old_tests == expected_old_tests
 
     def test_all_skills_implemented(self):
+        """All skills in the mapping must be implemented."""
         catalog = catalog_by_id()
         for mapping in LEGACY_CONTRACT_MAPPING.values():
             skill_id = mapping["skill"]
