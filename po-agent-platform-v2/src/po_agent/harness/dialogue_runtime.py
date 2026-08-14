@@ -129,25 +129,35 @@ Rules:
 11. Only if the user explicitly asks to remember a reusable definition (for example 'always treat open tasks as all unresolved'), set intent_hint=learn_semantic and slots learn_term, learn_meaning, optionally learn_scope. Prefer canonical learn_meaning values such as not_completed or a comma-separated list of explicit statuses.
 """
 
-    DOMAIN_CLASSIFIER_SYSTEM = """You are a semantic domain classifier for a PO Harness.
-Return JSON only: {\"domain\": <one supplied domain or null>, \"confidence\": <0..1>}.
+    DOMAIN_CANDIDATE_SYSTEM = """You are a semantic candidate ranker for PO Harness domains.
+Return JSON only: {\"domain\": <exactly one supplied domain>, \"confidence\": <0..1>}.
 
-Classify the primary business object and requested operation into one of the supplied catalog-derived domain signatures.
-Each domain signature contains semantic evidence aggregated from its implemented capabilities; use that evidence by meaning rather than literal wording.
-Ignore whether any entity, ID, person, sprint name, task key, status or other slot is known, valid, ambiguous or source-grounded.
-If the request clearly concerns an object or outcome covered by a supplied domain signature, choose that domain even when the concrete entity still needs grounding or clarification.
-Return null only when none of the supplied domain signatures covers the requested business object or operation.
-Never invent a domain and never use source/entity uncertainty as a reason to return null.
+Candidate ranking is NOT authorization. When at least one domain signature is supplied, ALWAYS return exactly one supplied domain: the best semantic candidate for the user's primary business object and requested operation.
+Use the intents and capability descriptions in each catalog-derived domain signature as semantic evidence. Rank by meaning, not literal token similarity.
+Ignore whether any entity, ID, person, sprint name, task key, status or other slot exists, is valid, is ambiguous or has been source-grounded.
+Do not reject unsupported requests here; a separate semantic entailment gate decides whether the ranked capability may proceed.
+Never invent a domain and never return null when candidates are supplied.
 """
 
-    DOMAIN_CAPABILITY_SYSTEM = """You are a semantic capability classifier for one already-selected PO Harness domain.
-Return JSON only: {\"intent_hint\": <one supplied canonical intent or null>, \"confidence\": <0..1>}.
+    CAPABILITY_CANDIDATE_SYSTEM = """You are a semantic candidate ranker for capabilities inside one selected PO Harness domain.
+Return JSON only: {\"intent_hint\": <exactly one supplied canonical intent>, \"confidence\": <0..1>}.
 
-Classify only the requested OPERATION among the supplied capabilities for the selected domain.
-Do not extract, validate, infer or judge source entities, IDs, people, sprint names, task keys, statuses, products or other slots.
-Missing or ambiguous entity values are handled later by grounding/clarification and MUST NOT make a supported operation unsupported.
-Return the most specific capability that can perform the requested outcome. Return null only when none of the supplied capabilities in this domain can perform it.
-Never invent an intent and never choose by lexical similarity alone.
+Candidate ranking is NOT authorization. When at least one capability is supplied, ALWAYS return exactly one supplied canonical intent: the best semantic candidate for the requested operation/outcome.
+Rank by the capability descriptions and intended outcome, not literal intent-name similarity.
+Ignore whether source entities, IDs, people, sprint names, task keys, statuses, products or slots are known, valid, ambiguous or grounded.
+Do not reject unsupported requests here; a separate semantic entailment gate decides whether the ranked capability may proceed.
+Never invent an intent and never return null when candidates are supplied.
+"""
+
+    SEMANTIC_ENTAILMENT_SYSTEM = """You are the semantic support gate for a PO Harness.
+Return JSON only: {\"supported\": <true or false>, \"confidence\": <0..1>}.
+
+Decide whether the single selected catalog capability can actually perform the OPERATION or produce the OUTCOME requested by the user.
+Evaluate semantic entailment only between the original request and the selected capability metadata.
+Ignore whether concrete source entities, IDs, people, sprint names, task keys, statuses, products or required slots exist, are valid, are ambiguous, or are source-grounded; grounding happens later.
+Return supported=true only when the capability's described purpose directly satisfies the requested operation/outcome.
+Return supported=false when the request is unrelated, asks for a different operation, or is outside the selected capability's scope.
+Do not choose another capability, do not infer source facts, and do not authorize execution beyond this semantic support decision.
 """
 
     def __init__(self, client: LLMClient, *, model: str | None = None) -> None:
@@ -185,7 +195,7 @@ Never invent an intent and never choose by lexical similarity alone.
                 signature["capability_descriptions"].append(str(description))
         return [domains[name] for name in sorted(domains)]
 
-    async def _classify_domain(self, query: str, capabilities: list[dict[str, Any]]) -> str | None:
+    async def _select_domain_candidate(self, query: str, capabilities: list[dict[str, Any]]) -> str | None:
         domain_signatures = self._domain_signatures(capabilities)
         domains = [str(item["domain"]) for item in domain_signatures]
         if not domains:
@@ -197,7 +207,7 @@ Never invent an intent and never choose by lexical similarity alone.
         try:
             response = await self.client.complete(
                 [
-                    LLMMessage(role="system", content=self.DOMAIN_CLASSIFIER_SYSTEM),
+                    LLMMessage(role="system", content=self.DOMAIN_CANDIDATE_SYSTEM),
                     LLMMessage(role="user", content=payload),
                 ],
                 model=self.model,
@@ -213,7 +223,7 @@ Never invent an intent and never choose by lexical similarity alone.
         except Exception:
             return None
 
-    async def _classify_capability_in_domain(
+    async def _select_capability_candidate(
         self,
         query: str,
         domain: str,
@@ -236,7 +246,7 @@ Never invent an intent and never choose by lexical similarity alone.
         try:
             response = await self.client.complete(
                 [
-                    LLMMessage(role="system", content=self.DOMAIN_CAPABILITY_SYSTEM),
+                    LLMMessage(role="system", content=self.CAPABILITY_CANDIDATE_SYSTEM),
                     LLMMessage(role="user", content=payload),
                 ],
                 model=self.model,
@@ -252,20 +262,67 @@ Never invent an intent and never choose by lexical similarity alone.
         except Exception:
             return None
 
-    async def _repair_missing_intent(self, query: str, context: dict[str, Any]) -> str | None:
-        """Resolve a missing intent through catalog-driven domain then capability selection.
+    async def _semantic_entails_capability(
+        self,
+        query: str,
+        domain: str,
+        intent: str,
+        capabilities: list[dict[str, Any]],
+    ) -> bool:
+        selected = next(
+            (
+                item
+                for item in capabilities
+                if str(item.get("domain")) == domain and str(item.get("intent")) == intent
+            ),
+            None,
+        )
+        if selected is None:
+            return False
+        payload = json.dumps(
+            {
+                "query": query,
+                "selected_domain": domain,
+                "selected_capability": selected,
+            },
+            ensure_ascii=False,
+        )
+        try:
+            response = await self.client.complete(
+                [
+                    LLMMessage(role="system", content=self.SEMANTIC_ENTAILMENT_SYSTEM),
+                    LLMMessage(role="user", content=payload),
+                ],
+                model=self.model,
+                temperature=0.0,
+                max_tokens=100,
+            )
+            if not response.choices:
+                return False
+            data = self._parse_json_content(response.choices[0].message.content)
+            return bool(data is not None and data.get("supported") is True)
+        except Exception:
+            return False
 
-        Both passes classify the requested operation only. Source/entity facts
-        remain outside their authority and are still validated by grounding.
-        Unsupported operations may return null at either stage and remain
-        fail-closed.
+    async def _repair_missing_intent(self, query: str, context: dict[str, Any]) -> str | None:
+        """Rank a catalog candidate, then authorize it only through semantic entailment.
+
+        Candidate selection deliberately cannot reject a non-empty catalog.
+        The separate entailment gate preserves fail-closed behavior for
+        unsupported operations. Source/entity uncertainty stays outside all
+        three semantic stages and is handled later by grounding.
         """
         allowed = [str(x) for x in context.get("allowed_intents", []) if x]
         capabilities = [item for item in context.get("available_capabilities", []) if isinstance(item, dict)]
-        domain = await self._classify_domain(query, capabilities)
+        domain = await self._select_domain_candidate(query, capabilities)
         if domain is None:
             return None
-        return await self._classify_capability_in_domain(query, domain, allowed, capabilities)
+        intent = await self._select_capability_candidate(query, domain, allowed, capabilities)
+        if intent is None:
+            return None
+        if not await self._semantic_entails_capability(query, domain, intent, capabilities):
+            return None
+        return intent
 
     async def interpret(self, query: str, *, context: dict[str, Any] | None = None) -> SemanticFrame:
         semantic_context = context or {}
