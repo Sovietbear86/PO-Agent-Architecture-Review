@@ -175,14 +175,43 @@ Decide whether the single selected catalog capability can actually perform the O
                 signature["capability_descriptions"].append(str(item["description"]))
         return [domains[name] for name in sorted(domains)]
 
+    @staticmethod
+    def _closed_set_response_format(key: str, allowed: list[str]) -> dict[str, Any]:
+        """Build a provider-level JSON-schema enum from the catalog-derived candidate set."""
+        return {
+            "type": "json_schema",
+            "json_schema": {
+                "name": f"po_harness_{key}_choice",
+                "strict": True,
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        key: {"type": "string", "enum": allowed},
+                        "confidence": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                    },
+                    "required": [key, "confidence"],
+                    "additionalProperties": False,
+                },
+            },
+        }
+
     async def _required_choice(self, system: str, payload: str, key: str, allowed: list[str], max_tokens: int) -> str | None:
+        if not allowed:
+            return None
+        response_format = self._closed_set_response_format(key, allowed)
         for repair in (False, True):
             messages = [LLMMessage(role="system", content=system)]
             if repair:
                 messages.append(LLMMessage(role="system", content=self.CANDIDATE_CONTRACT_REPAIR))
             messages.append(LLMMessage(role="user", content=payload))
             try:
-                response = await self.client.complete(messages, model=self.model, temperature=0.0, max_tokens=max_tokens)
+                response = await self.client.complete(
+                    messages,
+                    model=self.model,
+                    temperature=0.0,
+                    max_tokens=max_tokens,
+                    response_format=response_format,
+                )
                 if not response.choices:
                     continue
                 data = self._parse_json_content(response.choices[0].message.content)
