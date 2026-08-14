@@ -59,7 +59,10 @@ async def test_grounded_composite_search_applies_all_filters_not_only_first_one(
     runtime = build_runtime_bundle("fake", semantic_interpreter=ScriptedInterpreter(frame)).runtime
     response = await runtime.process(HarnessRequest(query="Покажи открытые задачи Сидорова в первом WMB спринте", session_id="multi"))
     assert response.status is ResponseStatus.COMPLETED
-    assert response.skill_id == "task-search"
+    # The generic task-search intent is refined to the most specific grounded
+    # variant for versioned skill metadata, while execution still uses the
+    # composite capability because multiple grounded filters are present.
+    assert response.skill_id == "task-search-assignee"
     assert response.data["count"] == 1
     assert response.data["tasks"][0]["key"] == "WMB-102"
     assert response.data["filters"] == {
@@ -71,7 +74,14 @@ async def test_grounded_composite_search_applies_all_filters_not_only_first_one(
 
 @pytest.mark.asyncio
 async def test_unambiguous_semantic_frame_executes_without_clarification():
-    frame = SemanticFrame(canonical_query="история WMB-101", intent_hint="task_history", llm_used=True)
+    # ScriptedInterpreter represents the output contract of the semantic layer,
+    # so already-resolved entities must be provided as structured slots.
+    frame = SemanticFrame(
+        canonical_query="история WMB-101",
+        intent_hint="task_history",
+        slots={"task_key": "WMB-101"},
+        llm_used=True,
+    )
     bundle = build_runtime_bundle("fake", semantic_interpreter=ScriptedInterpreter(frame))
     response = await bundle.runtime.process(HarnessRequest(query="Покажи историю WMB-101", session_id="d2"))
     assert response.status is ResponseStatus.COMPLETED
@@ -95,7 +105,7 @@ async def test_clarification_is_isolated_by_session():
     assert b.status is ResponseStatus.NEEDS_CLARIFICATION
     a2 = await runtime.process(HarnessRequest(query="Ivanov.I.I", session_id="A"))
     assert a2.status in {ResponseStatus.COMPLETED, ResponseStatus.PARTIAL}
-    # Empty query in clarification loop now returns FAILED before semantic interpreter
+    # Empty query in clarification loop is rejected before semantic execution.
     b2 = await runtime.process(HarnessRequest(query="", session_id="B"))
     assert b2.status is ResponseStatus.FAILED
     assert "query_empty" in b2.warnings
@@ -104,22 +114,18 @@ async def test_clarification_is_isolated_by_session():
 @pytest.mark.asyncio
 async def test_empty_query_rejected_before_semantic_interpreter_call():
     """Regression test: empty query must be rejected before any LLM or grounding calls."""
-    # Use a scripted interpreter that would fail if called
     class FailingInterpreter:
         async def interpret(self, query, *, context=None):
             raise RuntimeError("Interpreter should not be called for empty query")
 
-    frame = SemanticFrame(canonical_query="test", llm_used=False)
     runtime = build_runtime_bundle("fake", semantic_interpreter=FailingInterpreter()).runtime
-    
-    # Empty string
+
     r1 = await runtime.process(HarnessRequest(query="", session_id="empty1"))
     assert r1.status is ResponseStatus.FAILED
     assert "query_empty" in r1.warnings
     assert "trace_id" in r1.to_dict()
     assert "session_id" in r1.to_dict()
-    
-    # Whitespace only
+
     r2 = await runtime.process(HarnessRequest(query="   ", session_id="empty2"))
     assert r2.status is ResponseStatus.FAILED
     assert "query_empty" in r2.warnings
