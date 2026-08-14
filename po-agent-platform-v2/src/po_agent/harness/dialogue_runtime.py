@@ -132,9 +132,11 @@ Rules:
     DOMAIN_CLASSIFIER_SYSTEM = """You are a semantic domain classifier for a PO Harness.
 Return JSON only: {\"domain\": <one supplied domain or null>, \"confidence\": <0..1>}.
 
-Classify only the requested OPERATION into one of the supplied catalog domains.
+Classify the primary business object and requested operation into one of the supplied catalog-derived domain signatures.
+Each domain signature contains semantic evidence aggregated from its implemented capabilities; use that evidence by meaning rather than literal wording.
 Ignore whether any entity, ID, person, sprint name, task key, status or other slot is known, valid, ambiguous or source-grounded.
-Choose a domain when the requested operation belongs to it. Return null only when no supplied domain can serve the requested operation.
+If the request clearly concerns an object or outcome covered by a supplied domain signature, choose that domain even when the concrete entity still needs grounding or clarification.
+Return null only when none of the supplied domain signatures covers the requested business object or operation.
 Never invent a domain and never use source/entity uncertainty as a reason to return null.
 """
 
@@ -163,11 +165,35 @@ Never invent an intent and never choose by lexical similarity alone.
             return None
         return data if isinstance(data, dict) else None
 
+    @staticmethod
+    def _domain_signatures(capabilities: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        """Aggregate semantic domain evidence directly from capability metadata."""
+        domains: dict[str, dict[str, Any]] = {}
+        for item in capabilities:
+            domain = str(item.get("domain") or "").strip()
+            if not domain:
+                continue
+            signature = domains.setdefault(
+                domain,
+                {"domain": domain, "intents": [], "capability_descriptions": []},
+            )
+            intent = item.get("intent")
+            description = item.get("description")
+            if intent:
+                signature["intents"].append(str(intent))
+            if description:
+                signature["capability_descriptions"].append(str(description))
+        return [domains[name] for name in sorted(domains)]
+
     async def _classify_domain(self, query: str, capabilities: list[dict[str, Any]]) -> str | None:
-        domains = sorted({str(item.get("domain")) for item in capabilities if item.get("domain")})
+        domain_signatures = self._domain_signatures(capabilities)
+        domains = [str(item["domain"]) for item in domain_signatures]
         if not domains:
             return None
-        payload = json.dumps({"query": query, "available_domains": domains}, ensure_ascii=False)
+        payload = json.dumps(
+            {"query": query, "available_domain_signatures": domain_signatures},
+            ensure_ascii=False,
+        )
         try:
             response = await self.client.complete(
                 [
@@ -176,7 +202,7 @@ Never invent an intent and never choose by lexical similarity alone.
                 ],
                 model=self.model,
                 temperature=0.0,
-                max_tokens=100,
+                max_tokens=120,
             )
             if not response.choices:
                 return None
