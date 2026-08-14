@@ -108,6 +108,13 @@ For a supported request, intent_hint MUST be exactly one value from allowed_inte
 If the request is genuinely unsupported by available_capabilities, set intent_hint to null.
 Never invent a new intent label and never choose a capability that is not present in the supplied contract.
 
+Capability selection policy:
+- First identify the semantic domain and requested outcome, then compare the capabilities in that domain by meaning, not by literal wording or intent name.
+- Treat a request as supported when an available capability can produce the requested outcome, even if the user's wording differs from the catalog description.
+- Missing or unresolved source identifiers/slots do NOT make a supported request unsupported. Select the capability first, preserve raw entity wording in slots, and use grounding or clarification for unresolved values.
+- Use intent_hint=null only when no available capability can satisfy the requested operation after semantic comparison. Do not use null merely because a required slot is missing, wording is indirect, or confidence in an entity match is low.
+- If several capabilities in the same domain are plausible, choose the most specific capability matching the requested outcome. If the ambiguity is about an entity or slot rather than the operation, keep the selected intent and request clarification for that slot.
+
 Rules:
 1. Understand free-form Russian/English wording, names, grammatical cases and shorthand.
 2. NEVER invent task IDs, sprint IDs, release IDs, logins, statuses or source facts.
