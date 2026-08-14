@@ -129,12 +129,70 @@ Rules:
 11. Only if the user explicitly asks to remember a reusable definition (for example 'always treat open tasks as all unresolved'), set intent_hint=learn_semantic and slots learn_term, learn_meaning, optionally learn_scope. Prefer canonical learn_meaning values such as not_completed or a comma-separated list of explicit statuses.
 """
 
+    CAPABILITY_REPAIR_SYSTEM = """You are a focused semantic capability classifier for a PO Harness.
+Return JSON only: {\"intent_hint\": <canonical intent or null>, \"confidence\": <0..1>}.
+
+Your only task is to classify the requested OPERATION. Do not extract, validate, infer or judge source entities, IDs, people, sprint names, task keys, statuses, products or other slots.
+Use only the supplied catalog-driven allowed_intents and available_capabilities.
+
+Selection procedure:
+1. Identify the semantic domain of the requested operation.
+2. Compare capabilities in that domain by their described outcome.
+3. If one capability can perform the requested operation, return its canonical intent even when entity values are missing, unresolved, ambiguous or not source-validated yet.
+4. If more than one capability is plausible, select the most specific one matching the requested outcome.
+5. Return null only when no supplied capability can perform the requested operation.
+6. Never invent an intent and never choose by lexical similarity alone.
+"""
+
     def __init__(self, client: LLMClient, *, model: str | None = None) -> None:
         self.client = client
         self.model = model
 
+    async def _repair_missing_intent(self, query: str, context: dict[str, Any]) -> str | None:
+        """Reclassify only the requested operation when the full interpreter returned null.
+
+        This second semantic pass is intentionally isolated from source/entity
+        grounding. It is not an execution fallback and cannot create IDs or
+        slots. Unsupported operations may still return null and remain
+        fail-closed.
+        """
+        allowed = [str(x) for x in context.get("allowed_intents", []) if x]
+        capabilities = context.get("available_capabilities", [])
+        payload = json.dumps(
+            {
+                "query": query,
+                "allowed_intents": allowed,
+                "available_capabilities": capabilities,
+            },
+            ensure_ascii=False,
+        )
+        try:
+            response = await self.client.complete(
+                [
+                    LLMMessage(role="system", content=self.CAPABILITY_REPAIR_SYSTEM),
+                    LLMMessage(role="user", content=payload),
+                ],
+                model=self.model,
+                temperature=0.0,
+                max_tokens=160,
+            )
+            if not response.choices:
+                return None
+            raw = response.choices[0].message.content.strip()
+            if raw.startswith("```"):
+                raw = re.sub(r"^```(?:json)?\s*|\s*```$", "", raw, flags=re.I | re.S)
+            data = json.loads(raw)
+            candidate = data.get("intent_hint") if isinstance(data, dict) else None
+            if not candidate:
+                return None
+            candidate = str(candidate).strip()
+            return candidate if candidate in allowed else None
+        except Exception:
+            return None
+
     async def interpret(self, query: str, *, context: dict[str, Any] | None = None) -> SemanticFrame:
-        payload = json.dumps({"query": query, "context": context or {}}, ensure_ascii=False)
+        semantic_context = context or {}
+        payload = json.dumps({"query": query, "context": semantic_context}, ensure_ascii=False)
         response = await self.client.complete(
             [LLMMessage(role="system", content=self.SYSTEM), LLMMessage(role="user", content=payload)],
             model=self.model,
@@ -149,6 +207,10 @@ Rules:
         data = json.loads(raw)
         if not isinstance(data, dict) or not isinstance(data.get("canonical_query"), str):
             raise ValueError("semantic interpreter contract violation")
+        if not data.get("intent_hint"):
+            repaired_intent = await self._repair_missing_intent(query, semantic_context)
+            if repaired_intent:
+                data["intent_hint"] = repaired_intent
         needs = []
         for item in data.get("clarifications", []) or []:
             if isinstance(item, dict) and item.get("field") and item.get("question"):
