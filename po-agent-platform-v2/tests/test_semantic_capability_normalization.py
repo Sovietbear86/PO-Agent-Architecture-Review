@@ -22,37 +22,21 @@ def test_all_canonical_semantic_intents_round_trip_to_implemented_skills():
 
 
 def test_real_e2e_task_lookup_semantic_variants_normalize_to_task_lookup():
-    for intent in (
-        "task_details",
-        "task_detail",
-        "task_by_id",
-        "show_task",
-        "task_info",
-        "task_lookup",
-        "task-lookup",
-    ):
+    # These two non-canonical labels were observed in the real Qwen E2E run.
+    for intent in ("task_details", "task_by_id", "task_lookup", "task-lookup"):
         assert intent_to_skill_id(intent) == "task-lookup"
 
 
-def test_real_e2e_sprint_semantic_variants_normalize_to_sprint_health():
-    for intent in (
-        "sprint_details",
-        "sprint_detail",
-        "sprint_status",
-        "sprint_info",
-        "sprint_health",
-        "sprint-health",
-    ):
+def test_real_e2e_sprint_semantic_variant_normalizes_to_sprint_health():
+    # sprint_details was observed in the real Qwen E2E run.
+    for intent in ("sprint_details", "sprint_health", "sprint-health"):
         assert intent_to_skill_id(intent) == "sprint-health"
 
 
-def test_real_e2e_team_matching_variants_normalize_to_assignee_recommendation():
+def test_real_e2e_team_matching_semantics_normalize_to_assignee_recommendation():
     for intent in (
         "team_matching",
-        "team_match",
-        "best_assignee",
         "assignee_recommendation",
-        "recommend_assignee",
         "team_assignee_recommendation",
         "team-assignee-recommendation",
     ):
@@ -61,12 +45,17 @@ def test_real_e2e_team_matching_variants_normalize_to_assignee_recommendation():
         assert catalog_by_id()[skill_id].capability_id == "team.assignee_recommendation"
 
 
-def test_unknown_or_near_miss_semantics_remain_fail_closed():
+def test_unreviewed_semantic_variants_do_not_become_hidden_phrase_dictionary():
+    # Natural-language paraphrase handling belongs to the LLM. Unless a schema
+    # label is canonical or has been explicitly reviewed from E2E evidence, the
+    # Harness must not guess what internal capability it is closest to.
     for intent in (
         None,
         "",
         "task_detailz",
-        "sprint_detailz",
+        "task_info",
+        "sprint_info",
+        "best_assignee",
         "team_match_magic",
         "do_whatever_seems_close",
     ):
