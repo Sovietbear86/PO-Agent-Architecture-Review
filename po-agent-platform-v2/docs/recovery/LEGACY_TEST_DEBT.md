@@ -1,23 +1,33 @@
 # Legacy Regression Debt
 
-This file documents failures that are intentionally separated from the blocking
-Harness Recovery CI gates. The purpose is visibility, not suppression.
+This file documents failures intentionally separated from the blocking Harness Recovery CI gates. The purpose is visibility, not suppression.
 
 ## Blocking gates
 
 The following jobs must stay green:
 
-- `backend-recovery` — new Harness vertical slices and AI-PDLC acceptance tests.
-- `backend-hermetic-regression` — deterministic tests that do not require real external services or obsolete runtime contracts.
+- `backend-recovery` — current Harness vertical slices and AI-PDLC acceptance tests.
+- `backend-hermetic-regression` — deterministic tests that do not require real external services or retired runtime contracts.
 - `frontend` — recovery UI TypeScript/Vite build.
 
-## Diagnostic legacy gate
+## Controlled retirement completed: POOrchestratorV1 tests
 
-`backend-legacy-diagnostic` runs the complete historical test suite with
-`continue-on-error: true`. Failures remain visible in Actions but do not block
-recovery development while old runtime paths are being strangled.
+The following retired test modules were removed during controlled legacy cleanup:
 
-## Current known categories
+- `tests/test_agent_full_integration.py`
+- `tests/test_orchestrator_skill_integration.py`
+
+They asserted behavior and private APIs of the retired `POOrchestratorV1` runtime. Their valuable user-facing behavioral contracts now have traceable Harness replacement coverage through:
+
+- `tests/test_harness_legacy_behavioral_contracts.py` (Level A deterministic contracts);
+- `tests/corpus/harness_acceptance_corpus.yaml` (Level B natural-language acceptance corpus);
+- current Harness API / Dialogue Runtime / Team Matching tests.
+
+The old full-integration module also contained legacy evolution/clarification smoke checks. Current equivalents are covered by dedicated Harness-era suites such as candidate lifecycle, clarification engine/loop, offline evaluation, promotion/rollback and related regression tests. Real SWTR/LLM validation remains in explicit real-service integration modules.
+
+Retirement rule satisfied: the old orchestrator is no longer the production runtime and the relevant behaviors have replacement coverage. The files were deleted rather than skipped/xfail'ed so obsolete contracts cannot silently become part of the canonical baseline again.
+
+## Remaining diagnostic categories
 
 ### Real-service tests
 
@@ -26,23 +36,7 @@ Files:
 - `tests/test_integration_real_services.py`
 - `tests/test_llm_real_integration.py`
 
-Reason: these instantiate `RealLLMClient` without CI credentials and/or call a
-real SWTR endpoint. They are integration tests, not hermetic regression tests.
-They must later move to an explicitly configured environment with secrets and
-service availability checks.
-
-### Legacy orchestrator contracts
-
-Files:
-
-- `tests/test_agent_full_integration.py`
-- `tests/test_orchestrator_skill_integration.py`
-
-Reason: these assert behavior of the old `POOrchestratorV1`, including its old
-intent names and private method signature. The recovery runtime is
-`HarnessRuntime` and is covered by its own acceptance suite. We will migrate
-valuable scenarios to Harness eval/acceptance cases before deleting the legacy
-orchestrator.
+Reason: these require real credentials and/or external SWTR/Qwen service availability. They are integration tests, not hermetic regression tests. They must run only in an explicitly configured environment with secrets and service availability checks.
 
 ### Legacy frontend structure
 
@@ -50,31 +44,18 @@ File:
 
 - `tests/test_frontend_config.py`
 
-Reason: tests require the old `frontend/src/components/Layout.tsx`. The recovery
-UI uses a new shell and intentionally no longer compiles the Qwen UI surface.
-The useful navigation/structure assertions must be rewritten against the new
-workspace shell rather than recreating obsolete files solely to satisfy tests.
+Reason: historical assertions target the old `frontend/src/components/Layout.tsx`. The recovery UI uses a new workspace shell. Useful navigation/structure assertions must be migrated to the current workspace rather than recreating obsolete files solely to satisfy tests.
 
 ### Remaining hermetic incompatibilities
 
-The historical full run also exposed several potentially useful incompatibilities
-that are not external-service related, for example:
-
-- attachment fixture expectations around `DMS-202`;
-- old `ContextResolver` clarification expectations;
-- legacy entity extraction expectation in `EvalRunner`.
-
-These remain candidates for migration or correction. If any of them fail the
-new `backend-hermetic-regression` gate they become blocking and must be fixed,
-not ignored.
+Any deterministic failure in the current Harness path is blocking and must be fixed or migrated; it must not be hidden in the diagnostic lane. Known historical candidates have included fixture assumptions, old ContextResolver expectations, and legacy EvalRunner entity extraction behavior.
 
 ## Retirement rule
 
 A legacy test may be removed only when one of the following is true:
 
-1. its behavior is covered by a new Harness acceptance/eval case;
+1. its behavior is covered by a current Harness acceptance/eval case;
 2. it tests a retired component that is no longer reachable from the product;
-3. it is converted to an explicit real-service integration test.
+3. it has been converted to an explicit real-service integration test.
 
-No failure is considered resolved merely because it was moved to the diagnostic
-job.
+No failure is considered resolved merely because it was moved to the diagnostic job.
