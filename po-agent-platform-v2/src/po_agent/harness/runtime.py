@@ -97,7 +97,7 @@ class PortfolioCapabilities:
         release_id = args.get("release_id", "").strip().upper()
         assignee = args.get("assignee", "").strip()
         status = args.get("status", "").strip()
-        
+
         # Start with all tasks and apply filters
         tasks = await self.a.search_tasks("")
         if sprint_id:
@@ -110,7 +110,11 @@ class PortfolioCapabilities:
             tasks = [t for t in tasks if t.assignee == assignee]
         if status:
             status_lower = status.casefold()
-            tasks = [t for t in tasks if status_lower in t.status.value.casefold() or status_lower in t.status_category.value.casefold()]
+            # Handle "not_completed" as a special case for filtering by completion status
+            if status_lower == "not_completed":
+                tasks = [t for t in tasks if not t.is_completed]
+            else:
+                tasks = [t for t in tasks if status_lower in t.status.value.casefold() or status_lower in t.status_category.value.casefold()]
         
         filters = {k: v for k, v in args.items() if v}
         return self.task_list_result(answer=f"Составной поиск: найдено задач: {len(tasks)}.",tasks=tasks,filters=filters)
