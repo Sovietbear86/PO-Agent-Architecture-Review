@@ -3,6 +3,7 @@ import pytest
 from po_agent.adapters.fake import FakeAS21Adapter
 from po_agent.harness.contracts import HarnessRequest, ResponseStatus
 from po_agent.harness.runtime import HarnessRuntime
+from po_agent.harness.runtime_factory import build_runtime_bundle
 from po_agent.harness.source_contracts import TeamMemberProfile
 from po_agent.harness.team_matching import TeamMatchingCapabilities
 from po_agent.harness.team_matching_wiring import enable_team_matching
@@ -75,3 +76,23 @@ async def test_assignee_recommendation_is_executable_through_router_and_allowlis
     assert response.status is ResponseStatus.COMPLETED
     assert response.skill_id == "team-assignee-recommendation"
     assert response.data["recommendation"] == "free.dev"
+
+
+@pytest.mark.asyncio
+async def test_runtime_factory_registers_team_matching_only_with_declared_profiles():
+    bundle = build_runtime_bundle("fake", team_config_path="config/team.example.yaml")
+
+    competency = await bundle.runtime.process(
+        HarnessRequest(query="Кто подходит по компетенциям для WMB-101?", session_id="factory-comp")
+    )
+    assert competency.status is ResponseStatus.COMPLETED
+    assert competency.skill_id == "team-competency-match"
+    assert competency.data["method"] == "declared_profile_token_overlap"
+    assert competency.evidence
+
+    recommendation = await bundle.runtime.process(
+        HarnessRequest(query="Кому назначить WMB-102?", session_id="factory-rec")
+    )
+    assert recommendation.status is ResponseStatus.COMPLETED
+    assert recommendation.skill_id == "team-assignee-recommendation"
+    assert recommendation.data["method"] == "declared_profile_then_active_task_load"
