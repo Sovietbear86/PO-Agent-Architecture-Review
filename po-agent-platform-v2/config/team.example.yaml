@@ -19,6 +19,14 @@ members:
     name: "Ivanov Ivan Ivanovich"
     role: "Senior Developer"
     capacity_hours: 40
+    products:
+      - WMB
+    professional_profile: "Senior backend developer using Python, FastAPI, PostgreSQL and Redis"
+    competencies:
+      - Python
+      - FastAPI
+      - PostgreSQL
+      - Redis
     skills:
       - Python
       - FastAPI
@@ -30,6 +38,13 @@ members:
     name: "Petrov Petr Petrovich"
     role: "Developer"
     capacity_hours: 40
+    products:
+      - WMB
+    professional_profile: "Backend developer using Python, FastAPI and Redis"
+    competencies:
+      - Python
+      - FastAPI
+      - Redis
     skills:
       - Python
       - FastAPI
@@ -40,6 +55,13 @@ members:
     name: "Sidorov Sidor Sidorovich"
     role: "Developer"
     capacity_hours: 40
+    products:
+      - WMB
+    professional_profile: "Backend developer using Python, FastAPI and PostgreSQL"
+    competencies:
+      - Python
+      - FastAPI
+      - PostgreSQL
     skills:
       - Python
       - FastAPI
@@ -50,6 +72,15 @@ members:
     name: "SMedvedev Alexey Alexeyevich"
     role: "Senior Developer"
     capacity_hours: 40
+    products:
+      - WMB
+    professional_profile: "Senior backend developer using Python, FastAPI, PostgreSQL, Redis and RabbitMQ"
+    competencies:
+      - Python
+      - FastAPI
+      - PostgreSQL
+      - Redis
+      - RabbitMQ
     skills:
       - Python
       - FastAPI
