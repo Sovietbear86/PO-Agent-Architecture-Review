@@ -27,6 +27,14 @@ The old full-integration module also contained legacy evolution/clarification sm
 
 Retirement rule satisfied: the old orchestrator is no longer the production runtime and the relevant behaviors have replacement coverage. The files were deleted rather than skipped/xfail'ed so obsolete contracts cannot silently become part of the canonical baseline again.
 
+## Frontend contract migration completed
+
+Historical `tests/test_frontend_config.py` assertions for `frontend/src/components/Layout.tsx` were migrated to the active recovery workspace shell:
+
+- `frontend/src/recovery/WorkspaceApp.tsx`
+
+The current contract verifies that the workspace shell exists and contains the actual navigation implemented with `nav` and `NavLink`. The obsolete `Layout.tsx` file was not recreated solely to satisfy tests.
+
 ## Remaining diagnostic categories
 
 ### Real-service tests
@@ -38,17 +46,9 @@ Files:
 
 Reason: these require real credentials and/or external SWTR/Qwen service availability. They are integration tests, not hermetic regression tests. They must run only in an explicitly configured environment with secrets and service availability checks.
 
-### Legacy frontend structure
-
-File:
-
-- `tests/test_frontend_config.py`
-
-Reason: historical assertions target the old `frontend/src/components/Layout.tsx`. The recovery UI uses a new workspace shell. Useful navigation/structure assertions must be migrated to the current workspace rather than recreating obsolete files solely to satisfy tests.
-
 ### Remaining hermetic incompatibilities
 
-Any deterministic failure in the current Harness path is blocking and must be fixed or migrated; it must not be hidden in the diagnostic lane. Known historical candidates have included fixture assumptions, old ContextResolver expectations, and legacy EvalRunner entity extraction behavior.
+Any deterministic failure in the current Harness path is blocking and must be fixed or migrated; it must not be hidden in the diagnostic lane. Historical candidates have included fixture assumptions, old ContextResolver expectations, legacy EvalRunner entity extraction behavior, and runtime-factory source-readiness assumptions. These must be classified from a fresh run after cleanup rather than assumed to remain valid.
 
 ## Retirement rule
 
