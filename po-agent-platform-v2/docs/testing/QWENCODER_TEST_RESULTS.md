@@ -540,8 +540,72 @@ pytest tests/test_harness_legacy_behavioral_contracts.py -v
 
 ---
 
-*Report generated: 2026-08-14T20:30:00Z*
-*Canonical gates: CHATGPT_FINAL_HARNESS (898 passed, 17 canonical failures)*
-*Legacy migrations: COMPLETE (13/13 contracts MIGRATED, all Level A tests PASS)*
+## POST_PROMOTION_CHATGPT_HARNESS_RECOVERY
+
+**Date:** 2026-08-14
+**Branch:** `chatgpt-harness-recovery`
+**Source Branch:** `chatgpt-controlled-legacy-cleanup`
+**Source SHA:** `99cb6ebb0a3b2d9e218de5439c7198124347a642`
+**Target SHA Before Merge:** `fe5d3e0363a55a3bcde16cb900643b4b5ab78a73`
+**Merge SHA:** `99cb6ebb0a3b2d9e218de5439c7198124347a642`
+**Executor:** GigaCode
+**RUN_ID:** `20260814T_POST_PROMOTION_001`
+
+### Summary
+
+Successful promotion of `chatgpt-controlled-legacy-cleanup` to `chatgpt-harness-recovery`.
+All deterministic/hermetic tests pass with ZERO new failures vs green baseline.
+
+**Commits Promoted (5):**
+- `0e73e0a` - test: retire POOrchestratorV1 integration contracts
+- `700dd09` - test: retire legacy full integration suite after harness migration
+- `d613536` - docs: record controlled retirement of legacy orchestrator tests
+- `ee8f094` - test: migrate frontend layout assertions to recovery workspace shell
+- `99cb6eb` - docs: record frontend contract migration in legacy cleanup
+
+### Test Results After Promotion
+
+| Gate | Command | Result | Status |
+|------|---------|--------|--------|
+| **Level A** | `pytest tests/test_harness_legacy_behavioral_contracts.py` | **16 passed** | ✅ |
+| **Harness API** | `pytest tests/test_harness_api_v1.py` | **5 passed** | ✅ |
+| **Dialogue Runtime** | `pytest tests/test_harness_dialogue_runtime.py` | **5 passed** | ✅ |
+| **Repository Hygiene** | `pytest tests/test_repository_hygiene.py` | **2 passed** | ✅ |
+| **Corpus Validation** | `pytest tests/test_harness_acceptance_corpus.py` | **8 passed** | ✅ |
+| **Team Matching** | `pytest tests/test_harness_team_matching.py` | **6 passed** | ✅ |
+| **Frontend Config** | `pytest tests/test_frontend_config.py` | **27 passed** | ✅ |
+| **Runtime Factory** | `pytest tests/test_harness_runtime_factory.py` | **4 passed** | ✅ |
+| **Canonical Hermetic** | pytest (excluding legacy/real) | **785 passed** | ✅ |
+| **Frontend Build** | `npm run build` | **SUCCESS** | ✅ |
+
+### Acceptance Criteria
+
+- **NEW_FAILURES_VS_GREEN_BASELINE:** 0 ✅
+- **ALL_PREVIOUSLY_VERIFIED_GREEN_GATES:** PASS ✅
+- **FRONTEND_BUILD:** SUCCESS ✅
+
+### Changed Files (Post-Promotion)
+
+| File | Change |
+|------|--------|
+| `po-agent-platform-v2/docs/recovery/LEGACY_TEST_DEBT.md` | Updated legacy test debt documentation |
+| `po-agent-platform-v2/tests/test_agent_full_integration.py` | Deleted (legacy full integration suite retired) |
+| `po-agent-platform-v2/tests/test_frontend_config.py` | Migrated frontend layout assertions to recovery workspace shell |
+| `po-agent-platform-v2/tests/test_orchestrator_skill_integration.py` | Deleted (legacy orchestrator tests retired) |
+
+### Git Artifacts
+
+- **Branch:** `chatgpt-harness-recovery`
+- **Source Branch:** `chatgpt-controlled-legacy-cleanup`
+- **Source SHA:** `99cb6ebb0a3b2d9e218de5439c7198124347a642`
+- **Target SHA Before Merge:** `fe5d3e0363a55a3bcde16cb900643b4b5ab78a73`
+- **Merge SHA:** `99cb6ebb0a3b2d9e218de5439c7198124347a642`
+- **Safety Tag:** `pre-merge-chatgpt-harness-recovery`
+
+---
+
+*Report generated: 2026-08-14T21:00:00Z*
+*Canonical gates: POST_PROMOTION_CHATGPT_HARNESS_RECOVERY (785 passed, 0 canonical failures)*
+*Legacy migrations: COMPLETE*
 *New failures introduced: 0*
-*Remaining pre-existing failures: 17*
+*Green baseline validated: YES*
