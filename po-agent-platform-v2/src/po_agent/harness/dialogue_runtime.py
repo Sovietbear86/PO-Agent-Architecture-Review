@@ -38,6 +38,18 @@ def _refine_skill_id_by_slots(skill_id: str, slots: dict[str, str]) -> str:
     return "task-search"
 
 
+def _extract_explicit_task_key(query: str) -> str | None:
+    """
+    Extract explicit task key from original user query using deterministic regex.
+    
+    Returns exactly one task key if found, None otherwise.
+    This is deterministic evidence - not yet validated by source.
+    """
+    matches = re.findall(r"\b[A-ZА-Я][A-ZА-Я0-9_]{1,15}-\d+(?![-A-ZА-Я0-9_])\b", query, re.I)
+    # Exactly one match required - zero or multiple returns None (fail-closed)
+    return matches[0] if len(matches) == 1 else None
+
+
 @dataclass(frozen=True)
 class ClarificationNeed:
     field: str
@@ -168,6 +180,33 @@ class DialogueHarnessRuntime:
         return (not missing, None if not missing else f"Missing required slot: {', '.join(missing)}")
 
     @staticmethod
+    def _enrich_explicit_task_key(frame: SemanticFrame, original_query: str) -> SemanticFrame:
+        """
+        Deterministically enrich SemanticFrame with explicit task key from query.
+        
+        Only applies if slots.task_key is absent and query contains exactly one valid task key.
+        This enrichment happens BEFORE grounding/source validation.
+        """
+        if frame.slots.get("task_key"):
+            # Preserve LLM-provided or already-set task_key
+            return frame
+        task_key = _extract_explicit_task_key(original_query)
+        if task_key is None:
+            # No enrichment needed
+            return frame
+        # Add extracted task key to slots for downstream processing
+        new_slots = dict(frame.slots)
+        new_slots["task_key"] = task_key
+        return SemanticFrame(
+            canonical_query=frame.canonical_query,
+            intent_hint=frame.intent_hint,
+            slots=new_slots,
+            clarifications=frame.clarifications,
+            confidence=frame.confidence,
+            llm_used=frame.llm_used,
+        )
+
+    @staticmethod
     def _source_failure(session,warning,answer,started,*,data=None): return HarnessResponse(status=ResponseStatus.FAILED,trace_id=str(uuid.uuid4()),session_id=session,answer=answer,data=data,warnings=[warning],latency_ms=(time.perf_counter()-started)*1000)
 
     def _missing_required_source_fact(self,query):
@@ -224,6 +263,8 @@ class DialogueHarnessRuntime:
             except AS21SourceError:return self._source_failure(session,"source_protocol_error","Источник AS21 вернул некорректные данные при проверке контекста.",started)
         try: frame=await self.interpreter.interpret(request.query,context=semantic_context)
         except Exception:return self._source_failure(session,"semantic_interpretation_failure","Не удалось безопасно интерпретировать запрос. Попробуйте переформулировать его.",started)
+        # Enrich with explicit task key from original query BEFORE grounding
+        frame=self._enrich_explicit_task_key(frame,request.query)
         if frame.confidence<0.45 and not frame.clarifications: frame.clarifications.append(ClarificationNeed("intent","Я не уверен, что правильно понял запрос. Что именно вы хотите получить?"))
         if self.grounder is not None and (frame.intent_hint or "").strip().casefold()!="learn_semantic":
             try: frame=await self.grounder.ground(frame,request.query)

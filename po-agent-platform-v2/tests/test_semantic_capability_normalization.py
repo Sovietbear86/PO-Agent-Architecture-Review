@@ -19,8 +19,14 @@ def test_real_e2e_task_lookup_semantic_variants_normalize_to_task_lookup():
         assert intent_to_skill_id(intent) == "task-lookup"
 
 
+def test_real_e2e_team_assignee_match_semantic_variant_normalizes_to_assignee_recommendation():
+    """New test: task_assignee_match maps to team-assignee-recommendation"""
+    assert intent_to_skill_id("task_assignee_match") == "team-assignee-recommendation"
+    assert catalog_by_id()["team-assignee-recommendation"].capability_id == "team.assignee_recommendation"
+
+
 def test_real_e2e_sprint_semantic_variant_normalizes_to_sprint_health():
-    for intent in ("sprint_details", "sprint_health", "sprint-health"):
+    for intent in ("sprint_details", "sprint_health", "sprint-health", "sprint_readiness"):
         assert intent_to_skill_id(intent) == "sprint-health"
 
 
@@ -58,7 +64,7 @@ def test_task_lookup_slot_alias_is_normalized_without_parsing_natural_language()
 
 
 def test_explicit_task_key_is_preserved_for_lookup_and_team_matching():
-    for intent in ("task_details", "team_matching"):
+    for intent in ("task_details", "team_matching", "task_assignee_match"):
         frame = SemanticFrame(
             canonical_query="OLP-3134",
             intent_hint=intent,

@@ -96,7 +96,9 @@ def catalog_by_id() -> dict[str, SkillCatalogEntry]:
 _SEMANTIC_INTENT_ALIASES: dict[str, str] = {
     "task_details": "task-lookup",
     "task_by_id": "task-lookup",
+    "task_assignee_match": "team-assignee-recommendation",
     "sprint_details": "sprint-health",
+    "sprint_readiness": "sprint-health",
     "team_matching": "team-assignee-recommendation",
     "assignee_recommendation": "team-assignee-recommendation",
 }

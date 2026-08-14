@@ -1,7 +1,7 @@
 import pytest
 
 from po_agent.harness import HarnessRequest, ResponseStatus
-from po_agent.harness.dialogue_runtime import ClarificationNeed, SemanticFrame
+from po_agent.harness.dialogue_runtime import ClarificationNeed, SemanticFrame, DialogueHarnessRuntime
 from po_agent.harness.runtime_factory import build_runtime_bundle
 
 
@@ -129,3 +129,110 @@ async def test_empty_query_rejected_before_semantic_interpreter_call():
     r2 = await runtime.process(HarnessRequest(query="   ", session_id="empty2"))
     assert r2.status is ResponseStatus.FAILED
     assert "query_empty" in r2.warnings
+
+
+# Explicit task key extraction tests
+
+
+def test_enrich_explicit_task_key_extracted_from_query():
+    """A) Explicit task key extraction from query"""
+    frame = SemanticFrame(
+        canonical_query="покажи задачу OLP-3134",
+        intent_hint="task_by_id",
+        slots={},
+        llm_used=True,
+    )
+    enriched = DialogueHarnessRuntime._enrich_explicit_task_key(frame, "Покажи задачу OLP-3134")
+    assert enriched.slots.get("task_key") == "OLP-3134"
+
+
+def test_enrich_preserves_existing_task_key():
+    """C) LLM already returns task_key - must not overwrite"""
+    frame = SemanticFrame(
+        canonical_query="покажи задачу OLP-3134",
+        intent_hint="task_by_id",
+        slots={"task_key": "WMB-101"},
+        llm_used=True,
+    )
+    enriched = DialogueHarnessRuntime._enrich_explicit_task_key(frame, "Покажи задачу OLP-3134")
+    # Should preserve LLM-provided key, not replace with query extraction
+    assert enriched.slots.get("task_key") == "WMB-101"
+
+
+def test_enrich_zero_task_keys_no_extraction():
+    """D) No task key in query - must not invent one"""
+    frame = SemanticFrame(
+        canonical_query="покажи задачи по OLAP",
+        intent_hint="task_search",
+        slots={},
+        llm_used=True,
+    )
+    enriched = DialogueHarnessRuntime._enrich_explicit_task_key(frame, "Покажи задачи по OLAP")
+    assert enriched.slots.get("task_key") is None
+
+
+def test_enrich_multiple_task_keys_no_arbitrary_selection():
+    """E) Multiple distinct keys - no arbitrary selection (fail-closed)"""
+    frame = SemanticFrame(
+        canonical_query="сравни OLP-3134 и WMB-101",
+        intent_hint="task_comparison",
+        slots={},
+        llm_used=True,
+    )
+    enriched = DialogueHarnessRuntime._enrich_explicit_task_key(frame, "Сравни OLP-3134 и WMB-101")
+    # Should return frame unchanged when multiple keys found
+    assert enriched.slots.get("task_key") is None
+
+
+def test_enrich_team_matching_with_extracted_key():
+    """B) Team matching with extracted task_key"""
+    frame = SemanticFrame(
+        canonical_query="кому лучше назначить DMS-341?",
+        intent_hint="team_matching",
+        slots={},
+        llm_used=True,
+    )
+    enriched = DialogueHarnessRuntime._enrich_explicit_task_key(frame, "Кому лучше назначить DMS-341?")
+    assert enriched.slots.get("task_key") == "DMS-341"
+
+
+@pytest.mark.asyncio
+async def test_dialogue_executes_with_extracted_task_key():
+    """Full integration: explicit task key extraction enables task lookup"""
+    frame = SemanticFrame(
+        canonical_query="покажи задачу OLP-3134",
+        intent_hint="task_by_id",
+        slots={},
+        llm_used=True,
+    )
+
+    # The frame will have task_key enriched before execution
+    enriched = DialogueHarnessRuntime._enrich_explicit_task_key(frame, "Покажи задачу OLP-3134")
+    assert enriched.slots.get("task_key") == "OLP-3134"
+
+    bundle = build_runtime_bundle("fake", semantic_interpreter=ScriptedInterpreter(enriched))
+    response = await bundle.runtime.process(HarnessRequest(query="Покажи задачу OLP-3134", session_id="extract"))
+    assert response.status in {ResponseStatus.COMPLETED, ResponseStatus.PARTIAL}
+    # Execution should proceed because task_key is in slots
+    if response.data:
+        assert "task_key" in response.data
+
+
+@pytest.mark.asyncio
+async def test_dialogue_with_multiple_keys_fails_closed():
+    """F) Unknown semantic intent remains fail-closed even with extraction"""
+    frame = SemanticFrame(
+        canonical_query="сравни OLP-3134 и WMB-101",
+        intent_hint="unknown_intent",
+        slots={},
+        llm_used=True,
+    )
+
+    # Multiple keys should not be enriched
+    enriched = DialogueHarnessRuntime._enrich_explicit_task_key(frame, "Сравни OLP-3134 и WMB-101")
+    assert enriched.slots.get("task_key") is None
+
+    bundle = build_runtime_bundle("fake", semantic_interpreter=ScriptedInterpreter(enriched))
+    response = await bundle.runtime.process(HarnessRequest(query="Сравни OLP-3134 и WMB-101", session_id="multi-key"))
+    # Should fail closed due to unknown intent and missing required args
+    assert response.status is ResponseStatus.FAILED or response.status is ResponseStatus.NEEDS_CLARIFICATION
