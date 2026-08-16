@@ -8,11 +8,12 @@ from typing import Literal
 from po_agent.adapters import FakeAS21Adapter, TaskApiAS21Adapter
 from po_agent.adapters.as21 import AS21Adapter
 
-from .dialogue_runtime import DialogueHarnessRuntime, SemanticInterpreter
+from .dialogue_runtime import DialogueHarnessRuntime, LLMJsonSemanticInterpreter, SemanticInterpreter
 from .entity_grounding import GroundedEntityResolver, TeamDirectory
 from .historical_wiring import enable_historical_skills
 from .learned_semantics import LearnedSemanticsStore
 from .observed_runtime import ObservedHarnessRuntime
+from .semantic_authorization import BlindConsensusSemanticInterpreter
 from .source_aware_runtime import SourceAwareHarnessRuntime
 from .source_contracts import (
     ReleaseTimelineSource,
@@ -82,15 +83,17 @@ def build_runtime_bundle(
     if sprint_snapshots is not None or release_timeline is not None:
         enable_historical_skills(executable, sprint_snapshots=sprint_snapshots, release_timeline=release_timeline)
 
-    # task.search.composite is already registered by HarnessRuntime.
-    # Do not register again to avoid duplicate registration error.
-
     semantics = LearnedSemanticsStore(learned_semantics_path) if learned_semantics_path else None
     directory = TeamDirectory.from_yaml(team_path)
     grounder = GroundedEntityResolver(adapter, team=directory, semantics=semantics)
+
+    selected_interpreter = semantic_interpreter
+    if isinstance(semantic_interpreter, LLMJsonSemanticInterpreter):
+        selected_interpreter = BlindConsensusSemanticInterpreter(semantic_interpreter)
+
     dialogue = DialogueHarnessRuntime(
         executable,
-        interpreter=semantic_interpreter,
+        interpreter=selected_interpreter,
         semantics=semantics,
         grounder=grounder,
     )
