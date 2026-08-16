@@ -139,9 +139,18 @@ Return JSON only: {\"intent_hint\": <exactly one supplied canonical intent>, \"c
 Candidate ranking is NOT authorization. When two candidates are supplied, compare only those two and return the one whose operation/outcome is semantically closer to the user request. Never return null; authorization happens later.
 """
 
-    SEMANTIC_ENTAILMENT_SYSTEM = """You are the semantic support gate for a PO Harness.
-Return JSON only: {\"supported\": <true or false>, \"confidence\": <0..1>}.
-Decide whether the single selected catalog capability can actually perform the OPERATION or produce the OUTCOME requested by the user. Ignore whether source entities or required slots exist or are grounded. Return true only when the capability directly satisfies the requested operation/outcome. Return false for unrelated, different, or unsupported operations. Never choose another capability and never infer source facts.
+    SEMANTIC_ENTAILMENT_SYSTEM = """You are the fail-closed semantic authorization gate for a PO Harness.
+You receive exactly one user query and exactly one selected catalog capability.
+Evaluate four independent conditions:
+1. business_object_match: the business object requested by the user is inside the selected capability's domain/scope.
+2. operation_match: the operation the user asks to perform is the operation implemented by the capability.
+3. outcome_match: the result/outcome the user wants can be directly produced by the capability.
+4. supported: true only if ALL three matches above are true.
+
+Be strict about business scope. A search capability searches only the catalog business object it is defined for; generic words such as "find", "show", or "search" do not authorize unrelated information. A task capability cannot answer weather, arithmetic, general chit-chat, code-generation, office-duty, or other non-task requests merely because text could theoretically be searched. Likewise, a sprint, release, team, portfolio, or PO capability is limited to its declared catalog scope.
+
+Do NOT evaluate whether IDs, people, sprints, releases, or other source entities exist; grounding handles that later. Missing source slots must not make an otherwise matching operation unsupported.
+Do NOT choose another capability. Do NOT broaden the selected capability by analogy. If any of business object, operation, or requested outcome is outside the selected capability contract, return the corresponding match as false and supported=false. When uncertain, fail closed.
 """
 
     CANDIDATE_CONTRACT_REPAIR = """Your previous candidate response violated the ranking contract. You MUST return exactly one value from the supplied non-empty candidate set. Candidate ranking is not authorization, so uncertainty or an unsupported request is not a reason to return null. Return JSON only."""
@@ -190,6 +199,35 @@ Decide whether the single selected catalog capability can actually perform the O
                         "confidence": {"type": "number", "minimum": 0.0, "maximum": 1.0},
                     },
                     "required": [key, "confidence"],
+                    "additionalProperties": False,
+                },
+            },
+        }
+
+    @staticmethod
+    def _entailment_response_format() -> dict[str, Any]:
+        """Require an explicit scope/operation/outcome authorization decision."""
+        return {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "po_harness_semantic_entailment",
+                "strict": True,
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "business_object_match": {"type": "boolean"},
+                        "operation_match": {"type": "boolean"},
+                        "outcome_match": {"type": "boolean"},
+                        "supported": {"type": "boolean"},
+                        "confidence": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                    },
+                    "required": [
+                        "business_object_match",
+                        "operation_match",
+                        "outcome_match",
+                        "supported",
+                        "confidence",
+                    ],
                     "additionalProperties": False,
                 },
             },
@@ -320,16 +358,40 @@ Decide whether the single selected catalog capability can actually perform the O
         selected = next((item for item in capabilities if str(item.get("intent")) == intent), None)
         if selected is None:
             return False
-        payload = json.dumps({"query": query, "selected_domain": selected.get("domain"), "selected_capability": selected}, ensure_ascii=False)
+        payload = json.dumps(
+            {
+                "query": query,
+                "selected_capability_contract": {
+                    "intent": selected.get("intent"),
+                    "domain": selected.get("domain"),
+                    "capability_id": selected.get("capability_id"),
+                    "description": selected.get("description"),
+                },
+            },
+            ensure_ascii=False,
+        )
         try:
-            response = await self.client.complete([
-                LLMMessage(role="system", content=self.SEMANTIC_ENTAILMENT_SYSTEM),
-                LLMMessage(role="user", content=payload),
-            ], model=self.model, temperature=0.0, max_tokens=100)
+            response = await self.client.complete(
+                [
+                    LLMMessage(role="system", content=self.SEMANTIC_ENTAILMENT_SYSTEM),
+                    LLMMessage(role="user", content=payload),
+                ],
+                model=self.model,
+                temperature=0.0,
+                max_tokens=160,
+                response_format=self._entailment_response_format(),
+            )
             if not response.choices:
                 return False
             data = self._parse_json_content(response.choices[0].message.content)
-            return bool(data is not None and data.get("supported") is True)
+            if data is None:
+                return False
+            return bool(
+                data.get("business_object_match") is True
+                and data.get("operation_match") is True
+                and data.get("outcome_match") is True
+                and data.get("supported") is True
+            )
         except Exception:
             return False
 
