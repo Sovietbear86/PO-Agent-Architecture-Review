@@ -233,24 +233,25 @@ Decide whether the single selected catalog capability can actually perform the O
         details: dict[str, dict[str, Any]],
         max_tokens: int,
     ) -> str | None:
-        """Rank a closed catalog candidate set through pairwise semantic comparisons.
+        """Aggregate pairwise semantic evidence without letting one null kill recovery.
 
-        Each model call sees exactly two candidates. Winning candidates advance
-        through a deterministic bracket. The model still makes every semantic
-        comparison; the Harness only constrains the legal outputs. Any provider
-        or contract failure aborts the whole tournament fail-closed.
+        Every unique pair is compared once. A valid winner earns one point;
+        unresolved/provider-failed pairs contribute no score and do not abort the
+        remaining comparisons. The result is accepted only when there is a unique
+        top scorer with at least one valid win. A tie or zero evidence fails closed.
+        This makes recovery order-independent while leaving authorization to the
+        mandatory entailment gate that runs after candidate selection.
         """
-        active = list(dict.fromkeys(candidate for candidate in candidates if candidate))
-        if not active:
+        unique = list(dict.fromkeys(candidate for candidate in candidates if candidate))
+        if not unique:
             return None
-        while len(active) > 1:
-            next_round: list[str] = []
-            for index in range(0, len(active), 2):
-                first = active[index]
-                if index + 1 >= len(active):
-                    next_round.append(first)
-                    continue
-                second = active[index + 1]
+        if len(unique) == 1:
+            return unique[0]
+
+        scores = {candidate: 0 for candidate in unique}
+        valid_comparisons = 0
+        for left_index, first in enumerate(unique[:-1]):
+            for second in unique[left_index + 1:]:
                 pair = [first, second]
                 payload = json.dumps(
                     {
@@ -262,10 +263,17 @@ Decide whether the single selected catalog capability can actually perform the O
                 )
                 winner = await self._required_choice(system, payload, key, pair, max_tokens)
                 if winner is None:
-                    return None
-                next_round.append(winner)
-            active = next_round
-        return active[0]
+                    continue
+                scores[winner] += 1
+                valid_comparisons += 1
+
+        if valid_comparisons == 0:
+            return None
+        best_score = max(scores.values())
+        if best_score <= 0:
+            return None
+        leaders = [candidate for candidate, score in scores.items() if score == best_score]
+        return leaders[0] if len(leaders) == 1 else None
 
     async def _select_domain_candidate(self, query: str, capabilities: list[dict[str, Any]]) -> str | None:
         signatures = self._domain_signatures(capabilities)
