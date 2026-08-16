@@ -131,12 +131,12 @@ Rules:
 
     DOMAIN_CANDIDATE_SYSTEM = """You are a semantic candidate ranker for PO Harness domains.
 Return JSON only: {\"domain\": <exactly one supplied domain>, \"confidence\": <0..1>}.
-Candidate ranking is NOT authorization. ALWAYS return exactly one supplied domain when candidates are supplied. Rank the best semantic candidate by requested business object and outcome. Never return null, even for unsupported requests; authorization happens later.
+Candidate ranking is NOT authorization. When two candidates are supplied, compare only those two and return the one whose business object and requested outcome are semantically closer to the user request. Never return null; authorization happens later.
 """
 
     CAPABILITY_CANDIDATE_SYSTEM = """You are a semantic candidate ranker for capabilities inside one selected PO Harness domain.
 Return JSON only: {\"intent_hint\": <exactly one supplied canonical intent>, \"confidence\": <0..1>}.
-Candidate ranking is NOT authorization. ALWAYS return exactly one supplied canonical intent when candidates are supplied. Rank the best semantic candidate by requested operation/outcome. Never return null, even for unsupported requests; authorization happens later.
+Candidate ranking is NOT authorization. When two candidates are supplied, compare only those two and return the one whose operation/outcome is semantically closer to the user request. Never return null; authorization happens later.
 """
 
     SEMANTIC_ENTAILMENT_SYSTEM = """You are the semantic support gate for a PO Harness.
@@ -223,21 +223,75 @@ Decide whether the single selected catalog capability can actually perform the O
                 continue
         return None
 
+    async def _pairwise_tournament(
+        self,
+        *,
+        query: str,
+        system: str,
+        key: str,
+        candidates: list[str],
+        details: dict[str, dict[str, Any]],
+        max_tokens: int,
+    ) -> str | None:
+        """Rank a closed catalog candidate set through pairwise semantic comparisons.
+
+        Each model call sees exactly two candidates. Winning candidates advance
+        through a deterministic bracket. The model still makes every semantic
+        comparison; the Harness only constrains the legal outputs. Any provider
+        or contract failure aborts the whole tournament fail-closed.
+        """
+        active = list(dict.fromkeys(candidate for candidate in candidates if candidate))
+        if not active:
+            return None
+        while len(active) > 1:
+            next_round: list[str] = []
+            for index in range(0, len(active), 2):
+                first = active[index]
+                if index + 1 >= len(active):
+                    next_round.append(first)
+                    continue
+                second = active[index + 1]
+                pair = [first, second]
+                payload = json.dumps(
+                    {
+                        "query": query,
+                        "candidate_pair": pair,
+                        "candidate_details": [details.get(item, {"value": item}) for item in pair],
+                    },
+                    ensure_ascii=False,
+                )
+                winner = await self._required_choice(system, payload, key, pair, max_tokens)
+                if winner is None:
+                    return None
+                next_round.append(winner)
+            active = next_round
+        return active[0]
+
     async def _select_domain_candidate(self, query: str, capabilities: list[dict[str, Any]]) -> str | None:
         signatures = self._domain_signatures(capabilities)
         domains = [str(item["domain"]) for item in signatures]
-        if not domains:
-            return None
-        payload = json.dumps({"query": query, "available_domain_signatures": signatures}, ensure_ascii=False)
-        return await self._required_choice(self.DOMAIN_CANDIDATE_SYSTEM, payload, "domain", domains, 120)
+        details = {str(item["domain"]): item for item in signatures}
+        return await self._pairwise_tournament(
+            query=query,
+            system=self.DOMAIN_CANDIDATE_SYSTEM,
+            key="domain",
+            candidates=domains,
+            details=details,
+            max_tokens=120,
+        )
 
     async def _select_capability_candidate(self, query: str, domain: str, allowed: list[str], capabilities: list[dict[str, Any]]) -> str | None:
         domain_capabilities = [item for item in capabilities if str(item.get("domain")) == domain]
         domain_intents = [str(item.get("intent")) for item in domain_capabilities if item.get("intent") in allowed]
-        if not domain_capabilities or not domain_intents:
-            return None
-        payload = json.dumps({"query": query, "selected_domain": domain, "allowed_intents": domain_intents, "available_capabilities": domain_capabilities}, ensure_ascii=False)
-        return await self._required_choice(self.CAPABILITY_CANDIDATE_SYSTEM, payload, "intent_hint", domain_intents, 140)
+        details = {str(item.get("intent")): item for item in domain_capabilities if item.get("intent") in domain_intents}
+        return await self._pairwise_tournament(
+            query=query,
+            system=self.CAPABILITY_CANDIDATE_SYSTEM,
+            key="intent_hint",
+            candidates=domain_intents,
+            details=details,
+            max_tokens=140,
+        )
 
     @staticmethod
     def _canonical_capability_for_intent(intent: str, allowed: list[str], capabilities: list[dict[str, Any]]) -> tuple[str, dict[str, Any]] | None:
