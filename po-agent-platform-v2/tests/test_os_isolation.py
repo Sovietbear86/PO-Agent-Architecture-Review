@@ -20,6 +20,7 @@ from po_agent.harness.sandbox_evidence import ValidationCommand
 
 
 PINNED_IMAGE = "python:3.12-slim@sha256:" + "a" * 64
+DOCKER = "/usr/bin/docker"
 
 
 def _command() -> ValidationCommand:
@@ -30,9 +31,36 @@ def _command() -> ValidationCommand:
     )
 
 
-def test_docker_policy_requires_digest_pinned_image() -> None:
-    with pytest.raises(ValueError, match="pinned"):
-        DockerIsolationPolicy(image="python:3.12-slim")
+def _sandbox(tmp_path: Path) -> tuple[Path, DockerIsolationPolicy]:
+    root = tmp_path / "allowed"
+    root.mkdir()
+    sandbox = root / "sandbox"
+    sandbox.mkdir()
+    policy = DockerIsolationPolicy(
+        image=PINNED_IMAGE,
+        docker_executable=DOCKER,
+        allowed_sandbox_roots=(str(root),),
+    )
+    return sandbox, policy
+
+
+def test_docker_policy_requires_exact_digest_pinned_image() -> None:
+    bad = [
+        "python:3.12-slim",
+        "python@sha256:",
+        "python@sha256:abc",
+        "python@sha256:" + "g" * 64,
+        "python@sha256:" + "a" * 63,
+        "python@sha256:" + "a" * 65,
+    ]
+    for image in bad:
+        with pytest.raises(ValueError, match="64 hex"):
+            DockerIsolationPolicy(image=image)
+
+
+def test_docker_policy_requires_absolute_cli_path() -> None:
+    with pytest.raises(ValueError, match="absolute"):
+        DockerIsolationPolicy(image=PINNED_IMAGE, docker_executable="docker")
 
 
 def test_workspace_backend_is_explicitly_not_hard_os() -> None:
@@ -47,9 +75,24 @@ def test_executor_fails_closed_when_hard_os_required(tmp_path: Path) -> None:
         )
 
 
-def test_docker_backend_declares_hard_os() -> None:
-    backend = DockerIsolationBackend(DockerIsolationPolicy(image=PINNED_IMAGE), launcher=lambda *a, **k: None)
+def test_docker_backend_declares_hard_os(tmp_path: Path) -> None:
+    _, policy = _sandbox(tmp_path)
+    backend = DockerIsolationBackend(policy, launcher=lambda *a, **k: None)
     assert backend.isolation_level is IsolationLevel.HARD_OS
+
+
+def test_docker_rejects_unauthorized_sensitive_root(tmp_path: Path) -> None:
+    _, policy = _sandbox(tmp_path)
+    backend = DockerIsolationBackend(policy, launcher=lambda *a, **k: None)
+    with pytest.raises(ValueError, match="outside authorized"):
+        backend.execute(_command(), Path("/"), {})
+
+
+def test_docker_rejects_authorized_root_itself(tmp_path: Path) -> None:
+    sandbox, policy = _sandbox(tmp_path)
+    backend = DockerIsolationBackend(policy, launcher=lambda *a, **k: None)
+    with pytest.raises(ValueError, match="must be a child"):
+        backend.execute(_command(), sandbox.parent, {})
 
 
 def test_docker_invocation_has_required_security_controls(tmp_path: Path) -> None:
@@ -60,11 +103,9 @@ def test_docker_invocation_has_required_security_controls(tmp_path: Path) -> Non
         captured["kwargs"] = kwargs
         return subprocess.CompletedProcess(argv, 0, stdout="ok", stderr="")
 
-    backend = DockerIsolationBackend(
-        DockerIsolationPolicy(image=PINNED_IMAGE),
-        launcher=launcher,
-    )
-    result = backend.execute(_command(), tmp_path, {"LANG": "C"})
+    sandbox, policy = _sandbox(tmp_path)
+    backend = DockerIsolationBackend(policy, launcher=launcher)
+    result = backend.execute(_command(), sandbox, {"LANG": "C", "HOME": "/secret", "PYTHONPATH": "/host"})
 
     argv = captured["argv"]
     assert isinstance(argv, list)
@@ -72,6 +113,9 @@ def test_docker_invocation_has_required_security_controls(tmp_path: Path) -> Non
     assert "--read-only" in argv
     assert "--cap-drop=ALL" in argv
     assert "--security-opt=no-new-privileges:true" in argv
+    assert "--security-opt=seccomp=builtin" in argv
+    assert "--user" in argv
+    assert "65532:65532" in argv
     assert any(str(item).startswith("--pids-limit=") for item in argv)
     assert any(str(item).startswith("--memory=") for item in argv)
     assert any(str(item).startswith("--cpus=") for item in argv)
@@ -79,7 +123,10 @@ def test_docker_invocation_has_required_security_controls(tmp_path: Path) -> Non
     assert "--workdir" in argv
     assert "/workspace" in argv
     assert "--mount" in argv
-    assert any(str(item).startswith(f"type=bind,src={tmp_path.resolve()},dst=/workspace,rw") for item in argv)
+    assert any(str(item).startswith(f"type=bind,src={sandbox.resolve()},dst=/workspace,rw") for item in argv)
+    assert "HOME=/secret" not in argv
+    assert "PYTHONPATH=/host" not in argv
+    assert "LANG=C" in argv
     assert PINNED_IMAGE in argv
     assert argv[-4:] == ["python", "-m", "pytest", "tests/test_sample.py"]
     assert captured["kwargs"]["shell"] is False
@@ -94,10 +141,11 @@ def test_container_command_never_uses_shell_string(tmp_path: Path) -> None:
         captured["shell"] = kwargs["shell"]
         return subprocess.CompletedProcess(argv, 0, stdout="", stderr="")
 
-    backend = DockerIsolationBackend(DockerIsolationPolicy(image=PINNED_IMAGE), launcher=launcher)
+    sandbox, policy = _sandbox(tmp_path)
+    backend = DockerIsolationBackend(policy, launcher=launcher)
     backend.execute(
         ValidationCommand(name="x", argv=("python", "-c", "print('x')"), timeout_seconds=5),
-        tmp_path,
+        sandbox,
         {},
     )
     assert isinstance(captured["argv"], list)
@@ -108,8 +156,9 @@ def test_timeout_is_fail_closed(tmp_path: Path) -> None:
     def launcher(argv, **kwargs):
         raise subprocess.TimeoutExpired(argv, kwargs["timeout"], output="partial", stderr="slow")
 
-    backend = DockerIsolationBackend(DockerIsolationPolicy(image=PINNED_IMAGE), launcher=launcher)
-    result = backend.execute(_command(), tmp_path, {})
+    sandbox, policy = _sandbox(tmp_path)
+    backend = DockerIsolationBackend(policy, launcher=launcher)
+    result = backend.execute(_command(), sandbox, {})
     assert result.timed_out is True
     assert result.returncode == 124
     assert result.stdout == "partial"
@@ -120,13 +169,14 @@ def test_production_executor_accepts_hard_os_backend(tmp_path: Path) -> None:
     def launcher(argv, **kwargs):
         return subprocess.CompletedProcess(argv, 0, stdout="ok", stderr="")
 
-    backend = DockerIsolationBackend(DockerIsolationPolicy(image=PINNED_IMAGE), launcher=launcher)
+    sandbox, policy = _sandbox(tmp_path)
+    backend = DockerIsolationBackend(policy, launcher=launcher)
     executor = HardenedSandboxExecutor(
         HardenedExecutorPolicy(require_os_isolation=True),
         signing_key=b"x" * 32,
         isolation_backend=backend,
     )
-    observation = executor(_command(), tmp_path)
+    observation = executor(_command(), sandbox)
     assert executor.isolation_level is IsolationLevel.HARD_OS
     assert observation.passed
     assert observation.trusted
