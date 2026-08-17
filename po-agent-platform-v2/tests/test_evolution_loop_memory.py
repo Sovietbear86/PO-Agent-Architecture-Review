@@ -142,9 +142,6 @@ def test_known_bad_fingerprint_is_stopped_before_second_sandbox_execution() -> N
     first.run(seeds=[_seed("e1"), _seed("e2")], source_root="/unused", baseline_sha=BASELINE_SHA)
     assert first_sandbox.calls == 1
 
-    # Hermetic lifecycle hand-off: a persistence adapter will replace this in
-    # production. The next trusted loop re-binds the same read history.
-    setattr(memory, "_EvolutionMemory__write_authority", None)
     second_sandbox = SandboxFake(PatchVerdict.APPROVAL_REQUIRED)
     second = _loop(memory=memory, sandbox=second_sandbox, attempts=1)
     report = second.run(seeds=[_seed("e3"), _seed("e4")], source_root="/unused", baseline_sha=BASELINE_SHA)
@@ -180,6 +177,8 @@ def test_external_write_without_wrapper_authority_remains_blocked() -> None:
     sandbox = SandboxFake(PatchVerdict.APPROVAL_REQUIRED)
     loop = _loop(memory=memory, sandbox=sandbox, attempts=1)
     assert not hasattr(loop, "_MemoryIntegratedAutonomousEvolutionLoop__write_authority")
+    assert not hasattr(memory, "_EvolutionMemory__write_authority")
+    assert not hasattr(memory, "_entries")
     entry = next(iter(memory.snapshot()), None)
     assert entry is None
     from po_agent.harness.evolution_memory import EvolutionMemoryEntry
@@ -196,6 +195,26 @@ def test_external_write_without_wrapper_authority_remains_blocked() -> None:
         pass
     else:
         raise AssertionError("untrusted caller unexpectedly wrote EvolutionMemory")
+
+
+def test_memory_instance_exposes_no_mutable_internal_collection_or_authority() -> None:
+    memory = EvolutionMemory()
+    loop = _loop(memory=memory, sandbox=SandboxFake(PatchVerdict.APPROVAL_REQUIRED), attempts=1)
+    assert not hasattr(memory, "__dict__")
+    assert not hasattr(memory, "_entries")
+    assert not hasattr(memory, "_ids")
+    assert not hasattr(memory, "_EvolutionMemory__write_authority")
+    assert not hasattr(loop, "evolution_memory")
+    assert isinstance(memory.snapshot(), tuple)
+
+
+def test_coordinator_contains_no_writer_closure_or_authority() -> None:
+    memory = EvolutionMemory()
+    loop = _loop(memory=memory, sandbox=SandboxFake(PatchVerdict.APPROVAL_REQUIRED), attempts=1)
+    coordinator = loop._coordinator
+    values = vars(coordinator).values()
+    assert all(type(value).__name__ != "EvolutionMemoryWriteAuthority" for value in values)
+    assert not hasattr(coordinator, "_MemoryCoordinator__write_entry")
 
 
 def test_legacy_loop_is_not_in_public_harness_api() -> None:
