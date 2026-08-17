@@ -2,8 +2,16 @@
 
 The memory helps future loops avoid repeatedly proposing known-bad changes. It
 stores fingerprints and outcomes only; it cannot approve, execute, promote, or
-mutate production state. Writes are capability-gated and the trusted writer is
-bound internally so ordinary runtime callers never receive the capability.
+mutate production state.
+
+Trust model
+-----------
+``EvolutionMemory`` is a read-oriented facade. Mutable state and write
+capabilities live in module-private registries and are deliberately absent from
+the object graph handed to orchestration/runtime callers. This is a practical
+Python trust boundary, not a claim that arbitrary code execution inside the
+trusted interpreter can be made safe: code able to inspect/modify module globals
+is outside the threat model and must already be isolated by the HARD_OS sandbox.
 """
 from __future__ import annotations
 
@@ -11,10 +19,11 @@ import hashlib
 import json
 import sqlite3
 import uuid
+import weakref
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Callable, Iterable
+from typing import Iterable
 
 
 class EvolutionMemoryOutcome(str, Enum):
@@ -99,12 +108,11 @@ class EvolutionMemoryPolicy:
 
 
 class EvolutionMemoryWriteAuthority:
-    """Opaque, process-local capability owned by the trusted lifecycle boundary.
+    """Opaque process-local capability owned by a trusted lifecycle boundary.
 
-    This type is intentionally not part of the public harness API. An authority
-    is identity-checked, cannot be copied or pickled, and must never be exposed
-    to untrusted runtime code. Production orchestration should obtain only a
-    bound writer closure via ``_bind_trusted_memory_writer``.
+    The capability is intentionally non-copyable and non-serializable. Production
+    orchestration does not place it on ``EvolutionMemory``, loop objects, bound
+    methods, closures, or callbacks reachable from untrusted runtime references.
     """
 
     __slots__ = ("_nonce",)
@@ -128,14 +136,57 @@ class EvolutionMemoryWriteAuthority:
         raise TypeError("EvolutionMemoryWriteAuthority cannot be copied")
 
 
+@dataclass(frozen=True)
+class _MemoryState:
+    entries: tuple[EvolutionMemoryEntry, ...] = ()
+    ids: frozenset[str] = frozenset()
+
+
+# Security-sensitive mutable state is intentionally outside EvolutionMemory's
+# instance graph. Weak registries also avoid extending object lifetime.
+_MEMORY_STATE = weakref.WeakKeyDictionary()
+_MEMORY_AUTHORITIES = weakref.WeakKeyDictionary()
+_TRUSTED_BOUND_MEMORIES = weakref.WeakSet()
+_SQLITE_AUTHORITIES = weakref.WeakKeyDictionary()
+
+
+def _state_for(memory: "EvolutionMemory") -> _MemoryState:
+    state = _MEMORY_STATE.get(memory)
+    if state is None:
+        state = _MemoryState()
+        _MEMORY_STATE[memory] = state
+    return state
+
+
+def _replace_state(memory: "EvolutionMemory", state: _MemoryState) -> None:
+    _MEMORY_STATE[memory] = state
+
+
+def _append_verified(memory: "EvolutionMemory", entry: EvolutionMemoryEntry) -> None:
+    """Append to already-authorized memory without exposing a reusable capability."""
+    state = _state_for(memory)
+    if entry.memory_id in state.ids:
+        raise ValueError("memory entry already exists")
+    _replace_state(
+        memory,
+        _MemoryState(
+            entries=(*state.entries, entry),
+            ids=state.ids | frozenset((entry.memory_id,)),
+        ),
+    )
+
+
 class EvolutionMemory:
     """Deterministic append-only memory and retry guard.
 
-    Production code should pass an unbound memory instance to the trusted
-    orchestration layer. The orchestration layer binds the single write
-    capability internally. Consumers that receive the memory instance can query
-    history but cannot append trusted entries.
+    The facade itself contains only policy. History is returned as immutable
+    tuples and no mutable collection or write authority is reachable from this
+    object. ``write_authority`` remains supported for explicit trusted adapters
+    and tests, but the authority is registered externally rather than stored on
+    the instance.
     """
+
+    __slots__ = ("policy", "__weakref__")
 
     _FAILURE_OUTCOMES = {
         EvolutionMemoryOutcome.REJECTED,
@@ -150,9 +201,9 @@ class EvolutionMemory:
         write_authority: EvolutionMemoryWriteAuthority | None = None,
     ) -> None:
         self.policy = policy or EvolutionMemoryPolicy()
-        self.__write_authority = write_authority
-        self._entries: list[EvolutionMemoryEntry] = []
-        self._ids: set[str] = set()
+        _MEMORY_STATE[self] = _MemoryState()
+        if write_authority is not None:
+            _MEMORY_AUTHORITIES[self] = write_authority
 
     def append(
         self,
@@ -160,18 +211,16 @@ class EvolutionMemory:
         *,
         authority: EvolutionMemoryWriteAuthority | None = None,
     ) -> None:
-        if self.__write_authority is None or authority is not self.__write_authority:
+        expected = _MEMORY_AUTHORITIES.get(self)
+        if expected is None or authority is not expected:
             raise PermissionError("trusted evolution memory write authority required")
-        if entry.memory_id in self._ids:
-            raise ValueError("memory entry already exists")
-        self._entries.append(entry)
-        self._ids.add(entry.memory_id)
+        _append_verified(self, entry)
 
     def entries_for_failure(self, failure_key: str) -> tuple[EvolutionMemoryEntry, ...]:
-        return tuple(item for item in self._entries if item.failure_key == failure_key)
+        return tuple(item for item in _state_for(self).entries if item.failure_key == failure_key)
 
     def entries_for_fingerprint(self, fingerprint: str) -> tuple[EvolutionMemoryEntry, ...]:
-        return tuple(item for item in self._entries if item.fingerprint == fingerprint)
+        return tuple(item for item in _state_for(self).entries if item.fingerprint == fingerprint)
 
     def should_attempt(self, fingerprint: str) -> tuple[bool, tuple[str, ...]]:
         prior = self.entries_for_fingerprint(fingerprint)
@@ -185,14 +234,20 @@ class EvolutionMemory:
         return True, ()
 
     def promoted_fingerprints(self) -> frozenset[str]:
-        return frozenset(item.fingerprint for item in self._entries if item.outcome is EvolutionMemoryOutcome.PROMOTED)
+        return frozenset(
+            item.fingerprint
+            for item in _state_for(self).entries
+            if item.outcome is EvolutionMemoryOutcome.PROMOTED
+        )
 
     def snapshot(self) -> tuple[EvolutionMemoryEntry, ...]:
-        return tuple(self._entries)
+        return tuple(_state_for(self).entries)
 
 
 class SQLiteEvolutionMemoryStore:
-    """Durable append-only memory store with capability-gated writes."""
+    """Durable append-only memory store with externally registered authority."""
+
+    __slots__ = ("_conn", "__weakref__")
 
     def __init__(
         self,
@@ -200,7 +255,8 @@ class SQLiteEvolutionMemoryStore:
         *,
         write_authority: EvolutionMemoryWriteAuthority | None = None,
     ) -> None:
-        self.__write_authority = write_authority
+        if write_authority is not None:
+            _SQLITE_AUTHORITIES[self] = write_authority
         self._conn = sqlite3.connect(db_path, isolation_level=None)
         self._conn.execute(
             "CREATE TABLE IF NOT EXISTS harness_evolution_memory (memory_id TEXT PRIMARY KEY, created_at TEXT NOT NULL, failure_key TEXT NOT NULL, fingerprint TEXT NOT NULL, outcome TEXT NOT NULL, payload_json TEXT NOT NULL)"
@@ -214,7 +270,8 @@ class SQLiteEvolutionMemoryStore:
         *,
         authority: EvolutionMemoryWriteAuthority | None = None,
     ) -> None:
-        if self.__write_authority is None or authority is not self.__write_authority:
+        expected = _SQLITE_AUTHORITIES.get(self)
+        if expected is None or authority is not expected:
             raise PermissionError("trusted evolution memory write authority required")
         payload = json.dumps(
             asdict(entry),
@@ -261,19 +318,31 @@ class SQLiteEvolutionMemoryStore:
         return tuple(result)
 
 
-def _bind_trusted_memory_writer(memory: EvolutionMemory) -> Callable[[EvolutionMemoryEntry], None]:
-    """Bind the only production write capability and return a write-only closure.
+def _bind_trusted_memory(memory: EvolutionMemory) -> None:
+    """Bind production memory once without returning or exposing an authority.
 
-    The raw capability object is intentionally kept in this closure rather than
-    on the public loop/coordinator object graph. A memory instance may be bound
-    exactly once; pre-bound instances are rejected by production orchestration.
+    Rebinding a memory already owned by the production trust boundary is
+    idempotent, which allows a later loop instance to reuse persisted/read
+    history. A memory explicitly pre-bound by an external caller is rejected.
     """
-    if getattr(memory, "_EvolutionMemory__write_authority", None) is not None:
+    if memory in _TRUSTED_BOUND_MEMORIES:
+        return
+    if _MEMORY_AUTHORITIES.get(memory) is not None:
         raise ValueError("evolution_memory must not be pre-bound to an external write authority")
-    authority = EvolutionMemoryWriteAuthority()
-    setattr(memory, "_EvolutionMemory__write_authority", authority)
+    _MEMORY_AUTHORITIES[memory] = EvolutionMemoryWriteAuthority()
+    _TRUSTED_BOUND_MEMORIES.add(memory)
 
-    def _write(entry: EvolutionMemoryEntry) -> None:
-        memory.append(entry, authority=authority)
 
-    return _write
+def _append_trusted_entry(memory: EvolutionMemory, entry: EvolutionMemoryEntry) -> None:
+    """Internal production append path.
+
+    This function intentionally carries no authority argument and captures no
+    capability. It is an implementation primitive for the trusted orchestrator;
+    importing/calling module-private helpers from arbitrary code running inside
+    the trusted interpreter is outside the threat model.
+    """
+    if memory not in _TRUSTED_BOUND_MEMORIES:
+        raise PermissionError("evolution memory is not bound to trusted orchestration")
+    if _MEMORY_AUTHORITIES.get(memory) is None:
+        raise PermissionError("trusted evolution memory binding is unavailable")
+    _append_verified(memory, entry)
