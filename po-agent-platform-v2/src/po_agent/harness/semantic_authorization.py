@@ -31,7 +31,7 @@ Candidate ranking is not source grounding. Return exactly one supplied candidate
     CAPABILITY_SYSTEM = """You are an independent blind semantic capability ranker inside one PO Harness domain.
 You do NOT know which capability another model selected. Compare only the TWO supplied candidates against the original user request.
 Return the candidate whose declared operation/outcome is semantically closer to what the user asks for.
-The special candidate __unsupported__ means neither compared catalog operation nor the selected domain directly performs the requested outcome.
+The special candidate __unsupported__ means the selected catalog operation/domain does not directly perform the requested outcome.
 Missing or ambiguous source entities do not make an otherwise supported operation unsupported; grounding/clarification happens later.
 Do not broaden capabilities by analogy. Return exactly one supplied candidate.
 """
@@ -90,7 +90,29 @@ Do not broaden capabilities by analogy. Return exactly one supplied candidate.
         except Exception:
             return None
 
-    async def _pairwise_rank(
+    async def _pair_winner(
+        self,
+        *,
+        query: str,
+        system: str,
+        key: str,
+        first: str,
+        second: str,
+        details: dict[str, dict[str, Any]],
+    ) -> str | None:
+        pair = [first, second]
+        return await self._choice(
+            system=system,
+            payload={
+                "query": query,
+                "candidate_pair": pair,
+                "candidate_details": [details.get(item, {"value": item}) for item in pair],
+            },
+            key=key,
+            allowed=pair,
+        )
+
+    async def _bounded_rank(
         self,
         *,
         query: str,
@@ -99,47 +121,58 @@ Do not broaden capabilities by analogy. Return exactly one supplied candidate.
         candidates: list[str],
         details: dict[str, dict[str, Any]],
     ) -> str | None:
-        """Rank catalog candidates pairwise, including the unsupported sentinel.
+        """Select a blind candidate with O(N) pairwise calls.
 
-        Every unique pair is compared exactly once. Invalid/provider-failed pairs
-        contribute no evidence. A result is accepted only when there is a unique
-        top scorer with at least one valid comparison. The unsupported sentinel is
-        a real tournament candidate, so out-of-scope requests can win explicitly
-        without requiring an open-ended null decision from the model.
+        Supported catalog candidates first play a balanced knockout tournament.
+        Its champion must then beat the explicit __unsupported__ sentinel in a
+        mandatory final authorization match. This keeps the sentinel from being
+        accidentally eliminated early while bounding model calls to at most N for
+        N supported candidates. Any invalid/provider-failed comparison fails closed.
         """
-        unique = list(dict.fromkeys(candidate for candidate in candidates if candidate))
-        if not unique:
+        supported = list(
+            dict.fromkeys(candidate for candidate in candidates if candidate and candidate != _UNSUPPORTED)
+        )
+        if not supported:
             return None
-        if len(unique) == 1:
-            return unique[0]
 
-        scores = {candidate: 0 for candidate in unique}
-        valid = 0
-        for index, first in enumerate(unique[:-1]):
-            for second in unique[index + 1:]:
-                pair = [first, second]
-                winner = await self._choice(
+        current = supported
+        while len(current) > 1:
+            next_round: list[str] = []
+            index = 0
+            while index < len(current):
+                first = current[index]
+                if index + 1 >= len(current):
+                    next_round.append(first)
+                    index += 1
+                    continue
+                second = current[index + 1]
+                winner = await self._pair_winner(
+                    query=query,
                     system=system,
-                    payload={
-                        "query": query,
-                        "candidate_pair": pair,
-                        "candidate_details": [details.get(item, {"value": item}) for item in pair],
-                    },
                     key=key,
-                    allowed=pair,
+                    first=first,
+                    second=second,
+                    details=details,
                 )
                 if winner is None:
-                    continue
-                scores[winner] += 1
-                valid += 1
+                    return None
+                next_round.append(winner)
+                index += 2
+            current = next_round
 
-        if valid == 0:
-            return None
-        best = max(scores.values())
-        if best <= 0:
-            return None
-        leaders = [candidate for candidate, score in scores.items() if score == best]
-        return leaders[0] if len(leaders) == 1 else None
+        champion = current[0]
+        if _UNSUPPORTED not in details:
+            return champion
+
+        authorization_winner = await self._pair_winner(
+            query=query,
+            system=system,
+            key=key,
+            first=champion,
+            second=_UNSUPPORTED,
+            details=details,
+        )
+        return champion if authorization_winner == champion else None
 
     @staticmethod
     def _domain_signatures(capabilities: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -169,14 +202,14 @@ Do not broaden capabilities by analogy. Return exactly one supplied candidate.
             "domain": _UNSUPPORTED,
             "description": "The requested business object or outcome is outside all implemented PO Harness domains.",
         }
-        domain = await self._pairwise_rank(
+        domain = await self._bounded_rank(
             query=query,
             system=self.DOMAIN_SYSTEM,
             key="domain",
-            candidates=domains + [_UNSUPPORTED],
+            candidates=domains,
             details=domain_details,
         )
-        if domain is None or domain == _UNSUPPORTED:
+        if domain is None:
             return None
 
         domain_capabilities = [item for item in capabilities if str(item.get("domain") or "") == domain]
@@ -189,14 +222,14 @@ Do not broaden capabilities by analogy. Return exactly one supplied candidate.
             "domain": domain,
             "description": "The requested operation/outcome is not directly implemented by any capability in this domain.",
         }
-        intent = await self._pairwise_rank(
+        intent = await self._bounded_rank(
             query=query,
             system=self.CAPABILITY_SYSTEM,
             key="intent_hint",
-            candidates=intents + [_UNSUPPORTED],
+            candidates=intents,
             details=capability_details,
         )
-        if intent is None or intent == _UNSUPPORTED:
+        if intent is None:
             return None
         return domain, intent
 
