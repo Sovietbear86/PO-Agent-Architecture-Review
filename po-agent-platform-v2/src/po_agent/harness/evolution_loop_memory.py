@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Sequence
+from typing import Callable, Sequence
 
 from .evolution_loop import (
     AutonomousEvolutionLoop,
@@ -24,7 +24,7 @@ from .evolution_memory import (
     EvolutionMemory,
     EvolutionMemoryEntry,
     EvolutionMemoryOutcome,
-    EvolutionMemoryWriteAuthority,
+    _bind_trusted_memory_writer,
 )
 from .sandbox_patch import PatchProposal, PatchVerdict
 from .secure_evolution_sandbox import SecureEvolutionSandbox
@@ -62,15 +62,17 @@ class _ProposalContext:
 
 
 class _MemoryCoordinator:
+    """Trusted internal coordinator; owns only a write closure, never raw authority."""
+
     def __init__(
         self,
         *,
         memory: EvolutionMemory,
-        authority: EvolutionMemoryWriteAuthority,
+        write_entry: Callable[[EvolutionMemoryEntry], None],
         policy: AutonomousEvolutionPolicy,
     ) -> None:
         self.memory = memory
-        self.authority = authority
+        self.__write_entry = write_entry
         self.policy = policy
         self.by_proposal: dict[str, _ProposalContext] = {}
         self.latest_by_candidate: dict[str, _ProposalContext] = {}
@@ -122,7 +124,7 @@ class _MemoryCoordinator:
             reasons=reasons,
             evaluation_id=evaluation_id,
         )
-        self.memory.append(entry, authority=self.authority)
+        self.__write_entry(entry)
         self._recorded.add(key)
 
     def record_latest(
@@ -243,11 +245,12 @@ class _MemoryAwareShadowEvaluator:
 
 
 class MemoryIntegratedAutonomousEvolutionLoop:
-    """AutonomousEvolutionLoop with trusted EvolutionMemory retry enforcement.
+    """Production autonomous-evolution loop with mandatory EvolutionMemory guard.
 
-    Ownership rule: the write authority is retained only by this trusted wrapper.
-    Callers receive the memory object for read/query use but never receive the
-    capability used for append operations.
+    The raw write capability is never stored on this object. Binding occurs once
+    during construction and the coordinator receives only a write-only closure.
+    The legacy AutonomousEvolutionLoop remains an internal primitive in its own
+    module for focused tests; production callers should use this class.
     """
 
     def __init__(
@@ -267,17 +270,11 @@ class MemoryIntegratedAutonomousEvolutionLoop:
         policy: AutonomousEvolutionPolicy | None = None,
     ) -> None:
         resolved_policy = policy or AutonomousEvolutionPolicy()
-        authority = EvolutionMemoryWriteAuthority()
-        # Rebind memory to a wrapper-owned authority by requiring callers to pass
-        # a memory instance that was intentionally created for this loop.
-        if getattr(evolution_memory, "_EvolutionMemory__write_authority", None) is not None:
-            raise ValueError("evolution_memory must not be pre-bound to an external write authority")
-        setattr(evolution_memory, "_EvolutionMemory__write_authority", authority)
+        write_entry = _bind_trusted_memory_writer(evolution_memory)
         self.evolution_memory = evolution_memory
-        self.__write_authority = authority
         self._coordinator = _MemoryCoordinator(
             memory=evolution_memory,
-            authority=authority,
+            write_entry=write_entry,
             policy=resolved_policy,
         )
         self._loop = AutonomousEvolutionLoop(
