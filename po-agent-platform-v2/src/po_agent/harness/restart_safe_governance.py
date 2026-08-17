@@ -25,6 +25,7 @@ from .governed_promotion import (
     PromotionManifest,
     SignedPromotionApproval,
 )
+from .promotion_registry import HumanApprovalRecord, PromotionRecord, ReleaseState, RollbackRecord
 
 
 def _binding(payload: dict[str, str]) -> PromotionBinding:
@@ -205,7 +206,13 @@ class SQLiteGovernanceStateStore:
 
 
 class RestartSafeGovernedPromotionService(GovernedPromotionService):
-    """GovernedPromotionService with durable restart/replay protection."""
+    """GovernedPromotionService with durable restart/replay protection.
+
+    In-flight lifecycle/orchestrator sessions intentionally remain ephemeral.  A
+    restart therefore resumes only committed governance facts and fails closed
+    for unfinished work.  This prevents a restart from inventing approval or
+    deployment authority.
+    """
 
     def __init__(self, *, state_store: SQLiteGovernanceStateStore, **kwargs) -> None:
         if state_store is None:
@@ -215,16 +222,58 @@ class RestartSafeGovernedPromotionService(GovernedPromotionService):
         self._rehydrate()
 
     def _rehydrate(self) -> None:
-        self._approvals.update(
-            {approval.approval_id: approval for approval in self._state_store.approvals()}
-        )
+        approvals = self._state_store.approvals()
+        manifests = self._state_store.manifests()
+        rollbacks = self._state_store.rollbacks()
+
+        self._approvals.update({approval.approval_id: approval for approval in approvals})
         self._consumed_approvals.update(self._state_store.consumed_approval_ids())
-        self._manifests.update(
-            {manifest.promotion_id: manifest for manifest in self._state_store.manifests()}
-        )
-        self._rollbacks.update(
-            {record.rollback_id: record for record in self._state_store.rollbacks()}
-        )
+        self._manifests.update({manifest.promotion_id: manifest for manifest in manifests})
+        self._rollbacks.update({record.rollback_id: record for record in rollbacks})
+
+        # The legacy VersionedPromotionRegistry is still used by the governed
+        # service during rollback. Rebuild its append-only in-memory projection
+        # from durable facts so rollback remains valid after process restart.
+        for approval in approvals:
+            self._registry._approvals.setdefault(
+                approval.approval_id,
+                HumanApprovalRecord(
+                    approval_id=approval.approval_id,
+                    candidate_id=approval.binding.candidate_id,
+                    evaluation_id=approval.binding.evaluation_id,
+                    approver=approval.approved_by,
+                    approved_at=approval.approved_at,
+                    note=approval.note,
+                ),
+            )
+        for manifest in manifests:
+            self._registry._promotions.setdefault(
+                manifest.promotion_id,
+                PromotionRecord(
+                    promotion_id=manifest.promotion_id,
+                    candidate_id=manifest.binding.candidate_id,
+                    approval_id=manifest.approval_id,
+                    evaluation_id=manifest.binding.evaluation_id,
+                    release_ref=manifest.release_ref,
+                    baseline_sha=manifest.binding.baseline_sha,
+                    candidate_tree_sha256=manifest.binding.candidate_fingerprint,
+                    promoted_at=manifest.promoted_at,
+                    state=ReleaseState.PROMOTED,
+                ),
+            )
+        for record in rollbacks:
+            self._registry._rollbacks.setdefault(
+                record.rollback_id,
+                RollbackRecord(
+                    rollback_id=record.rollback_id,
+                    promotion_id=record.promotion_id,
+                    candidate_id=record.candidate_id,
+                    release_ref=record.from_release_ref,
+                    reason=record.reason,
+                    rolled_back_by=record.rolled_back_by,
+                    rolled_back_at=record.rolled_back_at,
+                ),
+            )
 
     def issue_human_approval(self, **kwargs) -> SignedPromotionApproval:
         approval = super().issue_human_approval(**kwargs)
