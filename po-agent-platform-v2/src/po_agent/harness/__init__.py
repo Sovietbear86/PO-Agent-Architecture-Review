@@ -11,6 +11,12 @@ from .contracts import (
     HarnessResponse,
     ResponseStatus,
 )
+from .evolution_budget import (
+    BudgetExceeded,
+    EvolutionBudget,
+    EvolutionBudgetPolicy,
+    EvolutionBudgetSnapshot,
+)
 from .evolution_lifecycle import (
     ControlledImprovementLifecycle,
     EvaluationSnapshot,
@@ -18,6 +24,16 @@ from .evolution_lifecycle import (
     LifecycleState,
     PromotionDecision,
     PromotionPolicy,
+)
+from .evolution_loop import (
+    AutonomousEvolutionLoop,
+    AutonomousEvolutionPolicy,
+    AutonomousEvolutionReport,
+    EvolutionAttemptRecord,
+    EvolutionCandidateReport,
+    EvolutionOutcome,
+    PatchGenerationContext,
+    PatchGenerator,
 )
 from .hardened_sandbox_executor import (
     EVIDENCE_PREFIX,
@@ -91,6 +107,18 @@ __all__ = [
     "ActiveVersions",
     "ExecutionRecord",
     "SQLiteHistoryStore",
+    "BudgetExceeded",
+    "EvolutionBudget",
+    "EvolutionBudgetPolicy",
+    "EvolutionBudgetSnapshot",
+    "AutonomousEvolutionLoop",
+    "AutonomousEvolutionPolicy",
+    "AutonomousEvolutionReport",
+    "EvolutionAttemptRecord",
+    "EvolutionCandidateReport",
+    "EvolutionOutcome",
+    "PatchGenerationContext",
+    "PatchGenerator",
     "ControlledImprovementLifecycle",
     "EvaluationSnapshot",
     "LifecycleRecord",
