@@ -44,7 +44,10 @@ class HardenedExecutorPolicy:
     max_output_chars: int = 200_000
     max_hashed_files: int = 20_000
     max_hashed_bytes: int = 200_000_000
-    env_allowlist: tuple[str, ...] = ("PATH", "PYTHONPATH", "HOME", "TMPDIR", "LANG", "LC_ALL")
+    # Do not leak host HOME/PATH/PYTHONPATH into HARD_OS containers.  LANG/LC_ALL
+    # are sufficient for deterministic text handling; the container supplies its
+    # own executable PATH and Python environment.
+    env_allowlist: tuple[str, ...] = ("LANG", "LC_ALL")
     require_os_isolation: bool = False
 
     def __post_init__(self) -> None:
@@ -141,6 +144,7 @@ class HardenedSandboxExecutor:
             if value is not None:
                 env[name] = value
         env["PYTHONDONTWRITEBYTECODE"] = "1"
+        env["PYTHONNOUSERSITE"] = "1"
         return env
 
     def _workspace_digest(self, root: Path) -> str:
