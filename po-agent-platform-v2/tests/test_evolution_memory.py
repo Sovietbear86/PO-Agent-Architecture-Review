@@ -1,3 +1,6 @@
+import copy
+import pickle
+
 import pytest
 
 from po_agent.harness.evolution_memory import (
@@ -79,6 +82,16 @@ def test_memory_rejects_untrusted_writes():
     with pytest.raises(PermissionError):
         memory.append(entry, authority=wrong_authority)
     memory.append(entry, authority=authority)
+
+
+def test_write_authority_is_not_copyable_or_serializable():
+    authority = EvolutionMemoryWriteAuthority()
+    with pytest.raises(TypeError):
+        pickle.dumps(authority)
+    with pytest.raises(TypeError):
+        copy.copy(authority)
+    with pytest.raises(TypeError):
+        copy.deepcopy(authority)
 
 
 def test_memory_is_append_only_and_rejects_duplicate_id():
