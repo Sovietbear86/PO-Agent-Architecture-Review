@@ -8,12 +8,16 @@ from typing import Literal
 from po_agent.adapters import FakeAS21Adapter, TaskApiAS21Adapter
 from po_agent.adapters.as21 import AS21Adapter
 
-from .dialogue_runtime import DialogueHarnessRuntime, LLMJsonSemanticInterpreter, SemanticInterpreter
+from .dialogue_runtime import LLMJsonSemanticInterpreter, SemanticInterpreter
 from .entity_grounding import GroundedEntityResolver, TeamDirectory
 from .historical_wiring import enable_historical_skills
 from .learned_semantics import LearnedSemanticsStore
 from .observed_runtime import ObservedHarnessRuntime
-from .semantic_authorization import BlindConsensusSemanticInterpreter
+from .semantic_authorization import (
+    BlindConsensusSemanticInterpreter,
+    BlindRecoveryLLMJsonSemanticInterpreter,
+    IntentPreservingDialogueHarnessRuntime,
+)
 from .source_aware_runtime import SourceAwareHarnessRuntime
 from .source_contracts import (
     ReleaseTimelineSource,
@@ -89,9 +93,16 @@ def build_runtime_bundle(
 
     selected_interpreter = semantic_interpreter
     if isinstance(semantic_interpreter, LLMJsonSemanticInterpreter):
-        selected_interpreter = BlindConsensusSemanticInterpreter(semantic_interpreter)
+        # Keep the original primary semantic pass and slot extraction, but avoid a
+        # second catalog-wide recovery inside it. Blind consensus is now the single
+        # recovery/authorization layer, eliminating duplicate LLM ranking work.
+        fast_delegate = BlindRecoveryLLMJsonSemanticInterpreter(
+            semantic_interpreter.client,
+            model=semantic_interpreter.model,
+        )
+        selected_interpreter = BlindConsensusSemanticInterpreter(fast_delegate)
 
-    dialogue = DialogueHarnessRuntime(
+    dialogue = IntentPreservingDialogueHarnessRuntime(
         executable,
         interpreter=selected_interpreter,
         semantics=semantics,
