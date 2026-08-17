@@ -43,6 +43,17 @@ from .evolution_memory import (
     SQLiteEvolutionMemoryStore,
     evolution_fingerprint,
 )
+from .governed_promotion import (
+    ApprovalSigner,
+    GovernanceAuditEvent,
+    GovernanceEventType,
+    GovernedPromotionService,
+    GovernedRollbackRecord,
+    PromotionBinding,
+    PromotionManifest,
+    SignedPromotionApproval,
+    SQLiteGovernanceAuditStore,
+)
 from .hardened_sandbox_executor import (
     EVIDENCE_PREFIX,
     HardenedExecutorPolicy,
@@ -141,6 +152,15 @@ __all__ = [
     "EvolutionMemoryPolicy",
     "SQLiteEvolutionMemoryStore",
     "evolution_fingerprint",
+    "ApprovalSigner",
+    "GovernanceAuditEvent",
+    "GovernanceEventType",
+    "GovernedPromotionService",
+    "GovernedRollbackRecord",
+    "PromotionBinding",
+    "PromotionManifest",
+    "SignedPromotionApproval",
+    "SQLiteGovernanceAuditStore",
     "HumanApprovalRecord",
     "PromotionRecord",
     "ReleaseState",
