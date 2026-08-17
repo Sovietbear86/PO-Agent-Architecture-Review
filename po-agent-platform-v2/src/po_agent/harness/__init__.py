@@ -35,6 +35,14 @@ from .evolution_loop import (
     PatchGenerationContext,
     PatchGenerator,
 )
+from .evolution_memory import (
+    EvolutionMemory,
+    EvolutionMemoryEntry,
+    EvolutionMemoryOutcome,
+    EvolutionMemoryPolicy,
+    SQLiteEvolutionMemoryStore,
+    evolution_fingerprint,
+)
 from .hardened_sandbox_executor import (
     EVIDENCE_PREFIX,
     HardenedExecutorPolicy,
@@ -52,6 +60,14 @@ from .os_isolation import (
 )
 from .operational_history import ActiveVersions, ExecutionRecord, SQLiteHistoryStore
 from .observed_runtime import ObservedHarnessRuntime
+from .promotion_registry import (
+    HumanApprovalRecord,
+    PromotionRecord,
+    ReleaseState,
+    RollbackRecord,
+    SQLitePromotionAuditStore,
+    VersionedPromotionRegistry,
+)
 from .runtime import HarnessRuntime, build_fake_runtime as _build_unobserved_fake_runtime
 from .sandbox_evidence import (
     CommandObservation,
@@ -119,6 +135,18 @@ __all__ = [
     "EvolutionOutcome",
     "PatchGenerationContext",
     "PatchGenerator",
+    "EvolutionMemory",
+    "EvolutionMemoryEntry",
+    "EvolutionMemoryOutcome",
+    "EvolutionMemoryPolicy",
+    "SQLiteEvolutionMemoryStore",
+    "evolution_fingerprint",
+    "HumanApprovalRecord",
+    "PromotionRecord",
+    "ReleaseState",
+    "RollbackRecord",
+    "SQLitePromotionAuditStore",
+    "VersionedPromotionRegistry",
     "ControlledImprovementLifecycle",
     "EvaluationSnapshot",
     "LifecycleRecord",
