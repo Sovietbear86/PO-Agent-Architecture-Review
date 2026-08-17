@@ -22,6 +22,15 @@ from .evolution_lifecycle import (
 from .operational_history import ActiveVersions, ExecutionRecord, SQLiteHistoryStore
 from .observed_runtime import ObservedHarnessRuntime
 from .runtime import HarnessRuntime, build_fake_runtime as _build_unobserved_fake_runtime
+from .shadow_evaluation import (
+    SeedComparison,
+    ShadowEvaluationAuditStore,
+    ShadowEvaluationReport,
+    ShadowEvaluator,
+    ShadowObservation,
+    ShadowRunner,
+    SQLiteShadowEvaluationAuditStore,
+)
 
 
 def build_fake_runtime() -> ObservedHarnessRuntime:
@@ -46,5 +55,12 @@ __all__ = [
     "LifecycleState",
     "PromotionDecision",
     "PromotionPolicy",
+    "SeedComparison",
+    "ShadowEvaluationAuditStore",
+    "ShadowEvaluationReport",
+    "ShadowEvaluator",
+    "ShadowObservation",
+    "ShadowRunner",
+    "SQLiteShadowEvaluationAuditStore",
     "build_fake_runtime",
 ]
