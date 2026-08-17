@@ -31,6 +31,7 @@ from .shadow_evaluation import (
     ShadowRunner,
     SQLiteShadowEvaluationAuditStore,
 )
+from .skill_forge import ForgeArtifactKind, ForgePolicy, SkillArtifact, SkillForge
 
 
 def build_fake_runtime() -> ObservedHarnessRuntime:
@@ -62,5 +63,9 @@ __all__ = [
     "ShadowObservation",
     "ShadowRunner",
     "SQLiteShadowEvaluationAuditStore",
+    "ForgeArtifactKind",
+    "ForgePolicy",
+    "SkillArtifact",
+    "SkillForge",
     "build_fake_runtime",
 ]
