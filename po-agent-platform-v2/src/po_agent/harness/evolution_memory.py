@@ -2,7 +2,8 @@
 
 The memory helps future loops avoid repeatedly proposing known-bad changes. It
 stores fingerprints and outcomes only; it cannot approve, execute, promote, or
-mutate production state.
+mutate production state. Writes are capability-gated so a runtime that only
+receives the memory object cannot inject trusted history.
 """
 from __future__ import annotations
 
@@ -97,8 +98,22 @@ class EvolutionMemoryPolicy:
             raise ValueError("max_same_fingerprint_failures must be positive")
 
 
+class EvolutionMemoryWriteAuthority:
+    """Opaque capability owned by the trusted lifecycle boundary."""
+
+    __slots__ = ("_nonce",)
+
+    def __init__(self) -> None:
+        self._nonce = uuid.uuid4().hex
+
+
 class EvolutionMemory:
-    """Deterministic append-only memory and retry guard."""
+    """Deterministic append-only memory and retry guard.
+
+    The write authority must be created and retained by the trusted lifecycle
+    service. Consumers that only receive this memory instance can query it but
+    cannot append entries.
+    """
 
     _FAILURE_OUTCOMES = {
         EvolutionMemoryOutcome.REJECTED,
@@ -106,12 +121,25 @@ class EvolutionMemory:
         EvolutionMemoryOutcome.ERROR,
     }
 
-    def __init__(self, policy: EvolutionMemoryPolicy | None = None) -> None:
+    def __init__(
+        self,
+        policy: EvolutionMemoryPolicy | None = None,
+        *,
+        write_authority: EvolutionMemoryWriteAuthority | None = None,
+    ) -> None:
         self.policy = policy or EvolutionMemoryPolicy()
+        self.__write_authority = write_authority
         self._entries: list[EvolutionMemoryEntry] = []
         self._ids: set[str] = set()
 
-    def append(self, entry: EvolutionMemoryEntry) -> None:
+    def append(
+        self,
+        entry: EvolutionMemoryEntry,
+        *,
+        authority: EvolutionMemoryWriteAuthority | None = None,
+    ) -> None:
+        if self.__write_authority is None or authority is not self.__write_authority:
+            raise PermissionError("trusted evolution memory write authority required")
         if entry.memory_id in self._ids:
             raise ValueError("memory entry already exists")
         self._entries.append(entry)
@@ -142,27 +170,49 @@ class EvolutionMemory:
 
 
 class SQLiteEvolutionMemoryStore:
-    """Durable append-only memory store; no update/delete methods by design."""
+    """Durable append-only memory store with capability-gated writes."""
 
-    def __init__(self, db_path: str = ":memory:") -> None:
-        self._conn = sqlite3.connect(db_path)
+    def __init__(
+        self,
+        db_path: str = ":memory:",
+        *,
+        write_authority: EvolutionMemoryWriteAuthority | None = None,
+    ) -> None:
+        self.__write_authority = write_authority
+        self._conn = sqlite3.connect(db_path, isolation_level=None)
         self._conn.execute(
             "CREATE TABLE IF NOT EXISTS harness_evolution_memory (memory_id TEXT PRIMARY KEY, created_at TEXT NOT NULL, failure_key TEXT NOT NULL, fingerprint TEXT NOT NULL, outcome TEXT NOT NULL, payload_json TEXT NOT NULL)"
         )
         self._conn.execute("CREATE INDEX IF NOT EXISTS idx_evolution_memory_failure ON harness_evolution_memory(failure_key)")
         self._conn.execute("CREATE INDEX IF NOT EXISTS idx_evolution_memory_fingerprint ON harness_evolution_memory(fingerprint)")
-        self._conn.commit()
 
-    def append(self, entry: EvolutionMemoryEntry) -> None:
-        payload = json.dumps(asdict(entry), ensure_ascii=False, sort_keys=True, default=lambda value: value.value if isinstance(value, Enum) else str(value))
+    def append(
+        self,
+        entry: EvolutionMemoryEntry,
+        *,
+        authority: EvolutionMemoryWriteAuthority | None = None,
+    ) -> None:
+        if self.__write_authority is None or authority is not self.__write_authority:
+            raise PermissionError("trusted evolution memory write authority required")
+        payload = json.dumps(
+            asdict(entry),
+            ensure_ascii=False,
+            sort_keys=True,
+            default=lambda value: value.value if isinstance(value, Enum) else str(value),
+        )
         try:
+            self._conn.execute("BEGIN IMMEDIATE")
             self._conn.execute(
                 "INSERT INTO harness_evolution_memory VALUES (?, ?, ?, ?, ?, ?)",
                 (entry.memory_id, entry.created_at, entry.failure_key, entry.fingerprint, entry.outcome.value, payload),
             )
-            self._conn.commit()
+            self._conn.execute("COMMIT")
         except sqlite3.IntegrityError as exc:
+            self._conn.execute("ROLLBACK")
             raise ValueError(f"memory entry already exists: {entry.memory_id}") from exc
+        except Exception:
+            self._conn.execute("ROLLBACK")
+            raise
 
     def by_fingerprint(self, fingerprint: str) -> tuple[EvolutionMemoryEntry, ...]:
         rows = self._conn.execute(
