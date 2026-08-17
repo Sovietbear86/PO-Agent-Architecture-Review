@@ -43,6 +43,7 @@ from .governed_promotion import (
     SignedPromotionApproval,
     SQLiteGovernanceAuditStore,
 )
+from .restart_safe_governance import RestartSafeGovernedPromotionService, SQLiteGovernanceStateStore
 from .post_promotion_monitoring import (
     HealthObservation,
     MetricAssessment,
@@ -142,6 +143,7 @@ __all__ = [
     "EvolutionMemoryPolicy", "SQLiteEvolutionMemoryStore", "evolution_fingerprint", "ApprovalSigner",
     "GovernanceAuditEvent", "GovernanceEventType", "GovernedPromotionService", "GovernedRollbackRecord",
     "PromotionBinding", "PromotionManifest", "SignedPromotionApproval", "SQLiteGovernanceAuditStore",
+    "RestartSafeGovernedPromotionService", "SQLiteGovernanceStateStore",
     "MetricDirection", "MetricRule", "MetricValue", "MonitoringBaseline", "MonitoringPolicy",
     "HealthObservation", "MonitoringVerdict", "MetricAssessment", "MonitoringAssessment",
     "RollbackRecommendation", "PostPromotionMonitorState", "PostPromotionMonitor",
