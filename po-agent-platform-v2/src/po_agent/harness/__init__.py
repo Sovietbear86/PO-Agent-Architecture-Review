@@ -19,9 +19,23 @@ from .evolution_lifecycle import (
     PromotionDecision,
     PromotionPolicy,
 )
+from .hardened_sandbox_executor import (
+    EVIDENCE_PREFIX,
+    HardenedExecutorPolicy,
+    HardenedSandboxExecutor,
+    TrustedEvidencePolicy,
+    TrustedSandboxEvidenceRunner,
+)
 from .operational_history import ActiveVersions, ExecutionRecord, SQLiteHistoryStore
 from .observed_runtime import ObservedHarnessRuntime
 from .runtime import HarnessRuntime, build_fake_runtime as _build_unobserved_fake_runtime
+from .sandbox_evidence import (
+    CommandObservation,
+    SandboxEvidencePolicy,
+    SandboxEvidenceReport,
+    SandboxEvidenceRunner,
+    ValidationCommand,
+)
 from .sandbox_patch import (
     PatchEvaluationGate,
     PatchEvaluationReport,
@@ -91,5 +105,15 @@ __all__ = [
     "SandboxApplyResult",
     "SandboxPatchApplicator",
     "SandboxPatchSynthesizer",
+    "ValidationCommand",
+    "CommandObservation",
+    "SandboxEvidencePolicy",
+    "SandboxEvidenceReport",
+    "SandboxEvidenceRunner",
+    "EVIDENCE_PREFIX",
+    "HardenedExecutorPolicy",
+    "HardenedSandboxExecutor",
+    "TrustedEvidencePolicy",
+    "TrustedSandboxEvidenceRunner",
     "build_fake_runtime",
 ]
