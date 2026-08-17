@@ -2,8 +2,8 @@
 
 The memory helps future loops avoid repeatedly proposing known-bad changes. It
 stores fingerprints and outcomes only; it cannot approve, execute, promote, or
-mutate production state. Writes are capability-gated so a runtime that only
-receives the memory object cannot inject trusted history.
+mutate production state. Writes are capability-gated and the trusted writer is
+bound internally so ordinary runtime callers never receive the capability.
 """
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ import uuid
 from dataclasses import asdict, dataclass
 from datetime import datetime, timezone
 from enum import Enum
-from typing import Iterable
+from typing import Callable, Iterable
 
 
 class EvolutionMemoryOutcome(str, Enum):
@@ -99,20 +99,42 @@ class EvolutionMemoryPolicy:
 
 
 class EvolutionMemoryWriteAuthority:
-    """Opaque capability owned by the trusted lifecycle boundary."""
+    """Opaque, process-local capability owned by the trusted lifecycle boundary.
+
+    This type is intentionally not part of the public harness API. An authority
+    is identity-checked, cannot be copied or pickled, and must never be exposed
+    to untrusted runtime code. Production orchestration should obtain only a
+    bound writer closure via ``_bind_trusted_memory_writer``.
+    """
 
     __slots__ = ("_nonce",)
 
     def __init__(self) -> None:
         self._nonce = uuid.uuid4().hex
 
+    def __getstate__(self):
+        raise TypeError("EvolutionMemoryWriteAuthority cannot be serialized")
+
+    def __reduce__(self):
+        raise TypeError("EvolutionMemoryWriteAuthority cannot be serialized")
+
+    def __reduce_ex__(self, protocol):
+        raise TypeError("EvolutionMemoryWriteAuthority cannot be serialized")
+
+    def __copy__(self):
+        raise TypeError("EvolutionMemoryWriteAuthority cannot be copied")
+
+    def __deepcopy__(self, memo):
+        raise TypeError("EvolutionMemoryWriteAuthority cannot be copied")
+
 
 class EvolutionMemory:
     """Deterministic append-only memory and retry guard.
 
-    The write authority must be created and retained by the trusted lifecycle
-    service. Consumers that only receive this memory instance can query it but
-    cannot append entries.
+    Production code should pass an unbound memory instance to the trusted
+    orchestration layer. The orchestration layer binds the single write
+    capability internally. Consumers that receive the memory instance can query
+    history but cannot append trusted entries.
     """
 
     _FAILURE_OUTCOMES = {
@@ -237,3 +259,21 @@ class SQLiteEvolutionMemoryStore:
                 )
             )
         return tuple(result)
+
+
+def _bind_trusted_memory_writer(memory: EvolutionMemory) -> Callable[[EvolutionMemoryEntry], None]:
+    """Bind the only production write capability and return a write-only closure.
+
+    The raw capability object is intentionally kept in this closure rather than
+    on the public loop/coordinator object graph. A memory instance may be bound
+    exactly once; pre-bound instances are rejected by production orchestration.
+    """
+    if getattr(memory, "_EvolutionMemory__write_authority", None) is not None:
+        raise ValueError("evolution_memory must not be pre-bound to an external write authority")
+    authority = EvolutionMemoryWriteAuthority()
+    setattr(memory, "_EvolutionMemory__write_authority", authority)
+
+    def _write(entry: EvolutionMemoryEntry) -> None:
+        memory.append(entry, authority=authority)
+
+    return _write
