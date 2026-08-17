@@ -1,15 +1,15 @@
 """Canonical production orchestration for governed Harness evolution.
 
-This module connects the already-bounded autonomous experiment loop with the
-human-gated promotion service.  It deliberately does not duplicate mining,
-patching, sandboxing or shadow evaluation.  Instead, it owns the production
-state machine and makes the trusted transition path explicit:
+This module connects the bounded autonomous experiment loop with human-gated
+promotion and bounded post-promotion health monitoring.  The production path is:
 
 OBSERVE -> MINE -> PROPOSE -> SANDBOX -> SHADOW -> APPROVAL_REQUIRED
-        -> APPROVED -> PROMOTED -> MONITOR -> ROLLED_BACK
+        -> APPROVED -> PROMOTED -> MONITOR
+        -> DEGRADATION_DETECTED -> ROLLBACK_RECOMMENDED -> ROLLED_BACK
 
-Rejected/blocked/failed outcomes are terminal.  Promotion can happen only via
-GovernedPromotionService; no direct lifecycle mark_promoted() path is exposed.
+Healthy monitoring remains in MONITOR.  Detection and recommendation never have
+deployment authority: rollback is still delegated exclusively to
+GovernedPromotionService.
 """
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ import uuid
 from dataclasses import dataclass, replace
 from enum import Enum
 from pathlib import Path
-from typing import Callable, Protocol, Sequence
+from typing import Callable, Iterable, Protocol, Sequence
 
 from .eval_store import EvalSeed
 from .evolution_lifecycle import ControlledImprovementLifecycle, LifecycleState
@@ -28,6 +28,16 @@ from .governed_promotion import (
     PromotionBinding,
     PromotionManifest,
     SignedPromotionApproval,
+)
+from .post_promotion_monitoring import (
+    HealthObservation,
+    MetricValue,
+    MonitoringBaseline,
+    MonitoringPolicy,
+    MonitoringVerdict,
+    PostPromotionMonitor,
+    PostPromotionMonitorState,
+    RollbackRecommendation,
 )
 
 
@@ -41,6 +51,8 @@ class ProductionEvolutionStage(str, Enum):
     APPROVED = "approved"
     PROMOTED = "promoted"
     MONITOR = "monitor"
+    DEGRADATION_DETECTED = "degradation_detected"
+    ROLLBACK_RECOMMENDED = "rollback_recommended"
     ROLLED_BACK = "rolled_back"
     REJECTED = "rejected"
     BLOCKED = "blocked"
@@ -81,6 +93,8 @@ class ProductionEvolutionSession:
     approval_id: str | None = None
     promotion_id: str | None = None
     release_ref: str | None = None
+    monitor_id: str | None = None
+    rollback_recommendation_id: str | None = None
     rollback_id: str | None = None
 
     @property
@@ -102,14 +116,7 @@ FingerprintResolver = Callable[[str], str]
 
 
 class ProductionEvolutionOrchestrator:
-    """Trusted state-machine facade for the full production evolution path.
-
-    The autonomous experiment runner may only advance a candidate as far as
-    APPROVAL_REQUIRED.  Human approval and promotion are delegated exclusively
-    to GovernedPromotionService.  The orchestrator keeps a canonical transition
-    history so downstream monitoring and audit code does not have to infer state
-    from several components.
-    """
+    """Trusted state-machine facade for the full production evolution path."""
 
     _ALLOWED_TRANSITIONS: dict[ProductionEvolutionStage, frozenset[ProductionEvolutionStage]] = {
         ProductionEvolutionStage.APPROVAL_REQUIRED: frozenset(
@@ -119,7 +126,13 @@ class ProductionEvolutionOrchestrator:
             {ProductionEvolutionStage.PROMOTED, ProductionEvolutionStage.REJECTED}
         ),
         ProductionEvolutionStage.PROMOTED: frozenset({ProductionEvolutionStage.MONITOR}),
-        ProductionEvolutionStage.MONITOR: frozenset({ProductionEvolutionStage.ROLLED_BACK}),
+        ProductionEvolutionStage.MONITOR: frozenset({ProductionEvolutionStage.DEGRADATION_DETECTED}),
+        ProductionEvolutionStage.DEGRADATION_DETECTED: frozenset(
+            {ProductionEvolutionStage.ROLLBACK_RECOMMENDED}
+        ),
+        ProductionEvolutionStage.ROLLBACK_RECOMMENDED: frozenset(
+            {ProductionEvolutionStage.ROLLED_BACK}
+        ),
     }
 
     def __init__(
@@ -129,11 +142,13 @@ class ProductionEvolutionOrchestrator:
         lifecycle: ControlledImprovementLifecycle,
         governance: GovernedPromotionService,
         fingerprint_resolver: FingerprintResolver,
+        post_promotion_monitor: PostPromotionMonitor | None = None,
     ) -> None:
         self._experiment_runner = experiment_runner
         self._lifecycle = lifecycle
         self._governance = governance
         self._fingerprint_resolver = fingerprint_resolver
+        self._post_promotion_monitor = post_promotion_monitor or PostPromotionMonitor()
         self._sessions: dict[str, ProductionEvolutionSession] = {}
 
     def run_experiments(
@@ -181,6 +196,12 @@ class ProductionEvolutionOrchestrator:
     def session(self, session_id: str) -> ProductionEvolutionSession | None:
         return self._sessions.get(session_id)
 
+    def monitoring_state(self, session_id: str) -> PostPromotionMonitorState | None:
+        session = self._require_session(session_id)
+        if session.monitor_id is None:
+            return None
+        return self._post_promotion_monitor.state(session.monitor_id)
+
     def request_human_approval(
         self,
         session_id: str,
@@ -190,9 +211,8 @@ class ProductionEvolutionOrchestrator:
     ) -> SignedPromotionApproval:
         session = self._require_session(session_id)
         self._require_stage(session, ProductionEvolutionStage.APPROVAL_REQUIRED)
-        binding = self._binding(session)
         approval = self._governance.issue_human_approval(
-            binding=binding,
+            binding=self._binding(session),
             approved_by=approved_by,
             note=note,
         )
@@ -238,6 +258,78 @@ class ProductionEvolutionOrchestrator:
             reason="post_promotion_monitoring_started",
         )
 
+    def start_post_promotion_monitor(
+        self,
+        session_id: str,
+        *,
+        baseline_metrics: Iterable[MetricValue],
+        policy: MonitoringPolicy,
+    ) -> PostPromotionMonitorState:
+        session = self._require_session(session_id)
+        self._require_stage(session, ProductionEvolutionStage.MONITOR)
+        if session.monitor_id is not None:
+            raise ValueError("post-promotion monitor already started for session")
+        if not session.promotion_id or not session.release_ref or not session.candidate_fingerprint:
+            raise ValueError("session lacks exact promoted release binding")
+        baseline = MonitoringBaseline.create(
+            promotion_id=session.promotion_id,
+            candidate_id=session.candidate_id,
+            candidate_fingerprint=session.candidate_fingerprint,
+            release_ref=session.release_ref,
+            metrics=baseline_metrics,
+        )
+        state = self._post_promotion_monitor.start(baseline=baseline, policy=policy)
+        self._store_session(replace(session, monitor_id=state.monitor_id))
+        return state
+
+    def record_post_promotion_observation(
+        self,
+        session_id: str,
+        *,
+        metrics: Iterable[MetricValue],
+        provider_error: str | None = None,
+    ) -> PostPromotionMonitorState:
+        session = self._require_session(session_id)
+        self._require_stage(session, ProductionEvolutionStage.MONITOR)
+        state = self._required_monitoring_state(session)
+        observation = HealthObservation.create(
+            promotion_id=state.baseline.promotion_id,
+            release_ref=state.baseline.release_ref,
+            sequence=len(state.observations) + 1,
+            metrics=metrics,
+            provider_error=provider_error,
+        )
+        updated = self._post_promotion_monitor.record(state.monitor_id, observation)
+        if updated.latest_assessment.verdict in {
+            MonitoringVerdict.DEGRADATION_DETECTED,
+            MonitoringVerdict.PROVIDER_ERROR,
+        }:
+            session = self._require_session(session_id)
+            self._replace_session(
+                session,
+                stage=ProductionEvolutionStage.DEGRADATION_DETECTED,
+                reason=updated.latest_assessment.reason,
+            )
+        return updated
+
+    def recommend_rollback(
+        self,
+        session_id: str,
+        *,
+        reason: str | None = None,
+    ) -> RollbackRecommendation:
+        session = self._require_session(session_id)
+        self._require_stage(session, ProductionEvolutionStage.DEGRADATION_DETECTED)
+        state = self._required_monitoring_state(session)
+        recommendation = self._post_promotion_monitor.recommend_rollback(state.monitor_id, reason=reason)
+        self._replace_session(
+            session,
+            stage=ProductionEvolutionStage.ROLLBACK_RECOMMENDED,
+            reason="bounded_monitor_recommended_rollback",
+            rollback_recommendation_id=recommendation.recommendation_id,
+        )
+        return recommendation
+
     def rollback(
         self,
         session_id: str,
@@ -247,9 +339,11 @@ class ProductionEvolutionOrchestrator:
         rolled_back_by: str,
     ) -> GovernedRollbackRecord:
         session = self._require_session(session_id)
-        self._require_stage(session, ProductionEvolutionStage.MONITOR)
+        self._require_stage(session, ProductionEvolutionStage.ROLLBACK_RECOMMENDED)
         if not session.promotion_id:
             raise ValueError("session has no governed promotion to roll back")
+        if not session.rollback_recommendation_id:
+            raise ValueError("session has no rollback recommendation")
         record = self._governance.rollback(
             promotion_id=session.promotion_id,
             target_promotion_id=target_promotion_id,
@@ -273,13 +367,13 @@ class ProductionEvolutionOrchestrator:
             raise ValueError(f"cannot reject production evolution session from {session.stage.value}")
         if session.candidate_id:
             record = self._lifecycle.get(session.candidate_id)
-            if record is not None and record.state not in {LifecycleState.REJECTED, LifecycleState.PROMOTED, LifecycleState.ROLLED_BACK}:
+            if record is not None and record.state not in {
+                LifecycleState.REJECTED,
+                LifecycleState.PROMOTED,
+                LifecycleState.ROLLED_BACK,
+            }:
                 self._lifecycle.reject(session.candidate_id, reason=reason)
-        return self._replace_session(
-            session,
-            stage=ProductionEvolutionStage.REJECTED,
-            reason=reason,
-        )
+        return self._replace_session(session, stage=ProductionEvolutionStage.REJECTED, reason=reason)
 
     def _binding(self, session: ProductionEvolutionSession) -> PromotionBinding:
         if not session.candidate_id or not session.evaluation_id or not session.candidate_fingerprint:
@@ -297,6 +391,22 @@ class ProductionEvolutionOrchestrator:
             raise ValueError("fingerprint_resolver returned an empty fingerprint")
         return fingerprint
 
+    def _required_monitoring_state(self, session: ProductionEvolutionSession) -> PostPromotionMonitorState:
+        if not session.monitor_id:
+            raise ValueError("post-promotion monitor has not been started")
+        state = self._post_promotion_monitor.state(session.monitor_id)
+        if state is None:
+            raise ValueError("post-promotion monitoring state is missing")
+        if state.baseline.promotion_id != session.promotion_id:
+            raise ValueError("monitoring promotion binding mismatch")
+        if state.baseline.release_ref != session.release_ref:
+            raise ValueError("monitoring release binding mismatch")
+        if state.baseline.candidate_id != session.candidate_id:
+            raise ValueError("monitoring candidate binding mismatch")
+        if state.baseline.candidate_fingerprint != session.candidate_fingerprint:
+            raise ValueError("monitoring fingerprint binding mismatch")
+        return state
+
     def _replace_session(
         self,
         session: ProductionEvolutionSession,
@@ -306,23 +416,31 @@ class ProductionEvolutionOrchestrator:
         approval_id: str | None = None,
         promotion_id: str | None = None,
         release_ref: str | None = None,
+        rollback_recommendation_id: str | None = None,
         rollback_id: str | None = None,
     ) -> ProductionEvolutionSession:
         allowed = self._ALLOWED_TRANSITIONS.get(session.stage, frozenset())
         if stage not in allowed:
             raise ValueError(f"invalid production evolution transition: {session.stage.value} -> {stage.value}")
-        transition = ProductionEvolutionTransition(session.stage, stage, reason)
         updated = replace(
             session,
             stage=stage,
-            transitions=(*session.transitions, transition),
+            transitions=(*session.transitions, ProductionEvolutionTransition(session.stage, stage, reason)),
             approval_id=approval_id if approval_id is not None else session.approval_id,
             promotion_id=promotion_id if promotion_id is not None else session.promotion_id,
             release_ref=release_ref if release_ref is not None else session.release_ref,
+            rollback_recommendation_id=(
+                rollback_recommendation_id
+                if rollback_recommendation_id is not None
+                else session.rollback_recommendation_id
+            ),
             rollback_id=rollback_id if rollback_id is not None else session.rollback_id,
         )
-        self._sessions[session.session_id] = updated
-        return updated
+        return self._store_session(updated)
+
+    def _store_session(self, session: ProductionEvolutionSession) -> ProductionEvolutionSession:
+        self._sessions[session.session_id] = session
+        return session
 
     def _require_session(self, session_id: str) -> ProductionEvolutionSession:
         session = self._sessions.get(session_id)
