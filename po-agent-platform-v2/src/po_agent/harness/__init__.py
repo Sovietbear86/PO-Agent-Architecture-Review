@@ -57,6 +57,12 @@ from .sandbox_patch import (
     SandboxPatchApplicator,
     SandboxPatchSynthesizer,
 )
+from .secure_evolution_sandbox import (
+    BaselineAttestor,
+    SecureEvolutionSandbox,
+    SecureEvolutionSandboxPolicy,
+    SecureEvolutionSandboxResult,
+)
 from .shadow_evaluation import (
     SeedComparison,
     ShadowEvaluationAuditStore,
@@ -129,5 +135,9 @@ __all__ = [
     "IsolationBackend",
     "IsolationLevel",
     "WorkspaceOnlyIsolationBackend",
+    "BaselineAttestor",
+    "SecureEvolutionSandbox",
+    "SecureEvolutionSandboxPolicy",
+    "SecureEvolutionSandboxResult",
     "build_fake_runtime",
 ]
