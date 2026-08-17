@@ -11,6 +11,14 @@ from .contracts import (
     HarnessResponse,
     ResponseStatus,
 )
+from .evolution_lifecycle import (
+    ControlledImprovementLifecycle,
+    EvaluationSnapshot,
+    LifecycleRecord,
+    LifecycleState,
+    PromotionDecision,
+    PromotionPolicy,
+)
 from .operational_history import ActiveVersions, ExecutionRecord, SQLiteHistoryStore
 from .observed_runtime import ObservedHarnessRuntime
 from .runtime import HarnessRuntime, build_fake_runtime as _build_unobserved_fake_runtime
@@ -32,5 +40,11 @@ __all__ = [
     "ActiveVersions",
     "ExecutionRecord",
     "SQLiteHistoryStore",
+    "ControlledImprovementLifecycle",
+    "EvaluationSnapshot",
+    "LifecycleRecord",
+    "LifecycleState",
+    "PromotionDecision",
+    "PromotionPolicy",
     "build_fake_runtime",
 ]
