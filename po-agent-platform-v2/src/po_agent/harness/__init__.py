@@ -22,6 +22,19 @@ from .evolution_lifecycle import (
 from .operational_history import ActiveVersions, ExecutionRecord, SQLiteHistoryStore
 from .observed_runtime import ObservedHarnessRuntime
 from .runtime import HarnessRuntime, build_fake_runtime as _build_unobserved_fake_runtime
+from .sandbox_patch import (
+    PatchEvaluationGate,
+    PatchEvaluationReport,
+    PatchOperation,
+    PatchProposal,
+    PatchSynthesisPolicy,
+    PatchValidationEvidence,
+    PatchVerdict,
+    ProposedFileChange,
+    SandboxApplyResult,
+    SandboxPatchApplicator,
+    SandboxPatchSynthesizer,
+)
 from .shadow_evaluation import (
     SeedComparison,
     ShadowEvaluationAuditStore,
@@ -67,5 +80,16 @@ __all__ = [
     "ForgePolicy",
     "SkillArtifact",
     "SkillForge",
+    "PatchEvaluationGate",
+    "PatchEvaluationReport",
+    "PatchOperation",
+    "PatchProposal",
+    "PatchSynthesisPolicy",
+    "PatchValidationEvidence",
+    "PatchVerdict",
+    "ProposedFileChange",
+    "SandboxApplyResult",
+    "SandboxPatchApplicator",
+    "SandboxPatchSynthesizer",
     "build_fake_runtime",
 ]
