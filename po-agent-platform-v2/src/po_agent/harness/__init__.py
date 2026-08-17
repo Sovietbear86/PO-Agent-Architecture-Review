@@ -40,6 +40,7 @@ from .evolution_memory import (
     EvolutionMemoryEntry,
     EvolutionMemoryOutcome,
     EvolutionMemoryPolicy,
+    EvolutionMemoryWriteAuthority,
     SQLiteEvolutionMemoryStore,
     evolution_fingerprint,
 )
@@ -139,6 +140,7 @@ __all__ = [
     "EvolutionMemoryEntry",
     "EvolutionMemoryOutcome",
     "EvolutionMemoryPolicy",
+    "EvolutionMemoryWriteAuthority",
     "SQLiteEvolutionMemoryStore",
     "evolution_fingerprint",
     "HumanApprovalRecord",
