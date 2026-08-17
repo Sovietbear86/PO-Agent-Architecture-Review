@@ -1,28 +1,25 @@
 """OS-level isolation backends for sandbox evidence execution.
 
-The previous hardened executor constrained cwd, argv, environment and evidence
-signing, but an allowlisted interpreter could still access host paths.  This
-module introduces an explicit execution trust boundary.  Production callers can
-require HARD_OS isolation and use a container backend whose root filesystem is
-read-only, network is disabled and only the sandbox workspace is writable.
-
-No promotion logic lives here.  This module only executes one already-authorized
-validation command and returns its raw process result.
+Production execution is fail-closed: container images are content-addressed,
+Docker CLI paths are explicit, sandbox host roots are policy-authorized, and
+containers run without network/capabilities/privilege as a non-root user.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Callable, Mapping, Protocol, Sequence
+from typing import Callable, Mapping, Protocol
+import re
 import subprocess
 
 from .sandbox_evidence import ValidationCommand
 
 
-class IsolationLevel(str, Enum):
-    """Strength of the execution boundary provided by a backend."""
+_SHA256_IMAGE_RE = re.compile(r"^.+@sha256:[0-9a-fA-F]{64}$")
 
+
+class IsolationLevel(str, Enum):
     WORKSPACE_ONLY = "workspace_only"
     HARD_OS = "hard_os"
 
@@ -49,45 +46,44 @@ class IsolationBackend(Protocol):
 
 @dataclass(frozen=True)
 class DockerIsolationPolicy:
-    """Bounded container policy for validation commands.
+    """Fail-closed policy for Docker-backed validation.
 
-    The image must be content-addressed.  This avoids silently changing the
-    execution environment between baseline and candidate evaluation.
+    ``allowed_sandbox_roots`` contains host directories under which writable
+    sandbox workspaces may be mounted.  Empty means no host path is authorized.
     """
 
     image: str
-    docker_executable: str = "docker"
+    docker_executable: str = "/usr/bin/docker"
+    allowed_sandbox_roots: tuple[str, ...] = ()
     workspace_mount: str = "/workspace"
     tmpfs_size: str = "64m"
     memory: str = "1g"
     cpus: str = "1.0"
     pids_limit: int = 256
     max_output_chars: int = 200_000
+    container_user: str = "65532:65532"
+    apparmor_profile: str | None = None
+    env_allowlist: tuple[str, ...] = ("PATH", "LANG", "LC_ALL")
 
     def __post_init__(self) -> None:
-        if "@sha256:" not in self.image:
-            raise ValueError("container image must be pinned by sha256 digest")
+        if not _SHA256_IMAGE_RE.fullmatch(self.image):
+            raise ValueError("container image must end with @sha256:<64 hex chars>")
+        docker_path = Path(self.docker_executable)
+        if not docker_path.is_absolute():
+            raise ValueError("docker_executable must be an absolute path")
         if not self.workspace_mount.startswith("/"):
             raise ValueError("workspace_mount must be absolute")
         if self.pids_limit < 1 or self.max_output_chars < 1:
             raise ValueError("container limits must be positive")
+        if not self.container_user or self.container_user.startswith("0"):
+            raise ValueError("container_user must be explicitly non-root")
+        for root in self.allowed_sandbox_roots:
+            if not Path(root).is_absolute():
+                raise ValueError("allowed_sandbox_roots entries must be absolute")
 
 
 class DockerIsolationBackend:
-    """Run a validation command in a locked-down Docker container.
-
-    Security properties supplied by the generated invocation:
-    - no network;
-    - read-only container root filesystem;
-    - all Linux capabilities dropped;
-    - no-new-privileges;
-    - bounded pids/memory/cpu;
-    - only the supplied sandbox directory is mounted writable;
-    - command is passed as argv, never through a shell.
-
-    ``launcher`` is injectable so hermetic tests can verify the exact trust
-    boundary without requiring Docker to be installed.
-    """
+    """Execute one validation command in a locked-down Docker container."""
 
     def __init__(
         self,
@@ -108,10 +104,7 @@ class DockerIsolationBackend:
         sandbox_root: Path,
         env: Mapping[str, str],
     ) -> IsolatedProcessResult:
-        root = sandbox_root.resolve()
-        if not root.exists() or not root.is_dir():
-            raise ValueError("sandbox root must be an existing directory")
-
+        root = self._authorized_root(sandbox_root)
         argv = self._docker_argv(command, root, env)
         try:
             completed = self._launcher(
@@ -136,6 +129,25 @@ class DockerIsolationBackend:
                 timed_out=True,
             )
 
+    def _authorized_root(self, sandbox_root: Path) -> Path:
+        root = sandbox_root.resolve(strict=True)
+        if not root.is_dir():
+            raise ValueError("sandbox root must be an existing directory")
+        allowed = [Path(item).resolve(strict=True) for item in self.policy.allowed_sandbox_roots]
+        if not allowed:
+            raise ValueError("no sandbox roots are authorized by policy")
+        for base in allowed:
+            if not base.is_dir():
+                continue
+            try:
+                root.relative_to(base)
+            except ValueError:
+                continue
+            if root == base:
+                raise ValueError("sandbox root must be a child of an authorized root")
+            return root
+        raise ValueError("sandbox root is outside authorized host roots")
+
     def _docker_argv(
         self,
         command: ValidationCommand,
@@ -151,6 +163,9 @@ class DockerIsolationBackend:
             "--read-only",
             "--cap-drop=ALL",
             "--security-opt=no-new-privileges:true",
+            "--security-opt=seccomp=builtin",
+            "--user",
+            self.policy.container_user,
             f"--pids-limit={self.policy.pids_limit}",
             f"--memory={self.policy.memory}",
             f"--cpus={self.policy.cpus}",
@@ -160,9 +175,12 @@ class DockerIsolationBackend:
             "--mount",
             f"type=bind,src={root},dst={mount},rw",
         ]
-        for name, value in sorted(env.items()):
-            # Environment is already allowlisted by HardenedSandboxExecutor.
-            argv.extend(["--env", f"{name}={value}"])
+        if self.policy.apparmor_profile:
+            argv.append(f"--security-opt=apparmor={self.policy.apparmor_profile}")
+        for name in sorted(self.policy.env_allowlist):
+            value = env.get(name)
+            if value is not None:
+                argv.extend(["--env", f"{name}={value}"])
         argv.append(self.policy.image)
         argv.extend(command.argv)
         return argv
@@ -177,7 +195,7 @@ class DockerIsolationBackend:
 
 
 class WorkspaceOnlyIsolationBackend:
-    """Explicit development backend; not a production security boundary."""
+    """Explicit development backend; never a production security boundary."""
 
     @property
     def isolation_level(self) -> IsolationLevel:
