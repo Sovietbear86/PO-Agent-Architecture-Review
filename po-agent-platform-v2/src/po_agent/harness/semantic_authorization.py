@@ -11,10 +11,55 @@ from typing import Any
 
 from po_agent.llm.client import LLMMessage
 
-from .dialogue_runtime import ClarificationNeed, LLMJsonSemanticInterpreter, SemanticFrame
+from .dialogue_runtime import (
+    ClarificationNeed,
+    DialogueHarnessRuntime,
+    LLMJsonSemanticInterpreter,
+    SemanticFrame,
+)
 
 
 _UNSUPPORTED = "__unsupported__"
+
+
+class BlindRecoveryLLMJsonSemanticInterpreter(LLMJsonSemanticInterpreter):
+    """Primary interpreter variant that leaves null-intent recovery to blind consensus.
+
+    The base interpreter's recovery path performs its own catalog-wide pairwise
+    ranking. Once blind consensus is enabled that work is duplicate: the blind
+    layer performs the authoritative independent recovery immediately afterwards.
+    Skipping primary recovery removes a second potentially expensive ranking pass
+    without changing the primary happy path or its slot extraction.
+    """
+
+    async def _repair_missing_intent(self, query: str, semantic_context: dict[str, Any]) -> str | None:
+        del query, semantic_context
+        return None
+
+
+class IntentPreservingDialogueHarnessRuntime(DialogueHarnessRuntime):
+    """Expose an already selected semantic intent while grounding asks for details.
+
+    Grounding/clarification is an execution-readiness state, not a routing failure.
+    Keeping ``response.intent`` populated makes that separation explicit to API
+    consumers and tests while still preventing execution until clarification is
+    resolved.
+    """
+
+    @staticmethod
+    def _clarification_response(session, pending):
+        response = DialogueHarnessRuntime._clarification_response(session, pending)
+        intent = (pending.frame.intent_hint or "").strip()
+        if intent:
+            response.intent = intent
+            if response.data is None:
+                response.data = {}
+            if isinstance(response.data, dict):
+                meta = response.data.setdefault("_harness", {})
+                if isinstance(meta, dict):
+                    meta["semantic_intent"] = intent
+                    meta["execution_ready"] = False
+        return response
 
 
 class BlindConsensusSemanticInterpreter:
