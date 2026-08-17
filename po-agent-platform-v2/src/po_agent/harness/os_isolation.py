@@ -1,23 +1,33 @@
 """OS-level isolation backends for sandbox evidence execution.
 
-The previous hardened executor constrained cwd, argv, environment and evidence
-signing, but an allowlisted interpreter could still access host paths.  This
-module introduces an explicit execution trust boundary.  Production callers can
-require HARD_OS isolation and use a container backend whose root filesystem is
-read-only, network is disabled and only the sandbox workspace is writable.
+This module is the execution trust boundary for self-evolution validation.
+Production callers can require HARD_OS isolation.  The Docker backend is
+fail-closed, content-addressed, non-root, networkless and mounts exactly one
+validated disposable workspace writable.
 
-No promotion logic lives here.  This module only executes one already-authorized
-validation command and returns its raw process result.
+No promotion logic lives here.  A successful process result is only evidence;
+it never authorizes a production mutation by itself.
 """
 from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Callable, Mapping, Protocol, Sequence
+from typing import Callable, Mapping, Protocol
+import os
+import re
 import subprocess
 
 from .sandbox_evidence import ValidationCommand
+
+
+_SHA256_IMAGE_RE = re.compile(r"^[^\s@]+@sha256:[0-9a-fA-F]{64}$")
+_DEFAULT_DOCKER_ROOTS = (
+    "/usr/bin",
+    "/usr/local/bin",
+    "/opt/homebrew/bin",
+    "/Applications/Docker.app/Contents/Resources/bin",
+)
 
 
 class IsolationLevel(str, Enum):
@@ -51,42 +61,55 @@ class IsolationBackend(Protocol):
 class DockerIsolationPolicy:
     """Bounded container policy for validation commands.
 
-    The image must be content-addressed.  This avoids silently changing the
-    execution environment between baseline and candidate evaluation.
+    ``image`` must use a real sha256 digest, not merely contain ``@sha256:``.
+    ``docker_executable`` is an absolute, explicitly trusted host binary path.
+    The container runs as an unprivileged uid/gid and receives a minimal env.
     """
 
     image: str
-    docker_executable: str = "docker"
+    docker_executable: str = "/usr/bin/docker"
+    trusted_docker_roots: tuple[str, ...] = _DEFAULT_DOCKER_ROOTS
     workspace_mount: str = "/workspace"
     tmpfs_size: str = "64m"
     memory: str = "1g"
     cpus: str = "1.0"
     pids_limit: int = 256
     max_output_chars: int = 200_000
+    container_user: str = "65532:65532"
 
     def __post_init__(self) -> None:
-        if "@sha256:" not in self.image:
-            raise ValueError("container image must be pinned by sha256 digest")
-        if not self.workspace_mount.startswith("/"):
-            raise ValueError("workspace_mount must be absolute")
+        if not _SHA256_IMAGE_RE.fullmatch(self.image):
+            raise ValueError("container image must be pinned by a 64-hex sha256 digest")
+        docker = Path(self.docker_executable)
+        if not docker.is_absolute():
+            raise ValueError("docker_executable must be an absolute trusted path")
+        resolved = docker.resolve(strict=False)
+        if not any(_is_within(resolved, Path(root).resolve(strict=False)) for root in self.trusted_docker_roots):
+            raise ValueError("docker_executable is outside trusted docker roots")
+        if not self.workspace_mount.startswith("/") or self.workspace_mount == "/":
+            raise ValueError("workspace_mount must be an absolute non-root path")
         if self.pids_limit < 1 or self.max_output_chars < 1:
             raise ValueError("container limits must be positive")
+        if not self.container_user or self.container_user in {"0", "0:0", "root"}:
+            raise ValueError("container must run as a non-root user")
 
 
 class DockerIsolationBackend:
-    """Run a validation command in a locked-down Docker container.
+    """Run one validation command in a locked-down Docker container.
 
-    Security properties supplied by the generated invocation:
+    Generated invocation guarantees:
     - no network;
     - read-only container root filesystem;
     - all Linux capabilities dropped;
     - no-new-privileges;
-    - bounded pids/memory/cpu;
-    - only the supplied sandbox directory is mounted writable;
-    - command is passed as argv, never through a shell.
+    - non-root uid/gid;
+    - bounded pids/memory/cpu/tmpfs;
+    - exactly one validated writable host bind mount;
+    - argv execution only (never a shell string).
 
-    ``launcher`` is injectable so hermetic tests can verify the exact trust
-    boundary without requiring Docker to be installed.
+    Docker's default seccomp profile remains enabled because this backend never
+    passes ``seccomp=unconfined``.  ``launcher`` is injectable for hermetic
+    verification; production should use the trusted Docker CLI.
     """
 
     def __init__(
@@ -108,10 +131,7 @@ class DockerIsolationBackend:
         sandbox_root: Path,
         env: Mapping[str, str],
     ) -> IsolatedProcessResult:
-        root = sandbox_root.resolve()
-        if not root.exists() or not root.is_dir():
-            raise ValueError("sandbox root must be an existing directory")
-
+        root = _validated_disposable_sandbox_root(sandbox_root)
         argv = self._docker_argv(command, root, env)
         try:
             completed = self._launcher(
@@ -151,6 +171,7 @@ class DockerIsolationBackend:
             "--read-only",
             "--cap-drop=ALL",
             "--security-opt=no-new-privileges:true",
+            f"--user={self.policy.container_user}",
             f"--pids-limit={self.policy.pids_limit}",
             f"--memory={self.policy.memory}",
             f"--cpus={self.policy.cpus}",
@@ -161,7 +182,6 @@ class DockerIsolationBackend:
             f"type=bind,src={root},dst={mount},rw",
         ]
         for name, value in sorted(env.items()):
-            # Environment is already allowlisted by HardenedSandboxExecutor.
             argv.extend(["--env", f"{name}={value}"])
         argv.append(self.policy.image)
         argv.extend(command.argv)
@@ -177,7 +197,7 @@ class DockerIsolationBackend:
 
 
 class WorkspaceOnlyIsolationBackend:
-    """Explicit development backend; not a production security boundary."""
+    """Explicit development backend; never a production security boundary."""
 
     @property
     def isolation_level(self) -> IsolationLevel:
@@ -189,10 +209,13 @@ class WorkspaceOnlyIsolationBackend:
         sandbox_root: Path,
         env: Mapping[str, str],
     ) -> IsolatedProcessResult:
+        root = Path(sandbox_root).resolve()
+        if not root.exists() or not root.is_dir():
+            raise ValueError("sandbox root must be an existing directory")
         try:
             completed = subprocess.run(
                 list(command.argv),
-                cwd=str(sandbox_root.resolve()),
+                cwd=str(root),
                 env=dict(env),
                 shell=False,
                 capture_output=True,
@@ -213,3 +236,32 @@ class WorkspaceOnlyIsolationBackend:
                 stderr=DockerIsolationBackend._text(exc.stderr),
                 timed_out=True,
             )
+
+
+def _validated_disposable_sandbox_root(raw_root: Path) -> Path:
+    """Reject host-sensitive roots even if a caller tries to mount them directly."""
+
+    root = Path(raw_root).resolve()
+    if not root.exists() or not root.is_dir():
+        raise ValueError("sandbox root must be an existing directory")
+
+    forbidden = {Path("/").resolve(), Path.home().resolve()}
+    if root in forbidden:
+        raise ValueError("sensitive host directory cannot be used as sandbox root")
+    if ".git" in root.parts or (root / ".git").exists():
+        raise ValueError("git repository roots cannot be mounted as disposable sandboxes")
+
+    # Refuse roots that resolve to a parent of HOME; this closes '/'-like broad mounts.
+    home = Path.home().resolve()
+    if _is_within(home, root):
+        raise ValueError("sandbox root is too broad and contains the user home directory")
+
+    return root
+
+
+def _is_within(path: Path, root: Path) -> bool:
+    try:
+        path.relative_to(root)
+        return True
+    except ValueError:
+        return False
