@@ -1,9 +1,9 @@
 """Hardened execution boundary for sandbox validation.
 
-The executor is intentionally small: it executes only structured argv commands,
-inside an already-created sandbox root, with a bounded environment and timeout.
-It emits HMAC-bound observations so callers cannot silently forge successful
-results without access to the executor instance's signing key.
+The executor executes only structured argv commands, with a bounded environment,
+timeout and cryptographically bound observations.  Execution itself is delegated
+to an explicit isolation backend.  Production callers can require HARD_OS
+isolation; workspace-only subprocess execution is then rejected fail-closed.
 
 TrustedSandboxEvidenceRunner removes caller-supplied GREEN inputs: acceptance
 and metrics are derived from signed command observations produced by this
@@ -19,8 +19,12 @@ import hashlib
 import hmac
 import json
 import os
-import subprocess
 
+from .os_isolation import (
+    IsolationBackend,
+    IsolationLevel,
+    WorkspaceOnlyIsolationBackend,
+)
 from .sandbox_evidence import (
     CommandObservation,
     SandboxEvidenceReport,
@@ -41,6 +45,7 @@ class HardenedExecutorPolicy:
     max_hashed_files: int = 20_000
     max_hashed_bytes: int = 200_000_000
     env_allowlist: tuple[str, ...] = ("PATH", "PYTHONPATH", "HOME", "TMPDIR", "LANG", "LC_ALL")
+    require_os_isolation: bool = False
 
     def __post_init__(self) -> None:
         if not self.allowed_executables:
@@ -50,59 +55,53 @@ class HardenedExecutorPolicy:
 
 
 class HardenedSandboxExecutor:
-    """Structured, bounded subprocess executor restricted to a sandbox root."""
+    """Structured, bounded executor restricted to a declared isolation backend."""
 
     def __init__(
         self,
         policy: HardenedExecutorPolicy | None = None,
         *,
         signing_key: bytes | None = None,
+        isolation_backend: IsolationBackend | None = None,
     ) -> None:
         self.policy = policy or HardenedExecutorPolicy()
         self._signing_key = signing_key or os.urandom(32)
+        self.isolation_backend = isolation_backend or WorkspaceOnlyIsolationBackend()
+        if (
+            self.policy.require_os_isolation
+            and self.isolation_backend.isolation_level is not IsolationLevel.HARD_OS
+        ):
+            raise ValueError("HARD_OS isolation backend is required by executor policy")
+
+    @property
+    def isolation_level(self) -> IsolationLevel:
+        return self.isolation_backend.isolation_level
 
     def __call__(self, command: ValidationCommand, sandbox_root: Path) -> CommandObservation:
         root = sandbox_root.resolve()
         if not root.exists() or not root.is_dir():
             raise ValueError("sandbox root must be an existing directory")
         self._validate_command(command)
+        if (
+            self.policy.require_os_isolation
+            and self.isolation_backend.isolation_level is not IsolationLevel.HARD_OS
+        ):
+            raise ValueError("execution refused: HARD_OS isolation is unavailable")
 
         before = self._workspace_digest(root)
         started = datetime.now(timezone.utc).isoformat()
-        timed_out = False
-        returncode = 1
-        stdout = ""
-        stderr = ""
-        try:
-            completed = subprocess.run(
-                list(command.argv),
-                cwd=str(root),
-                env=self._sanitized_env(),
-                shell=False,
-                capture_output=True,
-                text=True,
-                timeout=command.timeout_seconds,
-                check=False,
-            )
-            returncode = int(completed.returncode)
-            stdout = completed.stdout or ""
-            stderr = completed.stderr or ""
-        except subprocess.TimeoutExpired as exc:
-            timed_out = True
-            returncode = 124
-            stdout = self._text(exc.stdout)
-            stderr = self._text(exc.stderr)
+        result = self.isolation_backend.execute(command, root, self._sanitized_env())
         finished = datetime.now(timezone.utc).isoformat()
         after = self._workspace_digest(root)
 
-        stdout = stdout[: self.policy.max_output_chars]
-        stderr = stderr[: self.policy.max_output_chars]
+        stdout = result.stdout[: self.policy.max_output_chars]
+        stderr = result.stderr[: self.policy.max_output_chars]
         observation = CommandObservation(
             name=command.name,
-            returncode=returncode,
+            returncode=int(result.returncode),
             stdout=stdout,
             stderr=stderr,
-            timed_out=timed_out,
+            timed_out=bool(result.timed_out),
             command_sha256=self._command_digest(command),
             stdout_sha256=self._digest_text(stdout),
             stderr_sha256=self._digest_text(stderr),
@@ -188,14 +187,6 @@ class HardenedSandboxExecutor:
     @staticmethod
     def _digest_text(value: str) -> str:
         return hashlib.sha256(value.encode("utf-8")).hexdigest()
-
-    @staticmethod
-    def _text(value: object) -> str:
-        if value is None:
-            return ""
-        if isinstance(value, bytes):
-            return value.decode("utf-8", errors="replace")
-        return str(value)
 
 
 @dataclass(frozen=True)
