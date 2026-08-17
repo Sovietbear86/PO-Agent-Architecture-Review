@@ -54,6 +54,12 @@ from .governed_promotion import (
     SignedPromotionApproval,
     SQLiteGovernanceAuditStore,
 )
+from .production_evolution_orchestrator import (
+    ProductionEvolutionOrchestrator,
+    ProductionEvolutionSession,
+    ProductionEvolutionStage,
+    ProductionEvolutionTransition,
+)
 from .hardened_sandbox_executor import (
     EVIDENCE_PREFIX,
     HardenedExecutorPolicy,
@@ -161,6 +167,10 @@ __all__ = [
     "PromotionManifest",
     "SignedPromotionApproval",
     "SQLiteGovernanceAuditStore",
+    "ProductionEvolutionOrchestrator",
+    "ProductionEvolutionSession",
+    "ProductionEvolutionStage",
+    "ProductionEvolutionTransition",
     "HumanApprovalRecord",
     "PromotionRecord",
     "ReleaseState",
