@@ -26,7 +26,6 @@ from .evolution_lifecycle import (
     PromotionPolicy,
 )
 from .evolution_loop import (
-    AutonomousEvolutionLoop,
     AutonomousEvolutionPolicy,
     AutonomousEvolutionReport,
     EvolutionAttemptRecord,
@@ -41,7 +40,6 @@ from .evolution_memory import (
     EvolutionMemoryEntry,
     EvolutionMemoryOutcome,
     EvolutionMemoryPolicy,
-    EvolutionMemoryWriteAuthority,
     SQLiteEvolutionMemoryStore,
     evolution_fingerprint,
 )
@@ -129,7 +127,6 @@ __all__ = [
     "EvolutionBudget",
     "EvolutionBudgetPolicy",
     "EvolutionBudgetSnapshot",
-    "AutonomousEvolutionLoop",
     "MemoryIntegratedAutonomousEvolutionLoop",
     "AutonomousEvolutionPolicy",
     "AutonomousEvolutionReport",
@@ -142,7 +139,6 @@ __all__ = [
     "EvolutionMemoryEntry",
     "EvolutionMemoryOutcome",
     "EvolutionMemoryPolicy",
-    "EvolutionMemoryWriteAuthority",
     "SQLiteEvolutionMemoryStore",
     "evolution_fingerprint",
     "HumanApprovalRecord",
