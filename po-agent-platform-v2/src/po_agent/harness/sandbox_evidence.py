@@ -35,6 +35,15 @@ class CommandObservation:
     stdout: str = ""
     stderr: str = ""
     timed_out: bool = False
+    command_sha256: str = ""
+    stdout_sha256: str = ""
+    stderr_sha256: str = ""
+    workspace_before_sha256: str = ""
+    workspace_after_sha256: str = ""
+    started_at: str = ""
+    finished_at: str = ""
+    signature: str = ""
+    trusted: bool = False
 
     @property
     def passed(self) -> bool:
