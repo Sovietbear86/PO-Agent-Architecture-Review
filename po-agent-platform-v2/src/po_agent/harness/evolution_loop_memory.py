@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from typing import Callable, Sequence
+from typing import Sequence
 
 from .evolution_loop import (
     AutonomousEvolutionLoop,
@@ -24,7 +24,8 @@ from .evolution_memory import (
     EvolutionMemory,
     EvolutionMemoryEntry,
     EvolutionMemoryOutcome,
-    _bind_trusted_memory_writer,
+    _append_trusted_entry,
+    _bind_trusted_memory,
 )
 from .sandbox_patch import PatchProposal, PatchVerdict
 from .secure_evolution_sandbox import SecureEvolutionSandbox
@@ -62,17 +63,15 @@ class _ProposalContext:
 
 
 class _MemoryCoordinator:
-    """Trusted internal coordinator; owns only a write closure, never raw authority."""
+    """Trusted internal coordinator with no reusable write capability in its graph."""
 
     def __init__(
         self,
         *,
         memory: EvolutionMemory,
-        write_entry: Callable[[EvolutionMemoryEntry], None],
         policy: AutonomousEvolutionPolicy,
     ) -> None:
-        self.memory = memory
-        self.__write_entry = write_entry
+        self._memory = memory
         self.policy = policy
         self.by_proposal: dict[str, _ProposalContext] = {}
         self.latest_by_candidate: dict[str, _ProposalContext] = {}
@@ -96,7 +95,7 @@ class _MemoryCoordinator:
             target_files=proposal.target_files,
             proposal_material=proposal_context.material,
         ).fingerprint
-        allowed, reasons = self.memory.should_attempt(fingerprint)
+        allowed, reasons = self._memory.should_attempt(fingerprint)
         if not allowed:
             self.denied_proposals[proposal.proposal_id] = reasons
 
@@ -124,7 +123,7 @@ class _MemoryCoordinator:
             reasons=reasons,
             evaluation_id=evaluation_id,
         )
-        self.__write_entry(entry)
+        _append_trusted_entry(self._memory, entry)
         self._recorded.add(key)
 
     def record_latest(
@@ -247,10 +246,10 @@ class _MemoryAwareShadowEvaluator:
 class MemoryIntegratedAutonomousEvolutionLoop:
     """Production autonomous-evolution loop with mandatory EvolutionMemory guard.
 
-    The raw write capability is never stored on this object. Binding occurs once
-    during construction and the coordinator receives only a write-only closure.
-    The legacy AutonomousEvolutionLoop remains an internal primitive in its own
-    module for focused tests; production callers should use this class.
+    The raw write capability is not stored on this object, on EvolutionMemory,
+    or in a callback/closure reachable from the object graph. Mutable memory
+    state is isolated behind a module-private trusted boundary. The legacy
+    AutonomousEvolutionLoop remains an internal primitive for focused tests.
     """
 
     def __init__(
@@ -270,11 +269,9 @@ class MemoryIntegratedAutonomousEvolutionLoop:
         policy: AutonomousEvolutionPolicy | None = None,
     ) -> None:
         resolved_policy = policy or AutonomousEvolutionPolicy()
-        write_entry = _bind_trusted_memory_writer(evolution_memory)
-        self.evolution_memory = evolution_memory
+        _bind_trusted_memory(evolution_memory)
         self._coordinator = _MemoryCoordinator(
             memory=evolution_memory,
-            write_entry=write_entry,
             policy=resolved_policy,
         )
         self._loop = AutonomousEvolutionLoop(
