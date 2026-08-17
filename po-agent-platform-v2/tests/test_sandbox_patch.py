@@ -78,10 +78,13 @@ def test_synthesizer_rejects_path_traversal():
 
 
 def test_synthesizer_rejects_undeclared_target():
-    with pytest.raises(ValueError, match="not authorized"):
+    # The contract is semantic: an undeclared file must fail closed.  Do not
+    # couple the test to exact exception wording.
+    with pytest.raises(ValueError) as exc_info:
         SandboxPatchSynthesizer().synthesize(
             candidate=candidate(), baseline_sha="abc", changes=[change()], authorized_target_files=[]
         )
+    assert "authoriz" in str(exc_info.value).lower()
 
 
 def test_synthesizer_enforces_scope_bounds():
