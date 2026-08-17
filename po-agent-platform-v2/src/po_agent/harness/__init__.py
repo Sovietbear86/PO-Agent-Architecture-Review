@@ -35,6 +35,7 @@ from .evolution_loop import (
     PatchGenerationContext,
     PatchGenerator,
 )
+from .evolution_loop_memory import MemoryIntegratedAutonomousEvolutionLoop
 from .evolution_memory import (
     EvolutionMemory,
     EvolutionMemoryEntry,
@@ -129,6 +130,7 @@ __all__ = [
     "EvolutionBudgetPolicy",
     "EvolutionBudgetSnapshot",
     "AutonomousEvolutionLoop",
+    "MemoryIntegratedAutonomousEvolutionLoop",
     "AutonomousEvolutionPolicy",
     "AutonomousEvolutionReport",
     "EvolutionAttemptRecord",
