@@ -26,6 +26,14 @@ from .hardened_sandbox_executor import (
     TrustedEvidencePolicy,
     TrustedSandboxEvidenceRunner,
 )
+from .os_isolation import (
+    DockerIsolationBackend,
+    DockerIsolationPolicy,
+    IsolatedProcessResult,
+    IsolationBackend,
+    IsolationLevel,
+    WorkspaceOnlyIsolationBackend,
+)
 from .operational_history import ActiveVersions, ExecutionRecord, SQLiteHistoryStore
 from .observed_runtime import ObservedHarnessRuntime
 from .runtime import HarnessRuntime, build_fake_runtime as _build_unobserved_fake_runtime
@@ -115,5 +123,11 @@ __all__ = [
     "HardenedSandboxExecutor",
     "TrustedEvidencePolicy",
     "TrustedSandboxEvidenceRunner",
+    "DockerIsolationBackend",
+    "DockerIsolationPolicy",
+    "IsolatedProcessResult",
+    "IsolationBackend",
+    "IsolationLevel",
+    "WorkspaceOnlyIsolationBackend",
     "build_fake_runtime",
 ]
