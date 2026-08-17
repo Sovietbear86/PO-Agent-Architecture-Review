@@ -142,8 +142,8 @@ def test_known_bad_fingerprint_is_stopped_before_second_sandbox_execution() -> N
     first.run(seeds=[_seed("e1"), _seed("e2")], source_root="/unused", baseline_sha=BASELINE_SHA)
     assert first_sandbox.calls == 1
 
-    # Move the same trusted memory into a fresh loop by deliberately releasing
-    # the previous wrapper-owned binding in this hermetic test only.
+    # Hermetic lifecycle hand-off: a persistence adapter will replace this in
+    # production. The next trusted loop re-binds the same read history.
     setattr(memory, "_EvolutionMemory__write_authority", None)
     second_sandbox = SandboxFake(PatchVerdict.APPROVAL_REQUIRED)
     second = _loop(memory=memory, sandbox=second_sandbox, attempts=1)
@@ -178,10 +178,10 @@ def test_green_candidate_records_approval_required_but_never_approval() -> None:
 def test_external_write_without_wrapper_authority_remains_blocked() -> None:
     memory = EvolutionMemory()
     sandbox = SandboxFake(PatchVerdict.APPROVAL_REQUIRED)
-    _loop(memory=memory, sandbox=sandbox, attempts=1)
+    loop = _loop(memory=memory, sandbox=sandbox, attempts=1)
+    assert not hasattr(loop, "_MemoryIntegratedAutonomousEvolutionLoop__write_authority")
     entry = next(iter(memory.snapshot()), None)
     assert entry is None
-    # The caller has the read/query memory object but no write capability.
     from po_agent.harness.evolution_memory import EvolutionMemoryEntry
     forged = EvolutionMemoryEntry.create(
         failure_key="forged",
@@ -196,3 +196,11 @@ def test_external_write_without_wrapper_authority_remains_blocked() -> None:
         pass
     else:
         raise AssertionError("untrusted caller unexpectedly wrote EvolutionMemory")
+
+
+def test_legacy_loop_is_not_in_public_harness_api() -> None:
+    import po_agent.harness as harness
+
+    assert not hasattr(harness, "AutonomousEvolutionLoop")
+    assert "AutonomousEvolutionLoop" not in harness.__all__
+    assert hasattr(harness, "MemoryIntegratedAutonomousEvolutionLoop")
