@@ -14,9 +14,14 @@ The route `/api/v1/swtr-read/tasks/{task_code}/files` is correctly implemented i
 - ✅ Server starts correctly with new router
 - ❌ MCP connection fails (`SWTR MCP read failed`)
 
-**Root cause:** MCP-SWTR service (port 8000) is not running.
+**Root cause:** MCP-SWTR service returns error when attempting to call tools via stdio transport. The token in the MCP environment is invalid or expired.
 
-**Action required:** Start MCP-SWTR server before testing against real AS21 data.
+**Investigation findings:**
+- MCP server runs with `transport="stdio"` when PORT=0
+- Request format is correct (JSON-RPC 2.0 over stdio)
+- Response: `{"code":-32602,"message":"Invalid request parameters","data":""}`
+- This suggests the MCP request payload format doesn't match what FastMCP expects
+- The SWTR sync service uses `tools/call` method which requires FastMCP protocol
 
 ---
 
@@ -138,10 +143,10 @@ python3 task-api/s21_agent_mcp_server.py
 | Check | Result |
 |-------|--------|
 | Adapter method | `TaskApiAS21Adapter.get_attachment_metadata("WMB-30000")` |
-| MCP connection | ❌ Failed (port 8000 unavailable) |
+| MCP connection | ❌ Failed (MCP protocol format mismatch) |
 | Exception raised | `AS21SourceUnavailable` |
 
-**CANONICAL_ATTACHMENT_MAPPING = BLOCKED** (MCP unavailable)
+**CANONICAL_ATTACHMENT_MAPPING = BLOCKED** (MCP unavailable - protocol format issue)
 
 **Code verification (static inspection):**
 ```python
