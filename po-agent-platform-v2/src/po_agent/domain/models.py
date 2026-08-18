@@ -37,7 +37,7 @@ class TaskPriority(str,Enum):
 
 class Task(BaseModel):
     key:str=Field(...,pattern=r"^[A-Z]+-\d+$"); id:str
-    title:str=Field(...,min_length=1,max_length=200); description:Optional[str]=Field(None,max_length=10000)
+    title:str=Field(...,min_length=1,max_length=200); description:Optional[str]=None
     status:TaskStatus; status_category:StatusCategory; status_raw:Optional[str]=None; status_transitions:list[StatusTransition]=[]
     assignee:Optional[str]=None; assignee_id:Optional[str]=None; assignee_login:Optional[str]=None
     created_at:datetime; updated_at:datetime; due_date:Optional[datetime]=None; resolved_at:Optional[datetime]=None; closed_at:Optional[datetime]=None
