@@ -9,12 +9,14 @@ from __future__ import annotations
 
 from datetime import datetime
 import re
+from pathlib import Path
 from typing import Any, Optional
 
 import httpx
 
 from po_agent.domain.models import (
     Attachment,
+    AttachmentType,
     StatusTransition,
     Task,
     get_status_category,
@@ -66,11 +68,6 @@ def _user_identity(value: Any) -> tuple[str | None, str | None, str | None]:
 
 
 def _identifier(value: Any) -> str | None:
-    """Extract a stable identifier from common AS21 scalar/object/list shapes.
-
-    This helper is deliberately conservative. It does not invent identifiers;
-    it only returns an explicit scalar from fields observed/used by task-api.
-    """
     if isinstance(value, (str, int)):
         text = str(value).strip()
         return text or None
@@ -96,11 +93,6 @@ def _query_value(raw: str) -> str:
 
 
 def _parse_query(query: str) -> tuple[dict[str, str], str | None]:
-    """Parse the bounded equality/AND grammar supported by Harness.
-
-    A query without '=' is treated as free text. Unknown fields or malformed
-    clauses fail closed instead of broadening the source request.
-    """
     text = (query or "").strip()
     if not text:
         return {}, None
@@ -178,10 +170,30 @@ def _task_matches(task: Task, filters: dict[str, str], free_text: str | None) ->
     return True
 
 
+def _attachment_type(name: str, content_type: str | None) -> AttachmentType:
+    mime = (content_type or "").casefold()
+    suffix = Path(name).suffix.casefold()
+    if suffix in {".xlsx", ".xls", ".xlsm", ".csv"} or "spreadsheet" in mime or "excel" in mime:
+        return AttachmentType.EXCEL
+    if suffix in {".doc", ".docx"} or "word" in mime:
+        return AttachmentType.WORD
+    if suffix == ".pdf" or mime == "application/pdf":
+        return AttachmentType.PDF
+    if suffix == ".msg" or "outlook" in mime:
+        return AttachmentType.MSG
+    if mime.startswith("image/") or suffix in {".png", ".jpg", ".jpeg", ".gif", ".webp"}:
+        return AttachmentType.IMAGE
+    if mime.startswith("text/") or suffix in {".txt", ".md", ".json", ".xml"}:
+        return AttachmentType.TEXT
+    return AttachmentType.OTHER
+
+
 class TaskApiAS21Adapter(AS21Adapter):
     source_name = "task-api"
+    # Attachments are intentionally not advertised as a proven source fact until
+    # the new rich-read endpoint passes real AS21 QA.
     source_facts = frozenset({"tasks"})
-    _scan_limit = 10000  # task-api's documented maximum; bounded and explicit
+    _scan_limit = 10000
 
     def __init__(
         self,
@@ -205,27 +217,18 @@ class TaskApiAS21Adapter(AS21Adapter):
             return None
         source_data = data.get("source_data") if isinstance(data.get("source_data"), dict) else {}
         attrs = _attributes(source_data)
-
-        # Prefer the source workflow status when present; otherwise task-api's
-        # normalized todo/in_progress/done value is itself a proven contract.
         status_raw = source_data.get("workflow_status") or data.get("status") or ""
         status = normalize_task_status(str(status_raw))
-
         display, external_id, login = _user_identity(attrs.get("assigned_to"))
         assignee = data.get("assignee") if isinstance(data.get("assignee"), str) else display
         title = data.get("title")
         if not isinstance(title, str) or not title.strip():
             return None
-
         created = _parse_datetime(data.get("created_at")) or datetime.now()
         updated = _parse_datetime(data.get("updated_at")) or created
         project_space = source_data.get("swtr_space") if isinstance(source_data.get("swtr_space"), str) else None
-
-        # task-api already exposes a derived `sprint` field when it can prove
-        # one. Fall back to the same source attribute family used by task-api.
         sprint_id = _identifier(data.get("sprint")) or _identifier(attrs.get("scrum_board_plugin_sprint"))
         release_id = _identifier(attrs.get("fix_version_s"))
-
         return Task(
             key=source_id,
             id=source_id,
@@ -281,8 +284,6 @@ class TaskApiAS21Adapter(AS21Adapter):
         normalized = task_key.upper().strip()
         if not re.fullmatch(r"[A-Z]+-\d+", normalized):
             return None
-        # The current task-api has no source_id query parameter. Scan its
-        # bounded read facade and match the canonical key exactly.
         tasks = await self._fetch_tasks(limit=self._scan_limit, source="swtr")
         return next((task for task in tasks if task.key.upper() == normalized), None)
 
@@ -297,14 +298,9 @@ class TaskApiAS21Adapter(AS21Adapter):
             raise ValueError("max_results must be >= 0")
         if max_results == 0:
             return []
-
         filters, free_text = _parse_query(jql)
         if "__impossible__" in filters:
             return []
-
-        # Source is a proven task-api native filter. Other criteria use
-        # canonical local filtering because task-api assignee stores display
-        # names, while Harness must support the stable AS21 externalId/login.
         source_filter = filters.get("source")
         needs_local_filtering = bool(filters) or bool(free_text)
         fetch_limit = self._scan_limit if needs_local_filtering else min(max_results, self._scan_limit)
@@ -321,14 +317,59 @@ class TaskApiAS21Adapter(AS21Adapter):
         return await self.search_tasks(query, max_results=self._scan_limit)
 
     async def get_task_history(self, task_key: str) -> list[StatusTransition]:
-        raise AS21CapabilityUnavailable(f"task-api does not expose status history for {task_key}")
+        raise AS21CapabilityUnavailable(f"task-api does not expose proven status-transition history for {task_key}")
 
     async def get_attachment_metadata(
         self,
         task_key: str,
         attachment_id: Optional[str] = None,
     ) -> list[Attachment]:
-        raise AS21CapabilityUnavailable(f"task-api does not expose attachment metadata for {task_key}")
+        normalized = task_key.upper().strip()
+        if not re.fullmatch(r"[A-Z]+-\d+", normalized):
+            return []
+        try:
+            response = await self._client.get(f"/api/v1/swtr-read/tasks/{normalized}/files")
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 404:
+                return []
+            raise AS21SourceUnavailable(f"task-api SWTR attachment read failed: HTTP {exc.response.status_code}") from exc
+        except httpx.HTTPError as exc:
+            raise AS21SourceUnavailable(f"task-api SWTR attachment read failed: {type(exc).__name__}") from exc
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            raise AS21SourceError("task-api SWTR attachment endpoint returned invalid JSON") from exc
+        if not isinstance(payload, dict) or not isinstance(payload.get("files"), list):
+            raise AS21SourceError("task-api SWTR attachment endpoint returned malformed payload")
+
+        attachments: list[Attachment] = []
+        for raw in payload["files"]:
+            if not isinstance(raw, dict):
+                raise AS21SourceError("SWTR attachment metadata item is not an object")
+            file_id = raw.get("id")
+            name = raw.get("name")
+            size = raw.get("size")
+            created = _parse_datetime(raw.get("created"))
+            if not isinstance(file_id, str) or not file_id or not isinstance(name, str) or not name:
+                raise AS21SourceError("SWTR attachment metadata misses id/name")
+            if not isinstance(size, int) or size < 0:
+                raise AS21SourceError("SWTR attachment metadata misses valid size")
+            if created is None:
+                raise AS21SourceError("SWTR attachment metadata misses valid created timestamp")
+            if attachment_id is not None and file_id != attachment_id:
+                continue
+            attachments.append(
+                Attachment(
+                    id=file_id,
+                    name=name,
+                    type=_attachment_type(name, raw.get("contentType") if isinstance(raw.get("contentType"), str) else None),
+                    size_bytes=size,
+                    created_at=created,
+                    url=None,
+                )
+            )
+        return attachments
 
     async def close(self) -> None:
         if self._owns_client:
