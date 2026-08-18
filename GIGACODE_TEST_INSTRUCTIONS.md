@@ -13,34 +13,51 @@
 
 ## Current assignment
 
-`ASSIGNMENT_ID = AS21-A2-FILTER-RETEST-003`
+`ASSIGNMENT_ID = AS21-A3-EXTENDED-SOURCE-DISCOVERY-004`
 
 `TARGET_BRANCH = feat/real-baseline-candidate-eval-v1`
 
-`REPORT_PATH = qa_reports/AS21_A2_FILTER_RETEST_003.md`
+`REPORT_PATH = qa_reports/AS21_A3_EXTENDED_SOURCE_DISCOVERY_004.md`
 
 Read first:
 - `PO_AGENT_HARNESS_EVOLUTION_PLAN.md`
 - `CORE8_AS21_SOURCE_CONTRACT.md`
-- prior reports `qa_reports/AS21_A2_REAL_CONTRACT_DISCOVERY_001.md` and `qa_reports/AS21_A2_FILTER_RETEST_002.md`
+- `qa_reports/AS21_A2_FILTER_RETEST_003.md`
 
-## What changed since retest 002
+## Context
 
-The previous real run found that at least one AS21 task has a description longer than 10,000 characters. Canonical `Task.description` rejected it, so the bounded corpus scan failed before filtering.
+A2 base task contract is considered functionally closed on real AS21 data:
+- exact lookup works;
+- assignee externalId/login filtering works;
+- project filtering/intersection works;
+- status/free-text works;
+- no ignored `q`;
+- no false-positive assignee;
+- long descriptions do not break mapping.
 
-Developer fix:
-- removed the arbitrary 10k limit from canonical `Task.description`;
-- preserves the FULL AS21 description (no truncation and no silent skipping);
-- added a regression test with a 25,000-character real-shaped description;
-- existing `q`-parameter fix remains in place;
-- assignee/project/status filtering remains deterministic over canonical facts.
+Do NOT spend this assignment re-proving A2 except as a short smoke/regression.
+
+A3 must discover the richer source contracts needed by Core-8 analytical/task-intelligence skills.
+
+Important architecture already found in repository:
+- `task-api/app/services/swtr_sync_service.py` invokes real MCP-SWTR read tools;
+- observed tool names include `find_units`, `find_units_by_filter`, `read_unit`, `get_current_sprint` and sprint-task retrieval;
+- `task-api/app/routers/swtr_sync.py` exposes read-oriented routes including `/api/v1/swtr/sprints` and `/api/v1/swtr/sprint-tasks`;
+- early `SWTRAdapter` had attachment/comment model fields but initialized them empty, so that old mapper is NOT proof of an attachment source;
+- historical sync code extracted `scrum_board_plugin_sprint` from full `read_unit` payloads.
+
+Owner-provided real-data clue:
+- at least one real task assigned to `Kalachanov.V.V` in space `WMB` has attachment(s).
+- Discover it from the source; do not ask owner to send a screenshot/key unless deterministic discovery is impossible.
 
 ## QA rules
 
-- READ ONLY AS21/task-api.
-- Do not call create/update/delete/comment/transition/write routes.
-- Do not patch code when something fails.
-- Do not use mock results as evidence for real-data gates.
+- READ ONLY against AS21/SWTR/MCP/task-api.
+- DO NOT call sync/save/create/update/delete/comment/transition/write methods that mutate local or remote state.
+- Prefer direct read-only MCP tools and GET/read methods.
+- Do not modify code when a gap is found.
+- Sanitize outputs; never publish token/cookie/header values or attachment contents containing sensitive data.
+- For attachment discovery, metadata/structure is enough; do not download file contents unless explicitly necessary to prove a read API exists.
 
 ## Procedure
 
@@ -54,159 +71,262 @@ git status --short
 git log --oneline -12
 ```
 
-Record HEAD and verify working tree clean.
+Record HEAD and clean tree.
 
-### 2. Targeted tests
+### 2. Short A2 smoke + regression
 
-From `po-agent-platform-v2`:
+From `po-agent-platform-v2` run the targeted adapter tests and a minimal real smoke:
+- exact `WMB-30000`;
+- `assignee = Kalachanov.V.V`;
+- `project = WMB AND assignee = Kalachanov.V.V`;
+- nonexistent assignee => 0.
 
-```bash
-pytest -q tests/test_task_api_as21_adapter.py -vv
-pytest -q tests/test_domain_models.py -vv
-pytest -q tests/test_as21_adapter.py tests/test_frozen_as21.py tests/test_harness_source_readiness.py -vv
-```
+Run full `pytest -q` and report `NEW_CODE_REGRESSIONS_VS_PREVIOUS_GREEN`.
 
-Important: if the old domain test still expects unknown status -> OPEN, classify it explicitly as a stale test expectation against the new fail-closed source contract; do not modify it.
+### 3. Inventory real MCP-SWTR tool catalog
 
-### 3. Full regression
+Locate the MCP-SWTR installation used by `SWTRSyncService` (default path is in service constructor, but verify actual local path). Initialize the MCP server read-only and call `tools/list`.
 
-```bash
-pytest -q
-```
+Record sanitized list of tool names/descriptions relevant to:
+- task/unit read;
+- task search/filter;
+- sprint/current sprint/sprint tasks;
+- attachments/files/resources;
+- comments/activity/changelog/history;
+- releases/fix versions.
 
-Report pass/fail/error/skip and `NEW_CODE_REGRESSIONS_VS_PREVIOUS_GREEN`.
+Do not execute any tool whose semantics are write/mutate/create/update/delete/comment/transition.
 
-### 4. Prove long-description blocker is gone on REAL data
+Report machine-readable:
+- `MCP_TOOL_CATALOG_AVAILABLE`
+- `MCP_READ_UNIT_TOOL`
+- `MCP_SPRINT_TOOLS`
+- `MCP_ATTACHMENT_TOOLS`
+- `MCP_HISTORY_TOOLS`
+- `MCP_RELEASE_TOOLS`
 
-Use production `TaskApiAS21Adapter` against `http://localhost:8003`.
+### 4. Prove current sprint source
 
-Perform a bounded real scan/search that previously failed. Confirm no canonical validation error occurs for descriptions >10k.
+Use the existing read path, preferably both where safe:
+- `GET /api/v1/swtr/sprints?space=WMB`
+- underlying MCP `get_current_sprint`
+
+Record sanitized real response shape:
+- sprint id/code;
+- name;
+- dates/state if present;
+- space;
+- any other identifiers needed for deterministic lookup.
+
+If endpoint/service errors, capture exact non-secret reason.
 
 Report:
-- `REAL_LONG_DESCRIPTION_TASKS_FOUND`
-- maximum observed description length (number only)
-- `LONG_DESCRIPTION_MAPPING = PASS/FAIL`
-- whether full text length is preserved (do not print full long descriptions)
+- `CURRENT_SPRINT_READ = PASS/FAIL/NOT_FOUND`
+- `REAL_SPRINT_ID`
+- `REAL_SPRINT_SOURCE_PATH`
+- `REAL_SPRINT_VALUE_SHAPE`
 
-### 5. Exact task lookup
+### 5. Prove sprint-task source
 
-Read real `WMB-30000` through production adapter.
+If a real sprint is obtained, call the proven read-only sprint-task route/tool:
+- `/api/v1/swtr/sprint-tasks?sprint_id=<REAL>&space=WMB` or the exact underlying MCP read tool.
 
-Verify exact key only, title/description, assignee_id/externalId mapping, project_space, normalized status/status_raw, and no broad false positive.
+Record:
+- task count;
+- bounded task keys;
+- whether each returned task can be cross-checked against source sprint evidence;
+- actual shape used to associate task -> sprint.
 
-### 6. Real assignee matrix
+Do not use cached `/api/v1/tasks` absence as evidence that sprint source is unavailable.
 
-Run through production adapter:
-- `assignee = Kalachanov.V.V`
-- `assignee = kalachanov.v.v`
-- `assignee = nonexistent-user`
+Report:
+- `SPRINT_TASK_READ = PASS/FAIL/NOT_FOUND`
+- `SPRINT_TASK_COUNT`
+- `SPRINT_TASK_RELATION_SOURCE`
 
-For the first two, independently inspect returned canonical tasks and prove every task's `assignee_id` or `assignee_login` matches the requested identity. Nonexistent user must return empty.
+### 6. Discover the known WMB attachment task assigned to Kalachanov
 
-Critical: `FALSE_POSITIVE_ASSIGNEE = NO`.
+Start with the already-proven production adapter/filter to obtain real WMB tasks assigned to `Kalachanov.V.V`.
 
-### 7. Real project/space matrix
+For each bounded candidate key, use **read-only full source read** (`read_unit` or equivalent) and inspect only structure/metadata until a task with attachment/file evidence is found.
 
-Run:
-- `project = WMB`
-- `project = NONEXISTENT`
-- `project = WMB AND assignee = Kalachanov.V.V`
+Do not print attachment content. For the discovered task record only:
+- task key;
+- attachment count if available;
+- where attachment metadata appears (top-level field / attribute / dedicated tool/resource);
+- attachment metadata field names (id/name/contentType/size/url/etc., whichever actually exist);
+- whether a dedicated read/download tool exists.
 
-Every WMB result must have canonical `project_space == WMB` derived from `source_data.swtr_space`.
+Owner says such a WMB/Kalachanov task exists; therefore search those candidates before declaring NOT_FOUND.
 
-### 8. Real status matrix
+Report:
+- `REAL_ATTACHMENT_TASK_KEY`
+- `ATTACHMENT_METADATA_AVAILABLE = YES/NO`
+- `ATTACHMENT_SOURCE_PATH`
+- `ATTACHMENT_VALUE_SHAPE`
+- `ATTACHMENT_CONTENT_READ_TOOL = <name/NONE>`
 
-Discover raw/normalized statuses present in current corpus first. Then query canonical statuses that are genuinely represented. Verify every returned task matches canonical status and no leakage occurs. Prove raw task-api `done` -> canonical `Closed` where applicable, while truly unknown statuses remain UNKNOWN.
+### 7. History/changelog discovery
 
-### 9. Free-text search
+From `tools/list`, full `read_unit` payload, and repository service code, determine whether a read-only source exists for:
+- status transitions;
+- activity/history/changelog;
+- comments/timestamps if relevant to flow analytics.
 
-Choose one rare phrase from a real task title/description. Query it through production adapter and prove returned records actually contain it; no broad corpus fallback.
+If a read tool exists, call it on one real WMB task and record only sanitized structural fields. If none exists, explicitly report NONE.
 
-### 10. Sprint discovery
+Do not derive fake history from `created_at/updated_at/current status`.
 
-Scan enough bounded real WMB tasks to find a non-empty sprint if one exists. Record sanitized attribute code/value shape/derived `sprint` field/canonical `sprint_id`. If none exists, report `REAL_SPRINT_SAMPLE = NOT_FOUND`.
+Report:
+- `TASK_HISTORY_AVAILABLE = YES/NO`
+- `TASK_HISTORY_SOURCE_PATH`
+- `TASK_HISTORY_VALUE_SHAPE`
 
-### 11. Release discovery
+### 8. Release/fix-version discovery
 
-Same for `fix_version_s`/real release value. If none exists, report `REAL_RELEASE_SAMPLE = NOT_FOUND`.
+Use full `read_unit` on bounded real WMB tasks and tool catalog to inspect:
+- `fix_version_s`;
+- release/version-like fields;
+- any dedicated release/version read tool.
 
-### 12. History and attachment discovery
+Search more intelligently than the prior cached 200-task scan: use full source payload and, if supported, read-only filtered search/tooling.
 
-Re-check repository/task-api/legacy read paths. Report whether any proven read-only path exists for attachment metadata and status history/transitions. Do not add code.
+If a populated release is found, record sanitized shape and task key. If no populated example is found, distinguish:
+- attribute exists but values empty;
+- no release tool exists;
+- release source truly unavailable.
 
-### 13. Fail-closed / security
+Report:
+- `REAL_RELEASE_SAMPLE`
+- `REAL_RELEASE_ATTRIBUTE_CODE`
+- `REAL_RELEASE_VALUE_SHAPE`
+- `RELEASE_SOURCE_PATH`
 
-Verify no `q` parameter; unknown field and malformed clause fail closed; nonexistent assignee/project cannot broaden results; no AS21 writes; no LLM filtering; no hardcoded Kalachanov/WMB special case; no fake fallback tasks; no secret leakage.
+### 9. Compare early vs current source architecture
+
+Review early commit `6b3bee08c920f5ea32083313481385eb06935b48`, especially:
+- `task-api/src/s21_agent/connectors/s21_swtr_adapter.py`
+- `task-api/src/s21_agent/models/task.py`
+
+Compare with current:
+- `task-api/app/services/swtr_sync_service.py`
+- `task-api/app/routers/swtr_sync.py`
+- `po-agent-platform-v2/src/po_agent/adapters/task_api.py`
+
+Answer:
+- which old capabilities were only model placeholders;
+- which real SWTR read capabilities exist today but are not wired into Harness;
+- which data should come from `/api/v1/tasks` vs richer MCP/SWTR source;
+- exact recommended adapter/service boundary for Core-8.
+
+Description only. Do not implement.
+
+### 10. Formal Core-8 source readiness matrix
+
+Produce a matrix for the 8 skills:
+
+`SKILL | REQUIRED_FACT | PROVEN_SOURCE | STATUS | BLOCKING_GAP`
+
+At minimum include:
+- task search facts;
+- attachment facts for summary/quality when referenced;
+- sprint/current sprint/sprint tasks;
+- history facts needed by sprint health/velocity formula;
+- team assignee/workload facts;
+- competency config (non-AS21 if appropriate);
+- release/fix-version facts.
+
+Classify each fact:
+- `PROVEN_REAL`
+- `PROVEN_UNAVAILABLE`
+- `UNPROVEN`
+
+Do not mark a skill GREEN merely because a synthetic unit test exists.
+
+### 11. Security/adversarial check
+
+Confirm all discovery calls were read-only and no:
+- AS21 mutation;
+- local sync/save mutation;
+- autonomous learning/promotion;
+- secret leakage;
+- attachment content leakage;
+- hardcoded task-specific behavior.
 
 ## Gate logic
 
-If exact/assignee/project/status/free-text now work on real data with zero false positives and no source mapping error, the current filtering blocker is closed.
+A3 can be `GREEN` even if a source fact is genuinely unavailable, but only if:
+- unavailability is proven;
+- affected Core-8 skill behavior/formula can be explicitly marked unavailable or redesigned without fabricated facts;
+- no silent fallback exists.
 
-Gate A may remain YELLOW if sprint/release/history/attachments lack real source evidence needed by Core-8.
+`READY_FOR_A4 = YES` only when the source requirements for Core-8 are sufficiently classified (`PROVEN_REAL` or `PROVEN_UNAVAILABLE`) to build a reproducible real test corpus/query pack.
 
-`READY_FOR_STEP_A3 = YES` only when the basic real filter matrix is proven sufficiently stable to formalize A3. `READY_FOR_LEARNING_LOOP` remains NO.
+`READY_FOR_LEARNING_LOOP = NO` always for this assignment.
 
 ## Report format
 
-Create `qa_reports/AS21_A2_FILTER_RETEST_003.md` with:
+Create `qa_reports/AS21_A3_EXTENDED_SOURCE_DISCOVERY_004.md` with:
 1. Executive verdict
 2. Environment / HEAD
-3. Commands executed
-4. Targeted tests
-5. Full regression
-6. Long-description real-data proof
-7. Exact lookup
-8. Assignee matrix
-9. Project matrix
-10. Status matrix
-11. Free-text search
-12. Sprint discovery
-13. Release discovery
-14. Attachments/history discovery
-15. Fail-closed/security
-16. Findings by severity
-17. Gate decision
-18. Recommended next implementation (description only)
+3. A2 smoke/regression
+4. MCP tool catalog
+5. Current sprint source
+6. Sprint-task source
+7. Attachment discovery (including discovered WMB/Kalachanov task)
+8. History/changelog discovery
+9. Release discovery
+10. Early-vs-current architecture comparison
+11. Core-8 source readiness matrix
+12. Security/read-only audit
+13. Findings by severity
+14. Recommended next implementation (description only)
+15. Gate decision
 
-End with:
+End with exactly:
 
 ```text
-ASSIGNMENT_ID = AS21-A2-FILTER-RETEST-003
+ASSIGNMENT_ID = AS21-A3-EXTENDED-SOURCE-DISCOVERY-004
 REAL_TASK_API_CONNECTED =
-REAL_LONG_DESCRIPTION_TASKS_FOUND =
-MAX_REAL_DESCRIPTION_LENGTH =
-LONG_DESCRIPTION_MAPPING =
-EXACT_TASK_LOOKUP =
-ASSIGNEE_FILTER_CORRECT =
-FALSE_POSITIVE_ASSIGNEE =
-PROJECT_SPACE_MAPPING =
-PROJECT_FILTER_CORRECT =
-TASK_API_DONE_NORMALIZATION =
-STATUS_FILTER_CORRECT =
-FREE_TEXT_FILTER_CORRECT =
-REAL_SPRINT_SAMPLE =
-SPRINT_FILTER_CORRECT =
-REAL_RELEASE_SAMPLE =
-RELEASE_FILTER_CORRECT =
+A2_SMOKE =
+MCP_TOOL_CATALOG_AVAILABLE =
+MCP_READ_UNIT_TOOL =
+MCP_SPRINT_TOOLS =
+MCP_ATTACHMENT_TOOLS =
+MCP_HISTORY_TOOLS =
+MCP_RELEASE_TOOLS =
+CURRENT_SPRINT_READ =
+REAL_SPRINT_ID =
+REAL_SPRINT_SOURCE_PATH =
+SPRINT_TASK_READ =
+SPRINT_TASK_COUNT =
+REAL_ATTACHMENT_TASK_KEY =
 ATTACHMENT_METADATA_AVAILABLE =
+ATTACHMENT_SOURCE_PATH =
+ATTACHMENT_CONTENT_READ_TOOL =
 TASK_HISTORY_AVAILABLE =
+TASK_HISTORY_SOURCE_PATH =
+REAL_RELEASE_SAMPLE =
+REAL_RELEASE_ATTRIBUTE_CODE =
+RELEASE_SOURCE_PATH =
 NEW_CODE_REGRESSIONS_VS_PREVIOUS_GREEN =
 BLOCKER_COUNT =
 HIGH_COUNT =
 GATE_A =
-READY_FOR_STEP_A3 =
+A3 =
+READY_FOR_A4 =
 READY_FOR_LEARNING_LOOP = NO
 ```
 
 ## Publish
 
 ```bash
-git add qa_reports/AS21_A2_FILTER_RETEST_003.md
-git commit -m 'qa: report AS21 A2 filter retest 003'
+git add qa_reports/AS21_A3_EXTENDED_SOURCE_DISCOVERY_004.md
+git commit -m 'qa: report AS21 A3 extended source discovery 004'
 git push origin feat/real-baseline-candidate-eval-v1
 git status --short
 ```
 
 Final working tree clean. Tell the user only:
 
-`QA report published: qa_reports/AS21_A2_FILTER_RETEST_003.md`
+`QA report published: qa_reports/AS21_A3_EXTENDED_SOURCE_DISCOVERY_004.md`
