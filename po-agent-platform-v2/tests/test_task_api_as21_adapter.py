@@ -1,7 +1,7 @@
 import httpx
 import pytest
 from po_agent.adapters.task_api import AS21CapabilityUnavailable, AS21SourceError, AS21SourceUnavailable, TaskApiAS21Adapter
-from po_agent.domain.models import StatusCategory, TaskStatus
+from po_agent.domain.models import AttachmentType, StatusCategory, TaskStatus
 
 
 def task_payload(key="WMB-101", **overrides):
@@ -146,8 +146,43 @@ async def test_unmappable_task_item_fails_closed_instead_of_disappearing():
 
 
 @pytest.mark.asyncio
-async def test_history_and_attachments_remain_explicitly_unsupported():
+async def test_attachment_metadata_maps_rich_read_payload_without_downloading_content():
+    async def handler(request):
+        assert request.url.path == "/api/v1/swtr-read/tasks/WMB-30000/files"
+        return httpx.Response(200,json={"task_code":"WMB-30000","files":[{
+            "id":"file-1","name":"requirements.pdf","size":12345,
+            "contentType":"application/pdf","created":"2026-07-10T10:00:00Z",
+            "createdBy":"Author","version":1,"hash":"abc","storageType":"s3"
+        }]})
+    client=httpx.AsyncClient(transport=httpx.MockTransport(handler),base_url="http://task-api")
+    items=await TaskApiAS21Adapter(client=client).get_attachment_metadata("WMB-30000")
+    await client.aclose()
+    assert len(items)==1
+    assert items[0].id=="file-1" and items[0].name=="requirements.pdf"
+    assert items[0].size_bytes==12345 and items[0].type==AttachmentType.PDF
+    assert items[0].url is None
+
+
+@pytest.mark.asyncio
+async def test_attachment_metadata_can_select_one_file_and_malformed_metadata_fails_closed():
+    payload={"task_code":"WMB-30000","files":[
+        {"id":"a","name":"one.xlsx","size":10,"contentType":"application/vnd.ms-excel","created":"2026-07-10T10:00:00Z"},
+        {"id":"b","name":"two.txt","size":20,"contentType":"text/plain","created":"2026-07-10T11:00:00Z"},
+    ]}
+    async def good_handler(request): return httpx.Response(200,json=payload)
+    client=httpx.AsyncClient(transport=httpx.MockTransport(good_handler),base_url="http://task-api")
+    items=await TaskApiAS21Adapter(client=client).get_attachment_metadata("WMB-30000","b")
+    await client.aclose()
+    assert [item.id for item in items]==["b"] and items[0].type==AttachmentType.TEXT
+
+    async def bad_handler(request): return httpx.Response(200,json={"task_code":"WMB-30000","files":[{"id":"x","name":"broken.pdf"}]})
+    client=httpx.AsyncClient(transport=httpx.MockTransport(bad_handler),base_url="http://task-api")
+    with pytest.raises(AS21SourceError): await TaskApiAS21Adapter(client=client).get_attachment_metadata("WMB-30000")
+    await client.aclose()
+
+
+@pytest.mark.asyncio
+async def test_status_history_remains_explicitly_unsupported():
     client=httpx.AsyncClient(transport=httpx.MockTransport(lambda request:httpx.Response(200,json=[])),base_url="http://task-api"); adapter=TaskApiAS21Adapter(client=client)
     with pytest.raises(AS21CapabilityUnavailable): await adapter.get_task_history("WMB-101")
-    with pytest.raises(AS21CapabilityUnavailable): await adapter.get_attachment_metadata("WMB-101")
     await client.aclose()
