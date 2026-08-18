@@ -64,6 +64,12 @@ from .production_evolution_orchestrator import (
     ProductionEvolutionStage,
     ProductionEvolutionTransition,
 )
+from .production_evolution_supervisor import (
+    ProductionEvolutionSupervisor,
+    ProductionRuntimePort,
+    SupervisedEvolutionCycle,
+    SupervisorCycleState,
+)
 from .hardened_sandbox_executor import (
     EVIDENCE_PREFIX,
     HardenedExecutorPolicy,
@@ -148,8 +154,9 @@ __all__ = [
     "HealthObservation", "MonitoringVerdict", "MetricAssessment", "MonitoringAssessment",
     "RollbackRecommendation", "PostPromotionMonitorState", "PostPromotionMonitor",
     "ProductionEvolutionOrchestrator", "ProductionEvolutionSession", "ProductionEvolutionStage",
-    "ProductionEvolutionTransition", "HumanApprovalRecord", "PromotionRecord", "ReleaseState",
-    "RollbackRecord", "SQLitePromotionAuditStore", "VersionedPromotionRegistry",
+    "ProductionEvolutionTransition", "ProductionEvolutionSupervisor", "ProductionRuntimePort",
+    "SupervisedEvolutionCycle", "SupervisorCycleState", "HumanApprovalRecord", "PromotionRecord",
+    "ReleaseState", "RollbackRecord", "SQLitePromotionAuditStore", "VersionedPromotionRegistry",
     "ControlledImprovementLifecycle", "EvaluationSnapshot", "LifecycleRecord", "LifecycleState",
     "PromotionDecision", "PromotionPolicy", "SeedComparison", "ShadowEvaluationAuditStore",
     "ShadowEvaluationReport", "ShadowEvaluator", "ShadowObservation", "ShadowRunner",
