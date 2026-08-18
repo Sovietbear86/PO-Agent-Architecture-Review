@@ -1,80 +1,96 @@
 # Core-8 AS21 Source Contract Inventory
 
 **Roadmap step:** A1 DONE / A2 DONE / A3 CURRENT  
-**Status:** BASE TASK FILTER CONTRACT VERIFIED ON REAL AS21; EXTENDED SPRINT/ATTACHMENT/HISTORY/RELEASE SOURCES UNDER DISCOVERY
+**Status:** BASE TASK FILTER CONTRACT GREEN; ATTACHMENT SOURCE DISCOVERED AND WIRED FOR REAL RETEST; SPRINT/RELEASE/HISTORY STILL PARTIAL
 
 ## Core eight
 `task_search`, `task_summary`, `task_quality`, `sprint_health`, `velocity`, `team_workload`, `competency_match`, `release_health`.
 
-## Real AS21 facts now proven
-From QA assignments `AS21-A2-REAL-CONTRACT-DISCOVERY-001`, `AS21-A2-FILTER-RETEST-002`, `AS21-A2-FILTER-RETEST-003`:
-
-- local task-api is reachable and returns real SWTR-backed tasks;
-- assignment identity is in `source_data.swtr_attributes[code=assigned_to].value.externalId/login`;
+## Real AS21 facts proven through A2
+- local task-api returns real SWTR-backed tasks;
+- assignment identity lives in `source_data.swtr_attributes[code=assigned_to].value.externalId/login`;
 - `WMB-30000` maps `assignee_id = Kalachanov.V.V`, `assignee_login = kalachanov.v.v`;
 - authoritative project/space is `source_data.swtr_space`;
-- `/api/v1/tasks` does **not** support `q`;
-- exact-key lookup is correct;
-- assignee filtering by externalId/login is correct and nonexistent users return 0;
-- project filtering and project+assignee intersections are correct;
-- status and free-text filtering work on real data;
-- unknown query fields/malformed clauses fail closed;
-- long descriptions no longer break or truncate canonical mapping;
-- no new regressions from A2;
-- current cached task sample did not contain populated sprint/release values;
-- current `TaskApiAS21Adapter` does not expose attachment metadata or history.
+- `/api/v1/tasks` does not support `q`;
+- exact key, assignee, project, status and free-text filtering are real-tested and fail closed;
+- long descriptions are preserved without arbitrary truncation;
+- unknown statuses remain UNKNOWN rather than becoming Open.
 
-## Historical/source architecture facts
-The early PO Agent `SWTRAdapter` used the local task-api but its `Task` model already had `comments` and `attachments`; however the early mapper initialized them as empty lists. Therefore the old adapter itself is **not** proof that attachment data was available through `/api/v1/tasks`.
+## A3 extended-source discovery — proven facts
+QA assignment `AS21-A3-EXTENDED-SOURCE-DISCOVERY-004` proved that MCP-SWTR exposes richer READ-ONLY tools beyond the cached `/api/v1/tasks` facade:
 
-More importantly, the current repository contains a richer real SWTR read path in `task-api/app/services/swtr_sync_service.py`:
+- `read_unit` — full unit payload;
+- `find_units` / `find_units_by_filter` — task search/TQL;
+- `get_unit_files` — attachment metadata;
+- `download_unit_file` — attachment content (not enabled for normal metadata reads);
+- `get_unit_comments` — comments;
+- `search_versions` — release/version discovery;
+- `get_current_sprint`, `get_sprint_tasks`, `get_current_sprint_tasks` — sprint tools, although current-sprint call currently returns an AS21 invalid-parameters error in the tested environment.
 
-- MCP `find_units`;
-- MCP `find_units_by_filter` using TQL;
-- MCP `read_unit` for a full real task;
-- MCP `get_current_sprint`;
-- sprint task retrieval;
-- raw `attributes` preserved into `swtr_attributes`;
-- historical sync code already extracted `scrum_board_plugin_sprint` from full `read_unit` payloads.
+### Attachments — PROVEN REAL SOURCE
+`WMB-30000` is a real WMB task assigned to `Kalachanov.V.V` and has attachments.
 
-The current router also exposes read-oriented endpoints under `/api/v1/swtr`, including `/sprints` and `/sprint-tasks`. These must be validated rather than assuming sprint data must exist in the cached `/api/v1/tasks` sample.
+Proven metadata source:
+`MCP get_unit_files(unit_code)`.
 
-## A2 defects that are closed
+Observed metadata family includes:
+`id`, `name`, `size`, `contentType`, `created`, `createdBy`, `version`, `hash`, `storageType`.
 
-1. Unsupported `q` caused broad false-positive search — FIXED and real-tested.
-2. `assigned_to.externalId/login` was not canonicalized — FIXED and real-tested.
-3. `project_space` missing — FIXED from `source_data.swtr_space` and real-tested.
-4. unknown source status silently became Open — FIXED; unknown remains UNKNOWN.
-5. artificial 10k description cap broke real corpus — FIXED; description preserved.
+The Harness should not spawn MCP directly. A read-only task-api facade has now been added:
 
-## A3 questions to answer
+`GET /api/v1/swtr-read/tasks/{task_code}/files`
 
-### Sprint
-Use the proven MCP/SWTR sprint path (`get_current_sprint`, `/api/v1/swtr/sprints`, sprint-task source) to capture a real sprint identifier and real tasks from that sprint. Do not rely only on scanning cached tasks.
+It calls only MCP `get_unit_files` with `safe=True`; it does not download content and exposes no write tools. `TaskApiAS21Adapter.get_attachment_metadata()` now maps this response into canonical `Attachment` objects. Source readiness is intentionally NOT yet upgraded to advertise `attachments` until the new path passes real QA.
 
-### Attachments
-Owner has confirmed that at least one task assigned to `Kalachanov.V.V` in space `WMB` contains attachments. QA must discover that task from real data, then inspect the full `read_unit` payload and MCP tool catalog to determine whether attachments are:
-- top-level task fields;
-- attributes;
-- dedicated attachment resources/tools;
-- or another read endpoint.
+### Comments/history — PARTIAL
+`MCP get_unit_comments` is real and read-only, but comments are not status-transition history. We must not map comments into `StatusTransition` or claim cycle-time history from them.
 
-Do not ask the owner to manually provide the key unless deterministic discovery is genuinely impossible.
+`TASK_HISTORY_AVAILABLE = PARTIAL_COMMENTS_ONLY`.
 
-### History
-Inspect MCP tool catalog/source for read-only changelog/activity/status-history capability. If no proven source exists, record the gap explicitly; do not infer transitions from current state.
+### Sprint — PARTIAL
+Task-to-sprint relation uses `scrum_board_plugin_sprint` when populated. MCP sprint tools exist, but `get_current_sprint` currently fails with `Invalid request parameters`, so the current-sprint contract is not yet green.
 
-### Release
-Inspect full `read_unit`/filtered real source for `fix_version_s` and any dedicated release/version tool. Do not infer the contract from an empty cached list.
+### Release — PARTIAL
+`fix_version_s` is the task-side relation family. MCP `search_versions` exists and is the candidate release catalog source. A populated real release example is still required before release-health acceptance.
+
+## Current implementation boundary
+
+```text
+Harness
+  -> TaskApiAS21Adapter
+       -> /api/v1/tasks                 # base task facts/filtering
+       -> /api/v1/swtr-read/.../files   # rich attachment metadata, read-only
+             -> SWTRSyncService
+                  -> MCP get_unit_files
+```
+
+This composition is preferred to launching MCP subprocesses inside Harness. task-api owns SWTR/MCP transport and credentials; Harness receives deterministic read-only facts.
+
+## Closed defects
+1. ignored `q` broadening search — FIXED + real-tested;
+2. missing externalId/login identity — FIXED + real-tested;
+3. missing project_space — FIXED + real-tested;
+4. unknown status -> Open false mapping — FIXED;
+5. artificial 10k description limit — FIXED + real-tested.
+
+## Remaining A3 work
+1. Real-test `/api/v1/swtr-read/tasks/WMB-30000/files` and canonical attachment mapping.
+2. Only after real proof, add `attachments` to `TaskApiAS21Adapter.source_facts`.
+3. Determine safe canonical use of comments for task-quality evidence without mislabeling them as status history.
+4. Fix/discover correct current-sprint MCP request contract or explicitly approve a task-attribute-based sprint policy.
+5. Capture a populated release/version example through `search_versions` / `fix_version_s`.
+6. Decide metric policy for `sprint_health`/`velocity` if no status-transition history exists.
 
 ## Gate state
 
 `BASE_TASK_FILTER_CONTRACT = GREEN`  
 `A2 = DONE`  
-`SPRINT_SOURCE_CONTRACT = UNPROVEN`  
-`ATTACHMENT_SOURCE_CONTRACT = UNPROVEN`  
-`HISTORY_SOURCE_CONTRACT = UNPROVEN`  
-`RELEASE_SOURCE_CONTRACT = UNPROVEN`  
+`ATTACHMENT_SOURCE_DISCOVERY = PROVEN_REAL`  
+`ATTACHMENT_HARNESS_WIRING = IMPLEMENTED, REAL RETEST PENDING`  
+`COMMENTS_SOURCE = PROVEN_REAL`  
+`STATUS_TRANSITION_HISTORY = UNPROVEN`  
+`SPRINT_SOURCE_CONTRACT = PARTIAL`  
+`RELEASE_SOURCE_CONTRACT = PARTIAL`  
 `GATE_A = YELLOW`  
 `READY_FOR_LEARNING_LOOP = NO`  
-`CURRENT = A3 EXTENDED REAL SWTR SOURCE DISCOVERY`
+`NEXT = AS21-A3-ATTACHMENT-WIRING-RETEST-005`
