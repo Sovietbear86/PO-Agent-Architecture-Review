@@ -1,26 +1,54 @@
-"""Production-facing AS21 adapter over the existing task-api boundary."""
+"""Production-facing AS21 adapter over the existing task-api boundary.
+
+The local task-api is a bounded read facade, not a JQL endpoint. This adapter
+translates the small deterministic query contract used by Harness into proven
+source parameters plus local filtering over canonical Tasks. Unsupported query
+clauses fail closed; they are never sent as ignored parameters.
+"""
 from __future__ import annotations
+
 from datetime import datetime
+import re
 from typing import Any, Optional
+
 import httpx
-from po_agent.domain.models import Attachment, StatusTransition, Task, normalize_task_status, get_status_category
+
+from po_agent.domain.models import (
+    Attachment,
+    StatusTransition,
+    Task,
+    get_status_category,
+    normalize_task_status,
+)
 from .as21 import AS21Adapter
 
-class AS21SourceError(RuntimeError): pass
-class AS21SourceUnavailable(AS21SourceError): pass
-class AS21CapabilityUnavailable(AS21SourceError): pass
+
+class AS21SourceError(RuntimeError):
+    pass
+
+
+class AS21SourceUnavailable(AS21SourceError):
+    pass
+
+
+class AS21CapabilityUnavailable(AS21SourceError):
+    pass
 
 
 def _parse_datetime(value: Any) -> datetime | None:
-    if not value or not isinstance(value, str): return None
-    try: return datetime.fromisoformat(value.replace("Z", "+00:00"))
-    except ValueError: return None
+    if not value or not isinstance(value, str):
+        return None
+    try:
+        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
 
 
 def _attributes(source_data: dict) -> dict[str, Any]:
     result: dict[str, Any] = {}
     raw = source_data.get("swtr_attributes", [])
-    if not isinstance(raw, list): return result
+    if not isinstance(raw, list):
+        return result
     for item in raw:
         if isinstance(item, dict) and isinstance(item.get("code"), str):
             result[item["code"]] = item.get("value")
@@ -28,68 +56,280 @@ def _attributes(source_data: dict) -> dict[str, Any]:
 
 
 def _user_identity(value: Any) -> tuple[str | None, str | None, str | None]:
-    """Map the observed AS21 user value without guessing missing identity."""
-    if not isinstance(value, dict): return None, None, None
+    if not isinstance(value, dict):
+        return None, None, None
     external_id = value.get("externalId") if isinstance(value.get("externalId"), str) else None
     login = value.get("login") if isinstance(value.get("login"), str) else None
     parts = [value.get("lastName"), value.get("firstName"), value.get("middleName")]
-    display = " ".join(p for p in parts if isinstance(p, str) and p.strip()) or None
+    display = " ".join(p.strip() for p in parts if isinstance(p, str) and p.strip()) or None
     return display, external_id, login
 
 
+def _identifier(value: Any) -> str | None:
+    """Extract a stable identifier from common AS21 scalar/object/list shapes.
+
+    This helper is deliberately conservative. It does not invent identifiers;
+    it only returns an explicit scalar from fields observed/used by task-api.
+    """
+    if isinstance(value, (str, int)):
+        text = str(value).strip()
+        return text or None
+    if isinstance(value, dict):
+        for key in ("code", "id", "externalId", "value", "name"):
+            candidate = value.get(key)
+            if isinstance(candidate, (str, int)) and str(candidate).strip():
+                return str(candidate).strip()
+        return None
+    if isinstance(value, list):
+        for item in value:
+            candidate = _identifier(item)
+            if candidate:
+                return candidate
+    return None
+
+
+def _query_value(raw: str) -> str:
+    value = raw.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in {'"', "'"}:
+        return value[1:-1].strip()
+    return value
+
+
+def _parse_query(query: str) -> tuple[dict[str, str], str | None]:
+    """Parse the bounded equality/AND grammar supported by Harness.
+
+    A query without '=' is treated as free text. Unknown fields or malformed
+    clauses fail closed instead of broadening the source request.
+    """
+    text = (query or "").strip()
+    if not text:
+        return {}, None
+    if "=" not in text:
+        return {}, text
+
+    aliases = {
+        "assignee": "assignee",
+        "assigned_to": "assignee",
+        "member_login": "assignee",
+        "status": "status",
+        "project": "project_space",
+        "space": "project_space",
+        "sprint": "sprint_id",
+        "fixversion": "release_id",
+        "release": "release_id",
+        "key": "key",
+        "id": "key",
+        "source": "source",
+    }
+    filters: dict[str, str] = {}
+    clauses = re.split(r"\s+AND\s+", text, flags=re.IGNORECASE)
+    for clause in clauses:
+        match = re.fullmatch(r"\s*([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.+?)\s*", clause)
+        if not match:
+            raise AS21CapabilityUnavailable(f"unsupported AS21 search clause: {clause!r}")
+        source_field = match.group(1).lower()
+        field = aliases.get(source_field)
+        if field is None:
+            raise AS21CapabilityUnavailable(f"unsupported AS21 search field: {match.group(1)}")
+        value = _query_value(match.group(2))
+        if not value:
+            raise AS21CapabilityUnavailable(f"empty AS21 search value for {match.group(1)}")
+        if field in filters and filters[field].casefold() != value.casefold():
+            return {"__impossible__": "1"}, None
+        filters[field] = value
+    return filters, None
+
+
+def _equals(value: str | None, expected: str) -> bool:
+    return isinstance(value, str) and value.casefold() == expected.casefold()
+
+
+def _task_matches(task: Task, filters: dict[str, str], free_text: str | None) -> bool:
+    if "__impossible__" in filters:
+        return False
+    if "key" in filters and not _equals(task.key, filters["key"]):
+        return False
+    if "source" in filters and not _equals(task.source, filters["source"]):
+        return False
+    if "project_space" in filters and not _equals(task.project_space, filters["project_space"]):
+        return False
+    if "sprint_id" in filters and not _equals(task.sprint_id, filters["sprint_id"]):
+        return False
+    if "release_id" in filters and not _equals(task.release_id, filters["release_id"]):
+        return False
+    if "assignee" in filters:
+        expected = filters["assignee"].casefold()
+        candidates = (task.assignee_id, task.assignee_login, task.assignee)
+        if not any(isinstance(v, str) and v.casefold() == expected for v in candidates):
+            return False
+    if "status" in filters:
+        expected_raw = filters["status"]
+        expected_status = normalize_task_status(expected_raw)
+        if expected_status.value != "Unknown":
+            if task.status != expected_status:
+                return False
+        elif not _equals(task.status_raw, expected_raw):
+            return False
+    if free_text:
+        needle = free_text.casefold()
+        haystack = "\n".join(v for v in (task.key, task.title, task.description or "") if v).casefold()
+        if needle not in haystack:
+            return False
+    return True
+
+
 class TaskApiAS21Adapter(AS21Adapter):
-    source_name="task-api"
-    # Do not advertise history/attachments until the boundary actually exposes them.
-    source_facts=frozenset({"tasks"})
-    def __init__(self, base_url="http://localhost:8003", *, timeout_seconds=30.0, client: httpx.AsyncClient|None=None):
-        self.base_url=base_url.rstrip("/"); self._owns_client=client is None
-        self._client=client or httpx.AsyncClient(base_url=self.base_url,timeout=httpx.Timeout(timeout_seconds),follow_redirects=True)
+    source_name = "task-api"
+    source_facts = frozenset({"tasks"})
+    _scan_limit = 10000  # task-api's documented maximum; bounded and explicit
+
+    def __init__(
+        self,
+        base_url: str = "http://localhost:8003",
+        *,
+        timeout_seconds: float = 30.0,
+        client: httpx.AsyncClient | None = None,
+    ) -> None:
+        self.base_url = base_url.rstrip("/")
+        self._owns_client = client is None
+        self._client = client or httpx.AsyncClient(
+            base_url=self.base_url,
+            timeout=httpx.Timeout(timeout_seconds),
+            follow_redirects=True,
+        )
 
     @staticmethod
     def _map(data: dict) -> Task | None:
-        source_id=data.get("source_id") or data.get("id")
-        if not isinstance(source_id,str) or not source_id: return None
-        source_data=data.get("source_data") if isinstance(data.get("source_data"),dict) else {}
-        attrs=_attributes(source_data)
-        status_raw=data.get("status") or source_data.get("workflow_status") or ""
-        status=normalize_task_status(str(status_raw))
-        display, external_id, login=_user_identity(attrs.get("assigned_to"))
-        # Preserve top-level display name if task-api already normalized it.
-        assignee=data.get("assignee") if isinstance(data.get("assignee"),str) else display
-        title=data.get("title")
-        if not isinstance(title,str) or not title.strip(): return None
-        created=_parse_datetime(data.get("created_at")) or datetime.now()
-        updated=_parse_datetime(data.get("updated_at")) or created
-        return Task(key=source_id,id=source_id,title=title,description=data.get("description"),status=status,status_raw=str(status_raw) or None,status_category=get_status_category(status),created_at=created,updated_at=updated,due_date=_parse_datetime(data.get("deadline")),assignee=assignee,assignee_id=external_id,assignee_login=login,source=data.get("source","swtr"),source_url=data.get("source_url"),source_data=source_data)
+        source_id = data.get("source_id") or data.get("id")
+        if not isinstance(source_id, str) or not source_id:
+            return None
+        source_data = data.get("source_data") if isinstance(data.get("source_data"), dict) else {}
+        attrs = _attributes(source_data)
 
-    async def _get_tasks(self,query:str,limit:int)->list[Task]:
+        # Prefer the source workflow status when present; otherwise task-api's
+        # normalized todo/in_progress/done value is itself a proven contract.
+        status_raw = source_data.get("workflow_status") or data.get("status") or ""
+        status = normalize_task_status(str(status_raw))
+
+        display, external_id, login = _user_identity(attrs.get("assigned_to"))
+        assignee = data.get("assignee") if isinstance(data.get("assignee"), str) else display
+        title = data.get("title")
+        if not isinstance(title, str) or not title.strip():
+            return None
+
+        created = _parse_datetime(data.get("created_at")) or datetime.now()
+        updated = _parse_datetime(data.get("updated_at")) or created
+        project_space = source_data.get("swtr_space") if isinstance(source_data.get("swtr_space"), str) else None
+
+        # task-api already exposes a derived `sprint` field when it can prove
+        # one. Fall back to the same source attribute family used by task-api.
+        sprint_id = _identifier(data.get("sprint")) or _identifier(attrs.get("scrum_board_plugin_sprint"))
+        release_id = _identifier(attrs.get("fix_version_s"))
+
+        return Task(
+            key=source_id,
+            id=source_id,
+            title=title,
+            description=data.get("description"),
+            status=status,
+            status_raw=str(status_raw) or None,
+            status_category=get_status_category(status),
+            created_at=created,
+            updated_at=updated,
+            due_date=_parse_datetime(data.get("deadline")),
+            assignee=assignee,
+            assignee_id=external_id,
+            assignee_login=login,
+            project_space=project_space,
+            sprint_id=sprint_id,
+            release_id=release_id,
+            source=data.get("source", "swtr") or "swtr",
+            source_url=data.get("source_url"),
+            source_data=source_data,
+        )
+
+    async def _fetch_tasks(self, *, limit: int, offset: int = 0, source: str | None = None) -> list[Task]:
+        params: dict[str, Any] = {"limit": limit, "offset": offset}
+        if source:
+            params["source"] = source
         try:
-            response=await self._client.get("/api/v1/tasks",params={"q":query,"limit":limit}); response.raise_for_status()
-        except httpx.HTTPError as exc: raise AS21SourceUnavailable(f"task-api request failed: {type(exc).__name__}") from exc
-        try: payload=response.json()
-        except ValueError as exc: raise AS21SourceError("task-api returned invalid JSON") from exc
-        if not isinstance(payload,list): raise AS21SourceError("task-api /api/v1/tasks must return a JSON array")
-        tasks=[]
+            response = await self._client.get("/api/v1/tasks", params=params)
+            response.raise_for_status()
+        except httpx.HTTPError as exc:
+            raise AS21SourceUnavailable(f"task-api request failed: {type(exc).__name__}") from exc
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            raise AS21SourceError("task-api returned invalid JSON") from exc
+        if not isinstance(payload, list):
+            raise AS21SourceError("task-api /api/v1/tasks must return a JSON array")
+
+        tasks: list[Task] = []
         for item in payload:
-            if not isinstance(item,dict): raise AS21SourceError("task-api returned a non-object task item")
-            try: mapped=self._map(item)
-            except Exception as exc: raise AS21SourceError("task-api task item cannot be mapped to canonical Task") from exc
-            if mapped is None: raise AS21SourceError("task-api task item cannot be mapped to canonical Task")
+            if not isinstance(item, dict):
+                raise AS21SourceError("task-api returned a non-object task item")
+            try:
+                mapped = self._map(item)
+            except Exception as exc:
+                raise AS21SourceError("task-api task item cannot be mapped to canonical Task") from exc
+            if mapped is None:
+                raise AS21SourceError("task-api task item cannot be mapped to canonical Task")
             tasks.append(mapped)
         return tasks
 
-    async def get_task(self,task_key:str)->Optional[Task]:
-        normalized=task_key.upper().strip()
-        return next((t for t in await self._get_tasks(normalized,10) if t.key.upper()==normalized),None)
-    async def search_tasks(self,jql:str,max_results:int=50,fields:Optional[list[str]]=None)->list[Task]:
-        del fields; return await self._get_tasks(jql,max_results)
-    async def get_sprint_tasks(self,sprint_id:str,space:Optional[str]=None)->list[Task]:
-        raise AS21CapabilityUnavailable("task-api sprint source contract is not proven yet; do not emulate JQL through simple q search")
-    async def get_release_tasks(self,release_id:str,space:Optional[str]=None)->list[Task]:
-        raise AS21CapabilityUnavailable("task-api release source contract is not proven yet; do not emulate JQL through simple q search")
-    async def get_task_history(self,task_key:str)->list[StatusTransition]:
+    async def get_task(self, task_key: str) -> Optional[Task]:
+        normalized = task_key.upper().strip()
+        if not re.fullmatch(r"[A-Z]+-\d+", normalized):
+            return None
+        # The current task-api has no source_id query parameter. Scan its
+        # bounded read facade and match the canonical key exactly.
+        tasks = await self._fetch_tasks(limit=self._scan_limit, source="swtr")
+        return next((task for task in tasks if task.key.upper() == normalized), None)
+
+    async def search_tasks(
+        self,
+        jql: str,
+        max_results: int = 50,
+        fields: Optional[list[str]] = None,
+    ) -> list[Task]:
+        del fields
+        if max_results < 0:
+            raise ValueError("max_results must be >= 0")
+        if max_results == 0:
+            return []
+
+        filters, free_text = _parse_query(jql)
+        if "__impossible__" in filters:
+            return []
+
+        # Source is a proven task-api native filter. Other criteria use
+        # canonical local filtering because task-api assignee stores display
+        # names, while Harness must support the stable AS21 externalId/login.
+        source_filter = filters.get("source")
+        needs_local_filtering = bool(filters) or bool(free_text)
+        fetch_limit = self._scan_limit if needs_local_filtering else min(max_results, self._scan_limit)
+        tasks = await self._fetch_tasks(limit=fetch_limit, source=source_filter)
+        result = [task for task in tasks if _task_matches(task, filters, free_text)]
+        return result[:max_results]
+
+    async def get_sprint_tasks(self, sprint_id: str, space: Optional[str] = None) -> list[Task]:
+        query = f"sprint = {sprint_id}" if not space else f"project = {space} AND sprint = {sprint_id}"
+        return await self.search_tasks(query, max_results=self._scan_limit)
+
+    async def get_release_tasks(self, release_id: str, space: Optional[str] = None) -> list[Task]:
+        query = f"release = {release_id}" if not space else f"project = {space} AND release = {release_id}"
+        return await self.search_tasks(query, max_results=self._scan_limit)
+
+    async def get_task_history(self, task_key: str) -> list[StatusTransition]:
         raise AS21CapabilityUnavailable(f"task-api does not expose status history for {task_key}")
-    async def get_attachment_metadata(self,task_key:str,attachment_id:Optional[str]=None)->list[Attachment]:
+
+    async def get_attachment_metadata(
+        self,
+        task_key: str,
+        attachment_id: Optional[str] = None,
+    ) -> list[Attachment]:
         raise AS21CapabilityUnavailable(f"task-api does not expose attachment metadata for {task_key}")
-    async def close(self):
-        if self._owns_client: await self._client.aclose()
+
+    async def close(self) -> None:
+        if self._owns_client:
+            await self._client.aclose()
