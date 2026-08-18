@@ -3,6 +3,13 @@
 from po_agent.adapters.as21 import AS21Adapter
 from po_agent.adapters.fake import FakeAS21Adapter
 from po_agent.adapters.legacy_bridge import LegacyAS21Bridge
+from po_agent.adapters.swtr_shadow import (
+    SWTRReadOnlyShadowSource,
+    SWTRShadowBatch,
+    SWTRShadowBudgetExceeded,
+    SWTRShadowError,
+    SWTRTaskSnapshot,
+)
 from po_agent.adapters.task_api import (
     AS21CapabilityUnavailable,
     AS21SourceError,
@@ -18,4 +25,9 @@ __all__ = [
     "AS21SourceError",
     "AS21SourceUnavailable",
     "AS21CapabilityUnavailable",
+    "SWTRReadOnlyShadowSource",
+    "SWTRShadowBatch",
+    "SWTRShadowBudgetExceeded",
+    "SWTRShadowError",
+    "SWTRTaskSnapshot",
 ]
