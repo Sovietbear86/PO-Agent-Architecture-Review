@@ -1,7 +1,7 @@
 # PO Agent Harness — Authoritative Evolution Plan
 
 **Status:** ACTIVE / source of truth for further work  
-**Branch at creation:** `feat/real-baseline-candidate-eval-v1`  
+**Branch:** `feat/real-baseline-candidate-eval-v1`  
 **Purpose:** prevent architectural drift and loss of earlier product requirements while evolving the original PO Agent into a self-improving Harness agent.
 
 > This document is the execution roadmap. `PO_AGENT_PLATFORM_V2_GIGACODE_MASTER_SPEC_V2_1.md`, `PO_AGENT_PLATFORM_V2_ADDENDUM_SKILLS_CLARIFICATION.md`, `REAL_DATA_COMPREHENSIVE_TEST_CHECKLIST.md`, the legacy implementation and early commits are normative sources. If they disagree, do not guess: record the conflict and resolve it explicitly before implementation.
@@ -18,6 +18,8 @@
 8. No AS21 write authority during real-data acceptance. Search/evaluation/shadow are read-only.
 9. Any regression in an already-green skill blocks promotion of a candidate.
 10. Frontend finalization and full browser E2E happen only after the real-data skill contract and learning loop are proven.
+11. Never compensate for an AS21 source-contract defect in a prompt, skill, learning rule or UI.
+12. A task-api 200 response is not proof of correct filtering; supported query parameters and returned source facts must be contract-tested.
 
 ## 1. Target evolution
 
@@ -67,16 +69,17 @@ Must prove on real AS21 data:
 - assignee id/login extraction and filtering;
 - project/space filtering;
 - status raw -> normalized mapping;
-- sprint extraction and filtering;
-- release extraction and filtering;
-- attachments required by core skills;
+- sprint source/list/current-sprint contract and task-to-sprint relation;
+- release/fix-version source contract if required by `release_health`;
+- attachment metadata/read path required by task intelligence skills;
+- status history/changelog/read path required by flow metrics;
 - pagination / bounded queries;
 - no fabricated fallback records;
 - read-only boundary.
 
 Canonical model must expose fields required by active skills. Raw `source_data` may remain available for future mapping, but active business logic must not depend on ad-hoc raw parsing throughout the codebase.
 
-**Current known blocker/history:** real `assigned_to` user metadata may store login/externalId inside `source_data.swtr_attributes[].value.externalId`; canonical `assignee_id` must be populated from the real structure before assignee filtering can be considered GREEN.
+**Important source architecture:** current task-api is not the only possible read facade. The repository already contains `SWTRSyncService`, which calls the real MCP-SWTR source read-only for `find_units`, `find_units_by_filter`, `read_unit`, `get_current_sprint`, and sprint-task retrieval. Gate A must inspect and reuse proven source read paths rather than assuming all required facts must already be present in `/api/v1/tasks`.
 
 ### GATE B — Eight Core Skills GREEN on real AS21
 The canonical eight domain skills are:
@@ -136,191 +139,161 @@ Deliverable: `PO_AGENT_48_SKILL_MATRIX.md`.
 **Exit criterion:** exactly 48 original requirements are accounted for as `implemented / mapped / intentionally merged / not-yet-implemented`, with no silent omissions.
 
 ### GATE E — Expand 8 -> 48
-Expand in waves. Recommended order:
-
+Expand in waves:
 - Wave 1: task intelligence/search/attachments;
 - Wave 2: sprint/flow metrics;
 - Wave 3: team/capacity/competency;
 - Wave 4: release/product analytics;
 - Wave 5: cross-capability PO scenarios, notifications/actions and support capabilities.
 
-Each new skill gets:
-- source contract requirements;
-- unit tests;
-- real-AS21 test where safe/applicable;
-- skill registry definition;
-- trace/evidence;
-- protected regression cases;
-- learning-loop eligibility policy.
-
-No wave starts if previous wave is not GREEN.
-
-**Exit criterion:** `ORIGINAL_SKILL_REQUIREMENTS = 48/48 accounted`, functional acceptance GREEN, P0=0.
+Each new skill gets source contract requirements, unit tests, real-AS21 test where applicable, registry definition, trace/evidence, protected regression cases and learning-loop eligibility policy.
 
 ### GATE F — Frontend / PO Workspace integration
-Only after Gates A-E.
-
-Recover the original UI specification and compare it with the current frontend implementation screen by screen. Validate at minimum:
-- conversational PO workspace;
-- clarification UX;
-- task search/results/detail;
-- sprint health;
-- velocity/flow metrics;
-- team workload/performance;
-- competency view where specified;
-- release health/risk;
-- execution history/evidence/trace surfaces;
-- feedback controls;
-- AI-PDLC/skill lifecycle admin surfaces defined by the v2 addendum;
-- loading/empty/error/partial states.
-
-Do not redesign away original business functions merely to fit the Harness architecture.
+Only after Gates A-E. Recover the original UI specification and compare it with current frontend implementation screen by screen: conversational PO workspace, clarification UX, task search/results/detail, sprint health, velocity/flow metrics, team workload/performance, competency view, release health/risk, execution/evidence/trace, feedback controls, AI-PDLC lifecycle surfaces and all loading/empty/error/partial states.
 
 ### GATE G — Full E2E
 Browser E2E must exercise the actual chain:
 
 ```text
-Frontend
- -> API
- -> Orchestrator
- -> Context Resolver / Clarification
- -> Skill Resolver / Executor
- -> deterministic capability
- -> AS21 adapter (real read-only data for approved cases)
- -> evidence / trace
- -> response
- -> UI
+Frontend -> API -> Orchestrator -> Context/Clarification -> Skill Resolver/Executor
+ -> deterministic capability -> AS21 adapter/read source -> evidence/trace -> response -> UI
 ```
 
-E2E suites:
-- core eight skills;
-- clarification/resume;
-- session override/isolation;
-- AS21 unavailable;
-- LLM unavailable deterministic fast path;
-- empty results;
-- real sprint/release selection;
-- feedback capture;
-- learning candidate visible only in admin/shadow flow;
-- no write/mutation path from user-facing evaluation flow.
+Critical E2E suites cover Core-8, clarification/resume, session isolation, AS21 unavailable, LLM unavailable deterministic fast path, empty results, real sprint/release selection, attachments where supported, feedback capture, learning candidate isolation and zero mutation authority.
 
-**Exit criterion:** critical E2E = 100%, P0=0, no secret leakage, no unauthorized writes.
-
-## 3. Core-8 Real-AS21 Test Matrix — first working set
+## 3. Core-8 Real-AS21 Test Matrix
 
 | Skill | Mandatory real-AS21 checks | Minimum source fields/contracts |
 |---|---|---|
-| task_search | exact key; phrase; assignee; status; sprint; project/space; empty query result | key, title, description, assignee_id/login, raw+normalized status, sprint_id, project/space, source_data |
-| task_summary | real meaningful task; grounded summary; no fabricated requirement | key, title, description, acceptance/requirements-related fields, links/attachments when referenced |
-| task_quality | complete/incomplete task; reproducible score and reasons | description, acceptance criteria/required sections, attachments/links as defined by metric |
-| sprint_health | current/recent sprint; WIP/blocked/aging/scope; evidence | sprint_id, status, dates/history, assignee, scope/effort fields required by formula |
-| velocity | real sprint; formula reproducible; units explicit | sprint_id, completed state, effort/estimate or task-count policy, sprint dates |
+| task_search | exact key; phrase; assignee; status; sprint; project/space; empty result | key, title, description, assignee_id/login, raw+normalized status, sprint relation, project/space |
+| task_summary | meaningful real task; grounded summary; attachment-aware when referenced | key, title, description, requirements-related fields, attachment metadata/read path |
+| task_quality | complete/incomplete task; reproducible reasons; attachment-aware evidence | description, acceptance criteria/required sections, attachments/links as defined by metric |
+| sprint_health | real current/recent sprint; WIP/blocked/aging/scope | current sprint/list endpoint, sprint tasks, status, dates/history, assignee, scope/effort |
+| velocity | real sprint; reproducible formula; explicit unit | sprint tasks, completed state, estimate/task-count policy, sprint dates/history as formula requires |
 | team_workload | actual team; active/WIP/blocked by assignee | assignee_id/login, status, sprint/project, effort where used |
-| competency_match | task + approved team competency config; no invented skills | task type/components/labels/description + approved team competency config |
-| release_health | real release; scope/done/remaining/blocked/risk | release_id/fix version, status, sprint/project, dependencies/blocked indicators, dates |
+| competency_match | task + approved competency config; no invented skills | task type/components/labels/description + approved team config |
+| release_health | real release; scope/done/remaining/blocked/risk | release/fix version, status, sprint/project, dependencies, dates/timeline where required |
 
-## 4. AS21 field policy
-
-We do **not** need to flatten every possible AS21 attribute immediately. We do need a safe extensible mapping strategy:
+## 4. AS21 field/source policy
 
 1. Preserve sanitized raw `source_data` for diagnostics/future mapping.
 2. Canonicalize every field required by active skills.
-3. Centralize AS21 attribute extraction in the adapter/mapper, not in skills/prompts/UI.
-4. Support typed extraction helpers for user, sprint, release, status, project/space, attachment, component/label and other required attribute families.
-5. Unknown attributes remain available in raw form but cannot silently influence deterministic logic.
-6. Every newly activated skill must declare additional required source fields before implementation.
-7. Real examples define schema truth; do not guess AS21 codes or nesting.
+3. Centralize AS21 extraction in adapters/mappers, not skills/prompts/UI.
+4. Prefer a proven dedicated source capability over scanning an unrelated cached corpus.
+5. `/api/v1/tasks` is a local task read facade; it does not support arbitrary `q`/JQL.
+6. `SWTRSyncService`/MCP-SWTR may provide richer read-only facts (`read_unit`, current sprint, sprint tasks, filtered unit search). These must be contract-tested and wrapped cleanly before Harness consumption.
+7. Unknown attributes remain raw but cannot silently influence deterministic logic.
+8. Every newly activated skill declares required facts first.
+9. Real examples define schema truth; never guess codes/nesting.
+10. Do not truncate a real source description merely to satisfy an artificial canonical limit.
 
 ## 5. Learning-loop protection rules
 
-- Never learn a source-data bug. If wrong result originates in AS21 mapping/transport, fix deterministic code first.
-- Feedback such as “ты вывел задачи Иванова, а не Калачанова” may create an eval/failure record; it may not directly rewrite the active skill.
-- A candidate may change intent aliases, required context, workflow, prompt refs, capability allowlist or output constraints only through AI-PDLC.
-- It may not bypass AS21 source contract, governance or human approval.
-- Baseline/candidate comparisons must use identical frozen evidence/corpus.
+- Never learn a source-data bug.
+- Feedback may create eval/failure records; it may not directly rewrite the active skill.
+- Candidate changes go through AI-PDLC only.
+- Baseline/candidate comparisons use identical frozen evidence/corpus.
 - Candidate must improve target metrics and preserve protected metrics.
 
 ## 6. Frontend rule
 
-Frontend work is not abandoned; it is deliberately sequenced after source/skill/learning correctness. Before release, compare every original screen requirement from the earliest technical assignment with current implementation and build a screen-level acceptance matrix.
+Frontend work is deliberately sequenced after source/skill/learning correctness. Before release, compare every original screen requirement from the earliest technical assignment with current implementation and build a screen-level acceptance matrix.
 
-## 7. Work ownership
+## 7. Work ownership and Git QA handoff
 
 ### ChatGPT/OpenAI side
 - architecture analysis;
-- code changes;
+- production code changes;
 - test design;
-- migration and refactoring decisions;
-- updating this roadmap and skill matrices.
+- migration/refactoring decisions;
+- roadmap/contract updates;
+- write current QA assignment to `GIGACODE_TEST_INSTRUCTIONS.md`;
+- read QA reports directly from `qa_reports/`.
 
 ### GigaCode side
-- execute requested tests;
-- adversarial testing;
-- inspect real AS21 responses where authorized;
-- report evidence/root causes;
-- **do not modify production code** unless explicitly instructed by the owner.
+- pull target branch;
+- read `GIGACODE_TEST_INSTRUCTIONS.md`;
+- execute tests/adversarial review/read-only real-AS21 inspection;
+- create/update only the assigned Markdown report in `qa_reports/`;
+- do not modify production code unless explicitly authorized.
 
 ## 8. Current execution status
 
-- [x] Harness architecture / production runtime / governance foundations implemented and repeatedly regression-tested.
-- [x] Restart-safe governance / human approval boundary tested.
-- [x] Read-only SWTR shadow and real-shadow evaluation foundations tested.
-- [x] Frozen AS21 runtime implemented so real Harness can execute on frozen tasks with zero reads after freeze.
-- [x] Real baseline-vs-candidate evaluation boundary implemented/tested.
-- [x] Real AS21 connectivity demonstrated through local task-api bridge.
-- [ ] **CURRENT: Gate A — restore/verify complete source contract needed by Core-8.**
-- [ ] Gate B — Core-8 on real AS21.
-- [ ] Gate C — learning-loop measurable improvement.
-- [ ] Gate D — recover/freeze exact 48-skill catalog.
-- [ ] Gate E — expand 8 -> 48.
-- [ ] Gate F — frontend screen-by-screen finalization.
-- [ ] Gate G — full browser E2E/release readiness.
+- [x] Harness architecture / governance foundations.
+- [x] Human approval boundary / restart-safe governance tested.
+- [x] Read-only SWTR shadow / frozen real-AS21 evaluation foundations.
+- [x] Real baseline-vs-candidate evaluation boundary.
+- [x] Real AS21 connectivity through local task-api bridge.
+- [x] **A1: Core-8 source-contract inventory started and real assignee/project facts identified.**
+- [x] **A2: deterministic base task mapping/filtering restored and verified on real AS21:** exact key, assignee externalId/login, project/space, status, free text, long descriptions, no ignored `q`, no false-positive assignee.
+- [ ] **CURRENT A3: extended real SWTR source discovery + formal filter matrix.** Discover current sprint/sprint-task, attachments, history and release contracts using real MCP/SWTR read paths; then wire only proven facts.
+- [ ] A4: freeze Core-8 corpus/query pack.
+- [ ] Gate B: Core-8 8/8 real AS21.
+- [ ] Gate C: learning-loop measurable improvement.
+- [ ] Gate D: exact original 48-skill catalog.
+- [ ] Gate E: expand 8 -> 48.
+- [ ] Gate F: frontend screen finalization.
+- [ ] Gate G: browser E2E/release readiness.
 
 ## 9. Immediate ordered actions
 
-### STEP A1 — Source contract inventory
-Inspect current canonical `Task`, AS21 adapter/mapper and legacy proven mapper. Produce field mapping for Core-8 only. Verify real structures for assignee, status, sprint, release, project/space, attachments and fields needed by metrics.
+### STEP A1 — Source contract inventory — DONE
+Historical/current architecture inspected; real assignee identity and project source proven.
 
-### STEP A2 — Fix deterministic mapping defects
-Fix assignee extraction first, then sprint/release/status/project as evidence requires. Add regression tests from sanitized real payload shapes.
+### STEP A2 — Base deterministic mapping/filtering — DONE
+Real QA proves:
+- `WMB-30000` exact lookup;
+- `assignee = Kalachanov.V.V` / login case-insensitive matching;
+- nonexistent assignee -> 0;
+- `project = WMB` and project+assignee intersection;
+- status and free-text filtering;
+- unknown fields fail closed;
+- long descriptions no longer break corpus mapping;
+- no new regressions.
 
-### STEP A3 — Real filter matrix
-On real AS21 data test: key, assignee, status, sprint, project/space, release and safe combinations. Expected values must be derived independently from returned real records, not from the agent answer.
+### STEP A3 — Extended SWTR source discovery + real filter matrix — CURRENT
+Do not merely scan `/api/v1/tasks` for absent data. Inspect proven real read-only SWTR/MCP routes and early implementation.
+
+Required work:
+1. Validate `/api/v1/swtr/sprints?space=WMB` / underlying `get_current_sprint`.
+2. Validate `/api/v1/swtr/sprint-tasks` / underlying sprint-task source on a real sprint.
+3. Inspect `SWTRSyncService` and local MCP tool catalog for attachment metadata/content read capabilities and history/changelog capabilities.
+4. Owner provided a concrete clue: at least one task assigned to `Kalachanov.V.V` in WMB has attachments. QA must discover the task deterministically from real WMB tasks and inspect the raw `read_unit`/MCP payload instead of asking the owner to relay screenshots.
+5. Determine whether attachments are a top-level `read_unit` field, an attribute, or require a dedicated MCP tool. Record metadata shape and safe read path.
+6. Determine release/fix-version contract via real `read_unit`/filtered search or a dedicated release source; do not assume the local cached sample is representative.
+7. Determine status history/changelog read path needed by sprint-health/velocity formulas. If none exists, explicitly redesign those formulas or mark the relevant capability unavailable; never fabricate history.
+8. Formalize already-proven filter matrix: key, assignee, project, status, free-text and safe intersections. Add sprint/release only after source evidence exists.
+
+**Exit:** `READY_FOR_A4=YES` when required Core-8 source facts are either proven and mapped, or explicitly classified unavailable with an approved skill behavior/metric policy.
 
 ### STEP A4 — Freeze Core-8 test corpus/query pack
-Select bounded real tasks/sprints/releases and record only IDs + hashes/expected facts needed for reproducible acceptance. Do not store secrets.
+Select bounded real tasks/sprints/releases/attachment examples and record IDs + hashes/expected source facts only. No secrets.
 
-### STEP B1-B8 — Execute each core skill
-Run one skill at a time on real AS21, fix deterministic/root layer failures, protect previous green tests.
+### STEP B1-B8 — Execute Core-8
+Run one skill at a time on real AS21, fixing root-layer failures and protecting previous GREEN tests.
 
-### STEP C1 — Learning loop on task_search
-Use a controlled failure/eval; prove candidate creation, shadow, gate, approval and rollback.
-
-### STEP C2 — Learning loop on analytical skill
-Repeat on `sprint_health` or another evidence-rich analytical skill.
+### STEP C1/C2 — Learning loop
+After 8/8 GREEN, prove controlled improvement on `task_search`, then one analytical skill.
 
 ### STEP D1 — Recover original 48
 Search earliest commits/specification, generate `PO_AGENT_48_SKILL_MATRIX.md`, reconcile with current registry.
 
 ### STEP E/F/G
-Expand skills, finalize frontend and run browser E2E only after preceding gates.
+Expand skills, finalize frontend, then browser E2E.
 
 ## 10. Definition of Done
 
-The project is not considered complete merely because the Harness infrastructure is GREEN.
-
-Final DoD:
 - Core 8 real-AS21 = 8/8 GREEN;
-- learning loop demonstrates real measurable improvement without regressions;
+- learning loop demonstrates measurable improvement without regressions;
 - exact original 48 requirements accounted for and accepted;
-- source contracts deterministic and evidence-grounded;
+- deterministic/evidence-grounded source contracts;
 - human approval/rollback enforced;
-- frontend original product scope restored/finalized;
-- full browser E2E critical suite = 100%;
+- original frontend product scope restored/finalized;
+- full critical browser E2E = 100%;
 - P0 = 0;
 - unauthorized AS21 writes = 0;
 - secret leakage = 0.
 
 ---
 
-**Next action:** STEP A1 — inventory the Core-8 source contract and compare current AS21 mapping with the proven early implementation. Do not return to learning-loop changes before Gate A and Gate B are GREEN.
+**Next action:** STEP A3 — use real MCP/SWTR read capabilities (not only cached `/api/v1/tasks`) to discover and prove sprint, attachment, history and release contracts, then complete the formal Core-8 source/filter matrix.
