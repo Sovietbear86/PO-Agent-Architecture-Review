@@ -1,7 +1,7 @@
 """Read-only rich SWTR facade for facts not exposed by the cached task list.
 
 New Harness read capabilities use the live MCP-SWTR SSE transport through
-SWTRMCPClient.  The historical SWTRSyncService subprocess/stdin bridge is not
+SWTRMCPClient. The historical SWTRSyncService subprocess/stdin bridge is not
 used here because the live MCP server is an SSE service.
 """
 from __future__ import annotations
@@ -43,19 +43,43 @@ def _parse_tool_content(content: list[dict[str, Any]]) -> Any:
 
 
 def _extract_files(payload: Any) -> list[dict[str, Any]]:
+    """Normalize proven MCP file-list envelopes without broad guessing.
+
+    Real `get_unit_files` currently returns a paged object with a `content`
+    array. Older test fixtures/wrappers used `files`, so both proven envelopes
+    remain supported. A direct single-file object is also accepted. Anything
+    else fails closed instead of being reinterpreted as attachment metadata.
+    """
     if isinstance(payload, dict):
-        files = payload.get("files")
-        if isinstance(files, list):
+        for key in ("content", "files"):
+            files = payload.get(key)
+            if files is None:
+                continue
+            if not isinstance(files, list):
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"SWTR file metadata field {key!r} is not a list",
+                )
             if not all(isinstance(item, dict) for item in files):
-                raise HTTPException(status_code=502, detail="SWTR file metadata contains non-object item")
+                raise HTTPException(
+                    status_code=502,
+                    detail="SWTR file metadata contains non-object item",
+                )
             return files
-        # Some MCP wrappers return one file object directly.
+
         if any(key in payload for key in ("fileId", "id")) and any(
             key in payload for key in ("fileName", "name")
         ):
             return [payload]
-    if isinstance(payload, list) and all(isinstance(item, dict) for item in payload):
+
+    if isinstance(payload, list):
+        if not all(isinstance(item, dict) for item in payload):
+            raise HTTPException(
+                status_code=502,
+                detail="SWTR file metadata contains non-object item",
+            )
         return payload
+
     raise HTTPException(status_code=502, detail="SWTR file metadata shape is unsupported")
 
 
