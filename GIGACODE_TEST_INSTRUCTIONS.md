@@ -7,63 +7,64 @@
 
 1. Before every QA run, GigaCode MUST `git fetch` / pull the target branch and read this file from Git.
 2. GigaCode MUST NOT modify production code, tests, fixtures, or this instruction file while executing a QA assignment.
-3. GigaCode MAY create/update only the report file named in `REPORT_PATH` below, then commit and push that report to the same target branch.
-4. The report must contain commands executed, relevant outputs/summaries, real-data evidence (sanitized), findings by severity, and the final gate verdict.
-5. ChatGPT/developer reads the report directly from GitHub, implements fixes, updates this instruction file for the next run, and repeats the cycle.
-6. User does not need to relay screenshots or copy terminal output between ChatGPT and GigaCode.
-7. Never commit credentials, cookies, authorization headers, tokens, or unsanitized secrets.
+3. GigaCode MAY create/update only the report file named in `REPORT_PATH`, then commit and push that report to the same target branch.
+4. Reports must contain commands executed, relevant outputs, sanitized real-data evidence, findings by severity and final gate verdict.
+5. ChatGPT/developer reads the report directly from GitHub, implements fixes, updates this instruction file and repeats the cycle.
+6. User does not relay screenshots/terminal output between ChatGPT and GigaCode.
+7. Never commit credentials, cookies, Authorization headers, tokens or other secrets.
 
 ## Current assignment
 
-`ASSIGNMENT_ID = AS21-A2-REAL-CONTRACT-DISCOVERY-001`
+`ASSIGNMENT_ID = AS21-A2-FILTER-RETEST-002`
 
 `TARGET_BRANCH = feat/real-baseline-candidate-eval-v1`
 
-`REPORT_PATH = qa_reports/AS21_A2_REAL_CONTRACT_DISCOVERY_001.md`
+`REPORT_PATH = qa_reports/AS21_A2_FILTER_RETEST_002.md`
 
-### Context
+## Context
 
-Current roadmap documents:
+Read first:
 - `PO_AGENT_HARNESS_EVOLUTION_PLAN.md`
 - `CORE8_AS21_SOURCE_CONTRACT.md`
+- prior report `qa_reports/AS21_A2_REAL_CONTRACT_DISCOVERY_001.md`
 
-Current phase: restore deterministic AS21 source contract before Core-8 real-data qualification and before returning to the learning loop.
+The prior report correctly found a BLOCKER: `TaskApiAS21Adapter` sent unsupported `q=<query>` to `/api/v1/tasks`, which FastAPI ignored and therefore broad filters returned the full corpus.
 
-Already implemented by developer:
-- canonical `Task` has `TaskStatus.UNKNOWN` / `StatusCategory.UNKNOWN`;
-- `status_raw`, `assignee_login`, `project_space`, diagnostic `source_data`;
-- production `TaskApiAS21Adapter` owns deterministic mapping rather than delegating to permissive legacy mapping;
-- `assigned_to.value.externalId` is the canonical candidate for `assignee_id` / login;
-- unknown source status must not silently become Open;
-- sprint/release mapping must remain fail-closed until their real payload shapes are observed.
+Developer has now changed the deterministic source contract:
+- NO `q` parameter is sent;
+- equality/AND search grammar is parsed inside `TaskApiAS21Adapter`;
+- unknown fields fail closed;
+- assignee matching is done against canonical `assignee_id`, `assignee_login`, display name after a bounded read;
+- `project_space` maps from proven `source_data.swtr_space`;
+- task-api statuses `todo/in_progress/done` map to Open/In progress/Closed;
+- truly unknown statuses still map to UNKNOWN;
+- sprint/release extraction is conservative and must not be called proven without populated real examples;
+- history/attachments remain unsupported at the current task-api boundary.
 
 ## QA rules
 
 - DO NOT change production code.
 - DO NOT fix failures.
-- DO NOT modify existing tests to make them pass.
-- DO NOT create fake AS21 data as evidence for a real-data gate.
-- READ-ONLY access to AS21/task-api only.
-- Do not call create/update/comment/transition/write APIs.
-- A truthful YELLOW/RED/BLOCKED result is preferred to a false GREEN.
+- DO NOT modify tests/fixtures.
+- READ ONLY against task-api/AS21.
+- The ONLY file you may create/update is the report named above.
+- Truthful RED/YELLOW is preferred to false GREEN.
 
-## Test procedure
+## Procedure
 
 ### 1. Pre-check
-
-From repository root:
 
 ```bash
 git fetch --all --prune
 git checkout feat/real-baseline-candidate-eval-v1
 git pull --ff-only
 git status --short
-git log --oneline -10
+git log --oneline -12
 ```
 
-Read this file and both roadmap/source-contract documents before testing.
+Record HEAD and verify working tree is clean before testing.
 
-### 2. Targeted adapter tests
+### 2. Targeted tests
 
 From `po-agent-platform-v2`:
 
@@ -71,15 +72,7 @@ From `po-agent-platform-v2`:
 pytest -q tests/test_task_api_as21_adapter.py -vv
 ```
 
-Also discover and run existing tests directly related to:
-- `TaskApiAS21Adapter`
-- `AS21Adapter`
-- `LegacyAS21Bridge`
-- canonical Task mapping
-- task intelligence
-- frozen AS21 / SWTR shadow
-
-Record pass/fail counts. Do not repair failures.
+Then run related adapter/source/harness tests already present in repository. Record counts separately.
 
 ### 3. Full regression
 
@@ -87,186 +80,195 @@ Record pass/fail counts. Do not repair failures.
 pytest -q
 ```
 
-Record passed/failed/errors/skipped and determine:
+Report:
+- passed/failed/errors/skipped;
+- `NEW_CODE_REGRESSIONS_VS_PREVIOUS_GREEN`.
 
-`NEW_CODE_REGRESSIONS_VS_PREVIOUS_GREEN = N`
+### 4. Verify source request contract
 
-Do not classify an existing failure as new without comparison evidence.
+Using instrumentation/MockTransport/static inspection AND the real endpoint where useful, prove that current adapter never sends `q` to `/api/v1/tasks`.
 
-### 4. Real task-api connectivity
+Expected task-api source parameters are only supported ones (`source`, `limit`, `offset`, and only other native parameters if explicitly used by code).
 
-Check the real local read-only task-api at `http://localhost:8003`.
+Report:
+- `Q_PARAMETER_USED = YES/NO`
+- request examples without secrets.
 
-```bash
-curl -sS 'http://localhost:8003/api/v1/tasks?limit=5'
-```
+### 5. Real exact lookup
 
-Sanitize report output. Never include secrets/headers/tokens.
+Using production `TaskApiAS21Adapter`:
 
-### 5. Real assignee mapping
+`get_task("WMB-30000")`
 
-Use production `TaskApiAS21Adapter` to read real task `WMB-30000`.
+Expected one exact task, not first arbitrary source record.
 
-Record canonical fields:
+Verify canonical:
 - key
-- title
-- status
-- status_raw
-- status_category
-- assignee
-- assignee_id
-- assignee_login
+- status/status_raw/category
+- assignee_id/login
 - project_space
-- sprint_id
-- release_id
-- source
 
-Critical assertion: canonical `assignee_id` must equal the real `assigned_to.value.externalId` (known example: `Kalachanov.V.V`, if still true in source data).
+Expected real project source: `source_data.swtr_space`.
 
-Record a sanitized structural view of the raw `assigned_to` attribute: code/name/value keys only.
+### 6. Real assignee filter matrix
 
-### 6. Unknown-status fail-closed
+Run using production adapter:
 
-Verify by test/static review that an unknown raw AS21 status maps to:
-- `TaskStatus.UNKNOWN`
-- `StatusCategory.UNKNOWN`
-- original value preserved in `status_raw`
+- `assignee = Kalachanov.V.V`
+- `assignee = kalachanov.v.v`
+- `assignee = nonexistent-user`
+- one known different real assignee externalId/login discovered from source data
+- `project = WMB AND assignee = Kalachanov.V.V`
 
-It must never silently become `Open`.
+For each report COUNT and KEYS (bounded list is fine).
 
-### 7. Discover real sprint contract
-
-Find at least one real WMB task with sprint populated. Do not change mapper.
-
-Identify the actual attribute code (expected candidate `scrum_board_plugin_sprint`, but source data decides), value type/shape, relevant object keys, and candidate canonical sprint identifier/name.
-
-Sanitize personal/business-sensitive values where not needed.
+Critical invariants:
+- nonexistent user returns 0;
+- other assignee tasks do not leak into Kalachanov result;
+- lower-case login may match `assignee_login` case-insensitively;
+- project+assignee is an intersection, never a broader corpus.
 
 Report:
-- `REAL_SPRINT_ATTRIBUTE_CODE`
-- `REAL_SPRINT_VALUE_SHAPE`
-- `CANONICAL_SPRINT_ID_CANDIDATE_FIELD`
+- `ASSIGNEE_FILTER_CORRECT = YES/NO`
+- `FALSE_POSITIVE_ASSIGNEE = YES/NO`
 
-### 8. Discover real release contract
+### 7. Real project/space filter
 
-Find a real task with release/fix-version if available. Inspect likely attributes such as `fix_version_s`/actual source code.
+Run:
+- `project = WMB`
+- one additional real space if available
+- `project = NONEXISTENT`
 
-Report:
-- `REAL_RELEASE_ATTRIBUTE_CODE`
-- `REAL_RELEASE_VALUE_SHAPE`
-- `CANONICAL_RELEASE_ID_CANDIDATE_FIELD`
-
-If no sample exists, report `REAL_RELEASE_SAMPLE = NOT_FOUND`; do not invent a contract.
-
-### 9. Discover project/space contract
-
-Determine the strongest actual source for project/space: top-level field, `source_data`, `swtr_attributes`, or only task-key prefix.
+Cross-check every returned task's canonical `project_space` against raw `source_data.swtr_space`.
 
 Report:
-- `REAL_PROJECT_SPACE_SOURCE`
-- example sanitized value
-- source level
+- `PROJECT_SPACE_MAPPING = PASS/FAIL`
+- `PROJECT_FILTER_CORRECT = YES/NO`
 
-Do not assume key prefix is authoritative unless no stronger source exists.
+### 8. Real status filter
 
-### 10. Attachment metadata contract
+First inspect a bounded real sample and identify actual task-api status values and, where present, `source_data.workflow_status`.
 
-Inspect code/routes and real read-only payloads for attachment metadata support. Do not download attachment contents unless necessary.
+Then run filters using canonical/user-facing values where possible, including at least:
+- `status = Closed` against records with task-api `done` if available;
+- `status = In progress` against `in_progress` if available;
+- a nonexistent/unknown status value.
 
-Report:
-- `ATTACHMENT_METADATA_AVAILABLE = YES/NO`
-- `ATTACHMENT_SOURCE_PATH`
-- available metadata fields
-
-### 11. Task history contract
-
-Inspect available read-only APIs/payloads for changelog/status-transition/history data.
+Verify task-api `done` does not remain canonical UNKNOWN.
 
 Report:
-- `TASK_HISTORY_AVAILABLE = YES/NO`
-- `TASK_HISTORY_SOURCE_PATH`
-- available history fields
+- `TASK_API_DONE_NORMALIZATION = PASS/FAIL`
+- `STATUS_FILTER_CORRECT = YES/NO`
+- truly unknown status still remains UNKNOWN.
 
-### 12. Raw-to-canonical matrix
+### 9. Sprint discovery + filter
 
-For at least 5 real tasks compare raw task-api facts to canonical Task for:
-- key
-- title
-- description
-- raw/normalized status
-- assignee display
-- assignee externalId/login
-- project/space
-- sprint
-- release
-- priority
-- created_at
-- updated_at
-- due/deadline
-- source
-- source_url
+Search beyond the first 50 records if safe, up to the task-api documented bounded limit, for a real task with populated `sprint` or `scrum_board_plugin_sprint`.
 
-Classify each field: `MAPPED`, `MISSING_CANONICAL`, `SOURCE_NOT_PRESENT`, or `INCORRECT_MAPPING`.
+If found:
+- record sanitized raw shape;
+- record canonical `sprint_id`;
+- run `sprint = <real id>`;
+- optionally `project = <space> AND sprint = <real id>`;
+- prove no task with another sprint appears.
 
-### 13. Real filter smoke
+If not found, report `REAL_SPRINT_SAMPLE = NOT_FOUND` and do not fabricate PASS.
 
-Test only operations genuinely supported by the current contract. At minimum:
-- exact lookup `WMB-30000`;
-- assignee identity/filter if adapter currently exposes it safely;
-- prove a task assigned to another user cannot appear as `Kalachanov.V.V`.
+### 10. Release discovery + filter
 
-Do not declare sprint/release/project filtering GREEN until their contracts are proven.
+Search bounded real records for non-empty `fix_version_s`.
 
-### 14. Security/adversarial review
+If found:
+- sanitized value shape;
+- canonical `release_id`;
+- `release = <real id>` filter;
+- optional project+release intersection.
 
-Confirm A2 did not introduce:
-- AS21 write authority;
-- autonomous promotion/rollback;
-- learning mutation as a source-layer workaround;
-- LLM-based filtering;
-- hard-coded special case for `Kalachanov` or `WMB-30000`;
-- secrets/tokens;
-- fake fallback tasks.
+If not found, report `REAL_RELEASE_SAMPLE = NOT_FOUND`.
 
-Identity extraction must be generic from source structure.
+### 11. Free-text search
 
-## Report requirements
+Choose a distinctive real phrase/key fragment already present in the bounded task set and call `search_tasks(<plain text>)`.
 
-Create `qa_reports/AS21_A2_REAL_CONTRACT_DISCOVERY_001.md` with sections:
+Verify every returned record actually contains the phrase in key/title/description under current deterministic semantics; no `q` is sent to source.
+
+### 12. Fail-closed/adversarial search
+
+Verify:
+- `magic = anything` => explicit unsupported-field failure, not broad results;
+- malformed clause => explicit failure;
+- contradictory duplicate field filters => empty result;
+- `max_results=0` => empty result without source broadening;
+- `max_results=-1` => validation error;
+- source unavailable => `AS21SourceUnavailable`;
+- malformed response => `AS21SourceError`.
+
+### 13. Architecture/security review
+
+Confirm no:
+- AS21 write authority added;
+- LLM filtering;
+- hardcoded special cases for Kalachanov/WMB-30000;
+- fake fallback corpus;
+- autonomous promotion/learning workaround;
+- secret leakage.
+
+### 14. Remaining Core-8 source gaps
+
+Re-check, description only:
+- attachment metadata read path;
+- task history/changelog read path.
+
+Also inspect legacy SWTR/MCP code for a **proven READ-ONLY** source for these facts. Do not wire or change code. If one exists, record exact file/tool/endpoint names for developer.
+
+## Gate interpretation
+
+This assignment primarily decides whether the previous filtering BLOCKER is closed.
+
+`READY_FOR_STEP_A3 = YES` may be returned if exact/assignee/project/status deterministic filtering is correct on real data and no new source blocker exists, even if Gate A overall remains YELLOW because history/attachments or populated sprint/release samples are still pending.
+
+`READY_FOR_LEARNING_LOOP` must remain NO.
+
+## Report format
+
+Create `qa_reports/AS21_A2_FILTER_RETEST_002.md` with:
 
 1. Executive verdict
-2. Environment / branch / HEAD
+2. Environment/HEAD
 3. Commands executed
 4. Targeted tests
 5. Full regression
-6. Real task-api connectivity
-7. Assignee mapping
-8. Status mapping
-9. Sprint contract discovery
-10. Release contract discovery
-11. Project/space contract discovery
-12. Attachments contract
-13. History contract
-14. Raw -> canonical matrix
-15. Real filter smoke
-16. Security/adversarial review
-17. Findings by severity (`BLOCKER/HIGH/MEDIUM/LOW/INFO`)
-18. Recommended next implementation (description only; DO NOT implement)
-19. Gate decision
+6. Source request contract
+7. Exact lookup
+8. Assignee matrix
+9. Project/space matrix
+10. Status matrix
+11. Sprint discovery/filter
+12. Release discovery/filter
+13. Free-text search
+14. Fail-closed attacks
+15. History/attachments source discovery
+16. Security/architecture review
+17. Findings by severity
+18. Gate decision
 
-End the report with exactly these machine-readable lines:
+End exactly with:
 
 ```text
-ASSIGNMENT_ID = AS21-A2-REAL-CONTRACT-DISCOVERY-001
+ASSIGNMENT_ID = AS21-A2-FILTER-RETEST-002
+Q_PARAMETER_USED =
 REAL_TASK_API_CONNECTED =
-REAL_TASKS_INSPECTED =
-ASSIGNEE_ID_MAPPING =
-UNKNOWN_STATUS_FAIL_CLOSED =
-REAL_SPRINT_ATTRIBUTE_CODE =
-REAL_SPRINT_VALUE_SHAPE =
-REAL_RELEASE_ATTRIBUTE_CODE =
-REAL_RELEASE_VALUE_SHAPE =
-REAL_PROJECT_SPACE_SOURCE =
+EXACT_TASK_LOOKUP =
+ASSIGNEE_FILTER_CORRECT =
+FALSE_POSITIVE_ASSIGNEE =
+PROJECT_SPACE_MAPPING =
+PROJECT_FILTER_CORRECT =
+TASK_API_DONE_NORMALIZATION =
+STATUS_FILTER_CORRECT =
+REAL_SPRINT_SAMPLE =
+SPRINT_FILTER_CORRECT =
+REAL_RELEASE_SAMPLE =
+RELEASE_FILTER_CORRECT =
 ATTACHMENT_METADATA_AVAILABLE =
 TASK_HISTORY_AVAILABLE =
 NEW_CODE_REGRESSIONS_VS_PREVIOUS_GREEN =
@@ -274,28 +276,20 @@ BLOCKER_COUNT =
 HIGH_COUNT =
 GATE_A =
 READY_FOR_STEP_A3 =
+READY_FOR_LEARNING_LOOP = NO
 ```
 
-`READY_FOR_STEP_A3 = YES` only when required deterministic mappings are proven. A YELLOW result is expected and acceptable if sprint/release/project still need implementation.
+## Publish
 
-## Publishing the report
-
-The report file is the ONLY repository file GigaCode may modify for this assignment.
-
-After writing it:
+Only report file may be modified:
 
 ```bash
-git status --short
-git add qa_reports/AS21_A2_REAL_CONTRACT_DISCOVERY_001.md
-git commit -m 'qa: report AS21 A2 real contract discovery'
+git add qa_reports/AS21_A2_FILTER_RETEST_002.md
+git commit -m 'qa: report AS21 A2 filter retest 002'
 git push origin feat/real-baseline-candidate-eval-v1
 git status --short
 ```
 
-Final working tree must be clean.
+Then tell user only:
 
-After push, GigaCode should tell the user only:
-
-`QA report published: qa_reports/AS21_A2_REAL_CONTRACT_DISCOVERY_001.md`
-
-ChatGPT/developer will read the report directly from GitHub and continue implementation.
+`QA report published: qa_reports/AS21_A2_FILTER_RETEST_002.md`
