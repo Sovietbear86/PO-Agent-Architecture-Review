@@ -4,7 +4,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.routers import tasks, jira, swtr_sync
+from app.routers import tasks, jira, swtr_sync, swtr_read
 from app.exceptions.handlers import (
     validation_exception_handler,
     value_error_handler,
@@ -50,3 +50,4 @@ async def health_check():
 app.include_router(tasks.router)
 app.include_router(jira.router)
 app.include_router(swtr_sync.router)
+app.include_router(swtr_read.router)
