@@ -1,11 +1,11 @@
-"""Runtime construction for fake and production AS21 sources."""
+"""Runtime construction for fake, production AS21, and frozen AS21 sources."""
 from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
-from po_agent.adapters import FakeAS21Adapter, TaskApiAS21Adapter
+from po_agent.adapters import FakeAS21Adapter, FrozenAS21Adapter, SWTRShadowBatch, TaskApiAS21Adapter
 from po_agent.adapters.as21 import AS21Adapter
 
 from .dialogue_runtime import LLMJsonSemanticInterpreter, SemanticInterpreter
@@ -28,7 +28,7 @@ from .source_contracts import (
 from .source_readiness import SourceReadinessReport, build_source_readiness
 from .team_matching_wiring import enable_team_matching
 
-RuntimeMode = Literal["fake", "task-api"]
+RuntimeMode = Literal["fake", "task-api", "frozen"]
 
 
 @dataclass(frozen=True)
@@ -51,28 +51,22 @@ def _resolve_team_config(explicit: str | None, mode: RuntimeMode) -> Path | None
     return next((path for path in candidates if path.exists()), None)
 
 
-def build_runtime_bundle(
-    mode: str = "fake",
+def _build_runtime_with_adapter(
+    adapter: AS21Adapter,
     *,
-    task_api_base_url: str = "http://localhost:8003",
-    task_api_timeout_seconds: float = 30.0,
+    mode: RuntimeMode,
     team_config_path: str | None = None,
     sprint_snapshots: SprintSnapshotSource | None = None,
     release_timeline: ReleaseTimelineSource | None = None,
     semantic_interpreter: SemanticInterpreter | None = None,
     learned_semantics_path: str | None = None,
 ) -> RuntimeBundle:
-    normalized = mode.strip().lower()
-    if normalized == "fake":
-        adapter: AS21Adapter = FakeAS21Adapter()
-        selected: RuntimeMode = "fake"
-    elif normalized in {"task-api", "task_api", "real"}:
-        adapter = TaskApiAS21Adapter(base_url=task_api_base_url, timeout_seconds=task_api_timeout_seconds)
-        selected = "task-api"
-    else:
-        raise ValueError(f"Unsupported PO_AGENT_AS21_MODE: {mode}")
+    """Build the canonical Harness stack around an already selected adapter.
 
-    team_path = _resolve_team_config(team_config_path, selected)
+    This is shared by live and frozen sources so offline SWTR evaluation executes
+    the same production capability/runtime chain instead of a test-only mock.
+    """
+    team_path = _resolve_team_config(team_config_path, mode)
     team_source = YamlTeamCompetencySource(team_path) if team_path is not None else None
     dependencies = SourceDependencyBundle(
         sprint_snapshots=sprint_snapshots,
@@ -111,10 +105,69 @@ def build_runtime_bundle(
     runtime = ObservedHarnessRuntime(dialogue)
 
     return RuntimeBundle(
-        mode=selected,
+        mode=mode,
         runtime=runtime,
         adapter=adapter,
         readiness=readiness,
         dependencies=dependencies,
         semantics=semantics,
+    )
+
+
+def build_runtime_bundle(
+    mode: str = "fake",
+    *,
+    task_api_base_url: str = "http://localhost:8003",
+    task_api_timeout_seconds: float = 30.0,
+    team_config_path: str | None = None,
+    sprint_snapshots: SprintSnapshotSource | None = None,
+    release_timeline: ReleaseTimelineSource | None = None,
+    semantic_interpreter: SemanticInterpreter | None = None,
+    learned_semantics_path: str | None = None,
+) -> RuntimeBundle:
+    normalized = mode.strip().lower()
+    if normalized == "fake":
+        adapter: AS21Adapter = FakeAS21Adapter()
+        selected: RuntimeMode = "fake"
+    elif normalized in {"task-api", "task_api", "real"}:
+        adapter = TaskApiAS21Adapter(base_url=task_api_base_url, timeout_seconds=task_api_timeout_seconds)
+        selected = "task-api"
+    else:
+        raise ValueError(f"Unsupported PO_AGENT_AS21_MODE: {mode}")
+
+    return _build_runtime_with_adapter(
+        adapter,
+        mode=selected,
+        team_config_path=team_config_path,
+        sprint_snapshots=sprint_snapshots,
+        release_timeline=release_timeline,
+        semantic_interpreter=semantic_interpreter,
+        learned_semantics_path=learned_semantics_path,
+    )
+
+
+def build_frozen_runtime_bundle(
+    batch: SWTRShadowBatch,
+    *,
+    team_config_path: str | None = None,
+    sprint_snapshots: SprintSnapshotSource | None = None,
+    release_timeline: ReleaseTimelineSource | None = None,
+    semantic_interpreter: SemanticInterpreter | None = None,
+    learned_semantics_path: str | None = None,
+) -> RuntimeBundle:
+    """Build the real Harness stack over a previously captured SWTR batch.
+
+    No live AS21/Task API object is created or retained.  Therefore all capability
+    reads are satisfied from the immutable frozen corpus and cannot reconnect to
+    SWTR after the capture boundary has closed.
+    """
+    adapter = FrozenAS21Adapter.from_shadow_batch(batch)
+    return _build_runtime_with_adapter(
+        adapter,
+        mode="frozen",
+        team_config_path=team_config_path,
+        sprint_snapshots=sprint_snapshots,
+        release_timeline=release_timeline,
+        semantic_interpreter=semantic_interpreter,
+        learned_semantics_path=learned_semantics_path,
     )
