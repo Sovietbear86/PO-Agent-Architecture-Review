@@ -188,6 +188,18 @@ def _attachment_type(name: str, content_type: str | None) -> AttachmentType:
     return AttachmentType.OTHER
 
 
+def _attachment_fields(raw: dict[str, Any]) -> tuple[Any, Any, Any, Any, Any]:
+    """Normalize both legacy facade metadata and the real MCP get_unit_files shape."""
+    file_path = raw.get("filePathParsedDto") if isinstance(raw.get("filePathParsedDto"), dict) else {}
+    metadata = raw.get("fileMetadataDto") if isinstance(raw.get("fileMetadataDto"), dict) else {}
+    file_id = raw.get("fileId") or raw.get("id")
+    name = raw.get("fileName") or file_path.get("fileName") or raw.get("name")
+    size = metadata.get("contentLength") if isinstance(metadata.get("contentLength"), int) else raw.get("size")
+    created = raw.get("createdAt") or raw.get("created")
+    content_type = metadata.get("contentType") if isinstance(metadata.get("contentType"), str) else raw.get("contentType")
+    return file_id, name, size, created, content_type
+
+
 class TaskApiAS21Adapter(AS21Adapter):
     source_name = "task-api"
     # Attachments are intentionally not advertised as a proven source fact until
@@ -347,10 +359,8 @@ class TaskApiAS21Adapter(AS21Adapter):
         for raw in payload["files"]:
             if not isinstance(raw, dict):
                 raise AS21SourceError("SWTR attachment metadata item is not an object")
-            file_id = raw.get("id")
-            name = raw.get("name")
-            size = raw.get("size")
-            created = _parse_datetime(raw.get("created"))
+            file_id, name, size, created_raw, content_type = _attachment_fields(raw)
+            created = _parse_datetime(created_raw)
             if not isinstance(file_id, str) or not file_id or not isinstance(name, str) or not name:
                 raise AS21SourceError("SWTR attachment metadata misses id/name")
             if not isinstance(size, int) or size < 0:
@@ -363,7 +373,7 @@ class TaskApiAS21Adapter(AS21Adapter):
                 Attachment(
                     id=file_id,
                     name=name,
-                    type=_attachment_type(name, raw.get("contentType") if isinstance(raw.get("contentType"), str) else None),
+                    type=_attachment_type(name, content_type if isinstance(content_type, str) else None),
                     size_bytes=size,
                     created_at=created,
                     url=None,
