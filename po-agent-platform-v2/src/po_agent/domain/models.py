@@ -99,7 +99,21 @@ class Dependency(BaseModel):
     def is_blocking(self): return self.type==DependencyType.BLOCKING
 
 def normalize_task_status(raw_status:str)->TaskStatus:
-    status_map={"open":TaskStatus.OPEN,"открыта":TaskStatus.OPEN,"need info":TaskStatus.NEED_INFO,"требуется информация":TaskStatus.NEED_INFO,"in progress":TaskStatus.IN_PROGRESS,"в работе":TaskStatus.IN_PROGRESS,"ready for review":TaskStatus.READY_FOR_REVIEW,"готово к ревью":TaskStatus.READY_FOR_REVIEW,"in review":TaskStatus.IN_REVIEW,"на ревью":TaskStatus.IN_REVIEW,"ready for qa":TaskStatus.READY_FOR_QA,"готово к qa":TaskStatus.READY_FOR_QA,"qa":TaskStatus.QA,"тестирование":TaskStatus.QA,"reopened":TaskStatus.REOPENED,"переоткрыта":TaskStatus.REOPENED,"resolved":TaskStatus.RESOLVED,"решена":TaskStatus.RESOLVED,"closed":TaskStatus.CLOSED,"закрыта":TaskStatus.CLOSED,"cancelled":TaskStatus.CANCELLED,"отменена":TaskStatus.CANCELLED}
+    status_map={
+        "open":TaskStatus.OPEN,"открыта":TaskStatus.OPEN,
+        "todo":TaskStatus.OPEN,"backlog":TaskStatus.OPEN,
+        "need info":TaskStatus.NEED_INFO,"требуется информация":TaskStatus.NEED_INFO,
+        "in progress":TaskStatus.IN_PROGRESS,"in_progress":TaskStatus.IN_PROGRESS,"в работе":TaskStatus.IN_PROGRESS,
+        "ready for review":TaskStatus.READY_FOR_REVIEW,"готово к ревью":TaskStatus.READY_FOR_REVIEW,
+        "in review":TaskStatus.IN_REVIEW,"на ревью":TaskStatus.IN_REVIEW,
+        "ready for qa":TaskStatus.READY_FOR_QA,"готово к qa":TaskStatus.READY_FOR_QA,
+        "qa":TaskStatus.QA,"тестирование":TaskStatus.QA,
+        "reopened":TaskStatus.REOPENED,"переоткрыта":TaskStatus.REOPENED,
+        "resolved":TaskStatus.RESOLVED,"решена":TaskStatus.RESOLVED,
+        "closed":TaskStatus.CLOSED,"закрыта":TaskStatus.CLOSED,
+        "done":TaskStatus.CLOSED,"completed":TaskStatus.CLOSED,"finished":TaskStatus.CLOSED,
+        "cancelled":TaskStatus.CANCELLED,"отменена":TaskStatus.CANCELLED,
+    }
     return status_map.get((raw_status or "").lower().strip(),TaskStatus.UNKNOWN)
 
 def get_status_category(status:TaskStatus)->StatusCategory:
