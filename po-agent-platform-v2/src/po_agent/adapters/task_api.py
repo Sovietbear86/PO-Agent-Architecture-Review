@@ -173,9 +173,9 @@ def _task_matches(task: Task, filters: dict[str, str], free_text: str | None) ->
 def _attachment_type(name: str, content_type: str | None) -> AttachmentType:
     mime = (content_type or "").casefold()
     suffix = Path(name).suffix.casefold()
-    if suffix in {".xlsx", ".xls", ".xlsm", ".csv"} or "spreadsheet" in mime or "excel" in mime:
+    if suffix in {".xlsx", ".xls", ".xlsm", ".xlsb", ".csv", ".ods"} or "spreadsheet" in mime or "excel" in mime:
         return AttachmentType.EXCEL
-    if suffix in {".doc", ".docx"} or "word" in mime:
+    if suffix in {".doc", ".docx", ".docm", ".rtf", ".odt"} or "word" in mime or "opendocument.text" in mime:
         return AttachmentType.WORD
     if suffix == ".pdf" or mime == "application/pdf":
         return AttachmentType.PDF
@@ -202,9 +202,8 @@ def _attachment_fields(raw: dict[str, Any]) -> tuple[Any, Any, Any, Any, Any]:
 
 class TaskApiAS21Adapter(AS21Adapter):
     source_name = "task-api"
-    # Attachments are intentionally not advertised as a proven source fact until
-    # the new rich-read endpoint passes real AS21 QA.
-    source_facts = frozenset({"tasks"})
+    # Real AS21 QA (A3 canonical retest) proved task and attachment metadata reads.
+    source_facts = frozenset({"tasks", "attachments"})
     _scan_limit = 10000
 
     def __init__(
@@ -297,7 +296,14 @@ class TaskApiAS21Adapter(AS21Adapter):
         if not re.fullmatch(r"[A-Z]+-\d+", normalized):
             return None
         tasks = await self._fetch_tasks(limit=self._scan_limit, source="swtr")
-        return next((task for task in tasks if task.key.upper() == normalized), None)
+        task = next((item for item in tasks if item.key.upper() == normalized), None)
+        if task is None:
+            return None
+        # Exact task reads are the canonical rich-read boundary: attach proven
+        # metadata here so task-level skills can see Office/PDF/MSG attachments
+        # without retaining a live AS21 object or doing hidden network fallback.
+        attachments = await self.get_attachment_metadata(normalized)
+        return task.model_copy(update={"attachments": attachments})
 
     async def search_tasks(
         self,
