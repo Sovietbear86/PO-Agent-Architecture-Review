@@ -16,8 +16,8 @@ from .observed_runtime import ObservedHarnessRuntime
 from .semantic_authorization import (
     BlindConsensusSemanticInterpreter,
     BlindRecoveryLLMJsonSemanticInterpreter,
-    IntentPreservingDialogueHarnessRuntime,
 )
+from .session_corrections import SessionCorrectionDialogueHarnessRuntime, SessionCorrectionStore
 from .source_aware_runtime import SourceAwareHarnessRuntime
 from .source_contracts import (
     ReleaseTimelineSource,
@@ -96,11 +96,13 @@ def _build_runtime_with_adapter(
         )
         selected_interpreter = BlindConsensusSemanticInterpreter(fast_delegate)
 
-    dialogue = IntentPreservingDialogueHarnessRuntime(
+    correction_store = SessionCorrectionStore()
+    dialogue = SessionCorrectionDialogueHarnessRuntime(
         executable,
         interpreter=selected_interpreter,
         semantics=semantics,
         grounder=grounder,
+        correction_store=correction_store,
     )
     runtime = ObservedHarnessRuntime(dialogue)
 
@@ -157,7 +159,7 @@ def build_frozen_runtime_bundle(
 ) -> RuntimeBundle:
     """Build the real Harness stack over a previously captured SWTR batch.
 
-    No live AS21/Task API object is created or retained.  Therefore all capability
+    No live AS21/Task API object is created or retained. Therefore all capability
     reads are satisfied from the immutable frozen corpus and cannot reconnect to
     SWTR after the capture boundary has closed.
     """
