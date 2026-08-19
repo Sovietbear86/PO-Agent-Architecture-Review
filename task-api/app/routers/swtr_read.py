@@ -34,12 +34,9 @@ def _parse_tool_content(content: list[dict[str, Any]]) -> Any:
             decoded.append(json.loads(text))
         except json.JSONDecodeError as exc:
             raise HTTPException(status_code=502, detail="SWTR MCP returned invalid JSON") from exc
-
     if not decoded:
         raise HTTPException(status_code=502, detail="SWTR MCP returned no JSON payload")
-    if len(decoded) == 1:
-        return decoded[0]
-    return decoded
+    return decoded[0] if len(decoded) == 1 else decoded
 
 
 def _extract_files(payload: Any) -> list[dict[str, Any]]:
@@ -99,13 +96,6 @@ def _source_task_code(item: dict[str, Any]) -> str | None:
 
 
 def _cached_complete_sprint_tasks(sprint_id: str) -> list[dict[str, Any]]:
-    """Return complete canonical SWTR cache rows for a sprint.
-
-    This is an explicit completeness fallback for MCP installations whose
-    get_sprint_tasks schema exposes only sprint_id even though the response is
-    paginated. The Task API cache is the already-proven primary task source; the
-    response labels this fallback rather than pretending it is another MCP page.
-    """
     from app.routers.tasks import get_task_service
     from app.schemas.task import task_to_response
 
@@ -116,6 +106,67 @@ def _cached_complete_sprint_tasks(sprint_id: str) -> list[dict[str, Any]]:
         if isinstance(response.sprint, str) and response.sprint.casefold() == sprint_id.casefold():
             rows.append(response.model_dump(mode="json"))
     return rows
+
+
+def _first_declared(properties: dict[str, Any], aliases: tuple[str, ...]) -> str | None:
+    return next((name for name in aliases if name in properties), None)
+
+
+def _put_declared(target: dict[str, Any], properties: dict[str, Any], aliases: tuple[str, ...], value: Any) -> None:
+    if value is None:
+        return
+    name = _first_declared(properties, aliases)
+    if name is not None:
+        target[name] = value
+
+
+async def _schema_aware_search_versions_arguments(
+    client: SWTRMCPClient,
+    *,
+    query: str | None,
+    space: str | None,
+    page: int,
+    limit: int,
+) -> dict[str, Any]:
+    """Build arguments from the live MCP schema, including nested `request` DTOs.
+
+    Some MCP-SWTR versions expose `search_versions(request: {...})` instead of
+    flat query/space parameters. The previous facade only inspected top-level
+    aliases and therefore sent an empty object to a tool that required request.
+    This builder treats the descriptor as the source of truth and never sends
+    undeclared fields when an object schema is available.
+    """
+    schema = await client.tool_input_schema("search_versions")
+    properties = schema.get("properties") if isinstance(schema, dict) else None
+    top = properties if isinstance(properties, dict) else {}
+
+    request_schema = top.get("request")
+    if isinstance(request_schema, dict):
+        request_type = request_schema.get("type")
+        nested = request_schema.get("properties")
+        nested_props = nested if isinstance(nested, dict) else {}
+        if request_type == "object" or nested_props:
+            request: dict[str, Any] = {}
+            _put_declared(request, nested_props, ("query", "q", "search", "text", "name"), query)
+            _put_declared(request, nested_props, ("space", "project", "project_code", "spaceCode", "projectCode"), space)
+            offset = page * limit
+            _put_declared(request, nested_props, ("page", "page_number", "pageNumber"), page)
+            _put_declared(request, nested_props, ("offset", "start"), offset)
+            _put_declared(request, nested_props, ("limit", "size", "page_size", "pageSize"), limit)
+            return {"request": request}
+        if request_type == "string":
+            text = query or space
+            if not text:
+                raise SWTRMCPProtocolError("search_versions request string has no query or space")
+            return {"request": text}
+
+    result: dict[str, Any] = {}
+    _put_declared(result, top, ("query", "q", "search", "text", "name"), query)
+    _put_declared(result, top, ("space", "project", "project_code", "spaceCode", "projectCode"), space)
+    _put_declared(result, top, ("page", "page_number", "pageNumber"), page)
+    _put_declared(result, top, ("offset", "start"), page * limit)
+    _put_declared(result, top, ("limit", "size", "page_size", "pageSize"), limit)
+    return result
 
 
 @router.get("/health")
@@ -184,14 +235,6 @@ async def get_sprint_tasks(
     complete: bool = Query(False),
     max_pages: int = Query(100, ge=1, le=500),
 ):
-    """Read sprint tasks with explicit completeness semantics.
-
-    If the live MCP tool exposes page/offset arguments, `complete=true` walks
-    every page until hasNext=false. If the MCP tool itself exposes only
-    `sprint_id` while returning a paged response, Task API falls back explicitly
-    to its proven canonical SWTR cache for completeness and reconciles the live
-    first-page task IDs against that cache.
-    """
     normalized = sprint_id.strip()
     if not normalized or len(normalized) > 200:
         raise HTTPException(status_code=400, detail="Invalid sprint id")
@@ -299,15 +342,12 @@ async def search_versions(
 
     client = SWTRMCPClient()
     try:
-        properties = await client.tool_input_properties("search_versions")
-        arguments = await client.preferred_alias_arguments(
-            "search_versions",
-            [
-                (("query", "q", "search", "text"), search_text),
-                (("space", "project", "project_code"), normalized_space),
-                (("page", "page_number", "pageNumber", "offset"), page if "offset" not in properties else page * limit),
-                (("limit", "size", "page_size", "pageSize"), limit),
-            ],
+        arguments = await _schema_aware_search_versions_arguments(
+            client,
+            query=search_text,
+            space=normalized_space,
+            page=page,
+            limit=limit,
         )
         content = await client.call_tool("search_versions", arguments)
     except (SWTRMCPUnavailable, SWTRMCPProtocolError) as exc:
@@ -319,4 +359,5 @@ async def search_versions(
         "versions": payload,
         "pagination": _page_meta(payload),
         "mcp_arguments": sorted(arguments),
+        "mcp_argument_shape": "request" if "request" in arguments else "flat",
     }
