@@ -8,7 +8,7 @@ it is migrated separately; it must not be used by new Harness read capabilities.
 from __future__ import annotations
 
 import os
-from typing import Any
+from typing import Any, Iterable
 
 
 class SWTRMCPUnavailable(RuntimeError):
@@ -48,11 +48,7 @@ class SWTRMCPClient:
         return result
 
     async def list_tool_descriptors(self) -> list[dict[str, Any]]:
-        """Return MCP tool descriptors including input schemas when exposed.
-
-        Rich-read routes use this to adapt to the actual MCP contract rather
-        than guessing pagination/version argument names. It remains read-only.
-        """
+        """Return MCP tool descriptors including input schemas when exposed."""
         try:
             from fastmcp import Client
             from fastmcp.client.transports import SSETransport
@@ -74,19 +70,18 @@ class SWTRMCPClient:
         descriptors = await self.list_tool_descriptors()
         return [str(item["name"]) for item in descriptors]
 
-    async def tool_input_properties(self, name: str) -> set[str]:
-        """Return declared input property names for one MCP tool.
-
-        An empty set means the tool exists but did not expose an object schema.
-        Missing tools raise a protocol error so callers fail closed.
-        """
+    async def tool_input_schema(self, name: str) -> dict[str, Any]:
+        """Return one tool input schema or an empty object if none is exposed."""
         descriptors = await self.list_tool_descriptors()
         descriptor = next((item for item in descriptors if item.get("name") == name), None)
         if descriptor is None:
             raise SWTRMCPProtocolError(f"MCP-SWTR tool {name!r} is not available")
         schema = descriptor.get("inputSchema") or descriptor.get("input_schema") or {}
-        if not isinstance(schema, dict):
-            return set()
+        return dict(schema) if isinstance(schema, dict) else {}
+
+    async def tool_input_properties(self, name: str) -> set[str]:
+        """Return declared input property names for one MCP tool."""
+        schema = await self.tool_input_schema(name)
         properties = schema.get("properties")
         if not isinstance(properties, dict):
             return set()
@@ -99,18 +94,36 @@ class SWTRMCPClient:
         *,
         required: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        """Filter optional arguments against the live MCP tool schema.
-
-        Required arguments are always retained. Optional candidates are sent
-        only when the live schema explicitly advertises them. This prevents the
-        Task API facade from inventing unsupported MCP parameters while still
-        allowing pagination/version-search contracts to evolve safely.
-        """
+        """Filter optional arguments against the live MCP tool schema."""
         properties = await self.tool_input_properties(name)
         result = dict(required or {})
         for key, value in candidates.items():
             if key in properties and value is not None:
                 result[key] = value
+        return result
+
+    async def preferred_alias_arguments(
+        self,
+        name: str,
+        groups: Iterable[tuple[Iterable[str], Any]],
+        *,
+        required: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Choose at most one declared alias for each semantic argument.
+
+        Some MCP descriptors advertise several compatibility aliases such as
+        query/q/search/text. Sending all aliases at once can make the downstream
+        API reject an otherwise valid request. This helper picks the first alias
+        from each ordered group that the live schema declares.
+        """
+        properties = await self.tool_input_properties(name)
+        result = dict(required or {})
+        for aliases, value in groups:
+            if value is None:
+                continue
+            selected = next((alias for alias in aliases if alias in properties), None)
+            if selected is not None:
+                result[selected] = value
         return result
 
     async def call_tool(self, name: str, arguments: dict[str, Any]) -> list[dict[str, Any]]:
@@ -129,10 +142,24 @@ class SWTRMCPClient:
         try:
             async with Client(SSETransport(url=self.sse_url)) as client:
                 result = await client.call_tool(name, arguments)
-        except Exception as exc:  # pragma: no cover - real transport failure
-            raise SWTRMCPUnavailable(
-                f"MCP-SWTR tool {name!r} failed via {self.sse_url}"
+        except Exception as exc:  # pragma: no cover - external MCP/tool failure
+            # Keep credentials and remote payloads out of the exception text, but
+            # retain the exception class so QA can distinguish validation/tool
+            # failures from a dead transport without exposing secrets.
+            exc_type = type(exc).__name__
+            if exc_type in {"ConnectError", "ConnectTimeout", "ReadTimeout", "PoolTimeout"}:
+                raise SWTRMCPUnavailable(
+                    f"MCP-SWTR transport failed via {self.sse_url}: {exc_type}"
+                ) from exc
+            raise SWTRMCPProtocolError(
+                f"MCP-SWTR tool {name!r} failed: {exc_type}"
             ) from exc
+
+        is_error = getattr(result, "is_error", None)
+        if is_error is None:
+            is_error = getattr(result, "isError", None)
+        if is_error is True:
+            raise SWTRMCPProtocolError(f"MCP-SWTR tool {name!r} returned an error result")
 
         content = getattr(result, "content", None)
         if content is None and isinstance(result, dict):
