@@ -8,6 +8,24 @@ This is a **production-path remediation gate**, not a new architecture redesign.
 
 Do not proceed to Learning Loop 012 until this assignment is GREEN.
 
+## ROLE BOUNDARY — IMPORTANT
+
+**GigaCode is TESTER/REVIEWER ONLY in this assignment.**
+
+- Do NOT edit production code.
+- Do NOT edit tests unless explicitly instructed in a later QA assignment authored by the developer.
+- Do NOT apply automatic fixes suggested by the IDE.
+- Do NOT change routers, adapters, Harness runtime, semantic layer, configuration, schemas, models, or knowledge files.
+- If a defect is found, document the exact file/function/route, evidence, expected behavior and proposed fix in the QA report, then continue all tests that remain safe.
+- Code changes are performed by the developer outside GigaCode.
+
+The current developer fix for the Task API collection-route contract is commit `09fc32a8c193fd9a7665bdbb05c9b475bce04dd5`:
+- `GET /api/v1/tasks` is defined by `@router.get("")`;
+- `POST /api/v1/tasks` is defined by `@router.post("")`;
+- item routes such as `PUT /api/v1/tasks/{task_id}`, `PATCH /api/v1/tasks/{task_id}/status`, `DELETE /api/v1/tasks/{task_id}` remain unchanged.
+
+GigaCode must TEST this contract, not modify it.
+
 ## Authoritative Core-8
 
 Validate all eight capabilities:
@@ -44,43 +62,45 @@ For each Core-8 skill report separately:
 
 ## Step 1 — Pre-check
 
-Before changing code:
+Before testing:
 
 - fetch/pull current branch;
 - record branch and HEAD;
-- ensure working tree state is understood;
+- ensure working tree is clean before test execution;
 - read `CORE8_REAL_AS21_BASELINE_011.md`;
 - read `CORE8_AS21_SOURCE_CONTRACT.md`;
 - read the master evolution plan/specification;
-- inspect the current production routing for `/api/v1/tasks`, `/api/v1/query`, Task API adapter and semantic interpreter.
+- inspect the current production routing for `/api/v1/tasks`, `/api/v1/query`, Task API adapter and semantic interpreter **without modifying them**.
 
 Do not overwrite unrelated user changes.
 
-## Step 2 — Fix Task API redirect contract
+## Step 2 — Verify Task API canonical route
 
-Baseline found:
+Previous baseline found:
 
 `GET /api/v1/tasks -> 307 -> /api/v1/tasks/`
 
-Remove ambiguity at the API contract level. Use one canonical route consistently so production clients do not depend on redirect behavior.
+Developer fix is already committed in `09fc32a8c193fd9a7665bdbb05c9b475bce04dd5`.
 
-Requirements:
+Verify:
 
-- `search_tasks()` must work through the production Task API path without redirect-related failure;
-- `get_task()` must work through the production Task API path;
-- existing `swtr-read` functionality must remain intact;
-- no AS21 mutations;
-- update/add regression tests for the canonical route.
+- `GET /api/v1/tasks` works directly without a 307 redirect;
+- `POST /api/v1/tasks` is registered on the slashless collection route;
+- item routes retain their path parameters;
+- `search_tasks()` works through the production Task API path;
+- `get_task()` works through the production Task API path;
+- existing `swtr-read` functionality remains intact;
+- no AS21 mutations occur during read-only QA scenarios.
 
-Do not solve this by weakening tests or by bypassing Task API in the final E2E scenario.
+Do not change route definitions if any check fails; record the defect.
 
-## Step 3 — Semantic layer investigation and restoration
+## Step 3 — Semantic layer investigation
 
 Baseline says `/api/v1/query` returns `semantic_interpretation_failure` and `llm_api_key` is not set.
 
-Do **not** immediately ask the user to paste a secret/API key and do not commit secrets.
+Do **not** ask the user to paste a secret/API key and do not commit secrets.
 
-First investigate repository history, configuration, `.env.example`/settings, prior working commits, documentation and launch scripts to determine how the semantic LLM was intended to be configured in this application.
+Investigate repository history, configuration, `.env.example`/settings, prior working commits, documentation and launch scripts to determine how the semantic LLM was intended to be configured in this application.
 
 Determine:
 
@@ -93,7 +113,7 @@ Determine:
 
 Secrets must never be written to Git, QA reports or console output.
 
-If a credential genuinely requires a user-side action, report the exact non-secret action only after completing the investigation.
+If configuration is missing, report the exact non-secret requirement. Do not modify configuration or semantic production code.
 
 For this gate:
 
@@ -196,10 +216,11 @@ Run targeted tests and the complete existing regression suite.
 Required:
 
 - no new code regressions versus the previous green baseline;
-- no weakening/deleting assertions merely to obtain GREEN;
 - no AS21 mutations;
 - attachment functionality from 010B remains GREEN;
 - AS21 attribute extraction/filtering remains GREEN.
+
+If any regression is found, report it; do not patch it in GigaCode.
 
 ## Step 9 — Architecture review
 
@@ -241,8 +262,8 @@ The report must contain:
 
 1. Executive verdict.
 2. Branch / HEAD / environment (no secrets).
-3. Changes made with commit SHAs.
-4. Redirect/root-cause analysis and fix.
+3. Tested developer commit SHAs.
+4. Redirect/root-cause verification.
 5. Semantic-layer configuration investigation.
 6. Real release/version discovery evidence.
 7. 8-row Core-8 adapter matrix.
@@ -252,7 +273,7 @@ The report must contain:
 11. False-green attacks.
 12. Targeted + full regression results.
 13. Architecture review.
-14. Blockers.
+14. Blockers and proposed fixes (no code edits).
 15. Machine-readable summary.
 
 ## Machine-readable summary format
@@ -277,6 +298,6 @@ READY_FOR_LEARNING_LOOP_012 = YES|NO
 
 ## Stop rule
 
-When the report is published, STOP. Do not begin Learning Loop 012, do not expand Core-8 to 48 skills, and do not start frontend finalization in this assignment.
+When the report is published, STOP. Do not edit code, do not begin Learning Loop 012, do not expand Core-8 to 48 skills, and do not start frontend finalization in this assignment.
 
-The next phase is authorized only after review of this report.
+The next phase is authorized only after developer review of this report.
