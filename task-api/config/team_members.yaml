@@ -1,246 +1,147 @@
+schema_version: 3
+# Canonical runtime team directory. Identities come from knowledge/team/team.md.
+# Competencies come only from knowledge/team/competencies.md; no inferred levels.
 members:
-- allocation_percent: null
-  competencies: {}
-  competency_evidence_file: knowledge/employees/Kalacanov_Viktor_Vaceslavovic.md
-  email: Kalachev.V.V@example.com
-  full_name: Иванов Иван Иванович
-  grade: 13
-  id: Kalachev.V.V
-  login: Kalachev.V.V
-  planned_absences: []
-  products:
-  - OLAP
-  - DTMS
-  professional_profile: Владелец продуктов OLAP Analytics и DataMarts
-  recommended_max_wip: null
-  regular_non_sprint_load_percent: null
-  team_role: Владелец продукта
-- allocation_percent: null
-  competencies: {}
-  competency_evidence_file: knowledge/employees/Garanin_Rodion_Vladimirovic.md
-  email: Petrov.P.P@example.com
-  full_name: Петров Петр Петрович
-  grade: 13
-  id: Petrov.P.P
-  login: Petrov.P.P
-  planned_absences: []
-  products:
-  - OLAP
-  - DTMS
-  professional_profile: Технический лидер / ведущий Java-разработчик
-  recommended_max_wip: null
-  regular_non_sprint_load_percent: null
-  team_role: Лидер продукта
-- allocation_percent: null
-  competencies: {}
-  competency_evidence_file: knowledge/employees/Agataeva_Ajna_Jumagalieva.md
-  email: Sidorova.A.S@example.com
-  full_name: Сидорова Анна Сергеевна
-  grade: 11
-  id: Sidorova.A.S
-  login: Sidorova.A.S
-  planned_absences: []
-  products:
-  - DTMS
-  professional_profile: Go-разработчик DataMarts
-  recommended_max_wip: null
-  regular_non_sprint_load_percent: null
-  team_role: Участник команды
-- allocation_percent: null
-  competencies: {}
-  competency_evidence_file: knowledge/employees/Alekseev_Konstantin_Sergeevic.md
-  email: Smirnov.A.D@example.com
-  full_name: Смирнов Алексей Дмитриевич
-  grade: 10
-  id: Smirnov.A.D
-  login: Smirnov.A.D
-  planned_absences: []
-  products:
-  - DTMS
-  professional_profile: Аналитик
-  recommended_max_wip: null
-  regular_non_sprint_load_percent: null
-  team_role: Участник команды
-- allocation_percent: null
-  competencies: {}
-  competency_evidence_file: knowledge/employees/Kuzmin.M.O.md
-  email: Kuzmin.M.O@example.com
-  full_name: Кузьмин Максим Олегович
-  grade: 12
-  id: Kuzmin.M.O
-  login: Kuzmin.M.O
-  planned_absences: []
-  products:
-  - DTMS
-  professional_profile: Solution-архитектор OLAP
-  recommended_max_wip: null
-  regular_non_sprint_load_percent: null
-  team_role: Участник команды
-- allocation_percent: null
-  competencies: {}
-  competency_evidence_file: knowledge/employees/Popov.D.A.md
-  email: Popov.D.A@example.com
-  full_name: Попов Денис Алексеевич
-  grade: 11
-  id: Popov.D.A
-  login: Popov.D.A
-  planned_absences: []
-  products:
-  - DTMS
-  professional_profile: Архитектура и нагрузочное тестирование
-  recommended_max_wip: null
-  regular_non_sprint_load_percent: null
-  team_role: Участник команды
-- allocation_percent: null
-  competencies: {}
-  competency_evidence_file: knowledge/employees/Novikova.E.V.md
-  email: Novikova.E.V@example.com
-  full_name: Новикова Елена Владимировна
-  grade: 10
-  id: Novikova.E.V
-  login: Novikova.E.V
-  planned_absences: []
-  products:
-  - DTMS
-  professional_profile: Технический писатель / продуктовая документация
-  recommended_max_wip: null
-  regular_non_sprint_load_percent: null
-  team_role: Участник команды
-- allocation_percent: null
-  competencies: {}
-  competency_evidence_file: knowledge/employees/Fedorov.M.S.md
-  email: Fedorov.M.S@example.com
-  full_name: Федоров Михаил Сергеевич
-  grade: 12
-  id: Fedorov.M.S
-  login: Fedorov.M.S
-  planned_absences: []
-  products:
-  - OLAP
-  - DTMS
-  professional_profile: Delivery Lead / управление поставкой нескольких продуктов
-  recommended_max_wip: null
-  regular_non_sprint_load_percent: null
-  team_role: Участник команды
-- allocation_percent: null
-  competencies: {}
-  competency_evidence_file: knowledge/employees/Vasilieva.O.A.md
-  email: Vasilieva.O.A@example.com
-  full_name: Васильева Ольга Анатольевна
-  grade: 10
-  id: Vasilieva.O.A
-  login: Vasilieva.O.A
-  planned_absences: []
-  products:
-  - DTMS
-  professional_profile: Сопровождение / 3ЛТП / аналитические задачи
-  recommended_max_wip: null
-  regular_non_sprint_load_percent: null
-  team_role: Участник команды
-- allocation_percent: null
-  competencies: {}
-  competency_evidence_file: knowledge/employees/Mihailov.R.K.md
-  email: Mihailov.R.K@example.com
-  full_name: Михайлов Роман Константинович
-  grade: null
-  id: Mihailov.R.K
-  login: Mihailov.R.K
-  planned_absences: []
-  products:
-  - DTMS
-  professional_profile: Ведущий Go-разработчик
-  recommended_max_wip: null
-  regular_non_sprint_load_percent: null
-  team_role: Участник команды
-- allocation_percent: null
-  competencies: {}
-  competency_evidence_file: knowledge/employees/Pavlov.I.V.md
-  email: Pavlov.I.V@example.com
-  full_name: Павлов Игорь Викторович
-  grade: 9
-  id: Pavlov.I.V
-  login: Pavlov.I.V
-  planned_absences: []
-  products:
-  - DTMS
-  professional_profile: Инженер тестирования
-  recommended_max_wip: null
-  regular_non_sprint_load_percent: null
-  team_role: Участник команды
-- allocation_percent: null
-  competencies: {}
-  competency_evidence_file: knowledge/employees/Sokolov.A.A.md
-  email: Sokolov.A.A@example.com
-  full_name: Соколов Артём Андреевич
-  grade: 11
-  id: Sokolov.A.A
-  login: Sokolov.A.A
-  planned_absences: []
-  products:
-  - OLAP
-  professional_profile: Java-разработчик
-  recommended_max_wip: null
-  regular_non_sprint_load_percent: null
-  team_role: Участник команды
-- allocation_percent: null
-  competencies: {}
-  competency_evidence_file: knowledge/employees/Mikhail_Lebedev.md
-  email: Lebedev.M@example.com
-  full_name: Михаил Лебедев
-  grade: 12
-  id: Lebedev.M
-  login: Lebedev.M
-  planned_absences: []
-  products:
-  - OLAP
-  professional_profile: Ведущий frontend-разработчик
-  recommended_max_wip: null
-  regular_non_sprint_load_percent: null
-  team_role: Участник команды
-- allocation_percent: null
-  competencies: {}
-  competency_evidence_file: knowledge/employees/Timofeev.A.M.md
-  email: Timofeev.A.M@example.com
-  full_name: Тимофеев Арсений Максимович
-  grade: 9
-  id: Timofeev.A.M
-  login: Timofeev.A.M
-  planned_absences: []
-  products:
-  - DTMS
-  professional_profile: Нагрузочное тестирование
-  recommended_max_wip: null
-  regular_non_sprint_load_percent: null
-  team_role: Участник команды
-- allocation_percent: null
-  competencies: {}
-  competency_evidence_file: knowledge/employees/Andreev.N.S.md
-  email: Andreev.N.S@example.com
-  full_name: Андреев Николай Сергеевич
-  grade: 12
-  id: Andreev.N.S
-  login: Andreev.N.S
-  planned_absences: []
-  products:
-  - OLAP
-  - DTMS
-  professional_profile: Архитектор сервиса
-  recommended_max_wip: null
-  regular_non_sprint_load_percent: null
-  team_role: Участник команды
-- allocation_percent: null
-  competencies: {}
-  competency_evidence_file: knowledge/employees/Morozov.D.V.md
-  email: Morozov.D.V@example.com
-  full_name: Морозов Денис Викторович
-  grade: 11
-  id: Morozov.D.V
-  login: Morozov.D.V
-  planned_absences: []
-  products:
-  - OLAP
-  professional_profile: Java-разработчик
-  recommended_max_wip: null
-  regular_non_sprint_load_percent: null
-  team_role: Участник команды
-schema_version: 2
+  - id: Kalachanov.V.V
+    login: Kalachanov.V.V
+    full_name: Калачанов Виктор Вячеславович
+    email: Kalachanov.V.V@sbertech.ru
+    products: [DMS, OLP]
+    team_role: Владелец продукта
+    professional_profile: Владелец продуктов OLAP Analytics и DataMarts
+    competencies: [OLAP, DataMarts, Сопровождение, Управление поставкой]
+
+  - id: Garanin.R.V
+    login: Garanin.R.V
+    full_name: Гаранин Родион Владимирович
+    email: Garanin.R.V@sbertech.ru
+    products: [DMS, OLP]
+    team_role: Лидер продукта
+    professional_profile: Технический лидер / ведущий Java-разработчик
+    competencies: [Java, Go, C++, Rust, Архитектура, OLAP, DataMarts, Сопровождение, Code Review]
+
+  - id: Agataeva.A.Z
+    login: Agataeva.A.Z
+    full_name: Агатаева Айна Жумагалиева
+    email: Agataeva.A.Z@sbertech.ru
+    products: [DMS]
+    team_role: Участник команды
+    professional_profile: Go-разработчик DataMarts
+    competencies: [Go, DataMarts, Тестирование, Управление поставкой, Code Review, Информационная безопасность]
+
+  - id: Alekseev.K.S
+    login: Alekseev.K.S
+    full_name: Алексеев Константин Сергеевич
+    email: Alekseev.K.S@sbertech.ru
+    products: [DMS]
+    team_role: Участник команды
+    professional_profile: Аналитик
+    competencies: [DataMarts, Аналитика]
+
+  - id: Galtsov.A.A
+    login: Galtsov.A.A
+    full_name: Гальцов Александр Алексеевич
+    email: Galtsov.A.A@sbertech.ru
+    products: [DMS, OLP]
+    team_role: Участник команды
+    professional_profile: Solution-архитектор OLAP
+    competencies: [Архитектура, OLAP, Аналитика, Информационная безопасность]
+
+  - id: Dolgovskoy.E.N
+    login: Dolgovskoy.E.N
+    full_name: Долговской Евгений Николаевич
+    email: Dolgovskoy.E.N@sbertech.ru
+    products: [DMS]
+    team_role: Участник команды
+    professional_profile: Архитектура и нагрузочное тестирование
+    competencies: [Go, Архитектура, DataMarts, Нагрузочное тестирование, Тестирование]
+
+  - id: Zhdanov.A.Ni
+    login: Zhdanov.A.Ni
+    full_name: Жданов Александр Николаевич
+    email: Zhdanov.A.Ni@sbertech.ru
+    products: [DMS]
+    team_role: Участник команды
+    professional_profile: Delivery Lead
+    competencies: [Go, C++, DataMarts, Тестирование, Документация, Управление поставкой, Информационная безопасность]
+
+  - id: Kondratchikova.P.I
+    login: Kondratchikova.P.I
+    full_name: Кондратчикова Полина Игоревна
+    email: Kondratchikova.P.I@sbertech.ru
+    products: [DMS, OLP]
+    team_role: Участник команды
+    professional_profile: Технический писатель / продуктовая документация
+    competencies: [DevOps/Kubernetes, OLAP, DataMarts, Документация, Аналитика, Управление поставкой]
+
+  - id: Kryukov.V.A
+    login: Kryukov.V.A
+    full_name: Крюков Владимир Александрович
+    email: Kryukov.V.A@sbertech.ru
+    products: [DMS, OLP]
+    team_role: Участник команды
+    professional_profile: Delivery Lead / управление поставкой нескольких продуктов
+    competencies: [OLAP, DataMarts, Тестирование, Сопровождение, Управление поставкой]
+
+  - id: Makoshina.V.V
+    login: Makoshina.V.V
+    full_name: Макошина Верея Валерьевна
+    email: Makoshina.V.V@sbertech.ru
+    products: [DMS, OLP]
+    team_role: Участник команды
+    professional_profile: Сопровождение / 3ЛТП / аналитические задачи
+    competencies: [OLAP, DataMarts, Сопровождение, Информационная безопасность]
+
+  - id: Moiseev.A.N
+    login: Moiseev.A.N
+    full_name: Моисеев Андрей Николаевич
+    email: Moiseev.A.N@sbertech.ru
+    products: [DMS]
+    team_role: Участник команды
+    professional_profile: Ведущий Go-разработчик
+    competencies: [Go]
+
+  - id: Semavin.M.M
+    login: Semavin.M.M
+    full_name: Семавин Михаил Михайлович
+    email: Semavin.M.M@sbertech.ru
+    products: [DMS, OLP]
+    team_role: Участник команды
+    professional_profile: Инженер тестирования
+    competencies: [OLAP, DataMarts, Тестирование, Информационная безопасность]
+
+  - id: Goncharov.A.O
+    login: Goncharov.A.O
+    full_name: Гончаров Александр Олегович
+    email: Goncharov.A.O@sbertech.ru
+    products: [OLP]
+    team_role: Участник команды
+    professional_profile: Java-разработчик
+    competencies: [Java, OLAP, Сопровождение, Информационная безопасность]
+
+  - id: Reshetnik.A
+    login: Reshetnik.A
+    full_name: Александр Решетник
+    email: Reshetnik.A@sbertech.ru
+    products: [OLP]
+    team_role: Участник команды
+    professional_profile: Ведущий frontend-разработчик
+    competencies: [Frontend, OLAP]
+
+  - id: Kuznetsov.M.Se
+    login: Kuznetsov.M.Se
+    full_name: Кузнецов Матвей Сергеевич
+    email: Kuznetsov.M.Se@sbertech.ru
+    products: [DMS]
+    team_role: Участник команды
+    professional_profile: Нагрузочное тестирование
+    competencies: [Go, OLAP, DataMarts, Нагрузочное тестирование, Тестирование, Управление поставкой]
+
+  - id: Bezrukov.P.S
+    login: Bezrukov.P.S
+    full_name: Безруков Павел Сергеевич
+    email: Bezrukov.P.S@sbertech.ru
+    products: [DMS, OLP]
+    team_role: Участник команды
+    professional_profile: Архитектор сервиса
+    competencies: [Архитектура, OLAP, DataMarts, Управление поставкой]
