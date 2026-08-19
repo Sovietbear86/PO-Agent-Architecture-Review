@@ -26,7 +26,7 @@ class StatusUpdate(BaseModel):
     status: Status
 
 
-@router.get("/", response_model=List[TaskResponse])
+@router.get("", response_model=List[TaskResponse])
 def list_tasks(
     status: Status | None = Query(None, description="Filter by status"),
     assignee: str | None = Query(None, description="Filter by assignee"),
@@ -50,7 +50,7 @@ def get_task(task_id: UUID):
     return task_to_response(task)
 
 
-@router.post("/", response_model=TaskResponse, status_code=status.HTTP_201_CREATED)
+@router.post("", response_model=TaskResponse, status_code=status.HTTP_201_CREATED)
 def create_task(task_data: TaskCreate):
     """Create a new task."""
     service = get_task_service()
