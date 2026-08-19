@@ -32,10 +32,21 @@ def teardown_function():
 
 
 def test_task_api_end_to_end_query_maps_source_to_harness_contract():
+    """Exact lookup uses the proven canonical scan + rich attachment boundary.
+
+    The old test asserted a legacy `q=WMB-101` transport detail. Production QA
+    proved that exact-key correctness must not trust a first search hit, so the
+    adapter now scans canonical SWTR tasks and verifies the exact key locally,
+    then performs the canonical rich-read attachment metadata request.
+    """
     async def handler(request: httpx.Request) -> httpx.Response:
-        assert request.url.path == "/api/v1/tasks"
-        assert request.url.params["q"] == "WMB-101"
-        return httpx.Response(200, json=[task_payload()])
+        if request.url.path == "/api/v1/tasks":
+            assert request.url.params["limit"] == "10000"
+            assert request.url.params["source"] == "swtr"
+            return httpx.Response(200, json=[task_payload()])
+        if request.url.path == "/api/v1/swtr-read/tasks/WMB-101/files":
+            return httpx.Response(200, json={"files": []})
+        raise AssertionError(f"unexpected request: {request.method} {request.url}")
 
     http = httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="http://task-api")
     adapter = TaskApiAS21Adapter(client=http)
