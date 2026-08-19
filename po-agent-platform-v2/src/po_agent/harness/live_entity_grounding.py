@@ -6,11 +6,12 @@ from .entity_grounding import GroundedEntityResolver
 
 
 class LiveGroundedEntityResolver(GroundedEntityResolver):
-    """Resolve explicit product aliases and 'current sprint' from real SWTR.
+    """Resolve explicit product aliases and relative current sprint from real SWTR.
 
-    The base grounder validates entities against canonical source-backed lists.
-    This subclass only adds source-backed resolution for relative sprint wording;
-    it does not invent sprint IDs or broaden user predicates.
+    Generic entities are validated by the base grounder first. A relative
+    "current sprint" is then resolved by the dedicated live source endpoint and
+    is therefore not revalidated against the task-derived known_sprints list,
+    which may be incomplete or lag the live sprint endpoint.
     """
 
     _PRODUCT_ALIASES = {
@@ -21,13 +22,7 @@ class LiveGroundedEntityResolver(GroundedEntityResolver):
         "datamarts": "DMS",
         "data marts": "DMS",
     }
-    _CURRENT_MARKERS = (
-        "current",
-        "active",
-        "текущ",
-        "актуальн",
-        "активн",
-    )
+    _CURRENT_MARKERS = ("current", "active", "текущ", "актуальн", "активн")
 
     @classmethod
     def _normalize_product(cls, value: str | None) -> str | None:
@@ -56,50 +51,43 @@ class LiveGroundedEntityResolver(GroundedEntityResolver):
         product = self._normalize_product(slots.get("product")) or self._explicit_product_from_query(original_query)
         if product:
             slots["product"] = product
+        frame = SemanticFrame(
+            canonical_query=frame.canonical_query,
+            intent_hint=frame.intent_hint,
+            slots=slots,
+            clarifications=frame.clarifications,
+            confidence=frame.confidence,
+            llm_used=frame.llm_used,
+        )
 
-        sprint_raw = slots.get("sprint_raw")
-        if not slots.get("sprint_id") and product and self._asks_current_sprint(sprint_raw, original_query):
-            resolver = getattr(self.adapter, "get_current_sprint_id", None)
-            if callable(resolver):
-                sprint_id = await resolver(product)
-                if sprint_id:
-                    slots["sprint_id"] = sprint_id
-                    slots.pop("sprint_raw", None)
-                    canonical = frame.canonical_query.replace("{sprint_id}", sprint_id)
-                    frame = SemanticFrame(
-                        canonical_query=canonical,
-                        intent_hint=frame.intent_hint,
-                        slots=slots,
-                        clarifications=[item for item in frame.clarifications if item.field != "sprint_id"],
-                        confidence=frame.confidence,
-                        llm_used=frame.llm_used,
-                    )
-                else:
-                    frame = SemanticFrame(
-                        canonical_query=frame.canonical_query,
-                        intent_hint=frame.intent_hint,
-                        slots=slots,
-                        clarifications=frame.clarifications,
-                        confidence=frame.confidence,
-                        llm_used=frame.llm_used,
-                    )
-            else:
-                frame = SemanticFrame(
-                    canonical_query=frame.canonical_query,
-                    intent_hint=frame.intent_hint,
-                    slots=slots,
-                    clarifications=frame.clarifications,
-                    confidence=frame.confidence,
-                    llm_used=frame.llm_used,
-                )
-        elif slots != frame.slots:
-            frame = SemanticFrame(
-                canonical_query=frame.canonical_query,
-                intent_hint=frame.intent_hint,
-                slots=slots,
-                clarifications=frame.clarifications,
-                confidence=frame.confidence,
-                llm_used=frame.llm_used,
-            )
+        # First validate people/status/explicit sprint/release identifiers using
+        # the ordinary canonical contract.
+        grounded = await super().ground(frame, original_query)
 
-        return await super().ground(frame, original_query)
+        current_raw = grounded.slots.get("sprint_raw") or frame.slots.get("sprint_raw")
+        if not product or not self._asks_current_sprint(current_raw, original_query):
+            return grounded
+
+        resolver = getattr(self.adapter, "get_current_sprint_id", None)
+        if not callable(resolver):
+            return grounded
+
+        sprint_id = await resolver(product)
+        if not sprint_id:
+            return grounded
+
+        live_slots = dict(grounded.slots)
+        live_slots["product"] = product
+        live_slots["sprint_id"] = sprint_id
+        live_slots.pop("sprint_raw", None)
+        canonical = grounded.canonical_query.replace("{sprint_id}", sprint_id)
+        clarifications = [item for item in grounded.clarifications if item.field != "sprint_id"]
+
+        return SemanticFrame(
+            canonical_query=canonical,
+            intent_hint=grounded.intent_hint,
+            slots=live_slots,
+            clarifications=clarifications,
+            confidence=grounded.confidence,
+            llm_used=grounded.llm_used,
+        )
