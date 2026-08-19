@@ -4,6 +4,7 @@ from po_agent.adapters.fake import FakeAS21Adapter
 from po_agent.harness.dialogue_runtime import SemanticFrame
 from po_agent.harness.entity_grounding import GroundedEntityResolver, TeamDirectory, TeamDirectoryEntry
 from po_agent.harness.learned_semantics import LearnedSemanticsStore
+from po_agent.harness.live_entity_grounding import LiveGroundedEntityResolver
 
 
 @pytest.mark.asyncio
@@ -124,3 +125,38 @@ async def test_llm_proposed_unknown_status_is_rejected_but_virtual_filter_is_all
     accepted = await resolver.ground(virtual, "Покажи незавершённые")
     assert accepted.clarifications == []
     assert accepted.slots["status"] == "not_completed"
+
+
+@pytest.mark.asyncio
+async def test_live_release_raw_resolves_even_when_provider_omits_release_placeholder():
+    resolver = LiveGroundedEntityResolver(FakeAS21Adapter())
+    frame = SemanticFrame(
+        canonical_query="покажи здоровье релиза",
+        intent_hint="release_health",
+        slots={},
+        llm_used=True,
+    )
+
+    grounded = await resolver.ground(frame, "Покажи здоровье релиза WMB-2024-Q3")
+
+    assert grounded.clarifications == []
+    assert grounded.slots["release_id"] == "WMB-2024-Q3"
+    assert "WMB-2024-Q3" in grounded.canonical_query
+    assert "{release_id}" not in grounded.canonical_query
+
+
+@pytest.mark.asyncio
+async def test_live_release_placeholder_repair_remains_fail_closed_for_unknown_release():
+    resolver = LiveGroundedEntityResolver(FakeAS21Adapter())
+    frame = SemanticFrame(
+        canonical_query="покажи здоровье релиза",
+        intent_hint="release_health",
+        slots={},
+        llm_used=True,
+    )
+
+    grounded = await resolver.ground(frame, "Покажи здоровье релиза NONEXISTENT")
+
+    assert "release_id" not in grounded.slots
+    assert grounded.clarifications
+    assert grounded.clarifications[0].field == "release_id"
