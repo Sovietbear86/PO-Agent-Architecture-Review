@@ -6,22 +6,35 @@ Close the controlled learning loop without granting the agent authority to mutat
 ## Implemented
 - immutable baseline/candidate evaluation snapshots;
 - explicit baseline-vs-candidate promotion gate;
-- fail-closed rejection on false-green, execution-error regression, pass-rate regression, mismatched case set, or insufficient evidence;
+- fail-closed rejection on false-green, execution-error regression, pass-rate regression, mismatched case count, or insufficient evidence;
 - hard human-approval boundary: a green gate is only a recommendation;
-- developer tests anchored to the Core-8 minimum sample.
+- `ControlledLearningOrchestrator` binding an existing `SkillImprovementCandidate` to baseline/candidate evidence and a promotion decision;
+- immutable `CandidateEvaluationArtifact` for human review;
+- explicit prohibition on automatic `SkillRegistry` mutation/promotion in the controlled orchestrator;
+- bridge from the existing `EvalRunner/EvalReport` into Learning Loop snapshots while preserving run metadata and explicit safety counters;
+- developer tests anchored to the accepted Core-8 minimum sample.
 
-## Invariants
-Core-8 remains the release baseline. Existing AS21 real-data, attachment, false-green and fail-closed checks must remain green. Learning Loop 012 does not write to SkillRegistry and cannot promote a candidate by itself.
+## Existing architecture reused
+Learning Loop 012 reuses the pre-existing evolution layer rather than replacing it:
+- `SkillEvolutionPipeline` continues to own discovery/candidate lifecycle;
+- `FeedbackAnalyzer` remains a candidate signal source;
+- `EvalRunner` remains an evaluation producer;
+- `SkillRegistry` remains the version registry and explicit promotion mechanism;
+- the new controlled loop sits between candidate creation and any approval/implementation action.
 
-## QA assignment for GigaCode
-1. Run the full existing test suite plus `tests/test_learning_loop.py`.
-2. Re-run Core-8 on the real AS21 dataset used by the accepted 011K baseline.
-3. Create one controlled degraded candidate for a Core-8 skill (for example one expected case fails, or one false-green is introduced).
-4. Evaluate baseline and candidate on exactly the same cases.
-5. Verify the gate returns `reject` and no production skill/version changes.
-6. Restore the candidate and verify an 8/8 candidate can reach only `recommend` until explicit `human_approved=True` is supplied.
-7. Verify fewer than 8 comparable cases returns `insufficient_evidence`.
-8. Save evidence, commands, outputs and final verdict in `qa_reports/LEARNING_LOOP_012_QA.md`.
+## Safety invariants
+Core-8 remains the release baseline. Existing AS21 real-data, attachment, false-green and fail-closed checks must remain green.
+
+The controlled loop does **not** call `approve_candidate`, `implement_improvement`, `register_new_version`, or `promote_candidate`. A clean candidate can reach only `RECOMMEND`. Explicit human approval is necessary even to satisfy the authorization predicate, and actual production promotion remains a separate action outside 012.
+
+## QA
+GigaCode assignment:
+`qa_assignments/LEARNING_LOOP_012_CONTROLLED_E2E.md`
+
+Expected report:
+`qa_reports/LEARNING_LOOP_012_QA.md`
+
+The QA must prove rejection of degraded/false-green candidates, fail-closed insufficient evidence, human approval boundary, integration with the existing candidate pipeline and EvalRunner, unchanged Core-8 8/8 production behavior, zero autonomous SkillRegistry mutations and zero AS21 mutations.
 
 ## Acceptance
-PASS only if the existing suite is green, Core-8 remains 8/8, degraded candidate is rejected, false-green is rejected, insufficient evidence fails closed, and no automatic production promotion occurs.
+012 is complete only if independent QA returns `LEARNING_LOOP_012_CONTROLLED_E2E = PASS`. Only then may the project proceed to Learning Loop 013 (candidate synthesis/shadow improvement on a real skill failure).
