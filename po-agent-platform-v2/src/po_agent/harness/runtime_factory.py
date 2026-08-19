@@ -5,13 +5,15 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
-from po_agent.adapters import FakeAS21Adapter, FrozenAS21Adapter, SWTRShadowBatch, TaskApiAS21Adapter
+from po_agent.adapters import FakeAS21Adapter, FrozenAS21Adapter, SWTRShadowBatch
 from po_agent.adapters.as21 import AS21Adapter
+from po_agent.adapters.production_task_api import ProductionTaskApiAS21Adapter
 
 from .dialogue_runtime import LLMJsonSemanticInterpreter, SemanticInterpreter
 from .entity_grounding import GroundedEntityResolver, TeamDirectory
 from .historical_wiring import enable_historical_skills
 from .learned_semantics import LearnedSemanticsStore
+from .live_entity_grounding import LiveGroundedEntityResolver
 from .observed_runtime import ObservedHarnessRuntime
 from .resilient_semantics import (
     ResilientBlindConsensusSemanticInterpreter,
@@ -61,11 +63,7 @@ def _build_runtime_with_adapter(
     semantic_interpreter: SemanticInterpreter | None = None,
     learned_semantics_path: str | None = None,
 ) -> RuntimeBundle:
-    """Build the canonical Harness stack around an already selected adapter.
-
-    This is shared by live and frozen sources so offline SWTR evaluation executes
-    the same production capability/runtime chain instead of a test-only mock.
-    """
+    """Build the canonical Harness stack around an already selected adapter."""
     team_path = _resolve_team_config(team_config_path, mode)
     team_source = YamlTeamCompetencySource(team_path) if team_path is not None else None
     dependencies = SourceDependencyBundle(
@@ -83,14 +81,13 @@ def _build_runtime_with_adapter(
 
     semantics = LearnedSemanticsStore(learned_semantics_path) if learned_semantics_path else None
     directory = TeamDirectory.from_yaml(team_path)
-    grounder = GroundedEntityResolver(adapter, team=directory, semantics=semantics)
+    if mode == "task-api":
+        grounder = LiveGroundedEntityResolver(adapter, team=directory, semantics=semantics)
+    else:
+        grounder = GroundedEntityResolver(adapter, team=directory, semantics=semantics)
 
     selected_interpreter = semantic_interpreter
     if isinstance(semantic_interpreter, LLMJsonSemanticInterpreter):
-        # The internal OpenAI-compatible gateway is not guaranteed to support
-        # json_schema response_format and Qwen may wrap JSON in reasoning text.
-        # The resilient wrappers tolerate transport formatting while retaining
-        # the same catalog-derived closed-set and blind-consensus authorization.
         fast_delegate = ResilientBlindRecoveryLLMJsonSemanticInterpreter(
             semantic_interpreter.client,
             model=semantic_interpreter.model,
@@ -131,7 +128,10 @@ def build_runtime_bundle(
         adapter: AS21Adapter = FakeAS21Adapter()
         selected: RuntimeMode = "fake"
     elif normalized in {"task-api", "task_api", "real"}:
-        adapter = TaskApiAS21Adapter(base_url=task_api_base_url, timeout_seconds=task_api_timeout_seconds)
+        adapter = ProductionTaskApiAS21Adapter(
+            base_url=task_api_base_url,
+            timeout_seconds=task_api_timeout_seconds,
+        )
         selected = "task-api"
     else:
         raise ValueError(f"Unsupported PO_AGENT_AS21_MODE: {mode}")
@@ -156,12 +156,7 @@ def build_frozen_runtime_bundle(
     semantic_interpreter: SemanticInterpreter | None = None,
     learned_semantics_path: str | None = None,
 ) -> RuntimeBundle:
-    """Build the real Harness stack over a previously captured SWTR batch.
-
-    No live AS21/Task API object is created or retained. Therefore all capability
-    reads are satisfied from the immutable frozen corpus and cannot reconnect to
-    SWTR after the capture boundary has closed.
-    """
+    """Build the real Harness stack over a previously captured SWTR batch."""
     adapter = FrozenAS21Adapter.from_shadow_batch(batch)
     return _build_runtime_with_adapter(
         adapter,
