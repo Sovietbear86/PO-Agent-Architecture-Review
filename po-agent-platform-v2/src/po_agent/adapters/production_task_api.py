@@ -17,9 +17,11 @@ from .task_api import (
 class ProductionTaskApiAS21Adapter(TaskApiAS21Adapter):
     """Task API adapter with proven sprint/release source facts.
 
-    Core task mapping remains in TaskApiAS21Adapter. This subclass adds the
-    live swtr-read calls needed by production sprint/release grounding while
-    retaining canonical Task objects at the Harness boundary.
+    Core task mapping remains in TaskApiAS21Adapter. This subclass adds live
+    swtr-read calls needed by production sprint/release grounding. If the MCP
+    version-search tool itself is unavailable, release identifiers already
+    proven on canonical real AS21 tasks remain a valid read-only grounding
+    source; the fallback is explicit in each returned record.
     """
 
     source_facts = frozenset({"tasks", "attachments", "sprints", "releases"})
@@ -97,12 +99,8 @@ class ProductionTaskApiAS21Adapter(TaskApiAS21Adapter):
         if not isinstance(payload, dict):
             raise AS21SourceError("task-api sprint task endpoint returned malformed payload")
 
-        # Current MCP advertises only sprint_id despite a paged response, so the
-        # facade provides complete canonical cache rows explicitly in this field.
         rows = payload.get("complete_tasks")
         if not isinstance(rows, list):
-            # If a future MCP supports real all-page traversal, use its content
-            # only when it already matches the canonical Task API shape.
             tasks_payload = payload.get("tasks")
             rows = tasks_payload.get("content") if isinstance(tasks_payload, dict) else None
         if not isinstance(rows, list):
@@ -122,6 +120,33 @@ class ProductionTaskApiAS21Adapter(TaskApiAS21Adapter):
             tasks.append(mapped)
         return tasks
 
+    async def _task_backed_versions(self, *, query: str | None = None, space: str | None = None) -> list[dict[str, Any]]:
+        tasks = await self.search_tasks("", max_results=self._scan_limit)
+        wanted_query = (query or "").strip().casefold()
+        wanted_space = (space or "").strip().casefold()
+        by_id: dict[str, dict[str, Any]] = {}
+        for task in tasks:
+            release_id = (task.release_id or "").strip()
+            if not release_id:
+                continue
+            if wanted_space and (task.project_space or "").casefold() != wanted_space:
+                continue
+            if wanted_query and wanted_query not in release_id.casefold():
+                continue
+            item = by_id.setdefault(
+                release_id,
+                {
+                    "id": release_id,
+                    "code": release_id,
+                    "name": release_id,
+                    "source": "canonical_as21_task.fix_version_s",
+                    "evidence_task_keys": [],
+                    "fallback": True,
+                },
+            )
+            item["evidence_task_keys"].append(task.key)
+        return [by_id[key] for key in sorted(by_id)]
+
     async def search_versions(self, *, query: str | None = None, space: str | None = None) -> Any:
         params: dict[str, Any] = {"limit": 100}
         if query:
@@ -131,10 +156,11 @@ class ProductionTaskApiAS21Adapter(TaskApiAS21Adapter):
         try:
             response = await self._client.get("/api/v1/swtr-read/versions", params=params)
             response.raise_for_status()
-        except httpx.HTTPError as exc:
-            raise AS21SourceUnavailable(
-                f"task-api release/version read failed: {type(exc).__name__}"
-            ) from exc
+        except httpx.HTTPError:
+            # MCP search_versions is currently known to return ToolError even
+            # though real AS21 tasks expose fix_version_s. Preserve release
+            # grounding from that already canonical, source-backed attribute.
+            return await self._task_backed_versions(query=query, space=space)
         try:
             payload = response.json()
         except ValueError as exc:
