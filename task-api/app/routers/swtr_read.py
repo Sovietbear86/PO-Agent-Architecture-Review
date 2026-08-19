@@ -10,7 +10,7 @@ import json
 import re
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 from app.services.swtr_mcp_client import (
     SWTRMCPClient,
@@ -43,13 +43,7 @@ def _parse_tool_content(content: list[dict[str, Any]]) -> Any:
 
 
 def _extract_files(payload: Any) -> list[dict[str, Any]]:
-    """Normalize proven MCP file-list envelopes without broad guessing.
-
-    Real `get_unit_files` currently returns a paged object with a `content`
-    array. Older test fixtures/wrappers used `files`, so both proven envelopes
-    remain supported. A direct single-file object is also accepted. Anything
-    else fails closed instead of being reinterpreted as attachment metadata.
-    """
+    """Normalize proven MCP file-list envelopes without broad guessing."""
     if isinstance(payload, dict):
         for key in ("content", "files"):
             files = payload.get(key)
@@ -89,6 +83,24 @@ def _transport_http_error(exc: Exception) -> HTTPException:
     return HTTPException(status_code=502, detail="SWTR MCP protocol error")
 
 
+def _page_meta(payload: Any) -> dict[str, Any]:
+    """Expose a stable pagination summary without rewriting source data."""
+    if not isinstance(payload, dict):
+        return {"has_next": False, "page": None, "page_size": None, "total": None}
+    has_next = payload.get("hasNext")
+    if has_next is None:
+        has_next = payload.get("has_next")
+    page = payload.get("pageNumber", payload.get("page_number", payload.get("page")))
+    size = payload.get("pageSize", payload.get("page_size", payload.get("size")))
+    total = payload.get("totalElements", payload.get("total_elements", payload.get("total")))
+    return {
+        "has_next": bool(has_next),
+        "page": page,
+        "page_size": size,
+        "total": total,
+    }
+
+
 @router.get("/health")
 async def swtr_read_health():
     """Prove that Task API can reach the live MCP-SWTR SSE service."""
@@ -103,6 +115,8 @@ async def swtr_read_health():
         "tool_count": len(tools),
         "read_unit": "read_unit" in tools,
         "get_unit_files": "get_unit_files" in tools,
+        "get_sprint_tasks": "get_sprint_tasks" in tools,
+        "search_versions": "search_versions" in tools,
     }
 
 
@@ -157,15 +171,99 @@ async def get_current_sprint(space: str):
 
 
 @router.get("/sprints/{sprint_id}/tasks")
-async def get_sprint_tasks(sprint_id: str):
-    """Read tasks for one real sprint via the live MCP-SWTR SSE service."""
+async def get_sprint_tasks(
+    sprint_id: str,
+    page: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=1000),
+):
+    """Read one explicit page of real sprint tasks via MCP-SWTR.
+
+    MCP installations have used several pagination naming conventions. We
+    inspect the live tool schema and send only parameters it actually declares,
+    so unsupported argument names can never be silently invented.
+    """
     normalized = sprint_id.strip()
     if not normalized or len(normalized) > 200:
         raise HTTPException(status_code=400, detail="Invalid sprint id")
 
     client = SWTRMCPClient()
     try:
-        content = await client.call_tool("get_sprint_tasks", {"sprint_id": normalized})
+        arguments = await client.supported_arguments(
+            "get_sprint_tasks",
+            {
+                "page": page,
+                "page_number": page,
+                "pageNumber": page,
+                "offset": page * limit,
+                "limit": limit,
+                "size": limit,
+                "page_size": limit,
+                "pageSize": limit,
+            },
+            required={"sprint_id": normalized},
+        )
+        content = await client.call_tool("get_sprint_tasks", arguments)
     except (SWTRMCPUnavailable, SWTRMCPProtocolError) as exc:
         raise _transport_http_error(exc) from exc
-    return {"sprint_id": normalized, "tasks": _parse_tool_content(content)}
+    payload = _parse_tool_content(content)
+    return {
+        "sprint_id": normalized,
+        "requested_page": page,
+        "requested_limit": limit,
+        "tasks": payload,
+        "pagination": _page_meta(payload),
+        "mcp_arguments": sorted(arguments),
+    }
+
+
+@router.get("/versions")
+async def search_versions(
+    query: str | None = Query(None, min_length=1, max_length=200),
+    space: str | None = Query(None, min_length=1, max_length=80),
+    page: int = Query(0, ge=0),
+    limit: int = Query(100, ge=1, le=1000),
+):
+    """Expose the real read-only MCP `search_versions` capability.
+
+    Argument names are filtered against the live MCP tool schema. The raw
+    source payload is preserved so release-health mapping can remain explicit
+    and testable rather than relying on guessed source shapes.
+    """
+    normalized_space = space.upper().strip() if space else None
+    if normalized_space and not re.fullmatch(r"^[A-Z][A-Z0-9_-]*$", normalized_space):
+        raise HTTPException(status_code=400, detail="Invalid SWTR space")
+    search_text = query.strip() if query else None
+
+    client = SWTRMCPClient()
+    try:
+        arguments = await client.supported_arguments(
+            "search_versions",
+            {
+                "query": search_text,
+                "q": search_text,
+                "search": search_text,
+                "text": search_text,
+                "space": normalized_space,
+                "project": normalized_space,
+                "project_code": normalized_space,
+                "page": page,
+                "page_number": page,
+                "pageNumber": page,
+                "offset": page * limit,
+                "limit": limit,
+                "size": limit,
+                "page_size": limit,
+                "pageSize": limit,
+            },
+        )
+        content = await client.call_tool("search_versions", arguments)
+    except (SWTRMCPUnavailable, SWTRMCPProtocolError) as exc:
+        raise _transport_http_error(exc) from exc
+    payload = _parse_tool_content(content)
+    return {
+        "query": search_text,
+        "space": normalized_space,
+        "versions": payload,
+        "pagination": _page_meta(payload),
+        "mcp_arguments": sorted(arguments),
+    }
