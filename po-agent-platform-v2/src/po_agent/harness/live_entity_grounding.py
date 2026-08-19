@@ -1,8 +1,6 @@
 """Live-source grounding extensions for production AS21 mode."""
 from __future__ import annotations
 
-from typing import Any
-
 from .dialogue_runtime import SemanticFrame
 from .entity_grounding import GroundedEntityResolver
 
@@ -50,7 +48,8 @@ class LiveGroundedEntityResolver(GroundedEntityResolver):
     @classmethod
     def _asks_current_sprint(cls, raw: str | None, query: str) -> bool:
         text = f"{raw or ''} {query}".casefold()
-        return "спринт" in text or "sprint" in text and any(marker in text for marker in cls._CURRENT_MARKERS)
+        mentions_sprint = "спринт" in text or "sprint" in text
+        return mentions_sprint and any(marker in text for marker in cls._CURRENT_MARKERS)
 
     async def ground(self, frame: SemanticFrame, original_query: str) -> SemanticFrame:
         slots = dict(frame.slots)
