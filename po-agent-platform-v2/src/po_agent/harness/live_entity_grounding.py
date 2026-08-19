@@ -105,8 +105,20 @@ class LiveGroundedEntityResolver(GroundedEntityResolver):
             if explicit_release:
                 slots["release_raw"] = explicit_release
 
+        # Provider canonical_query is advisory, while grounded source slots are
+        # execution authority. Some real semantic traces correctly select the
+        # release capability and preserve release_raw, but omit {release_id} from
+        # canonical_query. The base resolver intentionally resolves raw release
+        # shorthand only when that placeholder is present. Restore the generic
+        # placeholder here whenever an explicit raw release selector exists so
+        # source validation can deterministically resolve exact/full identifiers.
+        # This is not a UUID special-case and does not bypass known_releases.
+        canonical_query = frame.canonical_query
+        if slots.get("release_raw") and not slots.get("release_id") and "{release_id}" not in canonical_query:
+            canonical_query = f"{canonical_query.rstrip()} {{release_id}}"
+
         frame = SemanticFrame(
-            canonical_query=frame.canonical_query,
+            canonical_query=canonical_query,
             intent_hint=frame.intent_hint,
             slots=slots,
             clarifications=frame.clarifications,
