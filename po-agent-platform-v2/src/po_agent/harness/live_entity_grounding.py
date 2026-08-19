@@ -1,18 +1,15 @@
 """Live-source grounding extensions for production AS21 mode."""
 from __future__ import annotations
 
+import re
+from typing import Any
+
 from .dialogue_runtime import SemanticFrame
 from .entity_grounding import GroundedEntityResolver
 
 
 class LiveGroundedEntityResolver(GroundedEntityResolver):
-    """Resolve explicit product aliases and relative current sprint from real SWTR.
-
-    Generic entities are validated by the base grounder first. A relative
-    "current sprint" is then resolved by the dedicated live source endpoint and
-    is therefore not revalidated against the task-derived known_sprints list,
-    which may be incomplete or lag the live sprint endpoint.
-    """
+    """Resolve production entities from real Task API/SWTR source facts."""
 
     _PRODUCT_ALIASES = {
         "olp": "OLP",
@@ -23,6 +20,10 @@ class LiveGroundedEntityResolver(GroundedEntityResolver):
         "data marts": "DMS",
     }
     _CURRENT_MARKERS = ("current", "active", "текущ", "актуальн", "активн")
+    _EXPLICIT_RELEASE_RE = re.compile(
+        r"(?:релиз(?:а|е|у|ом)?|release)\s+([A-Za-z0-9][A-Za-z0-9_.-]{2,79})",
+        re.I,
+    )
 
     @classmethod
     def _normalize_product(cls, value: str | None) -> str | None:
@@ -35,10 +36,17 @@ class LiveGroundedEntityResolver(GroundedEntityResolver):
     @classmethod
     def _explicit_product_from_query(cls, query: str) -> str | None:
         low = query.casefold()
-        for alias, canonical in sorted(cls._PRODUCT_ALIASES.items(), key=lambda item: len(item[0]), reverse=True):
-            if alias in low:
-                return canonical
-        return None
+        matches = {
+            canonical
+            for alias, canonical in cls._PRODUCT_ALIASES.items()
+            if alias in low
+        }
+        return next(iter(matches)) if len(matches) == 1 else None
+
+    @classmethod
+    def _explicit_release_from_query(cls, query: str) -> str | None:
+        match = cls._EXPLICIT_RELEASE_RE.search(query)
+        return match.group(1).strip() if match else None
 
     @classmethod
     def _asks_current_sprint(cls, raw: str | None, query: str) -> bool:
@@ -46,11 +54,57 @@ class LiveGroundedEntityResolver(GroundedEntityResolver):
         mentions_sprint = "спринт" in text or "sprint" in text
         return mentions_sprint and any(marker in text for marker in cls._CURRENT_MARKERS)
 
+    @staticmethod
+    def _release_identifier(item: Any) -> str | None:
+        if isinstance(item, str):
+            value = item.strip()
+            return value or None
+        if isinstance(item, dict):
+            for key in ("id", "code", "name", "value"):
+                value = item.get(key)
+                if isinstance(value, (str, int)) and str(value).strip():
+                    return str(value).strip()
+        return None
+
+    async def semantic_context(self) -> dict[str, Any]:
+        """Augment task-derived context with the production release source.
+
+        `search_versions` itself is resilient: when the external MCP tool is
+        unhealthy it returns release IDs proven by canonical task.fix_version_s.
+        This prevents real releases outside the first task scan from becoming
+        ungroundable at the dialogue layer.
+        """
+        context = await super().semantic_context()
+        search_versions = getattr(self.adapter, "search_versions", None)
+        if not callable(search_versions):
+            return context
+        versions = await search_versions()
+        if isinstance(versions, dict):
+            candidates = versions.get("content") or versions.get("items") or versions.get("versions") or []
+        else:
+            candidates = versions if isinstance(versions, list) else []
+        merged = {str(value) for value in context.get("known_releases", []) if value}
+        for item in candidates:
+            release_id = self._release_identifier(item)
+            if release_id:
+                merged.add(release_id)
+        context["known_releases"] = sorted(merged)
+        return context
+
     async def ground(self, frame: SemanticFrame, original_query: str) -> SemanticFrame:
         slots = dict(frame.slots)
         product = self._normalize_product(slots.get("product")) or self._explicit_product_from_query(original_query)
         if product:
             slots["product"] = product
+
+        # Explicit release identifiers are user-provided selectors, not invented
+        # source facts. Preserve them as raw values so the ordinary grounder can
+        # validate them against the enriched known_releases set.
+        if not slots.get("release_id") and not slots.get("release_raw"):
+            explicit_release = self._explicit_release_from_query(original_query)
+            if explicit_release:
+                slots["release_raw"] = explicit_release
+
         frame = SemanticFrame(
             canonical_query=frame.canonical_query,
             intent_hint=frame.intent_hint,
@@ -60,8 +114,6 @@ class LiveGroundedEntityResolver(GroundedEntityResolver):
             llm_used=frame.llm_used,
         )
 
-        # First validate people/status/explicit sprint/release identifiers using
-        # the ordinary canonical contract.
         grounded = await super().ground(frame, original_query)
 
         current_raw = grounded.slots.get("sprint_raw") or frame.slots.get("sprint_raw")
