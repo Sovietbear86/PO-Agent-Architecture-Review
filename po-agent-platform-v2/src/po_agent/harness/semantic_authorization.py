@@ -30,21 +30,66 @@ class BlindRecoveryLLMJsonSemanticInterpreter(LLMJsonSemanticInterpreter):
     layer performs the authoritative independent recovery immediately afterwards.
     Skipping primary recovery removes a second potentially expensive ranking pass
     without changing the primary happy path or its slot extraction.
+
+    Some OpenAI-compatible enterprise gateways accept ordinary JSON completions
+    but reject `response_format=json_schema`. The production SBT gateway has shown
+    exactly that behavior. Authorization therefore retries the *same strict prompt*
+    without provider-side schema enforcement; the response is still parsed and
+    validated locally. This is compatibility recovery, not a semantic bypass.
     """
 
     async def _repair_missing_intent(self, query: str, semantic_context: dict[str, Any]) -> str | None:
         del query, semantic_context
         return None
 
+    async def _semantic_entails_capability(self, query: str, intent: str, capabilities: list[dict[str, Any]]) -> bool:
+        selected = next((item for item in capabilities if str(item.get("intent")) == intent), None)
+        if selected is None:
+            return False
+        payload = json.dumps(
+            {
+                "query": query,
+                "selected_capability_contract": {
+                    "intent": selected.get("intent"),
+                    "domain": selected.get("domain"),
+                    "capability_id": selected.get("capability_id"),
+                    "description": selected.get("description"),
+                },
+            },
+            ensure_ascii=False,
+        )
+        messages = [
+            LLMMessage(role="system", content=self.SEMANTIC_ENTAILMENT_SYSTEM),
+            LLMMessage(role="user", content=payload),
+        ]
+        for with_schema in (True, False):
+            try:
+                kwargs: dict[str, Any] = {
+                    "model": self.model,
+                    "temperature": 0.0,
+                    "max_tokens": 160,
+                }
+                if with_schema:
+                    kwargs["response_format"] = self._entailment_response_format()
+                response = await self.client.complete(messages, **kwargs)
+                if not response.choices:
+                    continue
+                data = self._parse_json_content(response.choices[0].message.content)
+                if data is None:
+                    continue
+                return bool(
+                    data.get("business_object_match") is True
+                    and data.get("operation_match") is True
+                    and data.get("outcome_match") is True
+                    and data.get("supported") is True
+                )
+            except Exception:
+                continue
+        return False
+
 
 class IntentPreservingDialogueHarnessRuntime(DialogueHarnessRuntime):
-    """Expose an already selected semantic intent while grounding asks for details.
-
-    Grounding/clarification is an execution-readiness state, not a routing failure.
-    Keeping ``response.intent`` populated makes that separation explicit to API
-    consumers and tests while still preventing execution until clarification is
-    resolved.
-    """
+    """Expose an already selected semantic intent while grounding asks for details."""
 
     @staticmethod
     def _clarification_response(session, pending):
@@ -67,6 +112,7 @@ class BlindConsensusSemanticInterpreter:
 
     DOMAIN_SYSTEM = """You are an independent blind semantic scope ranker for a PO Harness.
 You do NOT know which capability another model selected. Compare only the TWO supplied candidates against the original user request.
+Return JSON only with keys matching the requested candidate key and confidence.
 Return the candidate whose business domain/scope is semantically closer to the requested operation and outcome.
 The special candidate __unsupported__ means the request is outside the compared PO Harness domain.
 Missing IDs, people, sprint IDs, release IDs or other source slots do not make a supported operation unsupported; grounding happens later.
@@ -75,6 +121,7 @@ Candidate ranking is not source grounding. Return exactly one supplied candidate
 
     CAPABILITY_SYSTEM = """You are an independent blind semantic capability ranker inside one PO Harness domain.
 You do NOT know which capability another model selected. Compare only the TWO supplied candidates against the original user request.
+Return JSON only with keys matching the requested candidate key and confidence.
 Return the candidate whose declared operation/outcome is semantically closer to what the user asks for.
 The special candidate __unsupported__ means the selected catalog operation/domain does not directly perform the requested outcome.
 Missing or ambiguous source entities do not make an otherwise supported operation unsupported; grounding/clarification happens later.
@@ -88,8 +135,11 @@ Do not broaden capabilities by analogy. Return exactly one supplied candidate.
 
     @staticmethod
     def _parse(raw: str) -> dict[str, Any] | None:
+        text = raw.strip()
+        if text.startswith("```"):
+            text = text.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
         try:
-            data = json.loads(raw.strip())
+            data = json.loads(text)
         except Exception:
             return None
         return data if isinstance(data, dict) else None
@@ -116,24 +166,32 @@ Do not broaden capabilities by analogy. Return exactly one supplied candidate.
     async def _choice(self, *, system: str, payload: dict[str, Any], key: str, allowed: list[str]) -> str | None:
         if not allowed:
             return None
-        try:
-            response = await self.client.complete(
-                [
-                    LLMMessage(role="system", content=system),
-                    LLMMessage(role="user", content=json.dumps(payload, ensure_ascii=False)),
-                ],
-                model=self.model,
-                temperature=0.0,
-                max_tokens=180,
-                response_format=self._response_format(key, allowed),
-            )
-            if not response.choices:
-                return None
-            data = self._parse(response.choices[0].message.content)
-            candidate = str(data.get(key) or "").strip() if data else ""
-            return candidate if candidate in allowed else None
-        except Exception:
-            return None
+        messages = [
+            LLMMessage(role="system", content=system),
+            LLMMessage(role="user", content=json.dumps(payload, ensure_ascii=False)),
+        ]
+        # Prefer provider-enforced JSON schema. If the OpenAI-compatible gateway
+        # does not implement response_format, retry the identical authorization
+        # prompt without it and enforce the closed set locally below.
+        for with_schema in (True, False):
+            try:
+                kwargs: dict[str, Any] = {
+                    "model": self.model,
+                    "temperature": 0.0,
+                    "max_tokens": 180,
+                }
+                if with_schema:
+                    kwargs["response_format"] = self._response_format(key, allowed)
+                response = await self.client.complete(messages, **kwargs)
+                if not response.choices:
+                    continue
+                data = self._parse(response.choices[0].message.content)
+                candidate = str(data.get(key) or "").strip() if data else ""
+                if candidate in allowed:
+                    return candidate
+            except Exception:
+                continue
+        return None
 
     async def _pair_winner(
         self,
@@ -166,14 +224,6 @@ Do not broaden capabilities by analogy. Return exactly one supplied candidate.
         candidates: list[str],
         details: dict[str, dict[str, Any]],
     ) -> str | None:
-        """Select a blind candidate with O(N) pairwise calls.
-
-        Supported catalog candidates first play a balanced knockout tournament.
-        Its champion must then beat the explicit __unsupported__ sentinel in a
-        mandatory final authorization match. This keeps the sentinel from being
-        accidentally eliminated early while bounding model calls to at most N for
-        N supported candidates. Any invalid/provider-failed comparison fails closed.
-        """
         supported = list(
             dict.fromkeys(candidate for candidate in candidates if candidate and candidate != _UNSUPPORTED)
         )
