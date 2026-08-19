@@ -9,8 +9,10 @@ from po_agent.adapters import FakeAS21Adapter, FrozenAS21Adapter, SWTRShadowBatc
 from po_agent.adapters.as21 import AS21Adapter
 from po_agent.adapters.production_task_api import ProductionTaskApiAS21Adapter
 
+from .core8_semantic_precision import Core8SemanticPrecisionInterpreter
 from .dialogue_runtime import LLMJsonSemanticInterpreter, SemanticInterpreter
 from .entity_grounding import GroundedEntityResolver, TeamDirectory
+from .fail_closed_dialogue_runtime import FailClosedIntentPreservingDialogueHarnessRuntime
 from .historical_wiring import enable_historical_skills
 from .learned_semantics import LearnedSemanticsStore
 from .live_entity_grounding import LiveGroundedEntityResolver
@@ -19,7 +21,6 @@ from .resilient_semantics import (
     ResilientBlindConsensusSemanticInterpreter,
     ResilientBlindRecoveryLLMJsonSemanticInterpreter,
 )
-from .semantic_authorization import IntentPreservingDialogueHarnessRuntime
 from .source_aware_runtime import SourceAwareHarnessRuntime
 from .source_contracts import (
     ReleaseTimelineSource,
@@ -94,7 +95,10 @@ def _build_runtime_with_adapter(
         )
         selected_interpreter = ResilientBlindConsensusSemanticInterpreter(fast_delegate)
 
-    dialogue = IntentPreservingDialogueHarnessRuntime(
+    if selected_interpreter is not None:
+        selected_interpreter = Core8SemanticPrecisionInterpreter(selected_interpreter)
+
+    dialogue = FailClosedIntentPreservingDialogueHarnessRuntime(
         executable,
         interpreter=selected_interpreter,
         semantics=semantics,
