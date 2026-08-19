@@ -4,7 +4,7 @@ from __future__ import annotations
 import time
 import uuid
 
-from po_agent.adapters.task_api import AS21CapabilityUnavailable, AS21SourceError, AS21SourceUnavailable
+from po_agent.adapters.task_api import AS21CapabilityUnavailable, AS21SourceError, AS21SourceUnavailable, TaskApiAS21Adapter
 
 from .contracts import HarnessRequest, HarnessResponse, ResponseStatus
 from .runtime import HarnessRuntime
@@ -64,7 +64,7 @@ class SourceAwareHarnessRuntime(HarnessRuntime):
             skill = self.skills.resolve(intent)
             result = await self.capabilities.execute(skill.capability_id, arguments)
             if skill.id == "portfolio-overview" and isinstance(result.data, dict):
-                result.data["adapter"] = "task-api" if type(self.adapter).__name__ == "TaskApiAS21Adapter" else "fake-as21"
+                result.data["adapter"] = "task-api" if isinstance(self.adapter, TaskApiAS21Adapter) else "fake-as21"
             return HarnessResponse(
                 status=ResponseStatus.COMPLETED,
                 trace_id=trace,
