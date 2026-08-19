@@ -106,6 +106,8 @@ async def test_unknown_status_never_silently_becomes_open():
 async def test_get_task_requires_exact_key_not_first_search_hit_and_no_q():
     async def handler(request):
         assert "q" not in request.url.params
+        if request.url.path == "/api/v1/swtr-read/tasks/WMB-101/files":
+            return httpx.Response(200,json={"task_code":"WMB-101","files":[]})
         return httpx.Response(200,json=[task_payload("WMB-100"),task_payload("WMB-101")])
     client=httpx.AsyncClient(transport=httpx.MockTransport(handler),base_url="http://task-api")
     task=await TaskApiAS21Adapter(client=client).get_task("wmb-101")
