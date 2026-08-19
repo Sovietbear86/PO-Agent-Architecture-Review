@@ -1,6 +1,6 @@
 """Unified read-only MCP-SWTR client used by the Task API rich-read facade.
 
-The live MCP-SWTR server is an SSE service.  Harness-facing read paths must use
+The live MCP-SWTR server is an SSE service. Harness-facing read paths must use
 this client rather than the legacy subprocess/stdin bridge in SWTRSyncService.
 The legacy bridge is intentionally left in place for historical sync code until
 it is migrated separately; it must not be used by new Harness read capabilities.
@@ -22,7 +22,7 @@ class SWTRMCPProtocolError(RuntimeError):
 class SWTRMCPClient:
     """Small read-only FastMCP SSE client.
 
-    The URL is configuration, not a repository-specific filesystem path.  The
+    The URL is configuration, not a repository-specific filesystem path. The
     MCP server owns AS21 credentials; Task API never receives or exposes them.
     """
 
@@ -31,7 +31,28 @@ class SWTRMCPClient:
             "SWTR_MCP_SSE_URL", "http://127.0.0.1:3000/sse"
         )
 
-    async def list_tools(self) -> list[str]:
+    @staticmethod
+    def _tool_to_dict(tool: Any) -> dict[str, Any]:
+        if isinstance(tool, dict):
+            return dict(tool)
+        model_dump = getattr(tool, "model_dump", None)
+        if callable(model_dump):
+            dumped = model_dump()
+            if isinstance(dumped, dict):
+                return dumped
+        result: dict[str, Any] = {}
+        for attr in ("name", "description", "inputSchema", "input_schema"):
+            value = getattr(tool, attr, None)
+            if value is not None:
+                result[attr] = value
+        return result
+
+    async def list_tool_descriptors(self) -> list[dict[str, Any]]:
+        """Return MCP tool descriptors including input schemas when exposed.
+
+        Rich-read routes use this to adapt to the actual MCP contract rather
+        than guessing pagination/version argument names. It remains read-only.
+        """
         try:
             from fastmcp import Client
             from fastmcp.client.transports import SSETransport
@@ -46,14 +67,51 @@ class SWTRMCPClient:
         except Exception as exc:  # pragma: no cover - real transport failure
             raise SWTRMCPUnavailable(f"MCP-SWTR unavailable at {self.sse_url}") from exc
 
-        names: list[str] = []
-        for tool in tools or []:
-            name = getattr(tool, "name", None)
-            if isinstance(name, str):
-                names.append(name)
-            elif isinstance(tool, dict) and isinstance(tool.get("name"), str):
-                names.append(tool["name"])
-        return names
+        descriptors = [self._tool_to_dict(tool) for tool in (tools or [])]
+        return [item for item in descriptors if isinstance(item.get("name"), str)]
+
+    async def list_tools(self) -> list[str]:
+        descriptors = await self.list_tool_descriptors()
+        return [str(item["name"]) for item in descriptors]
+
+    async def tool_input_properties(self, name: str) -> set[str]:
+        """Return declared input property names for one MCP tool.
+
+        An empty set means the tool exists but did not expose an object schema.
+        Missing tools raise a protocol error so callers fail closed.
+        """
+        descriptors = await self.list_tool_descriptors()
+        descriptor = next((item for item in descriptors if item.get("name") == name), None)
+        if descriptor is None:
+            raise SWTRMCPProtocolError(f"MCP-SWTR tool {name!r} is not available")
+        schema = descriptor.get("inputSchema") or descriptor.get("input_schema") or {}
+        if not isinstance(schema, dict):
+            return set()
+        properties = schema.get("properties")
+        if not isinstance(properties, dict):
+            return set()
+        return {str(key) for key in properties}
+
+    async def supported_arguments(
+        self,
+        name: str,
+        candidates: dict[str, Any],
+        *,
+        required: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Filter optional arguments against the live MCP tool schema.
+
+        Required arguments are always retained. Optional candidates are sent
+        only when the live schema explicitly advertises them. This prevents the
+        Task API facade from inventing unsupported MCP parameters while still
+        allowing pagination/version-search contracts to evolve safely.
+        """
+        properties = await self.tool_input_properties(name)
+        result = dict(required or {})
+        for key, value in candidates.items():
+            if key in properties and value is not None:
+                result[key] = value
+        return result
 
     async def call_tool(self, name: str, arguments: dict[str, Any]) -> list[dict[str, Any]]:
         """Call one MCP tool and normalize its content items to plain dicts."""
