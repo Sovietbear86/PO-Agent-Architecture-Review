@@ -13,11 +13,11 @@ from .entity_grounding import GroundedEntityResolver, TeamDirectory
 from .historical_wiring import enable_historical_skills
 from .learned_semantics import LearnedSemanticsStore
 from .observed_runtime import ObservedHarnessRuntime
-from .semantic_authorization import (
-    BlindConsensusSemanticInterpreter,
-    BlindRecoveryLLMJsonSemanticInterpreter,
-    IntentPreservingDialogueHarnessRuntime,
+from .resilient_semantics import (
+    ResilientBlindConsensusSemanticInterpreter,
+    ResilientBlindRecoveryLLMJsonSemanticInterpreter,
 )
+from .semantic_authorization import IntentPreservingDialogueHarnessRuntime
 from .source_aware_runtime import SourceAwareHarnessRuntime
 from .source_contracts import (
     ReleaseTimelineSource,
@@ -87,14 +87,15 @@ def _build_runtime_with_adapter(
 
     selected_interpreter = semantic_interpreter
     if isinstance(semantic_interpreter, LLMJsonSemanticInterpreter):
-        # Keep the original primary semantic pass and slot extraction, but avoid a
-        # second catalog-wide recovery inside it. Blind consensus is now the single
-        # recovery/authorization layer, eliminating duplicate LLM ranking work.
-        fast_delegate = BlindRecoveryLLMJsonSemanticInterpreter(
+        # The internal OpenAI-compatible gateway is not guaranteed to support
+        # json_schema response_format and Qwen may wrap JSON in reasoning text.
+        # The resilient wrappers tolerate transport formatting while retaining
+        # the same catalog-derived closed-set and blind-consensus authorization.
+        fast_delegate = ResilientBlindRecoveryLLMJsonSemanticInterpreter(
             semantic_interpreter.client,
             model=semantic_interpreter.model,
         )
-        selected_interpreter = BlindConsensusSemanticInterpreter(fast_delegate)
+        selected_interpreter = ResilientBlindConsensusSemanticInterpreter(fast_delegate)
 
     dialogue = IntentPreservingDialogueHarnessRuntime(
         executable,
@@ -157,7 +158,7 @@ def build_frozen_runtime_bundle(
 ) -> RuntimeBundle:
     """Build the real Harness stack over a previously captured SWTR batch.
 
-    No live AS21/Task API object is created or retained.  Therefore all capability
+    No live AS21/Task API object is created or retained. Therefore all capability
     reads are satisfied from the immutable frozen corpus and cannot reconnect to
     SWTR after the capture boundary has closed.
     """
