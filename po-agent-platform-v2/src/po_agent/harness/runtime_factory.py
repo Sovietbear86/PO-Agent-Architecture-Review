@@ -7,9 +7,11 @@ from typing import Literal
 
 from po_agent.adapters import FakeAS21Adapter, FrozenAS21Adapter, SWTRShadowBatch
 from po_agent.adapters.as21 import AS21Adapter
-from po_agent.adapters.production_task_api import ProductionTaskApiAS21Adapter
+from po_agent.adapters.hardened_production_task_api import HardenedProductionTaskApiAS21Adapter
 
 from .core8_semantic_precision import Core8SemanticPrecisionInterpreter
+from .core8_hardening import enable_core8_hardened_composite
+from .correction_runtime import CorrectionAwareHarnessRuntime
 from .dialogue_runtime import LLMJsonSemanticInterpreter, SemanticInterpreter
 from .entity_grounding import GroundedEntityResolver, TeamDirectory
 from .fail_closed_dialogue_runtime import FailClosedIntentPreservingDialogueHarnessRuntime
@@ -75,6 +77,10 @@ def _build_runtime_with_adapter(
     readiness = build_source_readiness(adapter, extra_facts=dependencies.facts)
 
     executable = SourceAwareHarnessRuntime(adapter, source_facts=readiness.available_facts)
+    if mode == "task-api":
+        # The production composite path must preserve every requested selector
+        # and intersect by canonical task keys, not object identity.
+        enable_core8_hardened_composite(executable)
     if team_source is not None and team_source.has_declared_profiles():
         enable_team_matching(executable, team_source)
     if sprint_snapshots is not None or release_timeline is not None:
@@ -104,6 +110,10 @@ def _build_runtime_with_adapter(
         semantics=semantics,
         grounder=grounder,
     )
+    # Negative user feedback must reopen the evidence chain before any answer
+    # is treated as final. This wrapper is session-scoped and cannot promote a
+    # learned rule on its own.
+    dialogue = CorrectionAwareHarnessRuntime(dialogue)
     runtime = ObservedHarnessRuntime(dialogue)
 
     return RuntimeBundle(
@@ -132,7 +142,7 @@ def build_runtime_bundle(
         adapter: AS21Adapter = FakeAS21Adapter()
         selected: RuntimeMode = "fake"
     elif normalized in {"task-api", "task_api", "real"}:
-        adapter = ProductionTaskApiAS21Adapter(
+        adapter = HardenedProductionTaskApiAS21Adapter(
             base_url=task_api_base_url,
             timeout_seconds=task_api_timeout_seconds,
         )
