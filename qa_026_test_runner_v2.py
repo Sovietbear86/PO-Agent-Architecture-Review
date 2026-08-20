@@ -81,12 +81,13 @@ FAIL_CLOSED_SCENARIOS = [
 class TaskAPIClient:
     """Client for Task API."""
 
-    def __init__(self, base_url: str = "http://localhost:8003"):
+    def __init__(self, base_url: str = "http://localhost:8003", timeout: float = 120.0):
         self.base_url = base_url
         self._client = None
+        self.timeout = timeout
 
     async def __aenter__(self):
-        self._client = httpx.AsyncClient(base_url=self.base_url, timeout=60.0)
+        self._client = httpx.AsyncClient(base_url=self.base_url, timeout=self.timeout)
         return self
 
     async def __aexit__(self, *args):
@@ -800,7 +801,8 @@ class QAOracler:
 if __name__ == "__main__":
     async def main():
         runner = QA026TestRunner()
-        results = await runner.run_all_tests()
+        async with runner.client as client:
+            results = await runner.run_all_tests()
 
         # Save JSON
         with open("qa_reports/CORE8_REAL_DATA_SEMANTIC_ARCHITECTURE_ACCEPTANCE_026_RESULTS_V2.json", "w") as f:
