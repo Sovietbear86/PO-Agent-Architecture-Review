@@ -23,6 +23,17 @@ class Core8SemanticPrecisionInterpreter:
     # Do not match the SPRNT-1 suffix inside DMS-SPRNT-1 as a task key.
     _TASK_ID_RE = re.compile(r"(?<!-)\b[A-ZА-Я][A-ZА-Я0-9_]{1,15}-\d+(?![-A-ZА-Я0-9_])\b", re.I)
     _TASK_WORD_RE = re.compile(r"\b(?:задач(?:а|и|у|е|ей|ам|ами|ах)?|task|tasks)\b", re.I)
+    # Natural Russian ownership/assignee wording is common in PO queries:
+    # "задачи Гаранина", "задачи Родиона Гаранина", "что у Гаранина в работе".
+    # Preserve the raw human mention for source-backed entity grounding instead
+    # of requiring artificial wording such as "исполнитель Гаранин".
+    _TASK_PERSON_RE = re.compile(
+        r"\bзадач(?:а|и|у|е|ей|ам|ами|ах)?\s+"
+        r"([А-ЯЁ][а-яё-]+(?:\s+[А-ЯЁ][а-яё-]+){0,2})\b"
+    )
+    _OWNERSHIP_PERSON_RE = re.compile(
+        r"\bу\s+([А-ЯЁ][а-яё-]+(?:\s+[А-ЯЁ][а-яё-]+){0,2})\b"
+    )
     _PRODUCT_MARKERS = {
         "OLP": (r"\bolp\b", r"\bolap\b", r"\bolap analytics\b"),
         "DMS": (r"\bdms\b", r"\bdatamarts\b", r"\bdata marts\b"),
@@ -52,6 +63,14 @@ class Core8SemanticPrecisionInterpreter:
     @classmethod
     def _explicit_sprint_ids(cls, query: str) -> tuple[str, ...]:
         return tuple(dict.fromkeys(match.group(0).upper() for match in cls._SPRINT_ID_RE.finditer(query)))
+
+    @classmethod
+    def _natural_person_raw(cls, query: str) -> str | None:
+        for pattern in (cls._TASK_PERSON_RE, cls._OWNERSHIP_PERSON_RE):
+            match = pattern.search(query)
+            if match:
+                return " ".join(match.group(1).split())
+        return None
 
     @classmethod
     def _contradictory_sprint_filters(cls, query: str) -> tuple[str, ...]:
@@ -103,7 +122,7 @@ class Core8SemanticPrecisionInterpreter:
         # Explicit source sprint IDs are atomic identifiers. The provider may
         # incorrectly shorten DMS-SPRNT-1 to SPRNT-1 or even classify it as a
         # task key. Preserve the exact raw identifier here; the grounder still
-        # validates it against source-backed known_sprints before execution.
+        # validates it against source-backed evidence before execution.
         explicit_sprints = self._explicit_sprint_ids(query)
         if len(explicit_sprints) == 1:
             sprint_id = explicit_sprints[0]
@@ -123,6 +142,13 @@ class Core8SemanticPrecisionInterpreter:
 
             if self._TASK_WORD_RE.search(query) and intent in {None, "task_lookup", "task_by_id", "task_details", "task_detail"}:
                 intent = "task_search"
+
+        # Preserve natural-language person ownership for normal live entity
+        # grounding. Never overwrite an explicit provider/source-backed person.
+        if not any(slots.get(name) for name in ("person_raw", "person", "assignee", "assignee_raw", "assignee_id")):
+            natural_person = self._natural_person_raw(query)
+            if natural_person:
+                slots["person_raw"] = natural_person
 
         # Normalize a legacy/provider alias only when the original utterance has
         # exactly one explicit task key and is plainly asking to show/open it.
