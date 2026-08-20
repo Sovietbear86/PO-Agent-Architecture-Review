@@ -11,17 +11,25 @@
 6. Prefer truthful RED/YELLOW/BLOCKED over false GREEN.
 
 ## Current assignment
-`ASSIGNMENT_ID = CORE8_EXHAUSTIVE_REAL_QUERY_MATRIX_017_V2`
+`ASSIGNMENT_ID = CORE8_SOURCE_GROUNDING_CORRECTION_RETEST_018`
 `TARGET_BRANCH = feat/core8-real-query-hardening-v2`
-`ASSIGNMENT_PATH = qa_assignments/CORE8_EXHAUSTIVE_REAL_QUERY_MATRIX_017_V2.md`
-`REPORT_PATH = qa_reports/CORE8_EXHAUSTIVE_REAL_QUERY_MATRIX_017_V2.md`
+`ASSIGNMENT_PATH = qa_assignments/CORE8_SOURCE_GROUNDING_CORRECTION_RETEST_018.md`
+`REPORT_PATH = qa_reports/CORE8_SOURCE_GROUNDING_CORRECTION_RETEST_018.md`
 
 Read first:
 - `CORE8_HARDENING_FREEZE.md`
-- `qa_assignments/CORE8_EXHAUSTIVE_REAL_QUERY_MATRIX_017_V2.md`
-- `qa_assignments/CORE8_EXHAUSTIVE_REAL_QUERY_MATRIX_017.md`
-- `qa_assignments/CORE8_CORRECTION_LOOP_ADDENDUM_017A.md`
+- `qa_reports/CORE8_EXHAUSTIVE_REAL_QUERY_MATRIX_017_V2.md`
+- `po-agent-platform-v2/src/po_agent/adapters/hardened_production_task_api.py`
+- `po-agent-platform-v2/src/po_agent/harness/core8_hardening.py`
+- `po-agent-platform-v2/src/po_agent/harness/correction_runtime.py`
+- `po-agent-platform-v2/tests/test_core8_real_query_hardening.py`
+- `qa_assignments/CORE8_SOURCE_GROUNDING_CORRECTION_RETEST_018.md`
 
-Important: the V2 file is the single canonical entry point and consolidates the functional matrix plus correction/recheck-loop acceptance. Before declaring PASS, independently prove the oracle/source contract. Known positive anchors: Garanin has task(s) in DMS-SPRNT-1 and DMS-SPRNT-2; verify them directly from AS21/SWTR. If your oracle says zero for both, classify ORACLE_SOURCE_CONTRACT_BROKEN and do not mark dependent tests PASS.
+Critical rules:
+- For DMS-SPRNT-1/2 use the COMPLETE sprint corpus (`complete=true`), never page 1 as ground truth.
+- Resolve Garanin by canonical externalId/login/display evidence and report the exact aliases used.
+- Missing cached project/sprint relation means UNKNOWN until raw/live SWTR is checked; it never means NO.
+- Negative feedback must cause a fresh source read and correction trace; do not accept cached repetition.
+- Do not repair code. Do not resume Gate E.
 
-Do not repair code. Do not resume Gate E. After publishing the V2 report, stop.
+If and only if 018 is green, stop and report `READY_TO_RERUN_017_V2 = YES`; the full 017_V2 rerun will be the next assignment.
