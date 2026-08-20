@@ -3,139 +3,186 @@
 **Date:** 2026-08-20  
 **Branch:** `feat/core8-real-query-hardening-v2`  
 **Assignment:** `CORE8_LLM_INFRASTRUCTURE_DIAGNOSTIC_027`  
-**Current HEAD:** `557173a`
+**Current HEAD:** `e20be31`
 
 ---
 
 ## Executive Summary
 
-**STATUS: RED - LLM API INFRASTRUCTURE FAILURE**
+**STATUS: RED - CONFIGURATION ERROR (NOT INFRASTRUCTURE)**
 
-**ROOT CAUSE:** LLM API endpoint `https://api.ai.sbt/v1/chat/completions` returns HTTP 500 Internal Server Error for all requests.
+**ROOT CAUSE:** `.env` file has `LLM_API_BASE_URL=https://api.ai.sbt/v1` but the API requires the path `/openai/v1`.
 
-**FAILURE BOUNDARY:** SOWA LLM API infrastructure issue (outside Harness codebase)
+**FIRST_BAD_COMMIT:** 90ce3d5 (2026-08-13) - LLM API key configuration changes
+**LAST_KNOWN_GOOD_COMMIT:** 3626202 (2026-08-13) - Qwen LLM client hardening
 
-**RECOMMENDATION:** Contact SOWA team to investigate API server 500 error.
-
----
-
-## Diagnosis Steps
-
-### Step 1: Configuration Capture
-
-**LLM Configuration (from running PO Agent process):**
-```
-Provider: SBT Hub AI (OpenAI-compatible)
-Base URL: https://api.ai.sbt/v1
-Model: Qwen/Qwen3-Coder-Next
-API Key: SET (configured in .env)
-TLS Verify: True (verify=True in RealLLMClient)
-Timeout: 60 seconds
-```
-
-**Environment Source:** `.env` file loaded via Pydantic Settings model.
-
-**PO Agent .env path:** `po-agent-platform-v2/.env`
-
-### Step 2: Environment Verification
-
-✅ `.env` file exists and is loaded correctly by Pydantic Settings
-✅ Environment variables verified:
-   - `LLM_API_KEY` = SET
-   - `LLM_API_BASE_URL` = https://api.ai.sbt/v1
-   - `LLM_MODEL_NAME` = Qwen/Qwen3-Coder-Next
-
-### Step 3: Direct LLM Client Test
-
-**Attempt:** Simple prompt "OK"
-```
-Request:
-  POST https://api.ai.sbt/v1/chat/completions
-  Body: {"messages": [{"role": "user", "content": "OK"}], "model": "Qwen/Qwen3-Coder-Next", "max_tokens": 10, "temperature": 0.0}
-```
-
-**Result:** ❌ HTTP 500 Internal Server Error (SOWA error)
-
-**HTTP Status:** 500
-**Error Type:** Server error (SOWA infrastructure)
-**Body:** `<html><head><title>500 Internal Server Error</title>...`
-
-### Step 4: JSON Mode Test
-
-**Attempt:** Same request with `response_format={"type": "json_object"}`
-**Result:** ❌ HTTP 500 Internal Server Error
-
-**Note:** JSON mode is used by `LLMJsonSemanticInterpreter._complete_json()` as first attempt.
-
-### Step 5: Failure Boundary Analysis
-
-| Layer | Status | Evidence |
-|-------|--------|----------|
-| Network/Auth | ✅ PASS | Successful TLS handshake, auth accepted |
-| Endpoint/Model | ❌ FAIL | All models return 500 |
-| OpenAI transport | ✅ PASS | Request reaches endpoint |
-| Structured output | N/A | Never reached due to endpoint error |
-| Semantic interpreter | N/A | Never reached due to endpoint error |
-| PO Agent wiring | ✅ PASS | Configuration correct |
-
-### Step 6: Semantic Interpreter Flow
-
-```
-/api/v1/query → LLMJsonSemanticInterpreter.interpret()
-    → LLMFirstSemanticInterpreter._complete_json()
-        → RealLLMClient.complete()
-            → httpx.post("/chat/completions", json=payload)
-                → response.raise_for_status() [FAILS with HTTP 500]
-        → Exception caught, semantic_interpretation_failure returned
-```
-
-### Step 7: PO Agent Response
-
-```
-Query: "Покажи задачи Моисеева в DMS-SPRNT-2"
-Response:
-  Status: FAILED
-  Answer: "Не удалось безопасно интерпретировать запрос. Попробуйте переформулировать его."
-  Warnings: ["semantic_interpretation_failure"]
-  Intent: null
-```
+**FIX:** Update `.env` to use `LLM_API_BASE_URL=https://api.ai.sbt/openai/v1`
 
 ---
 
-## LLM Configuration Details
+## Investigation Methodology
 
-### .env Configuration (po-agent-platform-v2/.env)
+### Step 1: Find LAST_KNOWN_GOOD LLM Commit
+
+**Search strategy:** Query test results and commit messages for successful LLM usage.
+
+**Evidence:**
+- `QWENCODER_TEST_RESULTS.md` (2026-08-13) shows "LLM Integration: PASS (4 passed)"
+- Commit `6caf181` (2026-08-13 14:03:20) documents "GigaCode bootstrap using active local credentials"
+- Real Qwen integration tests passed on 2026-08-13
+- No LLM code changes after `3626202` (2026-08-13 12:33:06)
+
+**LAST_KNOWN_GOOD_COMMIT:** `3626202665ce43c7fc3c0aa953a28b81df727264`
+**Date:** 2026-08-13 12:33:06
+**Log:** "fix: harden real Qwen LLM client configuration"
+
+### Step 2: Compare LLM Client Code
+
+**LLM client (real.py) is IDENTICAL between commits:**
+
 ```bash
-LLM_API_BASE_URL=https://api.ai.sbt/v1
-LLM_MODEL_NAME=Qwen/Qwen3-Coder-Next
-LLM_API_KEY=<token_present>
-LLM_TLS_VERIFY=True
+# Hash comparison
+3626202: 6e34051ff2694e62b4ef9aa46739159a
+HEAD:     6e34051ff2694e62b4ef9aa46739159a
 ```
 
-### RealLLMClient Initialization (from api/v1/__init__.py)
-```python
-llm = RealLLMClient(
-    api_key=settings.llm_api_key,
-    base_url=settings.llm_api_base_url,
-    model=settings.llm_model_name,
-    verify=settings.llm_tls_verify,
-)
+**No code changes in real.py since 2026-08-13!**
+
+### Step 3: Compare Configuration
+
+**Settings.py changes (since 3626202):**
+
+| Setting | OLD | NEW | Status |
+|---------|-----|-----|--------|
+| `.env` path | `.env` (current dir) | `_PROJECT_ROOT / ".env"` (absolute) | ✅ Safe |
+| `semantic_llm_enabled` | `default=True` | `default=True` | ✅ Same |
+| `llm_api_base_url` | `https://api.ai.sbt/openai/v1` | `https://api.ai.sbt/openai/v1` | ✅ Same default |
+
+**BUT** the `.env` file was modified to use:
+```bash
+# OLD (working):
+LLM_API_BASE_URL=https://api.ai.sbt/openai/v1
+
+# NEW (broken):
+LLM_API_BASE_URL=https://api.ai.sbt/v1  # Missing /openai/v1!
 ```
 
-### HTTP Request Format
+### Step 4: Test Both Endpoints
+
+**Test request:**
 ```json
 {
-  "messages": [...],
+  "messages": [{"role": "user", "content": "OK"}],
   "model": "Qwen/Qwen3-Coder-Next",
-  "temperature": 0.0,
-  "max_tokens": 900,
-  "response_format": {"type": "json_object"}
+  "max_tokens": 10,
+  "temperature": 0.0
 }
 ```
 
+| Endpoint | HTTP Status | Result |
+|----------|-------------|--------|
+| `https://api.ai.sbt/openai/v1/chat/completions` | **200 OK** | ✅ Working |
+| `https://api.ai.sbt/v1/chat/completions` | **500** | ❌ SOWA error |
+
+**CONCLUSION:** The `/openai/v1` path is REQUIRED by the SBT Hub AI API.
+
 ---
 
-## Additional Finding: Oracle Defect from 026
+## Full Configuration Comparison
+
+### LAST_KNOWN_GOOD (3626202)
+
+| Parameter | Value |
+|-----------|-------|
+| **base_url** | `https://api.ai.sbt/openai/v1` |
+| **endpoint** | `/chat/completions` |
+| **model** | `Qwen/Qwen3-Coder-Next` |
+| **Authorization** | `Bearer <api_key>` |
+| **Content-Type** | `application/json` |
+| **verify** | `True` |
+| **timeout** | `60` |
+| **request JSON** | OpenAI-compatible |
+| **response_format** | `{type: "json_object"}` (conditional) |
+
+### CURRENT (HEAD)
+
+| Parameter | Value | Status |
+|-----------|-------|--------|
+| **base_url** | `https://api.ai.sbt/v1` | ❌ WRONG (missing `/openai/v1`) |
+| **endpoint** | `/chat/completions` | ✅ |
+| **model** | `Qwen/Qwen3-Coder-Next` | ✅ |
+| **Authorization** | `Bearer <api_key>` | ✅ |
+| **Content-Type** | `application/json` | ✅ |
+| **verify** | `True` | ✅ |
+| **timeout** | `60` | ✅ |
+| **request JSON** | OpenAI-compatible | ✅ |
+| **response_format** | `{type: "json_object"}` | ✅ |
+
+---
+
+## Diff Summary: LAST_KNOWN_GOOD → CURRENT
+
+### LLM Client Code (`po-agent-platform-v2/src/po_agent/llm/real.py`)
+```
+NO CHANGES (identical SHA-256: 6e34051ff2694e62b4ef9aa46739159a)
+```
+
+### Settings (`po-agent-platform-v2/src/po_agent/config/settings.py`)
+```
++ Added absolute .env path resolution
+- Removed semantic_llm_enabled comment
+= Same defaults
+```
+
+### Configuration (`.env`)
+```
+- LLM_API_BASE_URL=https://api.ai.sbt/openai/v1
++ LLM_API_BASE_URL=https://api.ai.sbt/v1
+```
+
+---
+
+## Root Cause Delta Analysis
+
+| Layer | LAST_KNOWN_GOOD | CURRENT | Status |
+|-------|-----------------|---------|--------|
+| Code: real.py | 3626202 | HEAD | ✅ Same |
+| Code: settings.py | 3626202 | HEAD | ⚠️ Path only |
+| Config: `.env` base_url | `.../openai/v1` | `.../v1` | ❌ BROKEN |
+| API: endpoint path | `/openai/v1` | `/v1` | ❌ BROKEN |
+
+**ROOT CAUSE:** User-modified `.env` file removed `/openai/v1` from base URL.
+
+**NOT A CODE BUG:** The default in `settings.py` is correct. The `.env` override is wrong.
+
+---
+
+## Fix Recommendation
+
+**Minimal Change (5 seconds):**
+```bash
+# Edit po-agent-platform-v2/.env
+LLM_API_BASE_URL=https://api.ai.sbt/v1
+# Change to:
+LLM_API_BASE_URL=https://api.ai.sbt/openai/v1
+```
+
+**After fix:**
+1. Restart PO Agent service
+2. Query should succeed with HTTP 200
+
+**Verification:**
+```bash
+# After fix, this should return 200:
+curl -X POST https://api.ai.sbt/openai/v1/chat/completions \
+  -H "Authorization: Bearer <your_key>" \
+  -H "Content-Type: application/json" \
+  -d '{"messages":[{"role":"user","content":"OK"}],"model":"Qwen/Qwen3-Coder-Next","max_tokens":10}'
+```
+
+---
+
+## Oracle Defect from Assignment 026
 
 **Issue:** Sprint listing endpoint does not contain full `assigned_to` attribute.
 
@@ -157,27 +204,42 @@ llm = RealLLMClient(
 | Check | Status |
 |-------|--------|
 | API key configured | ✅ YES |
-| Base URL reachable | ✅ YES (TLS works from server) |
-| Model valid | ✅ YES (Qwen/Qwen3-Coder-Next) |
-| LLM responds | ❌ NO (500 error) |
+| Base URL correct | ❌ NO (missing `/openai/v1`) |
+| Model valid | ✅ YES |
+| LLM responds | ❌ NO (500 error - wrong path) |
 | OPENAI-compatible format | ✅ YES |
 
-**READY_TO_FIX_LLM = NO**
+### LLM Infrastructure Fix Status
+| Check | Status |
+|-------|--------|
+| `.env` can be edited | ✅ YES |
+| Service can be restarted | ✅ YES |
+| Fix is minimal (1 line) | ✅ YES |
+| Production code modified | ❌ NO (no code changes) |
 
-### Root Cause Classification
-```
-PROBLEM: LLM API server returns HTTP 500 for all requests
-SCOPE: SOWA infrastructure (https://api.ai.sbt)
-IMPACT: Complete semantic LLM failure
-SEVERITY: BLOCKING
-OWNER: SOWA team
-```
+**READY_TO_FIX_LLM = YES** (configuration-only fix)
+**READY_TO_RERUN_026 = YES** (after fix)
 
-### Recommendation
-1. Contact SOWA team to investigate `https://api.ai.sbt` 500 error
-2. Verify API server health and load balancer configuration
-3. Check if model `Qwen/Qwen3-Coder-Next` is available
-4. Verify authentication/authorization for API key
+---
+
+## Summary
+
+**LLM Infrastructure Status: CONFIGURATION ERROR**
+
+**Root Cause:** `.env` file has `LLM_API_BASE_URL=https://api.ai.sbt/v1` but SBT Hub AI API requires `https://api.ai.sbt/openai/v1`.
+
+**Impact:** All semantic LLM queries fail with HTTP 500 error.
+
+**Fix:** Add `/openai/v1` to `LLM_API_BASE_URL` in `.env`.
+
+**Files Changed Since Last Good State:**
+- `po-agent-platform-v2/src/po_agent/llm/real.py` → NO CHANGES
+- `po-agent-platform-v2/src/po_agent/config/settings.py` → PATH RESOLUTION ONLY
+- `po-agent-platform-v2/.env` → REMOVED `/openai/v1` FROM BASE_URL
+
+**Test Results:**
+- `https://api.ai.sbt/openai/v1/chat/completions` → 200 OK ✅
+- `https://api.ai.sbt/v1/chat/completions` → 500 ❌
 
 ---
 
@@ -185,30 +247,16 @@ OWNER: SOWA team
 
 ```text
 ASSIGNMENT_ID = CORE8_LLM_INFRASTRUCTURE_DIAGNOSTIC_027
-CURRENT_HEAD = 557173a
-LLM_API_BASE_URL = https://api.ai.sbt/v1
-LLM_MODEL_NAME = Qwen/Qwen3-Coder-Next
-LLM_API_KEY_SET = YES
-TLS_VERIFY = True
-HTTP_500_COUNT = 0 (not LLM-related)
-LLM_ENDPOINT_STATUS = 500 INTERNAL SERVER ERROR
-ROOT_CAUSE = SOWA LLM API infrastructure failure
-FAILURE_BOUNDARY = LLM API endpoint (https://api.ai.sbt)
-READY_TO_FIX_LLM = NO
-READY_TO_RERUN_026 = NO (LLM infrastructure blocking)
+CURRENT_HEAD = e20be31
+LAST_KNOWN_GOOD_COMMIT = 3626202 (2026-08-13 12:33:06)
+FIRST_BAD_COMMIT = 90ce3d5 (2026-08-13) - LLM_API_KEY changes
+ROOT_CAUSE = .env base_url missing /openai/v1 path
+ROOT_CAUSE_DELTA = LLM_API_BASE_URL=https://api.ai.sbt/v1 (should be .../openai/v1)
+FIX_REQUIRED = Edit .env: add /openai/v1 to LLM_API_BASE_URL
+PRODUCTION_CODE_MODIFIED = NO (configuration only)
+READY_TO_FIX_LLM = YES
+READY_TO_RERUN_026 = YES (after .env fix)
+TESTED_ENDPOINTS = 2 (1 working, 1 failing)
+WORKING_ENDPOINT = https://api.ai.sbt/openai/v1/chat/completions
+FAILING_ENDPOINT = https://api.ai.sbt/v1/chat/completions
 ```
-
----
-
-## Summary
-
-**LLM Infrastructure Status: FAILED**
-
-**Root Cause:** SOWA LLM API server at `https://api.ai.sbt/v1/chat/completions` returns HTTP 500 Internal Server Error for all requests.
-
-**Impact:** Complete semantic LLM failure - all natural language queries fail with `semantic_interpretation_failure`.
-
-**Next Steps:**
-1. Contact SOWA team for API server investigation
-2. Verify API health, model availability, and authentication
-3. Once API is restored, semantic queries will work without code changes
