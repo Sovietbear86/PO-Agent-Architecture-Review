@@ -1,16 +1,24 @@
 """Settings configuration for PO Agent Platform v2."""
 
+from pathlib import Path
 from typing import Optional
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# settings.py -> config -> po_agent -> src -> po-agent-platform-v2
+_PROJECT_ROOT = Path(__file__).resolve().parents[3]
+_PROJECT_ENV = _PROJECT_ROOT / ".env"
+
 
 class Settings(BaseSettings):
-    """Application settings loaded from environment variables."""
+    """Application settings loaded from environment variables and project .env."""
 
+    # Absolute project .env prevents the production semantic layer from silently
+    # switching off merely because uvicorn/GigaCode was started one directory up.
+    # Process environment still has normal pydantic-settings precedence.
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(str(_PROJECT_ENV), ".env"),
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
@@ -33,8 +41,6 @@ class Settings(BaseSettings):
     swtr_base_url: str = Field(default="https://portal.works.prod.sbt/swtr")
     swtr_token: Optional[str] = Field(default=None)
 
-    # Semantic LLM. If no API key is configured, the Harness deliberately falls
-    # back to a conservative hermetic interpreter for local/CI execution.
     semantic_llm_enabled: bool = Field(default=True)
     llm_api_base_url: str = Field(default="https://api.ai.sbt/openai/v1")
     llm_api_key: Optional[str] = Field(default=None)
