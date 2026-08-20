@@ -11,21 +11,17 @@
 6. Prefer truthful RED/YELLOW/BLOCKED over false GREEN.
 
 ## Current assignment
-
-`ASSIGNMENT_ID = GATE_D_48_SKILL_RECOVERY_AUDIT_015`
-
-`TARGET_BRANCH = feat/gate-d-48-skill-recovery-v1`
-
-`ASSIGNMENT_PATH = qa_assignments/GATE_D_48_SKILL_RECOVERY_AUDIT_015.md`
-
-`REPORT_PATH = qa_reports/GATE_D_48_SKILL_RECOVERY_AUDIT_015.md`
+`ASSIGNMENT_ID = GATE_E_WAVE1_TASK_INTELLIGENCE_016`
+`TARGET_BRANCH = feat/gate-e-wave1-task-intelligence-v1`
+`ASSIGNMENT_PATH = qa_assignments/GATE_E_WAVE1_TASK_INTELLIGENCE_016.md`
+`REPORT_PATH = qa_reports/GATE_E_WAVE1_TASK_INTELLIGENCE_016.md`
 
 Read first:
 - `PO_AGENT_HARNESS_EVOLUTION_PLAN.md`
 - `PO_AGENT_48_SKILL_MATRIX.md`
-- `po-agent-platform-v2/docs/recovery/CANONICAL_SKILL_CATALOG.md`
-- `PO_AGENT_PLATFORM_V2_ADDENDUM_SKILLS_CLARIFICATION.md`
-- `qa_reports/LEARNING_LOOP_014_SPRINT_HEALTH_ROLLBACK.md`
-- `qa_assignments/GATE_D_48_SKILL_RECOVERY_AUDIT_015.md`
+- `qa_reports/GATE_D_48_SKILL_RECOVERY_AUDIT_015.md`
+- `po-agent-platform-v2/src/po_agent/analysis/task_intelligence.py`
+- `po-agent-platform-v2/tests/test_task_intelligence.py`
+- `qa_assignments/GATE_E_WAVE1_TASK_INTELLIGENCE_016.md`
 
-Execute the assignment exactly. Audit repository history/specifications where required. Do not start Gate E and do not modify the matrix. After publishing the report, stop and tell the user only that the report has been published.
+Execute the assignment exactly. Be strict about the distinction between an analyzer existing and a user query being production-E2E reachable. Do not repair code. After publishing the report, stop.
