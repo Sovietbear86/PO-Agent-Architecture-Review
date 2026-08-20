@@ -1,10 +1,10 @@
 """Hardened production AS21 adapter for real multi-filter Core-8 queries.
 
-This layer repairs a contract gap exposed by exhaustive live-AS21 testing:
-the cached `/api/v1/tasks` representation is not guaranteed to retain space or
-sprint relations even though MCP-SWTR can prove them.  We therefore join the
-cached canonical task facts with live read-only SWTR evidence instead of
-interpreting missing relation fields as an empty result.
+The cached `/api/v1/tasks` representation and the SWTR sprint-list facade are
+not authoritative for relation membership on their own.  Sprint membership is
+therefore proven by hydrating each candidate task from the individual SWTR unit
+and comparing its real sprint attribute with the requested sprint.  A facade
+must never be allowed to broaden a requested sprint silently.
 """
 from __future__ import annotations
 
@@ -34,7 +34,6 @@ _TASK_CODE = re.compile(r"^[A-Z][A-Z0-9]*-\d+$", re.I)
 
 
 def _unit_from_payload(value: Any) -> dict[str, Any] | None:
-    """Find a real SWTR unit object without guessing from unrelated dictionaries."""
     if isinstance(value, dict):
         code = value.get("code")
         if isinstance(code, str) and _TASK_CODE.fullmatch(code.strip()):
@@ -87,9 +86,13 @@ def _space_code(value: Any) -> str | None:
     return None
 
 
-class HardenedProductionTaskApiAS21Adapter(ProductionTaskApiAS21Adapter):
-    """Production adapter that treats missing cached relations as unknown, never empty."""
+def _raw_relations(unit: dict[str, Any]) -> tuple[str | None, str | None]:
+    attrs = unit.get("attributes") if isinstance(unit.get("attributes"), list) else []
+    attr_map = {item.get("code"): item.get("value") for item in attrs if isinstance(item, dict) and item.get("code")}
+    return _space_code(unit.get("space")), _identifier(attr_map.get("scrum_board_plugin_sprint"))
 
+
+class HardenedProductionTaskApiAS21Adapter(ProductionTaskApiAS21Adapter):
     source_facts = frozenset({"tasks", "attachments", "sprints", "releases", "spaces"})
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -120,40 +123,10 @@ class HardenedProductionTaskApiAS21Adapter(ProductionTaskApiAS21Adapter):
         return unit
 
     async def sprint_exists(self, sprint_id: str) -> bool:
-        """Validate an explicit sprint ID through the existing live SWTR tasks facade.
-
-        The facade intentionally has no standalone `/sprints/{id}` route.  Its
-        `/sprints/{id}/tasks` route is the canonical read capability and returns
-        the requested sprint identifier even for an empty corpus.  Therefore
-        existence is proven by a successful, well-formed source response whose
-        `sprint_id` matches the selector.  A transport/source failure is never
-        converted into a false "does not exist" fact.
-        """
         normalized = (sprint_id or "").strip()
         if not normalized:
             return False
-        try:
-            response = await self._client.get(
-                f"/api/v1/swtr-read/sprints/{normalized}/tasks",
-                params={"limit": 1},
-            )
-            if response.status_code == 404:
-                return False
-            response.raise_for_status()
-        except httpx.HTTPStatusError as exc:
-            raise AS21SourceUnavailable(f"live sprint validation failed: HTTP {exc.response.status_code}") from exc
-        except httpx.HTTPError as exc:
-            raise AS21SourceUnavailable(f"live sprint validation failed: {type(exc).__name__}") from exc
-        try:
-            payload = response.json()
-        except ValueError as exc:
-            raise AS21SourceError("live sprint validation endpoint returned invalid JSON") from exc
-        if not isinstance(payload, dict):
-            raise AS21SourceError("live sprint validation endpoint returned malformed payload")
-        returned_id = payload.get("sprint_id")
-        if not isinstance(returned_id, str):
-            raise AS21SourceError("live sprint validation response omitted sprint_id")
-        return returned_id.casefold() == normalized.casefold()
+        return bool(await self.get_sprint_tasks(normalized))
 
     @staticmethod
     def _map_raw_unit(unit: dict[str, Any], *, sprint_id: str | None = None, space: str | None = None) -> Task | None:
@@ -184,55 +157,42 @@ class HardenedProductionTaskApiAS21Adapter(ProductionTaskApiAS21Adapter):
         grounded_sprint = sprint_id or _identifier(attrs.get("scrum_board_plugin_sprint"))
         release_id = _identifier(attrs.get("fix_version_s"))
         return Task(
-            key=code.upper().strip(),
-            id=code.upper().strip(),
-            title=title,
+            key=code.upper().strip(), id=code.upper().strip(), title=title,
             description=unit.get("description") if isinstance(unit.get("description"), str) else None,
-            status=status,
-            status_raw=status_raw or None,
-            status_category=get_status_category(status),
-            created_at=created,
-            updated_at=updated,
-            assignee=display,
-            assignee_id=external_id,
-            assignee_login=login,
-            project_space=source_data["swtr_space"],
-            sprint_id=grounded_sprint,
-            release_id=release_id,
-            source="swtr",
-            source_data=source_data,
+            status=status, status_raw=status_raw or None, status_category=get_status_category(status),
+            created_at=created, updated_at=updated, assignee=display, assignee_id=external_id,
+            assignee_login=login, project_space=source_data["swtr_space"], sprint_id=grounded_sprint,
+            release_id=release_id, source="swtr", source_data=source_data,
         )
 
     async def _hydrate_relation(self, task: Task) -> Task:
-        if task.project_space and task.sprint_id:
-            return task
         unit = await self._read_raw_unit(task.key)
         if unit is None:
             return task
-        attrs = unit.get("attributes") if isinstance(unit.get("attributes"), list) else []
-        attr_map = {item.get("code"): item.get("value") for item in attrs if isinstance(item, dict) and item.get("code")}
-        project_space = task.project_space or _space_code(unit.get("space"))
-        sprint_id = task.sprint_id or _identifier(attr_map.get("scrum_board_plugin_sprint"))
+        project_space, sprint_id = _raw_relations(unit)
         source_data = dict(task.source_data)
+        attrs = unit.get("attributes") if isinstance(unit.get("attributes"), list) else []
         if project_space:
             source_data["swtr_space"] = project_space
         if sprint_id:
             source_data["sprint_id"] = sprint_id
-        if attrs and not source_data.get("swtr_attributes"):
+        if attrs:
             source_data["swtr_attributes"] = attrs
-        return task.model_copy(update={"project_space": project_space, "sprint_id": sprint_id, "source_data": source_data})
+        return task.model_copy(update={
+            "project_space": project_space or task.project_space,
+            "sprint_id": sprint_id or task.sprint_id,
+            "source_data": source_data,
+        })
 
     async def _hydrate_relations(self, tasks: list[Task]) -> list[Task]:
         semaphore = asyncio.Semaphore(12)
-
         async def hydrate(task: Task) -> Task:
             async with semaphore:
                 return await self._hydrate_relation(task)
-
         return list(await asyncio.gather(*(hydrate(task) for task in tasks))) if tasks else []
 
     async def get_sprint_tasks(self, sprint_id: str, space: str | None = None) -> list[Task]:
-        normalized = (sprint_id or "").strip()
+        normalized = (sprint_id or "").strip().upper()
         if not normalized:
             return []
         params = {"complete": "true", "limit": 100, "max_pages": 500}
@@ -255,35 +215,33 @@ class HardenedProductionTaskApiAS21Adapter(ProductionTaskApiAS21Adapter):
             raise AS21SourceError("task-api sprint task endpoint returned an incomplete corpus")
 
         rows = _sprint_rows(payload)
-        codes = []
+        codes: list[str] = []
         seen: set[str] = set()
         for row in rows:
             code = _task_code_from_row(row)
             if code and code not in seen:
-                seen.add(code)
-                codes.append(code)
+                seen.add(code); codes.append(code)
         if rows and not codes:
             raise AS21SourceError("live sprint rows do not expose canonical task codes")
 
-        cached = await TaskApiAS21Adapter.search_tasks(self, "", max_results=self._scan_limit)
-        cached_by_key = {task.key.upper(): task for task in cached}
-        result: list[Task] = []
-        normalized_space = space.upper().strip() if space else None
-        for code in codes:
-            task = cached_by_key.get(code)
-            if task is None:
-                unit = _unit_from_payload(next((row for row in rows if _task_code_from_row(row) == code), {}))
-                task = self._map_raw_unit(unit, sprint_id=normalized, space=normalized_space) if unit else None
-                if task is None:
-                    raw = await self._read_raw_unit(code)
-                    task = self._map_raw_unit(raw, sprint_id=normalized, space=normalized_space) if raw else None
-            if task is None:
-                continue
-            task_space = task.project_space or normalized_space
-            if normalized_space and task_space and task_space.casefold() != normalized_space.casefold():
-                continue
-            result.append(task.model_copy(update={"sprint_id": normalized, "project_space": task_space}))
-        return result
+        # CRITICAL INVARIANT: the sprint-list facade is only a candidate source.
+        # It has previously returned tasks from another sprint.  Prove membership
+        # from each individual SWTR unit before a task can enter the result set.
+        semaphore = asyncio.Semaphore(12)
+        async def prove(code: str):
+            async with semaphore:
+                unit = await self._read_raw_unit(code)
+            if unit is None:
+                return None
+            real_space, real_sprint = _raw_relations(unit)
+            if not real_sprint or real_sprint.casefold() != normalized.casefold():
+                return None
+            if space and (not real_space or real_space.casefold() != space.strip().casefold()):
+                return None
+            return self._map_raw_unit(unit, sprint_id=real_sprint, space=real_space)
+
+        proven = await asyncio.gather(*(prove(code) for code in codes)) if codes else []
+        return [task for task in proven if task is not None]
 
     async def search_tasks(self, jql: str, max_results: int = 50, fields: list[str] | None = None) -> list[Task]:
         filters, free_text = _parse_query(jql)
@@ -293,21 +251,15 @@ class HardenedProductionTaskApiAS21Adapter(ProductionTaskApiAS21Adapter):
         sprint = filters.get("sprint_id")
         if not project and not sprint:
             return await super().search_tasks(jql, max_results=max_results, fields=fields)
-
         remaining = dict(filters)
-        remaining.pop("project_space", None)
-        remaining.pop("sprint_id", None)
-
+        remaining.pop("project_space", None); remaining.pop("sprint_id", None)
         if sprint:
             candidates = await self.get_sprint_tasks(sprint, space=project)
         else:
-            # Narrow by every proven cached filter first, then hydrate the missing
-            # relation from raw SWTR. Missing project in cache is UNKNOWN, not NO.
             cached_filters = {k: v for k, v in remaining.items() if k in {"assignee", "status", "release_id", "key", "source"}}
             query = " AND ".join(f"{k if k != 'release_id' else 'release'} = {v}" for k, v in cached_filters.items())
             candidates = await TaskApiAS21Adapter.search_tasks(self, query, max_results=self._scan_limit, fields=fields)
             candidates = await self._hydrate_relations(candidates)
-
         final_filters = dict(remaining)
         if project:
             final_filters["project_space"] = project
