@@ -79,14 +79,31 @@ class LiveGroundedEntityResolver(GroundedEntityResolver):
             context["known_releases"] = sorted(merged)
         return context
 
+    async def _explicit_sprint_has_source_evidence(self, sprint_id: str) -> bool:
+        """Require positive source evidence, not an echoed selector.
+
+        MCP's sprint-task facade currently echoes the requested sprint_id even
+        when the identifier is invented. In production we can additionally ask
+        the adapter for the complete sprint corpus. A non-empty corpus is
+        positive evidence. An empty corpus is treated as unproven and therefore
+        fails closed rather than silently executing an unfiltered/false-empty
+        query. Adapters used by narrow unit tests may not expose get_sprint_tasks;
+        those retain the legacy validator-only contract.
+        """
+        reader = getattr(self.adapter, "get_sprint_tasks", None)
+        if not callable(reader):
+            return True
+        tasks = await reader(sprint_id)
+        return bool(tasks)
+
     async def _ground_live_explicit_sprint(self, frame: SemanticFrame, original_query: str) -> SemanticFrame | None:
         """Validate and preserve a user-supplied full sprint ID using live SWTR.
 
         The cached task scan is not an authoritative sprint directory. If the
         precision layer extracted a full sprint ID, validate that exact ID via
-        the live sprint endpoint. On success, ground all other entities normally
-        while protecting the validated sprint selector from the base resolver's
-        cached `known_sprints` set.
+        live source evidence. A source endpoint echo by itself is insufficient:
+        where a complete sprint corpus is available, at least one source-backed
+        task is required to prove the selector. Unproven selectors fail closed.
         """
         explicit = (frame.slots.get("sprint_id") or "").strip()
         if not explicit:
@@ -95,6 +112,8 @@ class LiveGroundedEntityResolver(GroundedEntityResolver):
         if not callable(validator):
             return None
         exists = await validator(explicit)
+        if exists:
+            exists = await self._explicit_sprint_has_source_evidence(explicit)
         if not exists:
             return SemanticFrame(
                 canonical_query=frame.canonical_query,
