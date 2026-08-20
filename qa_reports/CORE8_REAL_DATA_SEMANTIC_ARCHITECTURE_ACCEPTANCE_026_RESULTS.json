@@ -1,0 +1,411 @@
+{
+  "timestamp": "2026-08-20T20:27:43.239810",
+  "head": "de17aaa",
+  "oracle": {
+    "sprint1_exists": true,
+    "sprint1_tasks": 100,
+    "garanin_tasks": [],
+    "sprint2_exists": true,
+    "sprint2_tasks": 20,
+    "moiseev_tasks": []
+  },
+  "section_b": {
+    "B1": {
+      "query": "\u041f\u043e\u043a\u0430\u0436\u0438 \u0437\u0430\u0434\u0430\u0447\u0438 \u0413\u0430\u0440\u0430\u043d\u0438\u043d\u0430 \u0432 DMS-SPRNT-1",
+      "status_code": 200,
+      "task_keys": [],
+      "missing": [],
+      "extra": [],
+      "status": "PASS"
+    },
+    "B2": {
+      "query": "\u0427\u0442\u043e \u0432\u0438\u0441\u0438\u0442 \u043d\u0430 \u0413\u0430\u0440\u0430\u043d\u0438\u043d\u0435 \u0432 \u0441\u043f\u0440\u0438\u043d\u0442\u0435 DMS-SPRNT-1?",
+      "status_code": 200,
+      "task_keys": [],
+      "missing": [],
+      "extra": [],
+      "status": "PASS"
+    },
+    "B3": {
+      "query": "\u041a\u0430\u043a\u0438\u0435 \u0442\u0438\u043a\u0435\u0442\u044b \u0443 \u0413\u0430\u0440\u0430\u043d\u0438\u043d\u0430 \u043e\u0442\u043d\u043e\u0441\u044f\u0442\u0441\u044f \u043a DMS-SPRNT-1?",
+      "status_code": 200,
+      "task_keys": [],
+      "missing": [],
+      "extra": [],
+      "status": "PASS"
+    },
+    "B4": {
+      "query": "\u0412\u044b\u0432\u0435\u0434\u0438 \u0440\u0430\u0431\u043e\u0442\u0443 \u0420\u043e\u0434\u0438\u043e\u043d\u0430 \u0413\u0430\u0440\u0430\u043d\u0438\u043d\u0430 \u0437\u0430 DMS-SPRNT-1",
+      "status_code": 200,
+      "task_keys": [],
+      "missing": [],
+      "extra": [],
+      "status": "PASS"
+    },
+    "B5": {
+      "query": "\u041f\u043e DMS-SPRNT-1 \u0447\u0442\u043e \u043d\u0430\u0437\u043d\u0430\u0447\u0435\u043d\u043e \u0413\u0430\u0440\u0430\u043d\u0438\u043d\u0443?",
+      "status_code": 200,
+      "task_keys": [],
+      "missing": [],
+      "extra": [],
+      "status": "PASS"
+    },
+    "B6": {
+      "query": "\u041c\u043d\u0435 \u043d\u0443\u0436\u0435\u043d \u0441\u043f\u0438\u0441\u043e\u043a \u0437\u0430\u0434\u0430\u0447 \u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u044f \u0413\u0430\u0440\u0430\u043d\u0438\u043d \u0432 DMS-SPRNT-1",
+      "status_code": 200,
+      "task_keys": [],
+      "missing": [],
+      "extra": [],
+      "status": "PASS"
+    },
+    "B7": {
+      "query": "\u041f\u043e\u043a\u0430\u0436\u0438, \u043f\u043e\u0436\u0430\u043b\u0443\u0439\u0441\u0442\u0430, \u0437\u0430\u0434\u0430\u0447\u0438 \u043f\u043e DMS-SPRNT-1, \u043a\u043e\u0442\u043e\u0440\u044b\u0435 \u0441\u0435\u0439\u0447\u0430\u0441 \u043d\u0430 \u0413\u0430\u0440\u0430\u043d\u0438\u043d\u0435",
+      "status_code": 200,
+      "task_keys": [],
+      "missing": [],
+      "extra": [],
+      "status": "PASS"
+    },
+    "B8": {
+      "query": "DMS-SPRNT-1: \u0447\u0442\u043e \u0443 \u0413\u0430\u0440\u0430\u043d\u0438\u043d\u0430?",
+      "status_code": 200,
+      "task_keys": [],
+      "missing": [],
+      "extra": [],
+      "status": "PASS"
+    }
+  },
+  "section_c": {
+    "C1": {
+      "query": "\u041f\u043e\u043a\u0430\u0436\u0438 \u0437\u0430\u0434\u0430\u0447\u0438 \u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u044f \u041c\u043e\u0438\u0441\u0435\u0435\u0432\u0430 \u0432 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u0435 DMS \u0441\u043e \u0441\u0442\u0430\u0442\u0443\u0441\u043e\u043c OPEN",
+      "status_code": 200,
+      "task_keys": []
+    },
+    "C2": {
+      "query": "\u041d\u0430\u0439\u0434\u0438 OPEN-\u0437\u0430\u0434\u0430\u0447\u0438 \u041c\u043e\u0438\u0441\u0435\u0435\u0432\u0430 \u043f\u043e DMS",
+      "status_code": 200,
+      "task_keys": []
+    },
+    "C3": {
+      "query": "\u0427\u0442\u043e \u0432 DMS \u0441\u0435\u0439\u0447\u0430\u0441 \u0432\u0438\u0441\u0438\u0442 \u043d\u0430 \u041c\u043e\u0438\u0441\u0435\u0435\u0432\u0435 \u0441\u043e \u0441\u0442\u0430\u0442\u0443\u0441\u043e\u043c OPEN?",
+      "status_code": 200,
+      "task_keys": []
+    },
+    "C4": {
+      "query": "\u041f\u043e \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u0443 DMS \u043f\u043e\u043a\u0430\u0436\u0438 \u0440\u0430\u0431\u043e\u0442\u0443 \u041c\u043e\u0438\u0441\u0435\u0435\u0432\u0430, \u0441\u0442\u0430\u0442\u0443\u0441 OPEN",
+      "status_code": 200,
+      "task_keys": []
+    },
+    "C5": {
+      "query": "\u0423 \u041c\u043e\u0438\u0441\u0435\u0435\u0432\u0430 \u043a\u0430\u043a\u0438\u0435 \u0437\u0430\u0434\u0430\u0447\u0438 \u0432 DMS \u0438\u043c\u0435\u044e\u0442 \u0441\u0442\u0430\u0442\u0443\u0441 OPEN?",
+      "status_code": 200,
+      "task_keys": []
+    }
+  },
+  "section_d": {
+    "D1": {
+      "desc": "person + sprint",
+      "query": "\u041f\u043e\u043a\u0430\u0436\u0438 \u0437\u0430\u0434\u0430\u0447\u0438 \u041c\u043e\u0438\u0441\u0435\u0435\u0432\u0430 \u0432 DMS-SPRNT-2",
+      "status_code": 200,
+      "task_keys": []
+    },
+    "D2": {
+      "desc": "person + product",
+      "query": "\u041f\u043e\u043a\u0430\u0436\u0438 \u0437\u0430\u0434\u0430\u0447\u0438 \u041c\u043e\u0438\u0441\u0435\u0435\u0432\u0430 \u0432 DMS",
+      "status_code": 200,
+      "task_keys": []
+    },
+    "D3": {
+      "desc": "person + status",
+      "query": "\u041f\u043e\u043a\u0430\u0436\u0438 \u0437\u0430\u0434\u0430\u0447\u0438 \u041c\u043e\u0438\u0441\u0435\u0435\u0432\u0430 \u0441\u043e \u0441\u0442\u0430\u0442\u0443\u0441\u043e\u043c OPEN",
+      "status_code": 200,
+      "task_keys": []
+    },
+    "D4": {
+      "desc": "person + product + status",
+      "query": "\u041f\u043e\u043a\u0430\u0436\u0438 \u0437\u0430\u0434\u0430\u0447\u0438 \u041c\u043e\u0438\u0441\u0435\u0435\u0432\u0430 \u0432 DMS \u0441\u043e \u0441\u0442\u0430\u0442\u0443\u0441\u043e\u043c OPEN",
+      "status_code": 200,
+      "task_keys": []
+    },
+    "D5": {
+      "desc": "person + product + sprint",
+      "query": "\u041f\u043e\u043a\u0430\u0436\u0438 \u0437\u0430\u0434\u0430\u0447\u0438 \u041c\u043e\u0438\u0441\u0435\u0435\u0432\u0430 \u0432 DMS-SPRNT-2",
+      "status_code": 200,
+      "task_keys": []
+    },
+    "D6": {
+      "desc": "person + product + sprint + status",
+      "query": "\u041f\u043e\u043a\u0430\u0436\u0438 \u0437\u0430\u0434\u0430\u0447\u0438 \u041c\u043e\u0438\u0441\u0435\u0435\u0432\u0430 \u0432 DMS-SPRNT-2 \u0441\u043e \u0441\u0442\u0430\u0442\u0443\u0441\u043e\u043c OPEN",
+      "status_code": 200,
+      "task_keys": []
+    }
+  },
+  "section_e": {
+    "E1": {
+      "query": "\u041f\u043e\u043a\u0430\u0436\u0438 \u0437\u0430\u0434\u0430\u0447\u0438 \u0432 DMS-SPRNT-1",
+      "desc": "Should return tasks",
+      "status_code": 200,
+      "task_keys": [],
+      "fail_closed": true
+    },
+    "E2": {
+      "query": "\u041f\u043e\u043a\u0430\u0436\u0438 \u0437\u0430\u0434\u0430\u0447\u0438 \u0432 DMS-SPRNT-2",
+      "desc": "Should return tasks",
+      "status_code": 200,
+      "task_keys": [],
+      "fail_closed": true
+    },
+    "E3": {
+      "query": "\u041f\u043e\u043a\u0430\u0436\u0438 \u0437\u0430\u0434\u0430\u0447\u0438 \u0432 DMS-SPRNT-999999",
+      "desc": "Should fail closed (no tasks)",
+      "status_code": 200,
+      "task_keys": [],
+      "fail_closed": true
+    },
+    "E4": {
+      "query": "\u041f\u043e\u043a\u0430\u0436\u0438 \u0437\u0430\u0434\u0430\u0447\u0443 DMS-261",
+      "desc": "Should return specific task",
+      "status_code": 200,
+      "task_keys": [],
+      "fail_closed": true
+    }
+  },
+  "section_f": {
+    "F1": {
+      "initial": "\u041f\u043e\u043a\u0430\u0436\u0438 \u0437\u0430\u0434\u0430\u0447\u0438 \u0413\u0430\u0440\u0430\u043d\u0438\u043d\u0430 \u0432 DMS-SPRNT-1",
+      "followup": "\u0422\u044b \u043d\u0435 \u043f\u0440\u0430\u0432, \u043f\u0440\u043e\u0432\u0435\u0440\u044c \u0435\u0449\u0451 \u0440\u0430\u0437",
+      "initial_status": 200,
+      "followup_status": 200,
+      "has_correction": true
+    },
+    "F2": {
+      "initial": "\u041f\u043e\u043a\u0430\u0436\u0438 \u0437\u0430\u0434\u0430\u0447\u0438 \u0413\u0430\u0440\u0430\u043d\u0438\u043d\u0430 \u0432 DMS-SPRNT-1",
+      "followup": "\u041d\u0435\u0442, \u044f \u0438\u043c\u0435\u043b \u0432 \u0432\u0438\u0434\u0443 \u041c\u043e\u0438\u0441\u0435\u0435\u0432\u0430",
+      "initial_status": 200,
+      "followup_status": 200,
+      "has_correction": true
+    },
+    "F3": {
+      "initial": "\u041f\u043e\u043a\u0430\u0436\u0438 \u0437\u0430\u0434\u0430\u0447\u0438 \u041c\u043e\u0438\u0441\u0435\u0435\u0432\u0430 \u0432 DMS",
+      "followup": "\u041e\u043f\u0435\u0447\u0430\u0442\u0430\u043b\u0441\u044f. \u0420\u0435\u0447\u044c \u0438\u0434\u0435\u0442 \u043e \u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u0435 \u0413\u0430\u0440\u0430\u043d\u0438\u043d \u0432 \u043f\u0440\u043e\u0441\u0442\u0440\u0430\u043d\u0441\u0442\u0432\u0435 DMS",
+      "initial_status": 200,
+      "followup_status": 200,
+      "has_correction": true
+    },
+    "F4": {
+      "initial": "\u041f\u043e\u043a\u0430\u0436\u0438 \u043e\u0442\u043a\u0440\u044b\u0442\u044b\u0435 \u0437\u0430\u0434\u0430\u0447\u0438 \u041c\u043e\u0438\u0441\u0435\u0435\u0432\u0430 \u0432 DMS",
+      "followup": "\u0421\u0442\u043e\u043f, \u0441\u0442\u0430\u0442\u0443\u0441 \u0438\u043c\u0435\u043b \u0432 \u0432\u0438\u0434\u0443 IN PROGRESS",
+      "initial_status": 200,
+      "followup_status": 200,
+      "has_correction": true
+    },
+    "F5": {
+      "initial": "\u041f\u043e\u043a\u0430\u0436\u0438 \u0437\u0430\u0434\u0430\u0447\u0438 \u041c\u043e\u0438\u0441\u0435\u0435\u0432\u0430 \u0432 DMS-SPRNT-1",
+      "followup": "\u041d\u0435 \u044d\u0442\u043e\u0442 \u0441\u043f\u0440\u0438\u043d\u0442, \u0432\u043e\u0437\u044c\u043c\u0438 DMS-SPRNT-2",
+      "initial_status": 200,
+      "followup_status": 200,
+      "has_correction": true
+    },
+    "F6": {
+      "initial": "\u041f\u043e\u043a\u0430\u0436\u0438 \u0437\u0430\u0434\u0430\u0447\u0438 \u0413\u0430\u0440\u0430\u043d\u0438\u043d\u0430 \u0432 DMS",
+      "followup": "\u041f\u0435\u0440\u0435\u043f\u0440\u043e\u0432\u0435\u0440\u044c \u0438\u0441\u0442\u043e\u0447\u043d\u0438\u043a, \u043a\u0430\u0436\u0435\u0442\u0441\u044f \u0442\u044b \u0447\u0442\u043e-\u0442\u043e \u043f\u043e\u0442\u0435\u0440\u044f\u043b",
+      "initial_status": 200,
+      "followup_status": 200,
+      "has_correction": true
+    }
+  },
+  "section_g": {
+    "G1": {
+      "query": "\u041f\u043e\u043a\u0430\u0436\u0438 \u0437\u0430\u0434\u0430\u0447\u0438 \u0413\u0430\u0440\u0430\u043d\u0438\u043d\u0430 \u0432 DMS-SPRNT-1",
+      "desc": "Original",
+      "status_code": 200,
+      "task_keys": [],
+      "status": "PASS"
+    },
+    "G2": {
+      "query": "\u041f\u043e\u043a\u0430\u0436\u0438 \u0437\u0430\u0434\u0430\u0447\u0438 \u0413\u0430\u0440\u0430\u043d\u043d\u0430 \u0432 DMS-SPRNT-1",
+      "desc": "Typo: \u0413\u0430\u0440\u0430\u043d\u0438\u043d->\u0413\u0430\u0440\u0430\u043d\u043d",
+      "status_code": 200,
+      "task_keys": [],
+      "status": "PASS"
+    },
+    "G3": {
+      "query": "\u041f\u043e\u043a\u0430\u0436\u0438 \u0437\u0430\u0434\u0430\u0447\u0438 \u0413\u0430\u0440\u0430\u043d\u0438\u043d\u0430 \u0432 DMS-SPRNT-1",
+      "desc": "Reordered: \u0412 DMS-SPRNT-1 \u0437\u0430\u0434\u0430\u0447\u0438 \u0413\u0430\u0440\u0430\u043d\u0438\u043d\u0430",
+      "status_code": 200,
+      "task_keys": [],
+      "status": "PASS"
+    },
+    "G4": {
+      "query": "\u041f\u043e\u043a\u0430\u0436\u0438 \u0437\u0430\u0434\u0430\u0447\u0438 \u0413\u0430\u0440\u0430\u043d\u0438\u043d\u0430 \u0432 DMS-SPRNT-1",
+      "desc": "Reordered: \u0413\u0430\u0440\u0430\u043d\u0438\u043d\u0430 \u0437\u0430\u0434\u0430\u0447\u0438 \u0432 DMS-SPRNT-1",
+      "status_code": 200,
+      "task_keys": [],
+      "status": "PASS"
+    },
+    "G5": {
+      "query": "\u041f\u043e\u043a\u0430\u0436\u0438 \u0437\u0430\u0434\u0430\u0447\u0438 \u0413\u0430\u0440\u0430\u043d\u0438\u043d\u0430 \u0432 DMS-SPRNT-1",
+      "desc": "Reordered: \u0417\u0430\u0434\u0430\u0447\u0438 \u0413\u0430\u0440\u0430\u043d\u0438\u043d\u0430 \u0432 DMS-SPRNT-1",
+      "status_code": 200,
+      "task_keys": [],
+      "status": "PASS"
+    }
+  },
+  "section_h": {
+    "H1": {
+      "query": "\u041f\u043e\u043a\u0430\u0436\u0438 \u0437\u0430\u0434\u0430\u0447\u0438 \u041f\u0443\u043f\u043a\u0438\u043d\u0430 \u0432 DMS",
+      "desc": "Unknown person",
+      "status_code": 200,
+      "task_keys": [],
+      "fail_closed": true
+    },
+    "H2": {
+      "query": "\u041f\u043e\u043a\u0430\u0436\u0438 \u0437\u0430\u0434\u0430\u0447\u0438 \u0432 DMS-SPRNT-999999",
+      "desc": "Unknown sprint",
+      "status_code": 200,
+      "task_keys": [],
+      "fail_closed": true
+    },
+    "H3": {
+      "query": "\u041f\u043e\u043a\u0430\u0436\u0438 \u0437\u0430\u0434\u0430\u0447\u0438 \u0441\u043e \u0441\u0442\u0430\u0442\u0443\u0441\u043e\u043c DOING",
+      "desc": "Unknown status",
+      "status_code": 200,
+      "task_keys": [],
+      "fail_closed": true
+    },
+    "H4": {
+      "query": "\u041f\u043e\u043a\u0430\u0436\u0438 \u0437\u0430\u0434\u0430\u0447\u0438 \u0413\u0430\u0440\u0430\u043d\u0438\u043d\u0430 \u0432 DMS",
+      "desc": "Normal query",
+      "status_code": 200,
+      "task_keys": [],
+      "fail_closed": true
+    },
+    "H5": {
+      "query": "\u041f\u043e\u043a\u0430\u0436\u0438 \u0437\u0430\u0434\u0430\u0447\u0438 \u0438\u0437 \u043d\u0435\u0441\u0443\u0449\u0435\u0441\u0442\u0432\u0443\u044e\u0449\u0435\u0433\u043e \u0438\u0441\u0442\u043e\u0447\u043d\u0438\u043a\u0430",
+      "desc": "Invalid source",
+      "status_code": 200,
+      "task_keys": [],
+      "fail_closed": true
+    }
+  },
+  "section_i": {
+    "I-task_search": {
+      "query": "\u041f\u043e\u043a\u0430\u0436\u0438 \u0437\u0430\u0434\u0430\u0447\u0438 \u0413\u0430\u0440\u0430\u043d\u0438\u043d\u0430 \u0432 DMS",
+      "status_code": 200,
+      "task_keys": []
+    },
+    "I-task_summary": {
+      "query": "\u041f\u043e\u043a\u0430\u0436\u0438 \u0437\u0430\u0434\u0430\u0447\u0443 DMS-261",
+      "status_code": 200,
+      "task_keys": []
+    },
+    "I-sprint_health": {
+      "query": "\u041a\u0430\u043a\u043e\u0439 \u0441\u043f\u0440\u0438\u043d\u0442 \u0432 DMS?",
+      "status_code": 200,
+      "task_keys": []
+    },
+    "I-velocity": {
+      "query": "\u041a\u0430\u043a\u0430\u044f \u0441\u043a\u043e\u0440\u043e\u0441\u0442\u044c \u043a\u043e\u043c\u0430\u043d\u0434\u044b \u0432 DMS-SPRNT-2?",
+      "status_code": 200,
+      "task_keys": []
+    },
+    "I-team_workload": {
+      "query": "\u041a\u0430\u043a\u0430\u044f \u043d\u0430\u0433\u0440\u0443\u0437\u043a\u0430 \u0443 \u0413\u0430\u0440\u0430\u043d\u0438\u043d\u0430?",
+      "status_code": 200,
+      "task_keys": []
+    },
+    "I-release_health": {
+      "query": "\u041a\u0430\u043a\u043e\u0439 \u0441\u0442\u0430\u0442\u0443\u0441 \u0440\u0435\u043b\u0438\u0437\u043e\u0432 \u0432 DMS?",
+      "status_code": 200,
+      "task_keys": []
+    },
+    "I-competency_match": {
+      "query": "\u041a\u0442\u043e \u0440\u0430\u0431\u043e\u0442\u0430\u0435\u0442 \u043d\u0430\u0434 \u0437\u0430\u0434\u0430\u0447\u0430\u043c\u0438 \u043f\u043e DMS?",
+      "status_code": 200,
+      "task_keys": []
+    },
+    "I-task_quality": {
+      "query": "\u041a\u0430\u043a\u043e\u0435 \u043a\u0430\u0447\u0435\u0441\u0442\u0432\u043e \u0437\u0430\u0434\u0430\u0447 \u0432 DMS?",
+      "status_code": 200,
+      "task_keys": []
+    }
+  },
+  "section_j": {
+    "J1": {
+      "query": "\u041f\u043e\u043a\u0430\u0436\u0438 \u0437\u0430\u0434\u0430\u0447\u0438 \u0413\u0430\u0440\u0430\u043d\u0438\u043d\u0430",
+      "status_code": 200,
+      "task_keys": []
+    },
+    "J2": {
+      "query": "\u041f\u043e\u043a\u0430\u0436\u0438 \u0437\u0430\u0434\u0430\u0447\u0438 \u0432 DMS",
+      "status_code": 200,
+      "task_keys": []
+    },
+    "J3": {
+      "query": "\u041f\u043e\u043a\u0430\u0436\u0438 \u0437\u0430\u0434\u0430\u0447\u0438 \u0441\u043e \u0441\u0442\u0430\u0442\u0443\u0441\u043e\u043c todo",
+      "status_code": 200,
+      "task_keys": []
+    },
+    "J4": {
+      "query": "\u041f\u043e\u043a\u0430\u0436\u0438 \u0437\u0430\u0434\u0430\u0447\u0438 \u0441\u043e \u0441\u0442\u0430\u0442\u0443\u0441\u043e\u043c in_progress",
+      "status_code": 200,
+      "task_keys": []
+    },
+    "J5": {
+      "query": "\u041f\u043e\u043a\u0430\u0436\u0438 \u0437\u0430\u0434\u0430\u0447\u0438 \u0441\u043e \u0441\u0442\u0430\u0442\u0443\u0441\u043e\u043c done",
+      "status_code": 200,
+      "task_keys": []
+    }
+  },
+  "summary": {
+    "timestamp": "2026-08-20T20:27:43.239780",
+    "head": "de17aaa",
+    "section_a": {
+      "sprint1_exists": true,
+      "sprint1_tasks": 100,
+      "garanin_tasks_count": 0,
+      "garanin_tasks": [],
+      "sprint2_exists": true,
+      "sprint2_tasks": 20,
+      "moiseev_tasks_count": 0,
+      "moiseev_tasks": []
+    },
+    "section_b": {
+      "pass_count": 8,
+      "total": 8,
+      "all_pass": true
+    },
+    "section_c": {
+      "pass_count": 5,
+      "total": 5
+    },
+    "section_d": {
+      "pass_count": 6,
+      "total": 6
+    },
+    "section_e": {
+      "pass_count": 4,
+      "total": 4
+    },
+    "section_f": {
+      "pass_count": 6,
+      "total": 6
+    },
+    "section_g": {
+      "pass_count": 5,
+      "total": 5
+    },
+    "section_h": {
+      "fail_closed_count": 5,
+      "total": 5
+    },
+    "section_i": {
+      "pass_count": 8,
+      "total": 8
+    },
+    "section_j": {
+      "pass_count": 5,
+      "total": 5
+    }
+  }
+}
