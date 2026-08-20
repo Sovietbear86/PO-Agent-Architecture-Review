@@ -20,7 +20,9 @@ class Core8SemanticPrecisionInterpreter:
     _HEALTH = ("здоров", "готовност", "health", "readiness")
     _VELOCITY = ("velocity", "велосит", "скорост", "производительност")
     _SPRINT_ID_RE = re.compile(r"\b[A-ZА-Я][A-ZА-Я0-9_]{1,15}-SPRNT-\d+\b", re.I)
-    _TASK_ID_RE = re.compile(r"\b[A-ZА-Я][A-ZА-Я0-9_]{1,15}-\d+\b", re.I)
+    # Do not match the SPRNT-1 suffix inside DMS-SPRNT-1 as a task key.
+    _TASK_ID_RE = re.compile(r"(?<!-)\b[A-ZА-Я][A-ZА-Я0-9_]{1,15}-\d+(?![-A-ZА-Я0-9_])\b", re.I)
+    _TASK_WORD_RE = re.compile(r"\b(?:задач(?:а|и|у|е|ей|ам|ами|ах)?|task|tasks)\b", re.I)
     _PRODUCT_MARKERS = {
         "OLP": (r"\bolp\b", r"\bolap\b", r"\bolap analytics\b"),
         "DMS": (r"\bdms\b", r"\bdatamarts\b", r"\bdata marts\b"),
@@ -48,8 +50,12 @@ class Core8SemanticPrecisionInterpreter:
         return products[0] if len(products) == 1 else None
 
     @classmethod
+    def _explicit_sprint_ids(cls, query: str) -> tuple[str, ...]:
+        return tuple(dict.fromkeys(match.group(0).upper() for match in cls._SPRINT_ID_RE.finditer(query)))
+
+    @classmethod
     def _contradictory_sprint_filters(cls, query: str) -> tuple[str, ...]:
-        explicit = tuple(dict.fromkeys(match.group(0).upper() for match in cls._SPRINT_ID_RE.finditer(query)))
+        explicit = cls._explicit_sprint_ids(query)
         low = query.casefold()
         relative_current = cls._contains(low, cls._SPRINT) and cls._contains(low, cls._CURRENT)
         if len(explicit) > 1:
@@ -73,6 +79,7 @@ class Core8SemanticPrecisionInterpreter:
         asks_current = mentions_sprint and self._contains(low, self._CURRENT)
         slots = dict(frame.slots)
         intent = frame.intent_hint
+        canonical = frame.canonical_query
 
         contradictions = self._contradictory_sprint_filters(query)
         if contradictions:
@@ -84,7 +91,7 @@ class Core8SemanticPrecisionInterpreter:
                 "В запросе указаны несовместимые фильтры спринта. Какой один спринт использовать?",
                 contradictions,
             ))
-            return SemanticFrame(frame.canonical_query, intent, slots, other, frame.confidence, frame.llm_used)
+            return SemanticFrame(canonical, intent, slots, other, frame.confidence, frame.llm_used)
 
         if mentions_sprint and self._contains(low, self._HEALTH):
             intent = "sprint_health"
@@ -92,6 +99,30 @@ class Core8SemanticPrecisionInterpreter:
             intent = "sprint_velocity"
         elif asks_current and self._contains(low, ("какой", "what")):
             intent = "sprint_current"
+
+        # Explicit source sprint IDs are atomic identifiers. The provider may
+        # incorrectly shorten DMS-SPRNT-1 to SPRNT-1 or even classify it as a
+        # task key. Preserve the exact raw identifier here; the grounder still
+        # validates it against source-backed known_sprints before execution.
+        explicit_sprints = self._explicit_sprint_ids(query)
+        if len(explicit_sprints) == 1:
+            sprint_id = explicit_sprints[0]
+            slots["sprint_id"] = sprint_id
+            slots.pop("sprint_raw", None)
+            if "{sprint_id}" in canonical:
+                canonical = canonical.replace("{sprint_id}", sprint_id)
+
+            # Remove provider hallucination caused by parsing the SPRNT-1
+            # suffix as a task entity. A genuine explicit task key elsewhere
+            # in the query is preserved by the robust task-key regex below.
+            explicit_task_keys = tuple(dict.fromkeys(match.group(0).upper() for match in self._TASK_ID_RE.finditer(query)))
+            if not explicit_task_keys:
+                slots.pop("task_key", None)
+                slots.pop("task_id", None)
+                slots.pop("issue_key", None)
+
+            if self._TASK_WORD_RE.search(query) and intent in {None, "task_lookup", "task_by_id", "task_details", "task_detail"}:
+                intent = "task_search"
 
         # Normalize a legacy/provider alias only when the original utterance has
         # exactly one explicit task key and is plainly asking to show/open it.
@@ -103,6 +134,9 @@ class Core8SemanticPrecisionInterpreter:
         products = self._products(query)
         product = products[0] if len(products) == 1 else None
         clarifications = list(frame.clarifications)
+
+        if explicit_sprints and not task_keys:
+            clarifications = [item for item in clarifications if item.field not in {"task_key", "task_id", "issue_key"}]
 
         if len(products) > 1 and (mentions_sprint or "задач" in low or "task" in low or "tasks" in low):
             slots.pop("product", None)
@@ -122,7 +156,7 @@ class Core8SemanticPrecisionInterpreter:
             clarifications = [item for item in clarifications if item.field != "sprint_id"]
 
         return SemanticFrame(
-            canonical_query=frame.canonical_query,
+            canonical_query=canonical,
             intent_hint=intent,
             slots=slots,
             clarifications=clarifications,
