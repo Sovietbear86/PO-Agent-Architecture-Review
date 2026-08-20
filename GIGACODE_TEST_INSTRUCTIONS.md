@@ -4,41 +4,39 @@
 
 ## Handoff protocol
 1. Pull the target branch and read this file before every run.
-2. Do not modify production code, existing tests, fixtures, roadmap docs, skill definitions, configuration values, AS21 data, learning state, or `PO_AGENT_48_SKILL_MATRIX.md`.
-3. The only repository file you may create/update for this run is the assigned QA report.
-4. Commit and push the report to the same target branch.
-5. Never commit credentials, cookies, Authorization headers, tokens, attachment contents, or secrets.
+2. Do not modify production code, prompts, existing tests, fixtures, roadmap docs, skill definitions, AS21 data, learning state, or `PO_AGENT_48_SKILL_MATRIX.md`.
+3. Keep the restored local LLM transport configuration from 027/028, but never commit `.env`, API keys, tokens or secrets.
+4. Only QA report/result files permitted by the assignment may be created/updated.
+5. Commit and push the report to the same target branch.
 6. Prefer truthful RED/YELLOW/BLOCKED over false GREEN.
 
 ## Current assignment
-`ASSIGNMENT_ID = CORE8_REAL_DATA_SEMANTIC_ARCHITECTURE_ACCEPTANCE_026`
+`ASSIGNMENT_ID = CORE8_SEMANTIC_FRAME_BOUNDARY_RETEST_029`
 `TARGET_BRANCH = feat/core8-real-query-hardening-v2`
-`ASSIGNMENT_PATH = qa_assignments/CORE8_REAL_DATA_SEMANTIC_ARCHITECTURE_ACCEPTANCE_026.md`
-`REPORT_PATH = qa_reports/CORE8_REAL_DATA_SEMANTIC_ARCHITECTURE_ACCEPTANCE_026.md`
+`ASSIGNMENT_PATH = qa_assignments/CORE8_SEMANTIC_FRAME_BOUNDARY_RETEST_029.md`
+`REPORT_PATH = qa_reports/CORE8_SEMANTIC_FRAME_BOUNDARY_RETEST_029.md`
 
 Read first:
 - `CORE8_HARDENING_FREEZE.md`
 - `architecture_reviews/SEMANTIC_ROBUSTNESS_ARCH_REVIEW_025.md`
-- `qa_assignments/CORE8_REAL_DATA_SEMANTIC_ARCHITECTURE_ACCEPTANCE_026.md`
+- `qa_reports/CORE8_REAL_DATA_SEMANTIC_ARCHITECTURE_ACCEPTANCE_026_RERUN.md`
+- `qa_assignments/CORE8_SEMANTIC_FRAME_BOUNDARY_RETEST_029.md`
 - `po-agent-platform-v2/src/po_agent/harness/semantic_core_v2.py`
-- `po-agent-platform-v2/src/po_agent/harness/semantic_correction_runtime_v2.py`
 - `po-agent-platform-v2/src/po_agent/harness/production_entity_grounding_v2.py`
+- `po-agent-platform-v2/src/po_agent/harness/semantic_correction_runtime_v2.py`
 - `po-agent-platform-v2/src/po_agent/adapters/evidence_validated_task_api.py`
-- `po-agent-platform-v2/src/po_agent/harness/runtime_factory.py`
-- `po-agent-platform-v2/tests/test_semantic_core_v2.py`
+- `po-agent-platform-v2/tests/test_semantic_frame_boundary_v3.py`
 
 Critical rules:
 - Restart Task API and PO Agent from CURRENT HEAD before testing.
-- Use `PO_AGENT_AS21_MODE=task-api` with the real semantic LLM enabled.
-- GigaCode is QA only; do not repair code during the run.
-- Production natural-language understanding must be LLM-first. Legacy DeterministicRouter/Core8 phrase regexes must not be credited as production success.
-- Prove live SWTR/task-api oracle independently before judging every factual task-set answer.
-- Use complete corpus/pagination and compare exact task keys.
-- Re-prove Garanin/DMS-SPRNT anchors from current source; old counts are hints, not authority.
-- `DMS-SPRNT-999999` must fail closed; an echoed sprint id is not existence evidence.
-- Test broad paraphrase/word-order/grammatical variation without adding code patterns.
-- Test natural corrections including `Ты не прав`, `Опечатался`, `я имел в виду`, status/sprint/person corrections, but judge by semantic behavior rather than literal trigger matching.
-- Disabling semantic LLM in task-api mode must fail closed instead of falling back to regex business routing.
-- Do not start 017_V2 yourself. Only report whether `READY_TO_RERUN_017_V2` is YES or NO.
+- Use real `PO_AGENT_AS21_MODE=task-api` and the restored semantic LLM endpoint.
+- Production NLU must remain LLM-first. Do not credit legacy phrase routers.
+- Do not repair anything during the run.
+- Reuse the unchanged 026 V2 benchmark/oracle methodology; do not tune tests to the new implementation.
+- For assignee/status truth, hydrate sprint task keys through individual task reads.
+- Compare exact task-key sets, not answer text and not count-only equality.
+- A requested filter that disappears and broadens execution is a production failure.
+- Capture pre-ground semantic frame, grounded frame and capability args for focused failures.
+- Do not start 017_V2. Only report `READY_TO_RERUN_017_V2`.
 
-Execute Assignment 026 completely, publish the report, push it, and STOP.
+Execute Assignment 029 completely, publish the report, push it, and STOP.
