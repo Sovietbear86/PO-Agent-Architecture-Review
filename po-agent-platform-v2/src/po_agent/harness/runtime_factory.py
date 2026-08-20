@@ -17,8 +17,8 @@ from .entity_grounding import GroundedEntityResolver, TeamDirectory
 from .fail_closed_dialogue_runtime import FailClosedIntentPreservingDialogueHarnessRuntime
 from .historical_wiring import enable_historical_skills
 from .learned_semantics import LearnedSemanticsStore
-from .live_entity_grounding import LiveGroundedEntityResolver
 from .observed_runtime import ObservedHarnessRuntime
+from .production_entity_grounding_v2 import ProductionEntityResolverV2
 from .resilient_semantics import (
     ResilientBlindConsensusSemanticInterpreter,
     ResilientBlindRecoveryLLMJsonSemanticInterpreter,
@@ -98,7 +98,7 @@ def _build_runtime_with_adapter(
     semantics = LearnedSemanticsStore(learned_semantics_path) if learned_semantics_path else None
     directory = TeamDirectory.from_yaml(team_path)
     if mode == "task-api":
-        grounder = LiveGroundedEntityResolver(adapter, team=directory, semantics=semantics)
+        grounder = ProductionEntityResolverV2(adapter, team=directory, semantics=semantics)
     else:
         grounder = GroundedEntityResolver(adapter, team=directory, semantics=semantics)
 
