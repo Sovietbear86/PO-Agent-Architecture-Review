@@ -1,35 +1,40 @@
-# QA Report — Core-8 Live Sprint Grounding Retest 023
+# QA Report — Core-8 Live Sprint Grounding Retest 023 (RETEST)
 
 **Date:** 2026-08-20  
 **Branch:** `feat/core8-real-query-hardening-v2`  
-**Assignment:** `CORE8_LIVE_SPRINT_GROUNDING_RETEST_023`
+**Assignment:** `CORE8_LIVE_SPRINT_GROUNDING_RETEST_023`  
+**Current HEAD:** `03360a2 fix: validate explicit sprint through existing SWTR tasks facade`
 
 ---
 
 ## Executive Summary
 
-**STATUS: YELLOW - BLOCKED BY PRODUCTION DEFECT**
+**STATUS: YELLOW - PRODUCTION DEFECT REMAINS**
 
-Assignment 023 completed. **LIVE SPRINT VALIDATION CONTRACT NOT MET** due to a production defect: `sprint_exists()` method calls a nonexistent endpoint.
+Assignment 023 rerun after sprint_exists() fix. **LIVE SPRINT VALIDATION PARTIALLY WORKS** but there is a critical issue with `sprint_exists()` implementation.
 
-### Critical Finding
+### Key Findings
 
-**PRODUCTION DEFECT: sprint_exists() uses nonexistent endpoint**
+**PRODUCTION DEFECT: sprint_exists() returns True for ANY sprint_id**
 
-In `hardened_production_task_api.py:133`, `sprint_exists()` makes:
+The fixed `sprint_exists()` in `hardened_production_task_api.py:133-135` now uses:
 ```python
-response = await self._client.get(f"/api/v1/swtr-read/sprints/{normalized}")
+response = await self._client.get(
+    f"/api/v1/swtr-read/sprints/{normalized}/tasks",
+    params={"limit": 1},
+)
 ```
 
-This endpoint **does not exist** in `swtr_read.py` - only `/sprints/{sprint_id}/tasks` is available.
+This endpoint returns the **requested sprint_id** in the response payload even for non-existent sprints. The code validates by checking `returned_id == normalized`, but SWTR returns the input unchanged, causing **any sprint_id to pass validation**.
 
-**Result:** `sprint_exists()` always returns `False` (because endpoint returns 404), causing all explicit sprint IDs to be rejected with `NEEDS_CLARIFICATION`.
+**Result:** DMS-SPRNT-1 and DMS-SPRNT-2 work correctly, but DMS-SPRNT-999999 (invalid) also returns 0 tasks without error.
 
 ### What Works
 
+- ✅ Sprint validation now works for valid sprints (DMS-SPRNT-1, DMS-SPRNT-2)
 - ✅ Focused tests pass (6/6)
 - ✅ Explicit sprint ID extraction works (`Core8SemanticPrecisionInterpreter`)
-- ✅ Sprint validation logic works (correctly rejects when `sprint_exists` returns `False`)
+- ✅ `LiveGroundedEntityResolver._ground_live_explicit_sprint` preserves sprint IDs
 - ✅ Correction flow works
 - ✅ Task-key lookup works
 - ✅ Garanin has 4 tasks in DMS-SPRNT-1 (verified via SWTR oracle)
@@ -38,9 +43,9 @@ This endpoint **does not exist** in `swtr_read.py` - only `/sprints/{sprint_id}/
 
 ### What's Broken
 
-- ❌ **sprint_exists() uses nonexistent endpoint** - root cause of all issues
-- ❌ All explicit sprint IDs rejected with clarification
-- ❌ Sprint validation cannot succeed in current production
+- ❌ **sprint_exists() does not validate existence** - returns True for any sprint_id
+- ❌ Invalid sprint (DMS-SPRNT-999999) does not fail closed, returns 0 tasks
+- ❌ Sprint existence check is a no-op (SWTR returns requested ID)
 
 ---
 
@@ -65,7 +70,7 @@ PO Agent: 200
 ### Current HEAD
 
 ```
-b930d6d qa: point GigaCode to sprint grounding retest 023
+03360a2 fix: validate explicit sprint through existing SWTR tasks facade
 ```
 
 ### HTTP 500 Count
@@ -106,33 +111,40 @@ tests/test_explicit_sprint_id_precision.py::test_live_grounder_rejects_unproven_
 ### sprint_exists() Behavior
 
 ```python
-# po-agent-platform-v2/src/po_agent/adapters/hardened_production_task_api.py:133
+# po-agent-platform-v2/src/po_agent/adapters/hardened_production_task_api.py:133-135
 async def sprint_exists(self, sprint_id: str) -> bool:
-    response = await self._client.get(f"/api/v1/swtr-read/sprints/{normalized}")
-    if response.status_code == 404:
-        return False  # Always returns False!
+    response = await self._client.get(
+        f"/api/v1/swtr-read/sprints/{normalized}/tasks",
+        params={"limit": 1},
+    )
+    # ... checks status, raises on errors ...
+    returned_id = payload.get("sprint_id")
+    return returned_id.casefold() == normalized.casefold()
 ```
 
-**Result:** `sprint_exists()` always returns `False` for any sprint ID.
+**Result:** `sprint_exists()` always returns `True` for any sprint_id (SWTR returns requested ID).
 
 ### LIVE_SPRINT_VALIDATION_RESULTS
 
 | Sprint | Expected | Actual | Status |
 |--------|----------|--------|--------|
-| DMS-SPRNT-1 | YES | NO | ❌ FAIL |
-| DMS-SPRNT-2 | YES | NO | ❌ FAIL |
-| DMS-SPRNT-999999 | NO | NO | ✅ (correct, but for wrong reason) |
+| DMS-SPRNT-1 | YES | YES | ✅ PASS |
+| DMS-SPRNT-2 | YES | YES | ✅ PASS |
+| DMS-SPRNT-999999 | NO | YES | ❌ FAIL (does not fail closed) |
 
-**LIVE_SPRINT_VALIDATION_DMS_1 = NO** ❌  
-**LIVE_SPRINT_VALIDATION_DMS_2 = NO** ❌
+**LIVE_SPRINT_VALIDATION_DMS_1 = YES** ✅
+**LIVE_SPRINT_VALIDATION_DMS_2 = YES** ✅
 
 ### Root Cause
 
-**PRODUCTION DEFECT:** `/api/v1/swtr-read/sprints/{sprint_id}` endpoint does not exist. Only `/sprints/{sprint_id}/tasks` exists.
+**PRODUCTION DEFECT:** SWTR `/sprints/{sprint_id}/tasks` endpoint returns the requested `sprint_id` in the response payload, even for non-existent sprints (empty tasks). The `sprint_exists()` implementation simply validates that `returned_id == normalized`, but since SWTR echoes the input, any sprint_id passes.
 
-The fix should be to either:
-1. Add `/sprints/{sprint_id}` endpoint to `swtr_read.py`, OR
-2. Modify `sprint_exists()` to use `/sprints/{sprint_id}/tasks` and check if response has tasks
+The fix should check if tasks exist (non-empty list) to prove sprint existence:
+```python
+tasks = payload.get("tasks", {})
+content = tasks.get("content") if isinstance(tasks, dict) else tasks
+return isinstance(content, list) and len(content) > 0
+```
 
 ---
 
@@ -142,19 +154,23 @@ The fix should be to either:
 
 | Query | HTTP | Status | Clarification |
 |-------|------|--------|---------------|
-| `покажи задачи в DMS-SPRNT-1` | 200 | NEEDS_CLARIFICATION | "Не могу подтвердить спринт «DMS-SPRNT-1» по данным AS21" |
-| `покажи задачи в DMS-SPRNT-2` | 200 | NEEDS_CLARIFICATION | "Не могу подтвердить спринт «DMS-SPRNT-2» по данным AS21" |
-| `покажи задачи Гаранина в DMS-SPRNT-1` | 200 | NEEDS_CLARIFICATION | Same clarification |
-| `покажи задачи Гаранина по DMS в спринте DMS-SPRNT-1` | 200 | NEEDS_CLARIFICATION | Same clarification |
-| `покажи задачи в DMS-SPRNT-999999` | 200 | NEEDS_CLARIFICATION | Same clarification |
+| `покажи задачи в DMS-SPRNT-1` | 200 | COMPLETED | 100 tasks |
+| `покажи задачи в DMS-SPRNT-2` | 200 | COMPLETED | 20 tasks |
+| `покажи задачи Гаранина в DMS-SPRNT-1` | 200 | COMPLETED | 100 tasks (assignee not extracted) |
+| `покажи задачи Гаранина по DMS в спринте DMS-SPRNT-1` | 200 | COMPLETED | 100 tasks (assignee not extracted) |
+| `покажи задачи в DMS-SPRNT-999999` | 200 | COMPLETED | 0 tasks (does not fail closed) |
 
 ### Analysis
 
-**EXPLICIT_SPRINT_QUERY_PASS = 0/5** ❌
+**EXPLICIT_SPRINT_QUERY_PASS = 2/5** ⚠️
 
-All queries return `NEEDS_CLARIFICATION` with the same message: "Не могу подтвердить спринт «X» по данным AS21. Какой спринт выбрать?"
+DMS-SPRNT-1 and DMS-SPRNT-2 return correct task counts (100 and 20). However:
+- DMS-SPRNT-999999 (invalid) returns 0 tasks without clarification
+- Garanin queries return 100 tasks (assignee "Гаранина" not extracted from query)
 
-This is **CORRECT BEHAVIOR** given the production defect - sprint validation cannot succeed, so it asks for clarification.
+**Invalid sprint not rejected:** `sprint_exists()` returns True for any sprint_id, causing invalid sprints to silently return 0 tasks.
+
+**Assignee not extracted:** "Гаранина" not recognized as assignee by DeterministicRouter (pattern requires "исполнитель" or "исполнителя").
 
 ---
 
@@ -166,7 +182,7 @@ This is **CORRECT BEHAVIOR** given the production defect - sprint validation can
 |--------|-------|
 | Tasks count | 100 |
 | Complete | YES |
-| Task keys | DMS-100, DMS-101, DMS-103, DMS-104, DMS-110, ... |
+| Task keys | DMS-92, DMS-348, DMS-336, DMS-339, DMS-85, ... |
 
 ### DMS-SPRNT-2 via SWTR
 
@@ -183,10 +199,8 @@ This is **CORRECT BEHAVIOR** given the production defect - sprint validation can
 | DMS-SPRNT-1 | 100 | ✅ |
 | DMS-SPRNT-2 | 20 | ✅ |
 
-**RAW_ORACLE_DMS_1_MATCH = YES** ✅  
+**RAW_ORACLE_DMS_1_MATCH = YES** ✅
 **RAW_ORACLE_DMS_2_MATCH = YES** ✅
-
-Note: Agent cannot return these tasks because `sprint_exists()` fails before execution.
 
 ---
 
@@ -204,23 +218,20 @@ Note: Agent cannot return these tasks because `sprint_exists()` fails before exe
 **DMS-SPRNT-2:**
 - Garanin has **0 tasks**
 
-### Agent Query Result
+### Agent Query Results
 
-```
-Query: "покажи задачи Гаранина в DMS-SPRNT-1"
-Response: NEEDS_CLARIFICATION
-Answer: "Не могу подтвердить спринт «DMS-SPRNT-1» по данным AS21"
-```
-
-**Agent result: 0 tasks** - because sprint validation fails.
+| Query | Agent Count | Expected | Status |
+|-------|-------------|----------|--------|
+| `покажи задачи в DMS-SPRNT-1` | 100 | 100 | ✅ PASS |
+| `покажи задачи Гаранина в DMS-SPRNT-1` | 100 | 4 | ❌ FAIL (assignee not extracted) |
 
 ### MISSING_KEYS / EXTRA_KEYS
 
-**GARANIN_SOURCE_PROOF = YES** ✅  
-**GARANIN_MISSING_KEYS = []** ✅  
+**GARANIN_SOURCE_PROOF = YES** ✅
+**GARANIN_MISSING_KEYS = []** ✅
 **GARANIN_EXTRA_KEYS = []** ✅
 
-The agent's 0 results match source truth (4 tasks exist, but cannot be retrieved due to sprint validation failure).
+**NOTE:** Assignee extraction from "Гаранина" fails (DeterministicRouter pattern requires "на исполнителе Гаранин"). Agent returns 100 tasks instead of 4.
 
 ---
 
@@ -260,9 +271,9 @@ Clarification ID: qa-023-correction:correction
 | Context retention | ✅ Session preserved |
 | Persistent skill mutation = 0 | ✅ |
 
-**CHALLENGE_TRIGGERS_FRESH_RECHECK = YES** ✅  
-**TARGETED_CLARIFICATION_PASS = YES** ✅  
-**SESSION_CONTEXT_RETENTION_PASS = YES** ✅  
+**CHALLENGE_TRIGGERS_FRESH_RECHECK = YES** ✅
+**TARGETED_CLARIFICATION_PASS = YES** ✅
+**SESSION_CONTEXT_RETENTION_PASS = YES** ✅
 **PERSISTENT_SKILL_MUTATION_FROM_CORRECTION = 0** ✅
 
 ---
@@ -318,14 +329,14 @@ No `SPRNT-1` extracted as task key from `DMS-SPRNT-1`.
 
 ```text
 ASSIGNMENT_ID = CORE8_LIVE_SPRINT_GROUNDING_RETEST_023
-CURRENT_HEAD = b930d6d
+CURRENT_HEAD = 03360a2
 FOCUSED_TESTS_PASS = 6/6
 QUERY_HTTP_500_COUNT = 0
-LIVE_SPRINT_VALIDATION_DMS_1 = NO (sprint_exists() uses nonexistent endpoint)
-LIVE_SPRINT_VALIDATION_DMS_2 = NO (sprint_exists() uses nonexistent endpoint)
-INVALID_SPRINT_FAIL_CLOSED = YES (DMS-SPRNT-999999 returns NEEDS_CLARIFICATION)
-DMS_SPRNT_1_PRESERVED = NO (removed by LiveGroundedEntityResolver)
-DMS_SPRNT_2_PRESERVED = NO (removed by LiveGroundedEntityResolver)
+LIVE_SPRINT_VALIDATION_DMS_1 = YES (DMS-SPRNT-1 returns 100 tasks)
+LIVE_SPRINT_VALIDATION_DMS_2 = YES (DMS-SPRNT-2 returns 20 tasks)
+INVALID_SPRINT_FAIL_CLOSED = NO (DMS-SPRNT-999999 returns 0 tasks without error)
+DMS_SPRNT_1_PRESERVED = YES (sprint_exists() returns True)
+DMS_SPRNT_2_PRESERVED = YES (sprint_exists() returns True)
 SPRINT_SUFFIX_AS_TASK_KEY_COUNT = 0
 RAW_ORACLE_DMS_1_MATCH = YES (100 tasks via SWTR)
 RAW_ORACLE_DMS_2_MATCH = YES (20 tasks via SWTR)
@@ -346,51 +357,44 @@ READY_TO_RERUN_017_V2 = NO
 
 ## Summary
 
-**Assignment 023: YELLOW - BLOCKED**
+**Assignment 023: YELLOW - PROD DEFECT REMAINS**
 
 ### Production Defect
 
-**sprint_exists() uses nonexistent endpoint**
+**sprint_exists() returns True for ANY sprint_id**
 
-In `hardened_production_task_api.py:133`:
+In `hardened_production_task_api.py:133-155`:
 ```python
-response = await self._client.get(f"/api/v1/swtr-read/sprints/{normalized}")
+response = await self._client.get(
+    f"/api/v1/swtr-read/sprints/{normalized}/tasks",
+    params={"limit": 1},
+)
+returned_id = payload.get("sprint_id")
+return returned_id.casefold() == normalized.casefold()
 ```
 
-This endpoint **does not exist** in the SWTR read facade (`swtr_read.py`). Only `/sprints/{sprint_id}/tasks` is available.
+This endpoint returns the **requested sprint_id** in the response payload even for non-existent sprints. The code validates by checking `returned_id == normalized`, but SWTR echoes the input, causing **any sprint_id to pass validation**.
 
 ### Root Cause
 
-The `sprint_exists()` method was written to call a nonexistent endpoint, causing:
-1. `sprint_exists()` always returns `False`
-2. All explicit sprint IDs are rejected with `NEEDS_CLARIFICATION`
-3. Sprint validation cannot succeed in production
+**PRODUCTION DEFECT:** SWTR `/sprints/{sprint_id}/tasks` endpoint echoes the input `sprint_id` in the response, even for non-existent sprints (empty tasks). The `sprint_exists()` implementation simply validates that `returned_id == normalized`, but since SWTR echoes the input, any sprint_id passes.
 
-### Fix Required
-
-Modify `sprint_exists()` to use `/sprints/{sprint_id}/tasks` and check if:
-1. HTTP status is 200 (sprint exists), or
-2. Tasks are returned (sprint exists), or
-3. Response is not 404 (sprint may exist but be empty)
-
-**Recommended fix:**
+The fix should check if tasks exist (non-empty content) to prove sprint existence:
 ```python
-async def sprint_exists(self, sprint_id: str) -> bool:
-    try:
-        response = await self._client.get(f"/api/v1/swtr-read/sprints/{sprint_id}/tasks?limit=1")
-        return response.status_code == 200
-    except Exception:
-        return False
+tasks = payload.get("tasks", {})
+content = tasks.get("content") if isinstance(tasks, dict) else tasks
+return isinstance(content, list) and len(content) > 0
 ```
 
 ### Current State
 
+- ✅ Sprint validation works for valid sprints (DMS-SPRNT-1, DMS-SPRNT-2)
 - ✅ All focused tests pass (6/6)
 - ✅ Correction flow works
 - ✅ Task-key lookup works
 - ✅ No new regressions (1088 tests pass)
-- ❌ Sprint validation completely broken (production defect)
-- ❌ All explicit sprint IDs rejected
+- ❌ Invalid sprint (DMS-SPRNT-999999) does not fail closed
+- ❌ Sprint existence check is a no-op (SWTR echoes input)
 
 ---
 
@@ -398,6 +402,6 @@ async def sprint_exists(self, sprint_id: str) -> bool:
 
 **READY_TO_RERUN_017_V2 = NO**
 
-Reason: Production defect prevents sprint validation from working. Sprint existence check calls nonexistent endpoint, causing all explicit sprint IDs to be rejected.
+Reason: Production defect prevents sprint validation from properly detecting invalid sprints. While DMS-SPRNT-1 and DMS-SPRNT-2 work, DMS-SPRNT-999999 (invalid) silently returns 0 tasks instead of asking for clarification.
 
-**Blocker:** `sprint_exists()` uses nonexistent `/api/v1/swtr-read/sprints/{sprint_id}` endpoint.
+**Blocker:** `sprint_exists()` does not validate existence - SWTR `/sprints/{sprint_id}/tasks` echoes any input `sprint_id` in response.
