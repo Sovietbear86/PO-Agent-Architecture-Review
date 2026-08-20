@@ -2,7 +2,6 @@
 from pydantic import BaseModel, Field, ConfigDict, field_validator
 from typing import Optional, Union
 from datetime import datetime
-from uuid import UUID
 from app.models.task import Status
 
 
@@ -19,9 +18,8 @@ class TaskCreate(BaseModel):
 
 
 class TaskUpdate(BaseModel):
-    """Schema for updating a task."""
-    title: Optional[str] = Field(None, description="If provided, must be 1-200 characters")
     description: Optional[str] = Field(None, max_length=1000)
+    title: Optional[str] = Field(None, description="If provided, must be 1-200 characters")
     assignee: Optional[str] = Field(None, max_length=100)
     status: Optional[Union[Status, str]] = None
 
@@ -36,7 +34,7 @@ class TaskUpdate(BaseModel):
 
 
 class TaskResponse(BaseModel):
-    """Schema for task response."""
+    """Task API read contract including source-backed AS21 relations."""
     model_config = ConfigDict(from_attributes=True)
 
     id: str
@@ -51,31 +49,45 @@ class TaskResponse(BaseModel):
     source: Optional[str] = None
     source_id: Optional[str] = None
     source_data: dict = {}
+    project_space: Optional[str] = None
+    sprint_id: Optional[str] = None
+    # Backward-compatible alias retained for older consumers.
     sprint: Optional[str] = None
 
+
+def _identifier(value):
+    if isinstance(value, (str, int)):
+        text = str(value).strip()
+        return text or None
+    if isinstance(value, dict):
+        for key in ('code', 'id', 'externalId', 'value', 'name'):
+            candidate = value.get(key)
+            if isinstance(candidate, (str, int)) and str(candidate).strip():
+                return str(candidate).strip()
+    if isinstance(value, list):
+        for item in value:
+            candidate = _identifier(item)
+            if candidate:
+                return candidate
+    return None
+
+
 def task_to_response(task) -> TaskResponse:
-    """Convert Task model to TaskResponse."""
-    # Extract deadline from source_data or use model field
+    """Convert Task model while preserving proven AS21 space/sprint facts."""
     deadline = task.deadline
-    if not deadline and task.source_data:
-        # Try to get from source_data.deadline
-        deadline_str = task.source_data.get('deadline')
+    source_data = task.source_data or {}
+    if not deadline:
+        deadline_str = source_data.get('deadline')
         if deadline_str:
-            from datetime import datetime, timezone
             deadline = datetime.fromisoformat(deadline_str.replace('Z', '+00:00'))
 
-    # Extract sprint from source_data or swtr_attributes
-    sprint = None
-    if task.source_data:
-        sprint = task.source_data.get('sprint_id')
-        # If sprint not in source_data.sprint_id, try to get it from swtr_attributes
-        if not sprint:
-            swtr_attrs = task.source_data.get('swtr_attributes', [])
-            for attr in swtr_attrs:
-                if attr.get('code') == 'scrum_board_plugin_sprint':
-                    value = attr.get('value', {})
-                    if isinstance(value, dict):
-                        sprint = value.get('code') or value.get('id') or value.get('value')
+    project_space = source_data.get('swtr_space') if isinstance(source_data.get('swtr_space'), str) else None
+    sprint_id = _identifier(source_data.get('sprint_id'))
+    if not sprint_id:
+        for attr in source_data.get('swtr_attributes', []):
+            if isinstance(attr, dict) and attr.get('code') == 'scrum_board_plugin_sprint':
+                sprint_id = _identifier(attr.get('value'))
+                if sprint_id:
                     break
 
     return TaskResponse(
@@ -90,6 +102,8 @@ def task_to_response(task) -> TaskResponse:
         updated_at=task.updated_at,
         source=task.source,
         source_id=task.source_id,
-        source_data=task.source_data or {},
-        sprint=sprint,
+        source_data=source_data,
+        project_space=project_space,
+        sprint_id=sprint_id,
+        sprint=sprint_id,
     )
