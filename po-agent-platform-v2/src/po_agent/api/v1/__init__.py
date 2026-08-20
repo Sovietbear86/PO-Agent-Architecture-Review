@@ -1,5 +1,6 @@
 """API version 1 routes for PO Agent Platform v2."""
 
+import logging
 import time
 import uuid
 
@@ -14,10 +15,12 @@ from po_agent.harness.dialogue_runtime import LLMJsonSemanticInterpreter
 from po_agent.harness.runtime_factory import RuntimeBundle, build_runtime_bundle
 from po_agent.llm.real import RealLLMClient
 
+logger = logging.getLogger(__name__)
 router = APIRouter()
 
 _runtime: HarnessRuntime | None = None
 _bundle: RuntimeBundle | None = None
+_runtime_init_error: str | None = None
 
 
 class QueryRequest(BaseModel):
@@ -41,28 +44,38 @@ class SemanticLearningRequest(BaseModel):
 
 
 def get_runtime_bundle() -> RuntimeBundle:
-    """Build the process-wide runtime from explicit environment settings."""
-    global _bundle, _runtime
+    """Build the process-wide runtime from explicit environment settings.
+
+    Construction errors are logged with traceback and remembered for health/query
+    diagnostics. They are never allowed to surface as an opaque HTTP 500.
+    """
+    global _bundle, _runtime, _runtime_init_error
     if _bundle is None:
         settings = get_settings()
         interpreter = None
-        if settings.semantic_llm_enabled and settings.llm_api_key:
-            llm = RealLLMClient(
-                api_key=settings.llm_api_key,
-                base_url=settings.llm_api_base_url,
-                model=settings.llm_model_name,
-                verify=settings.llm_tls_verify,
+        try:
+            if settings.semantic_llm_enabled and settings.llm_api_key:
+                llm = RealLLMClient(
+                    api_key=settings.llm_api_key,
+                    base_url=settings.llm_api_base_url,
+                    model=settings.llm_model_name,
+                    verify=settings.llm_tls_verify,
+                )
+                interpreter = LLMJsonSemanticInterpreter(llm, model=settings.llm_model_name)
+            _bundle = build_runtime_bundle(
+                settings.as21_mode,
+                task_api_base_url=settings.task_api_base_url,
+                task_api_timeout_seconds=settings.task_api_timeout_seconds,
+                team_config_path=settings.team_config_path,
+                semantic_interpreter=interpreter,
+                learned_semantics_path=settings.learned_semantics_path,
             )
-            interpreter = LLMJsonSemanticInterpreter(llm, model=settings.llm_model_name)
-        _bundle = build_runtime_bundle(
-            settings.as21_mode,
-            task_api_base_url=settings.task_api_base_url,
-            task_api_timeout_seconds=settings.task_api_timeout_seconds,
-            team_config_path=settings.team_config_path,
-            semantic_interpreter=interpreter,
-            learned_semantics_path=settings.learned_semantics_path,
-        )
-        _runtime = _bundle.runtime
+            _runtime = _bundle.runtime
+            _runtime_init_error = None
+        except Exception as exc:
+            _runtime_init_error = f"{type(exc).__name__}: {exc}"
+            logger.exception("PO Agent runtime initialization failed")
+            raise
     return _bundle
 
 
@@ -75,16 +88,31 @@ def get_runtime() -> HarnessRuntime:
 
 def set_runtime(runtime: HarnessRuntime | None) -> None:
     """Override/reset runtime for tests. Resetting also clears the runtime bundle."""
-    global _runtime, _bundle
+    global _runtime, _bundle, _runtime_init_error
     _runtime = runtime
     _bundle = None
+    _runtime_init_error = None
 
 
 @router.get("/health")
 async def health_check(request: Request):
     settings = get_settings()
     correlation_id = request.headers.get(settings.correlation_id_header, str(uuid.uuid4()))
-    bundle = get_runtime_bundle()
+    try:
+        bundle = get_runtime_bundle()
+    except Exception:
+        return {
+            "status": "degraded",
+            "service": __app_name__,
+            "runtime": "harness-dialogue-v2",
+            "adapter": settings.as21_mode,
+            "semantic_mode": "qwen-llm" if settings.semantic_llm_enabled and settings.llm_api_key else "conservative-fallback",
+            "source_status": "unknown",
+            "runtime_init_error": _runtime_init_error,
+            "correlation_id": correlation_id,
+            "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        }
+
     source_status = "healthy"
     source_error = None
     if bundle.mode == "task-api":
@@ -104,6 +132,7 @@ async def health_check(request: Request):
         "semantic_mode": semantic_mode,
         "source_status": source_status,
         "source_error": source_error,
+        "runtime_init_error": None,
         "source_facts": list(bundle.readiness.available_facts),
         "skill_readiness": readiness,
         "correlation_id": correlation_id,
@@ -115,8 +144,35 @@ async def health_check(request: Request):
 async def query_agent(payload: QueryRequest, request: Request):
     settings = get_settings()
     correlation_id = request.headers.get(settings.correlation_id_header, str(uuid.uuid4()))
-    result = await get_runtime().process(HarnessRequest(query=payload.query, session_id=payload.session_id))
-    response = result.to_dict()
+    session_id = payload.session_id or str(uuid.uuid4())
+    try:
+        result = await get_runtime().process(HarnessRequest(query=payload.query, session_id=session_id))
+        response = result.to_dict()
+    except Exception as exc:
+        # A Harness endpoint must fail closed as a typed response, never as an
+        # opaque web-server 500. The traceback remains in server logs for QA.
+        logger.exception("PO Agent query failed", extra={"correlation_id": correlation_id, "session_id": session_id})
+        response = {
+            "status": "FAILED",
+            "answer": "Внутренняя ошибка Harness. Выполнение остановлено без интерпретации результата как успешного.",
+            "question": None,
+            "options": [],
+            "clarification_id": None,
+            "intent": None,
+            "skill": None,
+            "data": {
+                "_harness": {
+                    "execution_ready": False,
+                    "runtime_init_error": _runtime_init_error,
+                    "exception_type": type(exc).__name__,
+                }
+            },
+            "evidence": [],
+            "warnings": ["harness_internal_error"],
+            "trace_id": str(uuid.uuid4()),
+            "session_id": session_id,
+            "latency_ms": 0.0,
+        }
     response["correlation_id"] = correlation_id
     return response
 
@@ -142,12 +198,6 @@ async def submit_feedback(trace_id: str, payload: FeedbackRequest):
 
 @router.post("/learning/semantic")
 async def learn_semantic(payload: SemanticLearningRequest):
-    """Persist an explicit user definition as versioned semantic configuration.
-
-    Non-conflicting definitions are safe to activate automatically. Conflicting
-    definitions are stored as pending candidates and do not silently change the
-    agent's behavior.
-    """
     bundle = get_runtime_bundle()
     if bundle.semantics is None:
         raise HTTPException(status_code=501, detail="learned semantics store is unavailable")
