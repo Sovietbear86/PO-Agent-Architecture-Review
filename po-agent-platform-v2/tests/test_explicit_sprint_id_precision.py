@@ -21,6 +21,17 @@ class BadSprintDelegate:
         )
 
 
+class EmptyPersonDelegate:
+    async def interpret(self, query: str, *, context=None) -> SemanticFrame:
+        return SemanticFrame(
+            canonical_query="покажи задачи",
+            intent_hint="task_search",
+            slots={},
+            confidence=0.9,
+            llm_used=True,
+        )
+
+
 class LiveSprintOnlyAdapter:
     """Cached task context is empty, but live SWTR can validate the sprint."""
 
@@ -31,6 +42,19 @@ class LiveSprintOnlyAdapter:
         return sprint_id in {"DMS-SPRNT-1", "OLP-SPRNT-17"}
 
 
+class EchoingSprintAdapter:
+    """Model MCP behavior that echoes any selector but only one sprint has evidence."""
+
+    async def search_tasks(self, query: str):
+        return []
+
+    async def sprint_exists(self, sprint_id: str) -> bool:
+        return True
+
+    async def get_sprint_tasks(self, sprint_id: str):
+        return [object()] if sprint_id == "DMS-SPRNT-1" else []
+
+
 @pytest.mark.asyncio
 async def test_full_dms_sprint_id_is_preserved_and_task_lookup_repaired():
     interpreter = Core8SemanticPrecisionInterpreter(BadSprintDelegate())
@@ -39,6 +63,7 @@ async def test_full_dms_sprint_id_is_preserved_and_task_lookup_repaired():
     assert frame.intent_hint == "task_search"
     assert frame.slots["sprint_id"] == "DMS-SPRNT-1"
     assert "task_key" not in frame.slots
+    assert frame.slots["person_raw"] == "Гаранина"
 
 
 @pytest.mark.asyncio
@@ -49,6 +74,27 @@ async def test_full_olp_sprint_id_is_generic_not_dms_hardcoded():
     assert frame.intent_hint == "task_search"
     assert frame.slots["sprint_id"] == "OLP-SPRNT-17"
     assert "task_key" not in frame.slots
+
+
+@pytest.mark.asyncio
+async def test_natural_genitive_assignee_is_preserved_without_executor_keyword():
+    interpreter = Core8SemanticPrecisionInterpreter(EmptyPersonDelegate())
+    frame = await interpreter.interpret("Покажи задачи Гаранина в DMS-SPRNT-1")
+    assert frame.slots["person_raw"] == "Гаранина"
+
+
+@pytest.mark.asyncio
+async def test_natural_full_name_assignee_is_preserved():
+    interpreter = Core8SemanticPrecisionInterpreter(EmptyPersonDelegate())
+    frame = await interpreter.interpret("Покажи задачи Родиона Гаранина в DMS-SPRNT-1")
+    assert frame.slots["person_raw"] == "Родиона Гаранина"
+
+
+@pytest.mark.asyncio
+async def test_ownership_wording_preserves_person():
+    interpreter = Core8SemanticPrecisionInterpreter(EmptyPersonDelegate())
+    frame = await interpreter.interpret("Что у Гаранина в работе")
+    assert frame.slots["person_raw"] == "Гаранина"
 
 
 def test_dialogue_enrichment_does_not_extract_sprint_suffix_as_task_key():
@@ -103,3 +149,28 @@ async def test_live_grounder_rejects_unproven_explicit_sprint():
 
     assert "sprint_id" not in grounded.slots
     assert any(item.field == "sprint_id" for item in grounded.clarifications)
+
+
+@pytest.mark.asyncio
+async def test_echoed_invalid_sprint_fails_closed_without_source_corpus():
+    resolver = LiveGroundedEntityResolver(EchoingSprintAdapter())
+    frame = SemanticFrame(
+        canonical_query="покажи задачи {sprint_id}",
+        intent_hint="task_search",
+        slots={"sprint_id": "DMS-SPRNT-999999"},
+    )
+    grounded = await resolver.ground(frame, "Покажи задачи в DMS-SPRNT-999999")
+    assert "sprint_id" not in grounded.slots
+    assert any(item.field == "sprint_id" for item in grounded.clarifications)
+
+
+@pytest.mark.asyncio
+async def test_echoed_valid_sprint_with_source_corpus_is_preserved():
+    resolver = LiveGroundedEntityResolver(EchoingSprintAdapter())
+    frame = SemanticFrame(
+        canonical_query="покажи задачи {sprint_id}",
+        intent_hint="task_search",
+        slots={"sprint_id": "DMS-SPRNT-1"},
+    )
+    grounded = await resolver.ground(frame, "Покажи задачи в DMS-SPRNT-1")
+    assert grounded.slots["sprint_id"] == "DMS-SPRNT-1"
