@@ -11,27 +11,25 @@
 6. Prefer truthful RED/YELLOW/BLOCKED over false GREEN.
 
 ## Current assignment
-`ASSIGNMENT_ID = CORE8_RUNTIME_500_DIAGNOSTIC_RETEST_020`
+`ASSIGNMENT_ID = CORE8_SOURCEFACT_SPACES_FIX_RETEST_021`
 `TARGET_BRANCH = feat/core8-real-query-hardening-v2`
-`ASSIGNMENT_PATH = qa_assignments/CORE8_RUNTIME_500_DIAGNOSTIC_RETEST_020.md`
-`REPORT_PATH = qa_reports/CORE8_RUNTIME_500_DIAGNOSTIC_RETEST_020.md`
+`ASSIGNMENT_PATH = qa_assignments/CORE8_SOURCEFACT_SPACES_FIX_RETEST_021.md`
+`REPORT_PATH = qa_reports/CORE8_SOURCEFACT_SPACES_FIX_RETEST_021.md`
 
 Read first:
 - `CORE8_HARDENING_FREEZE.md`
-- the two Assignment 019 reports if present locally;
-- `po-agent-platform-v2/src/po_agent/api/v1/__init__.py`;
-- `po-agent-platform-v2/src/po_agent/config/settings.py`;
-- `po-agent-platform-v2/src/po_agent/harness/runtime_factory.py`;
-- `po-agent-platform-v2/src/po_agent/harness/correction_runtime.py`;
-- `task-api/app/schemas/task.py`;
-- `qa_assignments/CORE8_RUNTIME_500_DIAGNOSTIC_RETEST_020.md`.
+- Assignment 020 report;
+- `po-agent-platform-v2/src/po_agent/harness/source_readiness.py`;
+- `po-agent-platform-v2/src/po_agent/adapters/hardened_production_task_api.py`;
+- `po-agent-platform-v2/tests/test_source_readiness_spaces.py`;
+- `qa_assignments/CORE8_SOURCEFACT_SPACES_FIX_RETEST_021.md`.
 
 Critical rules:
 - Restart both services from CURRENT HEAD.
-- Run PO Agent in a visible terminal so the real traceback is captured.
+- Verify the exact 020 root cause is gone before any semantic conclusions.
 - HTTP 500 from `/api/v1/query` is never acceptable Harness behavior.
-- Do not expose the LLM key; report presence only.
-- Compare LLM-enabled and process-only LLM-disabled paths to isolate provider/transport vs Harness/runtime faults.
-- Do not repair code. Do not resume Gate E or 017_V2.
+- A non-500 response is not automatically semantically correct.
+- Do not expose secrets.
+- Do not repair code. Do not resume Gate E or the full 017_V2 yet.
 
-After publishing the 020 report, stop.
+If and only if 021 is GREEN, stop and report `READY_TO_RERUN_019 = YES`.
