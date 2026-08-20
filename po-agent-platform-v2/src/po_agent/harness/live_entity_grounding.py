@@ -4,7 +4,7 @@ from __future__ import annotations
 import re
 from typing import Any
 
-from .dialogue_runtime import SemanticFrame
+from .dialogue_runtime import ClarificationNeed, SemanticFrame
 from .entity_grounding import GroundedEntityResolver
 
 
@@ -36,11 +36,7 @@ class LiveGroundedEntityResolver(GroundedEntityResolver):
     @classmethod
     def _explicit_product_from_query(cls, query: str) -> str | None:
         low = query.casefold()
-        matches = {
-            canonical
-            for alias, canonical in cls._PRODUCT_ALIASES.items()
-            if alias in low
-        }
+        matches = {canonical for alias, canonical in cls._PRODUCT_ALIASES.items() if alias in low}
         return next(iter(matches)) if len(matches) == 1 else None
 
     @classmethod
@@ -67,29 +63,74 @@ class LiveGroundedEntityResolver(GroundedEntityResolver):
         return None
 
     async def semantic_context(self) -> dict[str, Any]:
-        """Augment task-derived context with the production release source.
-
-        `search_versions` itself is resilient: when the external MCP tool is
-        unhealthy it returns release IDs proven by canonical task.fix_version_s.
-        This prevents real releases outside the first task scan from becoming
-        ungroundable at the dialogue layer.
-        """
         context = await super().semantic_context()
         search_versions = getattr(self.adapter, "search_versions", None)
-        if not callable(search_versions):
-            return context
-        versions = await search_versions()
-        if isinstance(versions, dict):
-            candidates = versions.get("content") or versions.get("items") or versions.get("versions") or []
-        else:
-            candidates = versions if isinstance(versions, list) else []
-        merged = {str(value) for value in context.get("known_releases", []) if value}
-        for item in candidates:
-            release_id = self._release_identifier(item)
-            if release_id:
-                merged.add(release_id)
-        context["known_releases"] = sorted(merged)
+        if callable(search_versions):
+            versions = await search_versions()
+            if isinstance(versions, dict):
+                candidates = versions.get("content") or versions.get("items") or versions.get("versions") or []
+            else:
+                candidates = versions if isinstance(versions, list) else []
+            merged = {str(value) for value in context.get("known_releases", []) if value}
+            for item in candidates:
+                release_id = self._release_identifier(item)
+                if release_id:
+                    merged.add(release_id)
+            context["known_releases"] = sorted(merged)
         return context
+
+    async def _ground_live_explicit_sprint(self, frame: SemanticFrame, original_query: str) -> SemanticFrame | None:
+        """Validate and preserve a user-supplied full sprint ID using live SWTR.
+
+        The cached task scan is not an authoritative sprint directory. If the
+        precision layer extracted a full sprint ID, validate that exact ID via
+        the live sprint endpoint. On success, ground all other entities normally
+        while protecting the validated sprint selector from the base resolver's
+        cached `known_sprints` set.
+        """
+        explicit = (frame.slots.get("sprint_id") or "").strip()
+        if not explicit:
+            return None
+        validator = getattr(self.adapter, "sprint_exists", None)
+        if not callable(validator):
+            return None
+        exists = await validator(explicit)
+        if not exists:
+            return SemanticFrame(
+                canonical_query=frame.canonical_query,
+                intent_hint=frame.intent_hint,
+                slots={k: v for k, v in frame.slots.items() if k != "sprint_id"},
+                clarifications=[
+                    *[item for item in frame.clarifications if item.field != "sprint_id"],
+                    ClarificationNeed("sprint_id", f"Не могу подтвердить спринт «{explicit}» по данным AS21. Какой спринт выбрать?"),
+                ],
+                confidence=frame.confidence,
+                llm_used=frame.llm_used,
+            )
+
+        protected_slots = dict(frame.slots)
+        protected_slots.pop("sprint_id", None)
+        protected_frame = SemanticFrame(
+            canonical_query=frame.canonical_query,
+            intent_hint=frame.intent_hint,
+            slots=protected_slots,
+            clarifications=[item for item in frame.clarifications if item.field != "sprint_id"],
+            confidence=frame.confidence,
+            llm_used=frame.llm_used,
+        )
+        grounded = await super().ground(protected_frame, original_query)
+        slots = dict(grounded.slots)
+        slots["sprint_id"] = explicit
+        slots.pop("sprint_raw", None)
+        canonical = grounded.canonical_query.replace("{sprint_id}", explicit)
+        return SemanticFrame(
+            canonical_query=canonical,
+            intent_hint=grounded.intent_hint,
+            slots=slots,
+            clarifications=[item for item in grounded.clarifications if item.field != "sprint_id"],
+            confidence=grounded.confidence,
+            llm_used=grounded.llm_used,
+        )
 
     async def ground(self, frame: SemanticFrame, original_query: str) -> SemanticFrame:
         slots = dict(frame.slots)
@@ -97,22 +138,11 @@ class LiveGroundedEntityResolver(GroundedEntityResolver):
         if product:
             slots["product"] = product
 
-        # Explicit release identifiers are user-provided selectors, not invented
-        # source facts. Preserve them as raw values so the ordinary grounder can
-        # validate them against the enriched known_releases set.
         if not slots.get("release_id") and not slots.get("release_raw"):
             explicit_release = self._explicit_release_from_query(original_query)
             if explicit_release:
                 slots["release_raw"] = explicit_release
 
-        # Provider canonical_query is advisory, while grounded source slots are
-        # execution authority. Some real semantic traces correctly select the
-        # release capability and preserve release_raw, but omit {release_id} from
-        # canonical_query. The base resolver intentionally resolves raw release
-        # shorthand only when that placeholder is present. Restore the generic
-        # placeholder here whenever an explicit raw release selector exists so
-        # source validation can deterministically resolve exact/full identifiers.
-        # This is not a UUID special-case and does not bypass known_releases.
         canonical_query = frame.canonical_query
         if slots.get("release_raw") and not slots.get("release_id") and "{release_id}" not in canonical_query:
             canonical_query = f"{canonical_query.rstrip()} {{release_id}}"
@@ -125,6 +155,10 @@ class LiveGroundedEntityResolver(GroundedEntityResolver):
             confidence=frame.confidence,
             llm_used=frame.llm_used,
         )
+
+        live_explicit = await self._ground_live_explicit_sprint(frame, original_query)
+        if live_explicit is not None:
+            return live_explicit
 
         grounded = await super().ground(frame, original_query)
 
