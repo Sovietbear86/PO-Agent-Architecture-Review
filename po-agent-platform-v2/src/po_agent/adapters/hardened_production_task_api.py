@@ -2,7 +2,7 @@
 
 This layer repairs a contract gap exposed by exhaustive live-AS21 testing:
 the cached `/api/v1/tasks` representation is not guaranteed to retain space or
-sprint relations even though MCP-SWTR can prove them. We therefore join the
+sprint relations even though MCP-SWTR can prove them.  We therefore join the
 cached canonical task facts with live read-only SWTR evidence instead of
 interpreting missing relation fields as an empty result.
 """
@@ -120,17 +120,23 @@ class HardenedProductionTaskApiAS21Adapter(ProductionTaskApiAS21Adapter):
         return unit
 
     async def sprint_exists(self, sprint_id: str) -> bool:
-        """Validate an explicit sprint ID against the live SWTR sprint endpoint.
+        """Validate an explicit sprint ID through the existing live SWTR tasks facade.
 
-        This is deliberately independent from cached task hydration. An explicit
-        user selector must never be rejected merely because `/api/v1/tasks`
-        omitted sprint relations.
+        The facade intentionally has no standalone `/sprints/{id}` route.  Its
+        `/sprints/{id}/tasks` route is the canonical read capability and returns
+        the requested sprint identifier even for an empty corpus.  Therefore
+        existence is proven by a successful, well-formed source response whose
+        `sprint_id` matches the selector.  A transport/source failure is never
+        converted into a false "does not exist" fact.
         """
         normalized = (sprint_id or "").strip()
         if not normalized:
             return False
         try:
-            response = await self._client.get(f"/api/v1/swtr-read/sprints/{normalized}")
+            response = await self._client.get(
+                f"/api/v1/swtr-read/sprints/{normalized}/tasks",
+                params={"limit": 1},
+            )
             if response.status_code == 404:
                 return False
             response.raise_for_status()
@@ -142,7 +148,12 @@ class HardenedProductionTaskApiAS21Adapter(ProductionTaskApiAS21Adapter):
             payload = response.json()
         except ValueError as exc:
             raise AS21SourceError("live sprint validation endpoint returned invalid JSON") from exc
-        return isinstance(payload, (dict, list))
+        if not isinstance(payload, dict):
+            raise AS21SourceError("live sprint validation endpoint returned malformed payload")
+        returned_id = payload.get("sprint_id")
+        if not isinstance(returned_id, str):
+            raise AS21SourceError("live sprint validation response omitted sprint_id")
+        return returned_id.casefold() == normalized.casefold()
 
     @staticmethod
     def _map_raw_unit(unit: dict[str, Any], *, sprint_id: str | None = None, space: str | None = None) -> Task | None:
@@ -290,6 +301,8 @@ class HardenedProductionTaskApiAS21Adapter(ProductionTaskApiAS21Adapter):
         if sprint:
             candidates = await self.get_sprint_tasks(sprint, space=project)
         else:
+            # Narrow by every proven cached filter first, then hydrate the missing
+            # relation from raw SWTR. Missing project in cache is UNKNOWN, not NO.
             cached_filters = {k: v for k, v in remaining.items() if k in {"assignee", "status", "release_id", "key", "source"}}
             query = " AND ".join(f"{k if k != 'release_id' else 'release'} = {v}" for k, v in cached_filters.items())
             candidates = await TaskApiAS21Adapter.search_tasks(self, query, max_results=self._scan_limit, fields=fields)
