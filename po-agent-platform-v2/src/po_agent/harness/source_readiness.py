@@ -19,6 +19,7 @@ class SourceFact(str, Enum):
     TASKS = "tasks"
     SPRINTS = "sprints"
     RELEASES = "releases"
+    SPACES = "spaces"
     HISTORY = "history"
     ATTACHMENTS = "attachments"
     SPRINT_SNAPSHOTS = "sprint_snapshots"
@@ -62,6 +63,9 @@ _ATTACHMENT_SKILLS = {
 }
 
 _SKILL_FACT_OVERRIDES: dict[str, tuple[SourceFact, ...]] = {
+    # Product/space filtering is not equivalent to generic task availability.
+    # It is ready only when the source explicitly exposes AS21 space facts.
+    "task-search-product": (SourceFact.TASKS, SourceFact.SPACES),
     "sprint-current": (SourceFact.TASKS, SourceFact.SPRINTS),
     "sprint-health": (SourceFact.SPRINTS,),
     "sprint-scope": (SourceFact.SPRINTS,),
