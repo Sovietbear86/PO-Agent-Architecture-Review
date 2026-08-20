@@ -11,17 +11,17 @@
 6. Prefer truthful RED/YELLOW/BLOCKED over false GREEN.
 
 ## Current assignment
-`ASSIGNMENT_ID = GATE_E_WAVE1_TASK_INTELLIGENCE_016`
-`TARGET_BRANCH = feat/gate-e-wave1-task-intelligence-v1`
-`ASSIGNMENT_PATH = qa_assignments/GATE_E_WAVE1_TASK_INTELLIGENCE_016.md`
-`REPORT_PATH = qa_reports/GATE_E_WAVE1_TASK_INTELLIGENCE_016.md`
+`ASSIGNMENT_ID = CORE8_EXHAUSTIVE_REAL_QUERY_MATRIX_017_V2`
+`TARGET_BRANCH = feat/core8-real-query-hardening-v2`
+`ASSIGNMENT_PATH = qa_assignments/CORE8_EXHAUSTIVE_REAL_QUERY_MATRIX_017_V2.md`
+`REPORT_PATH = qa_reports/CORE8_EXHAUSTIVE_REAL_QUERY_MATRIX_017_V2.md`
 
 Read first:
-- `PO_AGENT_HARNESS_EVOLUTION_PLAN.md`
-- `PO_AGENT_48_SKILL_MATRIX.md`
-- `qa_reports/GATE_D_48_SKILL_RECOVERY_AUDIT_015.md`
-- `po-agent-platform-v2/src/po_agent/analysis/task_intelligence.py`
-- `po-agent-platform-v2/tests/test_task_intelligence.py`
-- `qa_assignments/GATE_E_WAVE1_TASK_INTELLIGENCE_016.md`
+- `CORE8_HARDENING_FREEZE.md`
+- `qa_assignments/CORE8_EXHAUSTIVE_REAL_QUERY_MATRIX_017_V2.md`
+- `qa_assignments/CORE8_EXHAUSTIVE_REAL_QUERY_MATRIX_017.md`
+- `qa_assignments/CORE8_CORRECTION_LOOP_ADDENDUM_017A.md`
 
-Execute the assignment exactly. Be strict about the distinction between an analyzer existing and a user query being production-E2E reachable. Do not repair code. After publishing the report, stop.
+Important: the V2 file is the single canonical entry point and consolidates the functional matrix plus correction/recheck-loop acceptance. Before declaring PASS, independently prove the oracle/source contract. Known positive anchors: Garanin has task(s) in DMS-SPRNT-1 and DMS-SPRNT-2; verify them directly from AS21/SWTR. If your oracle says zero for both, classify ORACLE_SOURCE_CONTRACT_BROKEN and do not mark dependent tests PASS.
+
+Do not repair code. Do not resume Gate E. After publishing the V2 report, stop.
