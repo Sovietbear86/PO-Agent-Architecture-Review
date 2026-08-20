@@ -7,7 +7,7 @@ from typing import Literal
 
 from po_agent.adapters import FakeAS21Adapter, FrozenAS21Adapter, SWTRShadowBatch
 from po_agent.adapters.as21 import AS21Adapter
-from po_agent.adapters.hardened_production_task_api import HardenedProductionTaskApiAS21Adapter
+from po_agent.adapters.evidence_validated_task_api import EvidenceValidatedProductionTaskApiAS21Adapter
 
 from .core8_semantic_precision import Core8SemanticPrecisionInterpreter
 from .core8_hardening import enable_core8_hardened_composite
@@ -103,9 +103,6 @@ def _build_runtime_with_adapter(
         grounder = GroundedEntityResolver(adapter, team=directory, semantics=semantics)
 
     if mode == "task-api":
-        # Real-data mode: natural language is model-owned. Deterministic code may
-        # validate source IDs and execute capabilities, but may not infer Russian
-        # grammar from a growing list of regex phrases.
         if isinstance(semantic_interpreter, LLMJsonSemanticInterpreter):
             semantic_v2 = LLMFirstSemanticInterpreter(
                 semantic_interpreter.client,
@@ -117,11 +114,8 @@ def _build_runtime_with_adapter(
         elif isinstance(semantic_interpreter, LLMFirstSemanticInterpreter):
             selected_interpreter = ConversationAwareSemanticInterpreter(semantic_interpreter)
         else:
-            # A missing semantic model must fail closed rather than silently fall
-            # back to DeterministicRouter and produce plausible-but-wrong results.
             selected_interpreter = FailClosedSemanticInterpreter()
     else:
-        # Preserve deterministic/frozen test behavior while production migrates.
         selected_interpreter = semantic_interpreter
         if isinstance(semantic_interpreter, LLMJsonSemanticInterpreter):
             fast_delegate = ResilientBlindRecoveryLLMJsonSemanticInterpreter(
@@ -140,9 +134,6 @@ def _build_runtime_with_adapter(
     )
 
     if mode == "task-api" and isinstance(selected_interpreter, ConversationAwareSemanticInterpreter):
-        # Corrections/rechecks are classified semantically relative to the prior
-        # turn; no phrase enumeration is required. A recheck always reopens live
-        # source evidence before a clarification/result is returned.
         dialogue = SemanticCorrectionRuntimeV2(dialogue, selected_interpreter)
     else:
         dialogue = CorrectionAwareHarnessRuntime(dialogue)
@@ -175,7 +166,7 @@ def build_runtime_bundle(
         adapter: AS21Adapter = FakeAS21Adapter()
         selected: RuntimeMode = "fake"
     elif normalized in {"task-api", "task_api", "real"}:
-        adapter = HardenedProductionTaskApiAS21Adapter(
+        adapter = EvidenceValidatedProductionTaskApiAS21Adapter(
             base_url=task_api_base_url,
             timeout_seconds=task_api_timeout_seconds,
         )
