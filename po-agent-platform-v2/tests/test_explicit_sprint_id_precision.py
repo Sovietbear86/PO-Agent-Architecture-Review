@@ -5,6 +5,7 @@ import pytest
 from po_agent.harness.core8_semantic_precision import Core8SemanticPrecisionInterpreter
 from po_agent.harness.dialogue_runtime import SemanticFrame
 from po_agent.harness.fail_closed_dialogue_runtime import FailClosedIntentPreservingDialogueHarnessRuntime
+from po_agent.harness.live_entity_grounding import LiveGroundedEntityResolver
 
 
 class BadSprintDelegate:
@@ -18,6 +19,16 @@ class BadSprintDelegate:
             confidence=0.9,
             llm_used=True,
         )
+
+
+class LiveSprintOnlyAdapter:
+    """Cached task context is empty, but live SWTR can validate the sprint."""
+
+    async def search_tasks(self, query: str):
+        return []
+
+    async def sprint_exists(self, sprint_id: str) -> bool:
+        return sprint_id in {"DMS-SPRNT-1", "OLP-SPRNT-17"}
 
 
 @pytest.mark.asyncio
@@ -62,3 +73,33 @@ def test_real_task_key_still_enriches_normally():
     )
 
     assert enriched.slots["task_key"] == "DMS-348"
+
+
+@pytest.mark.asyncio
+async def test_live_grounder_preserves_explicit_sprint_when_cached_known_sprints_empty():
+    resolver = LiveGroundedEntityResolver(LiveSprintOnlyAdapter())
+    frame = SemanticFrame(
+        canonical_query="покажи задачи {sprint_id}",
+        intent_hint="task_search",
+        slots={"sprint_id": "DMS-SPRNT-1"},
+    )
+
+    grounded = await resolver.ground(frame, "Покажи задачи в DMS-SPRNT-1")
+
+    assert grounded.slots["sprint_id"] == "DMS-SPRNT-1"
+    assert all(item.field != "sprint_id" for item in grounded.clarifications)
+
+
+@pytest.mark.asyncio
+async def test_live_grounder_rejects_unproven_explicit_sprint():
+    resolver = LiveGroundedEntityResolver(LiveSprintOnlyAdapter())
+    frame = SemanticFrame(
+        canonical_query="покажи задачи {sprint_id}",
+        intent_hint="task_search",
+        slots={"sprint_id": "DMS-SPRNT-999"},
+    )
+
+    grounded = await resolver.ground(frame, "Покажи задачи в DMS-SPRNT-999")
+
+    assert "sprint_id" not in grounded.slots
+    assert any(item.field == "sprint_id" for item in grounded.clarifications)
