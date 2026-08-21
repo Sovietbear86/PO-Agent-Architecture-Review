@@ -1,5 +1,5 @@
 {
-  "timestamp": "2026-08-21T20:47:45.457926",
+  "timestamp": "2026-08-21T21:01:39.960070",
   "head": "unknown",
   "section_a": {
     "sprint1_exists": true,
@@ -27,12 +27,7 @@
     "B3": {
       "query": "Какие тикеты у Гаранина относятся к DMS-SPRNT-1?",
       "status_code": 200,
-      "task_keys": [
-        "DMS-243",
-        "DMS-248",
-        "DMS-36",
-        "DMS-93"
-      ]
+      "task_keys": []
     },
     "B4": {
       "query": "Выведи работу Родиона Гаранина за DMS-SPRNT-1",
@@ -128,7 +123,30 @@
     "E2": {
       "query": "Покажи задачи в DMS-SPRNT-2",
       "status_code": 200,
-      "task_keys": []
+      "task_keys": [
+        "DMS-223",
+        "DMS-253",
+        "DMS-261",
+        "DMS-268",
+        "DMS-269",
+        "DMS-270",
+        "DMS-274",
+        "DMS-324",
+        "DMS-335",
+        "DMS-338",
+        "DMS-340",
+        "DMS-341",
+        "DMS-343",
+        "DMS-344",
+        "DMS-345",
+        "DMS-346",
+        "DMS-347",
+        "DMS-352",
+        "DMS-354",
+        "DMS-355",
+        "DMS-356",
+        "DMS-357"
+      ]
     },
     "E3": {
       "query": "Покажи задачи в DMS-SPRNT-999999",
@@ -222,27 +240,52 @@
     "G1": {
       "query": "Покажи задачи Гаранина в DMS-SPRNT-1",
       "status_code": 200,
-      "task_keys": []
+      "task_keys": [
+        "DMS-243",
+        "DMS-248",
+        "DMS-36",
+        "DMS-93"
+      ]
     },
     "G2": {
       "query": "Покажи задачи Гаранна в DMS-SPRNT-1",
       "status_code": 200,
-      "task_keys": []
+      "task_keys": [
+        "DMS-243",
+        "DMS-248",
+        "DMS-36",
+        "DMS-93"
+      ]
     },
     "G3": {
       "query": "Покажи задачи Гаранина в DMS-SPRNT-1",
       "status_code": 200,
-      "task_keys": []
+      "task_keys": [
+        "DMS-243",
+        "DMS-248",
+        "DMS-36",
+        "DMS-93"
+      ]
     },
     "G4": {
       "query": "Покажи задачи Гаранина в DMS-SPRNT-1",
       "status_code": 200,
-      "task_keys": []
+      "task_keys": [
+        "DMS-243",
+        "DMS-248",
+        "DMS-36",
+        "DMS-93"
+      ]
     },
     "G5": {
       "query": "Покажи задачи Гаранина в DMS-SPRNT-1",
       "status_code": 200,
-      "task_keys": []
+      "task_keys": [
+        "DMS-243",
+        "DMS-248",
+        "DMS-36",
+        "DMS-93"
+      ]
     }
   },
   "section_h": {
@@ -288,7 +331,9 @@
       "query": "Покажи задачи в DMS",
       "category": "product",
       "status_code": 200,
-      "task_keys": []
+      "task_keys": [
+        "SPRNT-999999"
+      ]
     },
     "I3": {
       "query": "Покажи задачи со статусом todo",
@@ -300,7 +345,9 @@
       "query": "Покажи задачи со статусом in_progress",
       "category": "status",
       "status_code": 200,
-      "task_keys": []
+      "task_keys": [
+        "SPRNT-999999"
+      ]
     },
     "I5": {
       "query": "Покажи задачи со статусом done",
@@ -312,7 +359,9 @@
       "query": "Покажи задачи Гаранина в DMS-SPRNT-1",
       "category": "person+sprint",
       "status_code": 200,
-      "task_keys": []
+      "task_keys": [
+        "SPRNT-1"
+      ]
     },
     "I7": {
       "query": "Покажи задачи в DMS-SPRNT-1",
@@ -324,7 +373,9 @@
       "query": "Покажи задачи со статусом Open",
       "category": "status",
       "status_code": 200,
-      "task_keys": []
+      "task_keys": [
+        "SPRNT-1"
+      ]
     }
   },
   "section_j": {
@@ -337,106 +388,7 @@
       "query": "Покажи задачи в DMS",
       "status_code": 200,
       "task_keys": [
-        "DMS-100",
-        "DMS-101",
-        "DMS-103",
-        "DMS-104",
-        "DMS-110",
-        "DMS-111",
-        "DMS-112",
-        "DMS-113",
-        "DMS-114",
-        "DMS-115",
-        "DMS-116",
-        "DMS-120",
-        "DMS-138",
-        "DMS-143",
-        "DMS-144",
-        "DMS-146",
-        "DMS-153",
-        "DMS-154",
-        "DMS-155",
-        "DMS-160",
-        "DMS-163",
-        "DMS-164",
-        "DMS-165",
-        "DMS-166",
-        "DMS-168",
-        "DMS-169",
-        "DMS-170",
-        "DMS-171",
-        "DMS-173",
-        "DMS-217",
-        "DMS-234",
-        "DMS-243",
-        "DMS-245",
-        "DMS-248",
-        "DMS-250",
-        "DMS-256",
-        "DMS-258",
-        "DMS-263",
-        "DMS-264",
-        "DMS-265",
-        "DMS-266",
-        "DMS-267",
-        "DMS-271",
-        "DMS-272",
-        "DMS-273",
-        "DMS-275",
-        "DMS-276",
-        "DMS-325",
-        "DMS-330",
-        "DMS-331",
-        "DMS-332",
-        "DMS-333",
-        "DMS-334",
-        "DMS-336",
-        "DMS-337",
-        "DMS-339",
-        "DMS-348",
-        "DMS-35",
-        "DMS-36",
-        "DMS-44",
-        "DMS-47",
-        "DMS-51",
-        "DMS-53",
-        "DMS-54",
-        "DMS-55",
-        "DMS-58",
-        "DMS-59",
-        "DMS-60",
-        "DMS-61",
-        "DMS-62",
-        "DMS-63",
-        "DMS-64",
-        "DMS-65",
-        "DMS-66",
-        "DMS-67",
-        "DMS-68",
-        "DMS-69",
-        "DMS-70",
-        "DMS-71",
-        "DMS-72",
-        "DMS-74",
-        "DMS-75",
-        "DMS-76",
-        "DMS-78",
-        "DMS-79",
-        "DMS-80",
-        "DMS-81",
-        "DMS-82",
-        "DMS-83",
-        "DMS-85",
-        "DMS-86",
-        "DMS-87",
-        "DMS-88",
-        "DMS-89",
-        "DMS-92",
-        "DMS-93",
-        "DMS-94",
-        "DMS-95",
-        "DMS-98",
-        "DMS-99"
+        "SPRNT-1"
       ]
     },
     "J3": {
@@ -447,7 +399,9 @@
     "J4": {
       "query": "Покажи задачи со статусом in_progress",
       "status_code": 200,
-      "task_keys": []
+      "task_keys": [
+        "SPRNT-1"
+      ]
     },
     "J5": {
       "query": "Покажи задачи со статусом done",
@@ -456,7 +410,7 @@
     }
   },
   "summary": {
-    "timestamp": "2026-08-21T20:53:42.263973",
+    "timestamp": "2026-08-21T21:08:58.235894",
     "head": "unknown",
     "total_queries": 0,
     "section_a": {
@@ -472,7 +426,7 @@
       }
     },
     "section_b": {
-      "pass_count": 7,
+      "pass_count": 8,
       "total": 8
     },
     "section_c": {
@@ -508,7 +462,7 @@
       "total": 5
     },
     "summary_metrics": {
-      "total_passes": 35,
+      "total_passes": 36,
       "total_tests": 42,
       "core8_real_data_passes": 122
     }
