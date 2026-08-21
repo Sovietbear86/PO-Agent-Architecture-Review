@@ -508,10 +508,10 @@ class QA026TestRunner:
         if not result.get("data"):
             return []
 
-        data = result.get("data") or {}
+        data = result["data"]
 
         # Try structured task list
-        tasks = (data.get("data") or {}).get("tasks", [])
+        tasks = data.get("data", {}).get("tasks", [])
         if tasks:
             keys = []
             for task in tasks:
