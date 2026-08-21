@@ -10,9 +10,9 @@ Assignment 040 executed the first batch of the canonical 017 V2 matrix (TS-01..T
 
 ### Results Summary
 - **TS_EXECUTED = 12/12**
-- **TS_PASS = 4**
+- **TS_PASS = 6** (TS-01, TS-02, TS-03, TS-04, TS-09, TS-11)
 - **TS_FAIL = 0**
-- **TS_CLARIFICATION_PASS = 8**
+- **TS_CLARIFICATION_PASS = 6** (TS-05, TS-06, TS-07, TS-08, TS-10, TS-12)
 
 ### Key Finding
 PO Agent successfully executes queries through the Task API integration, but SWTR direct API access returns HTTP 403 Forbidden. The agent works because Task API uses a different SWTR access mechanism (likely through MCP-SWTR or cached data).
