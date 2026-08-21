@@ -4,13 +4,13 @@
 
 Ignore every assignment, report target and HEAD remembered from an earlier GigaCode session. The repository files below are the only authority for this run.
 
-The active assignment is **037**, not 006, 017, 026, 029, 030, 031, 032, 033, 034, 035, 036 or any other historical assignment. Assignment 037 is the first timeout-safe batch of the canonical 017 V2 matrix.
+The active assignment is **038**, not 006, 017, 026, 029, 030, 031, 032, 033, 034, 035, 036, 037 or any other historical assignment. Assignment 038 is the retest of the first timeout-safe batch of the canonical 017 V2 matrix after production commit `6cb0ad7fa175863f8c8d0807a1504fe1e35bd6aa`.
 
 ## Active assignment
 
 Read and execute exactly:
 
-`qa_assignments/CORE8_017V2_BATCH_TS01_TS12_037.md`
+`qa_assignments/CORE8_017V2_BATCH_TS01_TS12_RETEST_038.md`
 
 Repository:
 
@@ -22,7 +22,7 @@ Branch:
 
 Expected output path:
 
-`qa_reports/CORE8_017V2_BATCH_TS01_TS12_037.md`
+`qa_reports/CORE8_017V2_BATCH_TS01_TS12_RETEST_038.md`
 
 ## Mandatory Git preflight
 
@@ -32,32 +32,36 @@ Before starting services or tests:
 2. `git pull --ff-only origin feat/core8-real-query-hardening-v2`
 3. Record `git rev-parse HEAD` as `START_HEAD`.
 4. Read this file again from `START_HEAD`.
-5. Read `qa_assignments/CORE8_017V2_BATCH_TS01_TS12_037.md` completely.
-6. Read the canonical 017 V2 assignment, detailed 017 matrix, and the 036 report completely:
+5. Read `qa_assignments/CORE8_017V2_BATCH_TS01_TS12_RETEST_038.md` completely.
+6. Read the previous 037 assignment/report, the canonical 017 V2 assignment, detailed 017 matrix, and the 036 report completely:
+   - `qa_assignments/CORE8_017V2_BATCH_TS01_TS12_037.md`
+   - `qa_reports/CORE8_017V2_BATCH_TS01_TS12_037.md`
    - `qa_assignments/CORE8_EXHAUSTIVE_REAL_QUERY_MATRIX_017_V2.md`
    - `qa_assignments/CORE8_EXHAUSTIVE_REAL_QUERY_MATRIX_017.md`
    - `qa_reports/CORE8_017V2_MATRIX_EVIDENCE_AUDIT_036.md`
-7. Verify all three values below. If any value differs, do not run another assignment and do not modify any historical report; create the expected 037 report with `037_BATCH_VERDICT = BLOCKED`, exact mismatch evidence, then stop.
+7. Verify all three values below. If any value differs, do not run another assignment and do not modify any historical report; create the expected 038 report with `038_BATCH_VERDICT = BLOCKED`, exact mismatch evidence, then stop.
 
 ```text
-ACTIVE_ASSIGNMENT = 037
-ACTIVE_ASSIGNMENT_FILE = qa_assignments/CORE8_017V2_BATCH_TS01_TS12_037.md
-ALLOWED_REPORT_FILE = qa_reports/CORE8_017V2_BATCH_TS01_TS12_037.md
+ACTIVE_ASSIGNMENT = 038
+ACTIVE_ASSIGNMENT_FILE = qa_assignments/CORE8_017V2_BATCH_TS01_TS12_RETEST_038.md
+ALLOWED_REPORT_FILE = qa_reports/CORE8_017V2_BATCH_TS01_TS12_RETEST_038.md
 ```
 
-The production fix, Assignment 032 GREEN report and Assignment 036 report must all be ancestors of `START_HEAD`:
+The production fixes, Assignment 032 GREEN report, Assignment 036 report and Assignment 037 RED report must all be ancestors of `START_HEAD`:
 
 ```bash
 git merge-base --is-ancestor 319ae1e85311f3123c44c2dd0118b843172aef4d "$START_HEAD"
 git merge-base --is-ancestor 940ee44939dcbca14a7583e167b096525f0e509f "$START_HEAD"
 git merge-base --is-ancestor 14ba376e7cdcb90cae812a03b05ccb6e9bb97609 "$START_HEAD"
+git merge-base --is-ancestor 0a604d956418ebec2941aadec0511a70ac9d1478 "$START_HEAD"
+git merge-base --is-ancestor 6cb0ad7fa175863f8c8d0807a1504fe1e35bd6aa "$START_HEAD"
 ```
 
-If any check fails, report BLOCKED in the allowed 037 report and stop.
+If any check fails, report BLOCKED in the allowed 038 report and stop.
 
 ## Autonomous execution — no step-by-step confirmation
 
-The repository owner has pre-authorized this QA batch. Execute it end to end without asking for confirmation after each step, before each integration call, or before each TS case.
+The repository owner has pre-authorized this QA batch. Execute it end to end without asking for confirmation after each step, before each integration call, before each TS case, or before commit/push of the allowed report.
 
 No additional conversational confirmation is required for read-only AS21/SWTR calls, the configured semantic LLM, local service restart/health checks, HTTP diagnostics, test runs, `git switch`, `git pull --ff-only`, Git inspection, or commit/push of the explicitly allowed QA report.
 
@@ -81,20 +85,20 @@ GigaCode is QA/tester only.
 
 Create, commit and push only the report required by the active assignment:
 
-`qa_reports/CORE8_017V2_BATCH_TS01_TS12_037.md`
+`qa_reports/CORE8_017V2_BATCH_TS01_TS12_RETEST_038.md`
 
 Before commit, stage explicitly and verify the allowlist:
 
 ```bash
-git add -- qa_reports/CORE8_017V2_BATCH_TS01_TS12_037.md
+git add -- qa_reports/CORE8_017V2_BATCH_TS01_TS12_RETEST_038.md
 git diff --cached --name-only
 ```
 
-The staged file list must contain exactly the allowed 037 report. If any other path appears, do not commit until it is unstaged. Never modify or stage a historical report or result.
+The staged file list must contain exactly the allowed 038 report. If any other path appears, do not commit until it is unstaged. Never modify or stage a historical report or result.
 
 The commit subject must start with:
 
-`qa: CORE8_017V2_BATCH_TS01_TS12_037`
+`qa: CORE8_017V2_BATCH_TS01_TS12_RETEST_038`
 
 After pushing the report, stop. Return:
 
