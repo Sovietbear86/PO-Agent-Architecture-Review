@@ -28,9 +28,25 @@ Execution blocked due to external AS21/SWTR data source unavailability during te
 
 ## AS21/SWTR data source status
 
-**TOKEN EXPIRED - 403 Forbidden**
+**TOKEN INVALID - 403 Forbidden (TOKEN CORRUPTED)**
 
-The SWTR/AS21 API returns HTTP 403 Forbidden for all requests. The token file at `~/.config/swtr/api_key` was created on 2026-07-18 and has expired.
+The SWTR/AS21 API returns HTTP 403 Forbidden for all requests.
+
+**Investigation findings:**
+
+1. Token file at `~/.config/swtr/api_key` contains a JWT token
+2. Token structure is valid (3 parts: header.payload.signature)
+3. However, payload (part 1) has 7461 characters - NOT divisible by 4
+4. Base64 requires length divisible by 4 - token is CORRUPTED
+5. Old token was 7729 chars, new token is 7916 chars - token was renewed
+6. Even after replacing with fresh token from user's header, still returns 403
+
+**Root cause analysis:**
+
+The token appears to be either:
+- Corrupted during copy/paste (payload length issue: 7461 % 4 = 1)
+- Revoked by the token issuer
+- Not properly configured for this client
 
 Error from direct SWTR access:
 ```
