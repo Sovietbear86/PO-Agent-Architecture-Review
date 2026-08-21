@@ -4,13 +4,13 @@
 
 Ignore every assignment, report target and HEAD remembered from an earlier GigaCode session. The repository files below are the only authority for this run.
 
-The active assignment is **035**, not 006, 017, 026, 029, 030, 031, 032, 033, 034 or any other historical assignment. Assignment 035 is the required complete execution of the canonical 017 V2 matrix.
+The active assignment is **036**, not 006, 017, 026, 029, 030, 031, 032, 033, 034, 035 or any other historical assignment. Assignment 036 audits the 035 evidence and, if needed, reruns the complete canonical 017 V2 matrix with per-ID evidence.
 
 ## Active assignment
 
 Read and execute exactly:
 
-`qa_assignments/CORE8_017V2_COMPLETE_MATRIX_EXECUTION_035.md`
+`qa_assignments/CORE8_017V2_MATRIX_EVIDENCE_AUDIT_036.md`
 
 Repository:
 
@@ -22,7 +22,7 @@ Branch:
 
 Expected output path:
 
-`qa_reports/CORE8_017V2_COMPLETE_MATRIX_EXECUTION_035.md`
+`qa_reports/CORE8_017V2_MATRIX_EVIDENCE_AUDIT_036.md`
 
 ## Mandatory Git preflight
 
@@ -32,30 +32,30 @@ Before starting services or tests:
 2. `git pull --ff-only origin feat/core8-real-query-hardening-v2`
 3. Record `git rev-parse HEAD` as `START_HEAD`.
 4. Read this file again from `START_HEAD`.
-5. Read `qa_assignments/CORE8_017V2_COMPLETE_MATRIX_EXECUTION_035.md` completely.
-6. Read the canonical 017 V2 assignment, referenced detailed specs, and the 034 report completely:
+5. Read `qa_assignments/CORE8_017V2_MATRIX_EVIDENCE_AUDIT_036.md` completely.
+6. Read the canonical 017 V2 assignment, referenced detailed specs, and the 035 report completely:
    - `qa_assignments/CORE8_EXHAUSTIVE_REAL_QUERY_MATRIX_017_V2.md`
    - `qa_assignments/CORE8_EXHAUSTIVE_REAL_QUERY_MATRIX_017.md`
    - `qa_assignments/CORE8_CORRECTION_LOOP_ADDENDUM_017A.md`
-   - `qa_reports/CORE8_017V2_VERDICT_INTEGRITY_RETEST_034.md`
-7. Verify all three values below. If any value differs, do not run another assignment and do not modify any historical report; create the expected 035 report with `035_VERDICT = BLOCKED`, exact mismatch evidence, then stop.
+   - `qa_reports/CORE8_017V2_COMPLETE_MATRIX_EXECUTION_035.md`
+7. Verify all three values below. If any value differs, do not run another assignment and do not modify any historical report; create the expected 036 report with `036_VERDICT = BLOCKED`, exact mismatch evidence, then stop.
 
 ```text
-ACTIVE_ASSIGNMENT = 035
-ACTIVE_ASSIGNMENT_FILE = qa_assignments/CORE8_017V2_COMPLETE_MATRIX_EXECUTION_035.md
-ALLOWED_REPORT_FILE = qa_reports/CORE8_017V2_COMPLETE_MATRIX_EXECUTION_035.md
+ACTIVE_ASSIGNMENT = 036
+ACTIVE_ASSIGNMENT_FILE = qa_assignments/CORE8_017V2_MATRIX_EVIDENCE_AUDIT_036.md
+ALLOWED_REPORT_FILE = qa_reports/CORE8_017V2_MATRIX_EVIDENCE_AUDIT_036.md
 ```
 
-The production fix, Assignment 032 GREEN report, Assignment 033 report and Assignment 034 report must all be ancestors of `START_HEAD`:
+The production fix, Assignment 032 GREEN report, Assignment 034 report and Assignment 035 report must all be ancestors of `START_HEAD`:
 
 ```bash
 git merge-base --is-ancestor 319ae1e85311f3123c44c2dd0118b843172aef4d "$START_HEAD"
 git merge-base --is-ancestor 940ee44939dcbca14a7583e167b096525f0e509f "$START_HEAD"
-git merge-base --is-ancestor 7a46762fd02cf43633e4fb5c18af2582941d5366 "$START_HEAD"
 git merge-base --is-ancestor beee3fcc684d8eb8cfafb0f295f8a0706a486d3a "$START_HEAD"
+git merge-base --is-ancestor 3777097d9f7a733336de95d5c2d67738e3543f41 "$START_HEAD"
 ```
 
-If any check fails, report BLOCKED in the allowed 035 report and stop.
+If any check fails, report BLOCKED in the allowed 036 report and stop.
 
 ## Autonomous execution — no step-by-step confirmation
 
@@ -73,7 +73,7 @@ The following are not valid blockers:
 - a previous report already identified that the full matrix is needed;
 - the tester would prefer "manual action" because the suite is long.
 
-Ask only if continuing requires an unconfigured credential/permission, an unavoidable platform approval, a write outside the report allowlist, a production/source-data/configuration mutation, a destructive out-of-scope action, or a material scope expansion. Consolidate any unavoidable platform approval to the minimum number of prompts possible.
+Ask only if continuing requires an unconfigured credential/permission, an unavoidable platform approval, a write outside the report allowlist, a production/source-data/configuration mutation, a destructive out-of-scope action, or a material scope expansion.
 
 ## Fixed role
 
@@ -82,7 +82,8 @@ GigaCode is QA/tester only.
 - Do not modify production code, prompts, adapters, tests, fixtures, acceptance runners, configuration, AS21/SWTR data, historical reports, roadmap files or learning state.
 - Do not repair discovered defects.
 - Do not weaken or tune the acceptance oracle.
-- Do not convert failed or not-executed canonical 017 V2 cases into GREEN.
+- Do not convert failed, missing or not-executed canonical 017 V2 cases into GREEN.
+- Do not publish aggregate/footer metrics that contradict the per-ID evidence table.
 - Use real AS21/SWTR evidence as required by the active assignment.
 - Never commit `.env`, credentials or secrets.
 
@@ -90,20 +91,20 @@ GigaCode is QA/tester only.
 
 Create, commit and push only the report required by the active assignment:
 
-`qa_reports/CORE8_017V2_COMPLETE_MATRIX_EXECUTION_035.md`
+`qa_reports/CORE8_017V2_MATRIX_EVIDENCE_AUDIT_036.md`
 
 Before commit, stage explicitly and verify the allowlist:
 
 ```bash
-git add -- qa_reports/CORE8_017V2_COMPLETE_MATRIX_EXECUTION_035.md
+git add -- qa_reports/CORE8_017V2_MATRIX_EVIDENCE_AUDIT_036.md
 git diff --cached --name-only
 ```
 
-The staged file list must contain exactly the allowed 035 report. If any other path appears, do not commit until it is unstaged. Never modify or stage a historical report or result.
+The staged file list must contain exactly the allowed 036 report. If any other path appears, do not commit until it is unstaged. Never modify or stage a historical report or result.
 
 The commit subject must start with:
 
-`qa: CORE8_017V2_COMPLETE_MATRIX_EXECUTION_035`
+`qa: CORE8_017V2_MATRIX_EVIDENCE_AUDIT_036`
 
 After pushing the report, stop. Return:
 

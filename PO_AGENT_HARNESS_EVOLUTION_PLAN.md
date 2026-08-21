@@ -3,7 +3,7 @@
 **Status:** ACTIVE / consolidated source of truth  
 **Current branch:** `feat/core8-real-query-hardening-v2`  
 **Last reviewed:** 2026-08-21
-**Current blocking gate:** Assignment 035 — complete 017 V2 matrix execution
+**Current blocking gate:** Assignment 036 — 017 V2 matrix evidence audit
 **Purpose:** prevent architectural drift and loss of earlier product requirements while evolving the original PO Agent into a self-improving Harness agent.
 
 > This document is the execution roadmap. `PO_AGENT_PLATFORM_V2_GIGACODE_MASTER_SPEC_V2_1.md`, `PO_AGENT_PLATFORM_V2_ADDENDUM_SKILLS_CLARIFICATION.md`, `REAL_DATA_COMPREHENSIVE_TEST_CHECKLIST.md`, the legacy implementation and early commits are normative sources. If they disagree, do not guess: record the conflict and resolve it explicitly before implementation.
@@ -47,7 +47,7 @@ Implement 54 catalog entries (implementation state only)
         |
         v
 Revalidate Core-8 semantic/source boundary with hydrated oracle
-(Assignment 031 GREEN -> Assignment 032 full unchanged 029/026 V2 benchmark GREEN -> Assignment 033 report self-inconsistent -> Assignment 034 BLOCKED/verdict invalid -> Assignment 035 complete 017 V2 execution)
+(Assignment 031 GREEN -> Assignment 032 full unchanged 029/026 V2 benchmark GREEN -> Assignment 033 report self-inconsistent -> Assignment 034 BLOCKED/verdict invalid -> Assignment 035 RED/inconsistent evidence -> Assignment 036 per-ID evidence audit)
         |
         v
 Accept 48 + 6 skills in controlled Gate-E waves on real evidence
@@ -283,7 +283,9 @@ Therefore Gate B is currently **REVALIDATION BLOCKED**, Gate E is **FROZEN**, an
 - [x] **Assignment 033 — 017 V2 Exhaustive Real-Query Matrix Rerun:** report commit `7a46762fd02cf43633e4fb5c18af2582941d5366` published.
 - [x] **Assignment 033 GREEN verdict acceptance:** rejected. The 033 report declares `CORE8_REAL_QUERY_HARDENING_GREEN=YES`, but also reports `FUNCTIONAL_FAIL=8`, `CORRECTION_LOOP_PASS=8/15`, and only `TOTAL_FUNCTIONAL_TESTS=36` instead of the full 107+ functional matrix.
 - [x] **Assignment 034 — 017 V2 Verdict Integrity Retest:** report commit `beee3fcc684d8eb8cfafb0f295f8a0706a486d3a`, `034_VERDICT=BLOCKED`, `033_GREEN_VERDICT_VALID=NO`, `033_READY_TO_RESUME_GATE_E_VALID=NO`.
-- [ ] **Assignment 035 — Complete 017 V2 Matrix Execution:** execute all 107+ functional cases and CL-01..CL-15; do not stop merely because the matrix is long.
+- [x] **Assignment 035 — Complete 017 V2 Matrix Execution:** report commit `3777097d9f7a733336de95d5c2d67738e3543f41`, `035_VERDICT=RED`, `READY_TO_RESUME_GATE_E=NO`.
+- [ ] **Assignment 035 evidence acceptance:** not accepted yet. The 035 report claims `TOTAL_FUNCTIONAL_TESTS=122` and `FUNCTIONAL_NOT_EXECUTED=0`, but its own category table marks 71 non-`task_search` functional cases as `NOT_EXEC`; it also claims `FUNCTIONAL_FAIL=2` while the detailed TS table marks TS-01..TS-36 all PASS.
+- [ ] **Assignment 036 — 017 V2 Matrix Evidence Audit:** audit 035 and, if required, rerun the complete canonical matrix with one per-ID evidence row for every required case.
 
 ### Current release/gate values
 
@@ -294,8 +296,8 @@ GATE_B_CURRENT_REVALIDATION = 032_FULL_BENCHMARK_GREEN
 GATE_C_LEARNING_LOOP = GREEN
 GATE_D_48_REQUIREMENT_RECOVERY = GREEN
 CATALOG_IMPLEMENTATION = 54/54
-CORE8_REAL_QUERY_HARDENING_017_V2 = PENDING_035_COMPLETE_MATRIX
-GATE_E_ACCEPTANCE = FROZEN_UNTIL_035_GREEN
+CORE8_REAL_QUERY_HARDENING_017_V2 = PENDING_036_EVIDENCE_AUDIT
+GATE_E_ACCEPTANCE = FROZEN_UNTIL_036_GREEN
 FRONTEND_FINALIZATION = DEFERRED
 RELEASE_READY = NO
 READY_TO_RERUN_017_V2 = YES
@@ -367,20 +369,47 @@ READY_TO_RESUME_GATE_E = NO
 
 034 did not execute the complete rerun. That is a QA execution gap, not a production-code fix request.
 
-### STEP 035 — complete 017 V2 matrix execution — CURRENT
+### STEP 035 — complete 017 V2 matrix execution — RED / EVIDENCE INCONSISTENT
 
-Execute `qa_assignments/CORE8_017V2_COMPLETE_MATRIX_EXECUTION_035.md`. Assignment 035 is the mandatory complete run of:
-
-- all 107+ functional scenarios;
-- all CL-01..CL-15;
-- independent oracle/source-contract preflight;
-- exact task-key set comparison for factual task results;
-- protected regression invariants.
-
-Gate E remains frozen until 035 sets:
+Assignment 035 report commit `3777097d9f7a733336de95d5c2d67738e3543f41` reported:
 
 ```text
-035_VERDICT = GREEN
+035_VERDICT = RED
+035_RERUN_EXECUTED = YES
+TOTAL_FUNCTIONAL_TESTS = 122
+FUNCTIONAL_PASS = 120
+FUNCTIONAL_FAIL = 2
+FUNCTIONAL_NOT_EXECUTED = 0
+CORRECTION_LOOP_PASS = 15/15
+READY_TO_RESUME_GATE_E = NO
+```
+
+The report is not accepted as complete evidence because its detailed category accounting contradicts the footer:
+
+- SUM/Q/SH/V/TW/CM/RH/X rows are aggregated as executed, but each category has `PASS=0`, `FAIL=0`, `NOT_EXEC=required_count`;
+- this means 71 required non-`task_search` functional cases lack per-ID evidence;
+- `FUNCTIONAL_FAIL=2` conflicts with the detailed TS table where TS-01..TS-36 are all marked PASS;
+- therefore aggregate metrics cannot be trusted for Gate E.
+
+### STEP 036 — 017 V2 matrix evidence audit — CURRENT
+
+Execute `qa_assignments/CORE8_017V2_MATRIX_EVIDENCE_AUDIT_036.md`. Assignment 036 must audit 035 and, if needed, rerun the complete canonical matrix with one per-ID evidence row for every required case:
+
+- TS-01..TS-36;
+- SUM-01..SUM-08;
+- Q-01..Q-08;
+- SH-01..SH-10;
+- V-01..V-08;
+- TW-01..TW-10;
+- CM-01..CM-09;
+- RH-01..RH-10;
+- X-01..X-08;
+- CL-01..CL-15.
+
+Gate E remains frozen until 036 sets:
+
+```text
+036_VERDICT = GREEN
 CORE8_REAL_QUERY_HARDENING_GREEN = YES
 READY_TO_RESUME_GATE_E = YES
 FUNCTIONAL_FAIL = 0
@@ -388,7 +417,7 @@ FUNCTIONAL_NOT_EXECUTED = 0
 CORRECTION_LOOP_PASS = 15/15
 ```
 
-If 035 is RED/BLOCKED, continue the developer-fix -> versioned-QA loop and do not resume Gate E.
+If 036 is RED/BLOCKED, continue the developer-fix -> versioned-QA loop and do not resume Gate E.
 
 ### STEP E — Gate-E wave acceptance
 
@@ -417,4 +446,4 @@ Run the actual production chain end-to-end, verify failure/clarification/loading
 
 ---
 
-**Next action:** execute Assignment 035 from `GIGACODE_NEXT_ACTION.md`. Do not resume Gate E, frontend or release work until the complete 017 V2 matrix is GREEN and `READY_TO_RESUME_GATE_E=YES`.
+**Next action:** execute Assignment 036 from `GIGACODE_NEXT_ACTION.md`. Do not resume Gate E, frontend or release work until per-ID evidence proves the complete 017 V2 matrix is GREEN and `READY_TO_RESUME_GATE_E=YES`.
