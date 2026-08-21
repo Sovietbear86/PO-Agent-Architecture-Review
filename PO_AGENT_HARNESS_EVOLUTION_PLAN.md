@@ -2,8 +2,8 @@
 
 **Status:** ACTIVE / consolidated source of truth  
 **Current branch:** `feat/core8-real-query-hardening-v2`  
-**Last reviewed:** 2026-08-20  
-**Current blocking gate:** Assignment 030 — source-backed sprint membership retest  
+**Last reviewed:** 2026-08-21
+**Current blocking gate:** Assignment 031 — multi-filter execution and sprint fail-closed retest
 **Purpose:** prevent architectural drift and loss of earlier product requirements while evolving the original PO Agent into a self-improving Harness agent.
 
 > This document is the execution roadmap. `PO_AGENT_PLATFORM_V2_GIGACODE_MASTER_SPEC_V2_1.md`, `PO_AGENT_PLATFORM_V2_ADDENDUM_SKILLS_CLARIFICATION.md`, `REAL_DATA_COMPREHENSIVE_TEST_CHECKLIST.md`, the legacy implementation and early commits are normative sources. If they disagree, do not guess: record the conflict and resolve it explicitly before implementation.
@@ -47,7 +47,7 @@ Implement 54 catalog entries (implementation state only)
         |
         v
 Revalidate Core-8 semantic/source boundary with hydrated oracle
-(Assignment 030 -> unchanged 029/026 V2 benchmark)
+(Assignment 031 -> unchanged 029/026 V2 benchmark)
         |
         v
 Accept 48 + 6 skills in controlled Gate-E waves on real evidence
@@ -222,6 +222,8 @@ Frontend work is deliberately sequenced after source/skill/learning correctness.
 - pull the target branch and restart the real local services;
 - read `GIGACODE_NEXT_ACTION.md`, then the referenced assignment;
 - act only as tester/adversarial reviewer;
+- execute the complete authorized QA workflow autonomously without asking for confirmation after every step or integration; source/LLM reads, local restarts, tests and publishing the allowed report are pre-authorized;
+- ask only for genuinely missing authority/credentials, unavoidable platform approval, destructive/out-of-scope action or material scope expansion, and batch unavoidable approval prompts;
 - use real read-only AS21/SWTR evidence when required;
 - never modify production code, prompts, tests, fixtures, acceptance runners, learning state or local source data unless the owner explicitly changes the role;
 - create, commit and push only the report named by the active assignment (plus an already-supported machine-readable result only when allowed);
@@ -230,7 +232,7 @@ Frontend work is deliberately sequenced after source/skill/learning correctness.
 ### Stable command to GigaCode
 
 ```text
-Открой репозиторий Sovietbear86/PO-Agent-Architecture-Review, перейди в ветку feat/core8-real-query-hardening-v2 и выполни GIGACODE_NEXT_ACTION.md. Работай только как тестировщик. Закоммить и отправь только разрешённый заданием QA-отчёт, затем верни SHA и полный текст отчёта.
+Открой репозиторий Sovietbear86/PO-Agent-Architecture-Review, перейди в ветку feat/core8-real-query-hardening-v2 и выполни GIGACODE_NEXT_ACTION.md. Работай только как тестировщик и выполни весь разрешённый QA-сценарий автономно, без подтверждения после каждого шага или интеграции. Закоммить и отправь только разрешённый заданием QA-отчёт, затем верни SHA и полный текст отчёта.
 ```
 
 ## 8. Consolidated execution status
@@ -264,10 +266,12 @@ Therefore Gate B is currently **REVALIDATION BLOCKED**, Gate E is **FROZEN**, an
 - Requested filters must be grounded or fail closed.
 - Correction turns reuse structured prior semantic state.
 - Production commit `fe1b5990e9234fdf959eaccec9187755c4161629` stopped fabricating sprint membership from the sprint-list facade and now requires individual SWTR task hydration.
+- Production commit `319ae1e85311f3123c44c2dd0118b843172aef4d` preserves independent sprint constraints across specialized task-search intents and revalidates sprint proof at the final execution boundary.
 
 ### Current active gate
 
-- [ ] **Assignment 030 — Source-backed Sprint Membership Retest.**
+- [x] **Assignment 030 — Source-backed Sprint Membership Retest:** valid report `3077c4b`, BLOCKED with 17 foreign-sprint tasks and two silent slot drops.
+- [ ] **Assignment 031 — Multi-filter Execution and Sprint Fail-closed Retest.**
 - [ ] Narrow exact-set checks for Garanin/DMS-SPRNT-1 and Moiseev/DMS-SPRNT-2.
 - [ ] Foreign sprint task count must be zero.
 - [ ] Unknown/unproven sprint must fail closed.
@@ -280,7 +284,7 @@ Therefore Gate B is currently **REVALIDATION BLOCKED**, Gate E is **FROZEN**, an
 ```text
 GATE_A_HISTORICAL_BASELINE = GREEN
 GATE_B_HISTORICAL_BASELINE = 8/8 GREEN
-GATE_B_CURRENT_REVALIDATION = BLOCKED_PENDING_030
+GATE_B_CURRENT_REVALIDATION = BLOCKED_PENDING_031
 GATE_C_LEARNING_LOOP = GREEN
 GATE_D_48_REQUIREMENT_RECOVERY = GREEN
 CATALOG_IMPLEMENTATION = 54/54
@@ -292,21 +296,21 @@ READY_TO_RERUN_017_V2 = NO
 
 ## 9. Immediate ordered actions
 
-### STEP 030 — source-backed sprint-membership gate — CURRENT
+### STEP 030 — source-backed sprint-membership gate — BLOCKED
 
-Execute `qa_assignments/CORE8_SOURCE_BACKED_SPRINT_MEMBERSHIP_RETEST_030.md` through GigaCode as QA only. The independent oracle is:
+Assignment 030 executed from branch HEAD `483c35b` and reported `030_NARROW_GATE=BLOCKED`: specialized `task_search_assignee` execution silently dropped `sprint_id`, returned 17 foreign `OLP-SPRNT-5` tasks for DMS queries, and accepted an unproven sprint as `COMPLETED + empty`.
 
-**2026-08-21 execution note:** commit `9f7e604` is not an Assignment 030 result. GigaCode reran stale Assignment 006, reported an old tested HEAD and overwrote the historical 006 report without executing any 030 case. This attempt has `NO VERDICT`; it does not make Gate B GREEN, RED or BLOCKED. The historical report is restored by the developer, the QA entrypoint now requires an assignment/HEAD/output-path preflight, and Assignment 030 remains pending.
+The earlier commit `9f7e604` remains an invalid stale Assignment 006 run and has no gate verdict. The valid 030 report is commit `3077c4b`.
 
 `sprint candidate keys -> individual SWTR task hydration -> authoritative relation/assignee/status -> requested filters -> exact task-key set`
 
 Do not use facade echo, answer prose, counts or the agent result itself as oracle evidence.
 
-### STEP 031 — developer remediation, only if 030 is not GREEN
+### STEP 031 — multi-filter execution remediation and retest — CURRENT
 
-ChatGPT/developer diagnoses the evidence and fixes the root layer. Source-contract defects stay in adapters/mappers; semantic defects stay in the LLM-first semantic boundary. Do not add phrase-routing crutches and do not ask GigaCode to repair production.
+Production commit `319ae1e85311f3123c44c2dd0118b843172aef4d` routes every task-search skill with two or more filters through the hardened composite capability and re-proves `sprint_id` at the final execution boundary. Focused local gate: 5/5 PASS. No phrase-routing or LLM architecture change was introduced.
 
-After any fix, issue a new versioned QA assignment and repeat the narrow gate.
+Execute `qa_assignments/CORE8_MULTIFILTER_EXECUTION_RETEST_031.md`. It must also prove fresh service PIDs/process paths so a stale runtime cannot masquerade as current HEAD.
 
 ### STEP 032 — full unchanged semantic/Core-8 acceptance
 
@@ -354,4 +358,4 @@ Run the actual production chain end-to-end, verify failure/clarification/loading
 
 ---
 
-**Next action:** execute Assignment 030 from `GIGACODE_NEXT_ACTION.md`. Do not resume 017_V2, Gate E, frontend or release work until the narrow source-membership gate and the unchanged full 029/026 V2 benchmark are GREEN with zero false greens and zero silent slot drops.
+**Next action:** execute Assignment 031 from `GIGACODE_NEXT_ACTION.md`. Do not resume 017_V2, Gate E, frontend or release work until the narrow multi-filter/source-membership gate and the unchanged full 029/026 V2 benchmark are GREEN with zero false greens and zero silent slot drops.
