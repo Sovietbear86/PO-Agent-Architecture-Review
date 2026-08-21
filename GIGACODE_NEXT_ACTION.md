@@ -4,13 +4,13 @@
 
 Ignore every assignment, report target and HEAD remembered from an earlier GigaCode session. The repository files below are the only authority for this run.
 
-The active assignment is **032**, not 006, 029, 030, 031 or any other historical assignment. Assignments 029 and 026 must be read as benchmark specifications, but their historical reports must not be updated.
+The active assignment is **033**, not 006, 017, 026, 029, 030, 031, 032 or any other historical assignment. The canonical 017 V2 file must be executed as the test specification, but its historical report must not be overwritten.
 
 ## Active assignment
 
 Read and execute exactly:
 
-`qa_assignments/CORE8_FULL_SEMANTIC_BENCHMARK_032.md`
+`qa_assignments/CORE8_EXHAUSTIVE_REAL_QUERY_MATRIX_017_V2_RERUN_033.md`
 
 Repository:
 
@@ -22,7 +22,7 @@ Branch:
 
 Expected output path:
 
-`qa_reports/CORE8_FULL_SEMANTIC_BENCHMARK_032.md`
+`qa_reports/CORE8_EXHAUSTIVE_REAL_QUERY_MATRIX_017_V2_RERUN_033.md`
 
 ## Mandatory Git preflight
 
@@ -32,23 +32,28 @@ Before starting services or tests:
 2. `git pull --ff-only origin feat/core8-real-query-hardening-v2`
 3. Record `git rev-parse HEAD` as `START_HEAD`.
 4. Read this file again from `START_HEAD`.
-5. Read `qa_assignments/CORE8_FULL_SEMANTIC_BENCHMARK_032.md` completely, followed by the referenced Assignment 029 and Assignment 026 specifications.
-6. Verify all three values below. If any value differs, do not run another assignment and do not modify any historical report; create the expected 032 report with `032_FULL_BENCHMARK = BLOCKED` and exact mismatch evidence, then stop.
+5. Read `qa_assignments/CORE8_EXHAUSTIVE_REAL_QUERY_MATRIX_017_V2_RERUN_033.md` completely.
+6. Read the canonical 017 V2 assignment and referenced detailed specs completely:
+   - `qa_assignments/CORE8_EXHAUSTIVE_REAL_QUERY_MATRIX_017_V2.md`
+   - `qa_assignments/CORE8_EXHAUSTIVE_REAL_QUERY_MATRIX_017.md`
+   - `qa_assignments/CORE8_CORRECTION_LOOP_ADDENDUM_017A.md`
+7. Verify all three values below. If any value differs, do not run another assignment and do not modify any historical report; create the expected 033 report with `CORE8_REAL_QUERY_HARDENING_GREEN = NO`, `READY_TO_RESUME_GATE_E = NO`, exact mismatch evidence, then stop.
 
 ```text
-ACTIVE_ASSIGNMENT = 032
-ACTIVE_ASSIGNMENT_FILE = qa_assignments/CORE8_FULL_SEMANTIC_BENCHMARK_032.md
-ALLOWED_REPORT_FILE = qa_reports/CORE8_FULL_SEMANTIC_BENCHMARK_032.md
+ACTIVE_ASSIGNMENT = 033
+ACTIVE_ASSIGNMENT_FILE = qa_assignments/CORE8_EXHAUSTIVE_REAL_QUERY_MATRIX_017_V2_RERUN_033.md
+ALLOWED_REPORT_FILE = qa_reports/CORE8_EXHAUSTIVE_REAL_QUERY_MATRIX_017_V2_RERUN_033.md
 ```
 
-The production commit `319ae1e85311f3123c44c2dd0118b843172aef4d` and the valid Assignment 031 report commit `b5ac573` must both be ancestors of `START_HEAD`:
+The production commit, Assignment 032 GREEN report commit and Assignment 032 instruction commit must all be ancestors of `START_HEAD`:
 
 ```bash
 git merge-base --is-ancestor 319ae1e85311f3123c44c2dd0118b843172aef4d "$START_HEAD"
-git merge-base --is-ancestor b5ac573 "$START_HEAD"
+git merge-base --is-ancestor 940ee44939dcbca14a7583e167b096525f0e509f "$START_HEAD"
+git merge-base --is-ancestor ca1ad3ab6e86f2e464bebb27527760f83d058842 "$START_HEAD"
 ```
 
-If either check fails, report BLOCKED in the allowed 032 report and stop.
+If any check fails, report BLOCKED in the allowed 033 report and stop.
 
 ## Autonomous execution — no step-by-step confirmation
 
@@ -62,7 +67,7 @@ Do not pause with questions such as “continue?”, “run the integration?”,
 
 GigaCode is QA/tester only.
 
-- Do not modify production code, prompts, adapters, tests, fixtures, acceptance runners, configuration, AS21/SWTR data or learning state.
+- Do not modify production code, prompts, adapters, tests, fixtures, acceptance runners, configuration, AS21/SWTR data, historical reports or learning state.
 - Do not repair discovered defects.
 - Do not weaken or tune the acceptance oracle.
 - Use real AS21/SWTR evidence as required by the active assignment.
@@ -72,22 +77,20 @@ GigaCode is QA/tester only.
 
 Create, commit and push only the report required by the active assignment:
 
-`qa_reports/CORE8_FULL_SEMANTIC_BENCHMARK_032.md`
-
-An existing machine-readable runner result may also be committed only if the active assignment explicitly allows it.
+`qa_reports/CORE8_EXHAUSTIVE_REAL_QUERY_MATRIX_017_V2_RERUN_033.md`
 
 Before commit, stage explicitly and verify the allowlist:
 
 ```bash
-git add -- qa_reports/CORE8_FULL_SEMANTIC_BENCHMARK_032.md
+git add -- qa_reports/CORE8_EXHAUSTIVE_REAL_QUERY_MATRIX_017_V2_RERUN_033.md
 git diff --cached --name-only
 ```
 
-The staged file list must contain exactly the allowed 032 report. If any other path appears, including the runner-generated historical 026 JSON, do not commit until it is unstaged. Never modify or stage a historical report or result.
+The staged file list must contain exactly the allowed 033 report. If any other path appears, do not commit until it is unstaged. Never modify or stage a historical report or result.
 
 The commit subject must start with:
 
-`qa: CORE8_FULL_SEMANTIC_BENCHMARK_032`
+`qa: CORE8_EXHAUSTIVE_REAL_QUERY_MATRIX_017_V2_RERUN_033`
 
 After pushing the report, stop. Return:
 
