@@ -13,6 +13,20 @@ This is a narrow gate before the unchanged Assignment 029/026 V2 benchmark. It i
 3. Do not repair defects. Record them with evidence for ChatGPT/developer.
 4. Only the assigned QA report, plus an already-supported machine-readable result JSON, may be committed.
 5. Never commit secrets or `.env`.
+6. Ignore any earlier GigaCode-session memory that names Assignment 006, 029 or another report. This file is the sole active test assignment.
+7. Never modify an existing historical report. Assignment 030 must create only its own report path.
+
+## Mandatory execution preflight
+
+Before testing:
+
+1. Switch to `feat/core8-real-query-hardening-v2` and run `git pull --ff-only`.
+2. Record `START_HEAD=$(git rev-parse HEAD)`.
+3. Re-read `GIGACODE_NEXT_ACTION.md` and this assignment from `START_HEAD`.
+4. Confirm `fe1b5990e9234fdf959eaccec9187755c4161629` is an ancestor of `START_HEAD` with `git merge-base --is-ancestor`.
+5. Confirm the active assignment number is 030 and the only report target is `qa_reports/CORE8_SOURCE_BACKED_SPRINT_MEMBERSHIP_RETEST_030.md`.
+
+If any check fails, create only the expected 030 report with a BLOCKED verdict and exact preflight evidence, then stop. Do not fall back to or rerun a prior assignment.
 
 ## Environment
 
@@ -159,3 +173,5 @@ READY_TO_RERUN_017_V2 = YES|NO
 `READY_TO_RERUN_017_V2=YES` is allowed only after full GREEN with zero false greens and zero silent slot drops.
 
 Commit and push only the report (and existing runner JSON if automatically produced), then stop and return the report commit SHA and verdict.
+
+Before commit, stage the allowed report by exact path and verify `git diff --cached --name-only`. Never stage or modify `qa_reports/AS21_A3_ATTACHMENT_WIRING_RETEST_006.md` or any other historical report. The commit subject must begin `qa: CORE8_SOURCE_BACKED_SPRINT_MEMBERSHIP_RETEST_030`.

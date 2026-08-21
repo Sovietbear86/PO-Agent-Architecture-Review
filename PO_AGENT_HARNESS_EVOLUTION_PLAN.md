@@ -296,6 +296,8 @@ READY_TO_RERUN_017_V2 = NO
 
 Execute `qa_assignments/CORE8_SOURCE_BACKED_SPRINT_MEMBERSHIP_RETEST_030.md` through GigaCode as QA only. The independent oracle is:
 
+**2026-08-21 execution note:** commit `9f7e604` is not an Assignment 030 result. GigaCode reran stale Assignment 006, reported an old tested HEAD and overwrote the historical 006 report without executing any 030 case. This attempt has `NO VERDICT`; it does not make Gate B GREEN, RED or BLOCKED. The historical report is restored by the developer, the QA entrypoint now requires an assignment/HEAD/output-path preflight, and Assignment 030 remains pending.
+
 `sprint candidate keys -> individual SWTR task hydration -> authoritative relation/assignee/status -> requested filters -> exact task-key set`
 
 Do not use facade echo, answer prose, counts or the agent result itself as oracle evidence.
