@@ -4,13 +4,13 @@
 
 Ignore every assignment, report target and HEAD remembered from an earlier GigaCode session. The repository files below are the only authority for this run.
 
-The active assignment is **031**, not 006, 029, 030 or any other historical assignment. Do not open, rerun or update a historical QA report.
+The active assignment is **032**, not 006, 029, 030, 031 or any other historical assignment. Assignments 029 and 026 must be read as benchmark specifications, but their historical reports must not be updated.
 
 ## Active assignment
 
 Read and execute exactly:
 
-`qa_assignments/CORE8_MULTIFILTER_EXECUTION_RETEST_031.md`
+`qa_assignments/CORE8_FULL_SEMANTIC_BENCHMARK_032.md`
 
 Repository:
 
@@ -22,7 +22,7 @@ Branch:
 
 Expected output path:
 
-`qa_reports/CORE8_MULTIFILTER_EXECUTION_RETEST_031.md`
+`qa_reports/CORE8_FULL_SEMANTIC_BENCHMARK_032.md`
 
 ## Mandatory Git preflight
 
@@ -32,22 +32,23 @@ Before starting services or tests:
 2. `git pull --ff-only origin feat/core8-real-query-hardening-v2`
 3. Record `git rev-parse HEAD` as `START_HEAD`.
 4. Read this file again from `START_HEAD`.
-5. Read `qa_assignments/CORE8_MULTIFILTER_EXECUTION_RETEST_031.md` completely.
-6. Verify all three values below. If any value differs, do not run another assignment and do not modify any historical report; create the expected 031 report with `031_NARROW_GATE = BLOCKED` and exact mismatch evidence, then stop.
+5. Read `qa_assignments/CORE8_FULL_SEMANTIC_BENCHMARK_032.md` completely, followed by the referenced Assignment 029 and Assignment 026 specifications.
+6. Verify all three values below. If any value differs, do not run another assignment and do not modify any historical report; create the expected 032 report with `032_FULL_BENCHMARK = BLOCKED` and exact mismatch evidence, then stop.
 
 ```text
-ACTIVE_ASSIGNMENT = 031
-ACTIVE_ASSIGNMENT_FILE = qa_assignments/CORE8_MULTIFILTER_EXECUTION_RETEST_031.md
-ALLOWED_REPORT_FILE = qa_reports/CORE8_MULTIFILTER_EXECUTION_RETEST_031.md
+ACTIVE_ASSIGNMENT = 032
+ACTIVE_ASSIGNMENT_FILE = qa_assignments/CORE8_FULL_SEMANTIC_BENCHMARK_032.md
+ALLOWED_REPORT_FILE = qa_reports/CORE8_FULL_SEMANTIC_BENCHMARK_032.md
 ```
 
-The production commit `319ae1e85311f3123c44c2dd0118b843172aef4d` must be an ancestor of `START_HEAD`:
+The production commit `319ae1e85311f3123c44c2dd0118b843172aef4d` and the valid Assignment 031 report commit `b5ac573` must both be ancestors of `START_HEAD`:
 
 ```bash
 git merge-base --is-ancestor 319ae1e85311f3123c44c2dd0118b843172aef4d "$START_HEAD"
+git merge-base --is-ancestor b5ac573 "$START_HEAD"
 ```
 
-If this check fails, report BLOCKED in the allowed 031 report and stop.
+If either check fails, report BLOCKED in the allowed 032 report and stop.
 
 ## Autonomous execution — no step-by-step confirmation
 
@@ -71,22 +72,22 @@ GigaCode is QA/tester only.
 
 Create, commit and push only the report required by the active assignment:
 
-`qa_reports/CORE8_MULTIFILTER_EXECUTION_RETEST_031.md`
+`qa_reports/CORE8_FULL_SEMANTIC_BENCHMARK_032.md`
 
 An existing machine-readable runner result may also be committed only if the active assignment explicitly allows it.
 
 Before commit, stage explicitly and verify the allowlist:
 
 ```bash
-git add -- qa_reports/CORE8_MULTIFILTER_EXECUTION_RETEST_031.md
+git add -- qa_reports/CORE8_FULL_SEMANTIC_BENCHMARK_032.md
 git diff --cached --name-only
 ```
 
-The staged file list must contain only the allowed 031 report, plus an existing machine-readable result explicitly permitted by Assignment 031. If any other path appears, do not commit until it is unstaged. Never modify or stage a historical report.
+The staged file list must contain exactly the allowed 032 report. If any other path appears, including the runner-generated historical 026 JSON, do not commit until it is unstaged. Never modify or stage a historical report or result.
 
 The commit subject must start with:
 
-`qa: CORE8_MULTIFILTER_EXECUTION_RETEST_031`
+`qa: CORE8_FULL_SEMANTIC_BENCHMARK_032`
 
 After pushing the report, stop. Return:
 

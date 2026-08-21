@@ -3,7 +3,7 @@
 **Status:** ACTIVE / consolidated source of truth  
 **Current branch:** `feat/core8-real-query-hardening-v2`  
 **Last reviewed:** 2026-08-21
-**Current blocking gate:** Assignment 031 — multi-filter execution and sprint fail-closed retest
+**Current blocking gate:** Assignment 032 — full unchanged 029/026 V2 semantic/Core-8 benchmark
 **Purpose:** prevent architectural drift and loss of earlier product requirements while evolving the original PO Agent into a self-improving Harness agent.
 
 > This document is the execution roadmap. `PO_AGENT_PLATFORM_V2_GIGACODE_MASTER_SPEC_V2_1.md`, `PO_AGENT_PLATFORM_V2_ADDENDUM_SKILLS_CLARIFICATION.md`, `REAL_DATA_COMPREHENSIVE_TEST_CHECKLIST.md`, the legacy implementation and early commits are normative sources. If they disagree, do not guess: record the conflict and resolve it explicitly before implementation.
@@ -47,7 +47,7 @@ Implement 54 catalog entries (implementation state only)
         |
         v
 Revalidate Core-8 semantic/source boundary with hydrated oracle
-(Assignment 031 -> unchanged 029/026 V2 benchmark)
+(Assignment 031 GREEN -> Assignment 032 full unchanged 029/026 V2 benchmark)
         |
         v
 Accept 48 + 6 skills in controlled Gate-E waves on real evidence
@@ -271,12 +271,12 @@ Therefore Gate B is currently **REVALIDATION BLOCKED**, Gate E is **FROZEN**, an
 ### Current active gate
 
 - [x] **Assignment 030 — Source-backed Sprint Membership Retest:** valid report `3077c4b`, BLOCKED with 17 foreign-sprint tasks and two silent slot drops.
-- [ ] **Assignment 031 — Multi-filter Execution and Sprint Fail-closed Retest.**
-- [ ] Narrow exact-set checks for Garanin/DMS-SPRNT-1 and Moiseev/DMS-SPRNT-2.
-- [ ] Foreign sprint task count must be zero.
-- [ ] Unknown/unproven sprint must fail closed.
-- [ ] `FALSE_GREEN_COUNT=0` and `SILENT_SLOT_DROP_COUNT=0`.
-- [ ] If narrow GREEN: run the unchanged Assignment 029/026 V2 real-data benchmark completely.
+- [x] **Assignment 031 — Multi-filter Execution and Sprint Fail-closed Retest:** valid report commit `b5ac573`, narrow gate GREEN.
+- [x] Garanin/DMS-SPRNT-1 exact set PASS: `DMS-248`, `DMS-243`, `DMS-93`, `DMS-36`.
+- [x] Moiseev/DMS-SPRNT-2 exact set PASS: `DMS-261`.
+- [x] `FOREIGN_SPRINT_TASK_COUNT=0`, unknown sprint fail-closed, focused tests 5/5.
+- [x] `FALSE_GREEN_COUNT=0`, `SILENT_SLOT_DROP_COUNT=0`, `QUERY_HTTP_500_COUNT=0` in the narrow gate.
+- [ ] **Assignment 032 — Full Core-8 Semantic Benchmark:** execute the complete unchanged 029/026 V2 real-data benchmark. Assignment 031 did not perform it and therefore did not close Gate B.
 - [ ] Resolve/classify `test_conversation_context_is_supplied_to_next_semantic_turn` after the sprint-membership gate without confusing a stale fixture with production correction behavior.
 
 ### Current release/gate values
@@ -284,7 +284,7 @@ Therefore Gate B is currently **REVALIDATION BLOCKED**, Gate E is **FROZEN**, an
 ```text
 GATE_A_HISTORICAL_BASELINE = GREEN
 GATE_B_HISTORICAL_BASELINE = 8/8 GREEN
-GATE_B_CURRENT_REVALIDATION = BLOCKED_PENDING_031
+GATE_B_CURRENT_REVALIDATION = PENDING_032_FULL_BENCHMARK
 GATE_C_LEARNING_LOOP = GREEN
 GATE_D_48_REQUIREMENT_RECOVERY = GREEN
 CATALOG_IMPLEMENTATION = 54/54
@@ -306,15 +306,15 @@ The earlier commit `9f7e604` remains an invalid stale Assignment 006 run and has
 
 Do not use facade echo, answer prose, counts or the agent result itself as oracle evidence.
 
-### STEP 031 — multi-filter execution remediation and retest — CURRENT
+### STEP 031 — multi-filter execution remediation and retest — GREEN
 
 Production commit `319ae1e85311f3123c44c2dd0118b843172aef4d` routes every task-search skill with two or more filters through the hardened composite capability and re-proves `sprint_id` at the final execution boundary. Focused local gate: 5/5 PASS. No phrase-routing or LLM architecture change was introduced.
 
-Execute `qa_assignments/CORE8_MULTIFILTER_EXECUTION_RETEST_031.md`. It must also prove fresh service PIDs/process paths so a stale runtime cannot masquerade as current HEAD.
+Assignment 031 report commit `b5ac573` proved fresh service PIDs/process paths, exact-set equality for both required multi-filter cases, zero foreign-sprint tasks, and correct fail-closed handling of an unproven sprint. Narrow gate GREEN does not replace the complete 026/029 benchmark.
 
-### STEP 032 — full unchanged semantic/Core-8 acceptance
+### STEP 032 — full unchanged semantic/Core-8 acceptance — CURRENT
 
-After narrow GREEN, execute the complete unchanged 029/026 V2 benchmark:
+Execute `qa_assignments/CORE8_FULL_SEMANTIC_BENCHMARK_032.md`. Run the complete unchanged 029/026 V2 benchmark:
 
 - architecture preflight;
 - Core-8 8/8 on real AS21;
@@ -358,4 +358,4 @@ Run the actual production chain end-to-end, verify failure/clarification/loading
 
 ---
 
-**Next action:** execute Assignment 031 from `GIGACODE_NEXT_ACTION.md`. Do not resume 017_V2, Gate E, frontend or release work until the narrow multi-filter/source-membership gate and the unchanged full 029/026 V2 benchmark are GREEN with zero false greens and zero silent slot drops.
+**Next action:** execute Assignment 032 from `GIGACODE_NEXT_ACTION.md`. Do not resume 017_V2, Gate E, frontend or release work until the unchanged full 029/026 V2 benchmark is GREEN with zero false greens and zero silent slot drops.
