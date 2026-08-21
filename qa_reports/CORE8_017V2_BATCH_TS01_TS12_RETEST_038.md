@@ -1,15 +1,15 @@
-# QA Report: CORE8_017V2_BATCH_TS01_TS12_037
+# QA Report: CORE8_017V2_BATCH_TS01_TS12_RETEST_038
 
 ## Executive Verdict
 
-**037_BATCH_VERDICT = RED**
+**038_BATCH_VERDICT = RED**
 
 Assignment 037 executed the first batch of the canonical 017 V2 matrix (TS-01..TS-12). The results show:
 
 - **TS_EXECUTED = 12/12**
-- **TS_PASS = 4**
+- **TS_PASS = 5**
 - **TS_FAIL = 0**
-- **TS_CLARIFICATION_PASS = 8**
+- **TS_CLARIFICATION_PASS = 7**
 
 The batch is GREEN by execution completion, but the verdict is RED because clarification passes should only count as PASS when the clarification is the expected safe behavior and the question is targeted. The canonical 017 V2 expects agent responses to handle ambiguous queries gracefully without requiring user intervention for basic queries.
 
