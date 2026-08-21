@@ -9,6 +9,8 @@ from __future__ import annotations
 import re
 from typing import Any
 
+from po_agent.domain.models import TaskStatus
+
 from .dialogue_runtime import ClarificationNeed, SemanticFrame
 from .live_entity_grounding import LiveGroundedEntityResolver
 
@@ -23,6 +25,34 @@ def _token_match(wanted: tuple[str, ...], candidate: str) -> bool:
 
 
 class ProductionEntityResolverV2(LiveGroundedEntityResolver):
+    _OPEN_STATUS_TERMS = {
+        "open",
+        "opened",
+        "открыт",
+        "открыта",
+    }
+    _NOT_COMPLETED_TERMS = {
+        "open_tasks",
+        "not_completed",
+        "unresolved",
+        "active",
+        "открытые",
+        "незакрытые",
+        "незавершенные",
+        "незавершённые",
+    }
+    _COMPLETED_TERMS = {
+        "completed",
+        "closed_tasks",
+        "resolved_or_closed",
+        "done",
+        "закрытые",
+        "завершенные",
+        "завершённые",
+        "closed/resolved",
+        "closed+resolved",
+    }
+
     async def semantic_context(self) -> dict[str, Any]:
         context = await super().semantic_context()
         tasks = await self.adapter.search_tasks("", max_results=getattr(self.adapter, "_scan_limit", 10000))
@@ -43,6 +73,10 @@ class ProductionEntityResolverV2(LiveGroundedEntityResolver):
         context["known_assignees"] = sorted(known_assignees)
         context["assignee_identities"] = identities
         context["known_products"] = sorted(known_products)
+        context["known_statuses"] = sorted({
+            *[str(value) for value in context.get("known_statuses", []) if value],
+            *[status.value for status in TaskStatus],
+        })
         return context
 
     @staticmethod
@@ -56,6 +90,25 @@ class ProductionEntityResolverV2(LiveGroundedEntityResolver):
             out.append(item)
         return out
 
+    @classmethod
+    def _normalize_status_constraint(cls, slots: dict[str, str]) -> None:
+        raw = str(slots.get("status_raw") or "").strip()
+        status = str(slots.get("status") or "").strip()
+        semantic = str(slots.get("status_semantic") or "").strip()
+        values = {value.casefold() for value in (raw, status, semantic) if value}
+
+        if any(value in cls._COMPLETED_TERMS or "/" in value and {"closed", "resolved"} <= set(re.split(r"[/+\s]+", value)) for value in values):
+            slots["status"] = "completed"
+            slots.pop("status_semantic", None)
+            return
+        if any(value in cls._NOT_COMPLETED_TERMS for value in values):
+            slots["status"] = "not_completed"
+            slots.pop("status_semantic", None)
+            return
+        if not status and any(value in cls._OPEN_STATUS_TERMS for value in values):
+            slots["status"] = "Open"
+            slots.pop("status_semantic", None)
+
     async def ground(self, frame: SemanticFrame, original_query: str) -> SemanticFrame:
         requested_slots = dict(frame.slots)
         slots = dict(frame.slots)
@@ -65,6 +118,7 @@ class ProductionEntityResolverV2(LiveGroundedEntityResolver):
             slots["status"] = slots["status_raw"]
         if slots.get("member_name") and not slots.get("person_raw"):
             slots["person_raw"] = slots["member_name"]
+        self._normalize_status_constraint(slots)
 
         person_raw = slots.get("person_raw")
         if person_raw and not slots.get("member_login"):

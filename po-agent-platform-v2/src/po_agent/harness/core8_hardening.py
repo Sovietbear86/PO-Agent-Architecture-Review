@@ -63,6 +63,8 @@ async def _composite(adapter, args):
         normalized = status.casefold().replace("-", "_").strip()
         if normalized in {"not_completed", "open_tasks", "unresolved"}:
             tasks = [task for task in tasks if not task.is_completed]
+        elif normalized in {"completed", "closed_tasks", "resolved_or_closed", "closed/resolved", "closed+resolved"}:
+            tasks = [task for task in tasks if task.is_completed]
         else:
             tasks = [
                 task for task in tasks

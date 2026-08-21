@@ -24,6 +24,7 @@ class LiveGroundedEntityResolver(GroundedEntityResolver):
         r"(?:релиз(?:а|е|у|ом)?|release)\s+([A-Za-z0-9][A-Za-z0-9_.-]{2,79})",
         re.I,
     )
+    _SPRINT_ID_RE = re.compile(r"\b[A-ZА-Я][A-ZА-Я0-9_]{1,15}-SPRNT-\d+\b", re.I)
 
     @classmethod
     def _normalize_product(cls, value: str | None) -> str | None:
@@ -49,6 +50,11 @@ class LiveGroundedEntityResolver(GroundedEntityResolver):
         text = f"{raw or ''} {query}".casefold()
         mentions_sprint = "спринт" in text or "sprint" in text
         return mentions_sprint and any(marker in text for marker in cls._CURRENT_MARKERS)
+
+    @classmethod
+    def _query_contains_sprint_id(cls, query: str, sprint_id: str) -> bool:
+        wanted = sprint_id.strip().casefold()
+        return any(match.group(0).casefold() == wanted for match in cls._SPRINT_ID_RE.finditer(query))
 
     @staticmethod
     def _release_identifier(item: Any) -> str | None:
@@ -156,6 +162,19 @@ class LiveGroundedEntityResolver(GroundedEntityResolver):
         product = self._normalize_product(slots.get("product")) or self._explicit_product_from_query(original_query)
         if product:
             slots["product"] = product
+
+        # A semantic model may propose a concrete sprint_id for a relative
+        # phrase such as "текущий спринт DMS". Treat that value as a proposal,
+        # not as a user-supplied explicit identifier. The authoritative value
+        # must come from the live current-sprint source below.
+        proposed_sprint = str(slots.get("sprint_id") or "").strip()
+        if (
+            proposed_sprint
+            and self._asks_current_sprint(slots.get("sprint_raw"), original_query)
+            and not self._query_contains_sprint_id(original_query, proposed_sprint)
+        ):
+            slots.pop("sprint_id", None)
+            slots["sprint_raw"] = "current"
 
         if not slots.get("release_id") and not slots.get("release_raw"):
             explicit_release = self._explicit_release_from_query(original_query)
