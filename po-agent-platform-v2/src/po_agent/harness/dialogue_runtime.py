@@ -548,6 +548,10 @@ class DialogueHarnessRuntime:
         "task_key", "sprint_id", "release_id", "product", "assignee", "status",
         "phrase", "attachment_type", "threshold_days", "capacity_hours", "subject",
     }
+    _TASK_SEARCH_SKILL_IDS = {
+        "task-search", "task-search-assignee", "task-search-status",
+        "task-search-sprint", "task-search-release", "task-search-product",
+    }
     _REQUIRED_ARGS_BY_CAPABILITY = {
         "task.lookup": ("task_key",), "task.summary": ("task_key",), "task.quality": ("task_key",),
         "task.missing_requirements": ("task_key",), "task.acceptance_analysis": ("task_key",),
@@ -575,6 +579,20 @@ class DialogueHarnessRuntime:
     def _validate_required_args(self, capability_id, args):
         missing = [arg for arg in self._REQUIRED_ARGS_BY_CAPABILITY.get(capability_id, ()) if not args.get(arg)]
         return (not missing, None if not missing else f"Missing required slot: {', '.join(missing)}")
+
+    async def _validate_source_backed_sprint(self, sprint_id: str) -> bool:
+        """Re-prove a sprint selector at the final execution boundary.
+
+        Grounding is the primary entity-validation layer, but execution must not
+        depend on every upstream wrapper preserving that decision perfectly.  A
+        production adapter that exposes ``sprint_exists`` provides the final
+        fail-closed source check.  Fake/frozen adapters without that contract
+        retain their existing behavior.
+        """
+        validator = getattr(self.adapter, "sprint_exists", None)
+        if not callable(validator):
+            return True
+        return bool(await validator(sprint_id))
 
     @staticmethod
     def _enrich_explicit_task_key(frame: SemanticFrame, original_query: str) -> SemanticFrame:
@@ -625,6 +643,26 @@ class DialogueHarnessRuntime:
             return HarnessResponse(status=ResponseStatus.FAILED, trace_id=str(uuid.uuid4()), session_id=session, answer="Интент не распознан или нереализован.", intent=hint, warnings=["unsupported_semantic_intent"], latency_ms=(time.perf_counter() - started) * 1000)
         capability_args = self._build_capability_args(frame)
         refined = self._refine_skill_id_by_slots(skill_id, frame.slots)
+        sprint_id = capability_args.get("sprint_id")
+        if sprint_id:
+            try:
+                sprint_proven = await self._validate_source_backed_sprint(sprint_id)
+            except AS21CapabilityUnavailable:
+                return self._source_failure(session, "source_capability_unavailable", "Источник AS21 не предоставляет данные для проверки спринта.", started)
+            except AS21SourceUnavailable:
+                return self._source_failure(session, "source_unavailable", "Источник AS21 временно недоступен. Нельзя подтвердить спринт.", started)
+            except AS21SourceError:
+                return self._source_failure(session, "source_protocol_error", "Источник AS21 вернул некорректные данные при проверке спринта.", started)
+            if not sprint_proven:
+                return HarnessResponse(
+                    status=ResponseStatus.NEEDS_CLARIFICATION,
+                    trace_id=str(uuid.uuid4()),
+                    session_id=session,
+                    question=f"Не могу подтвердить спринт «{sprint_id}» по данным AS21. Уточните спринт.",
+                    data={"sprint_id": sprint_id, "source_proven": False},
+                    warnings=["unproven_sprint"],
+                    latency_ms=(time.perf_counter() - started) * 1000,
+                )
         try:
             skill = self.skills.resolve_by_id(refined)
         except ValueError:
@@ -633,7 +671,7 @@ class DialogueHarnessRuntime:
         if not valid:
             return HarnessResponse(status=ResponseStatus.NEEDS_CLARIFICATION, trace_id=str(uuid.uuid4()), session_id=session, question=f"Мне не хватает информации: {error}.", warnings=["semantic_slot_missing"], latency_ms=(time.perf_counter() - started) * 1000)
         try:
-            if skill_id == "task-search" and sum(1 for k in ["assignee", "sprint_id", "release_id", "status", "product"] if k in capability_args) >= 2:
+            if refined in self._TASK_SEARCH_SKILL_IDS and sum(1 for k in ["assignee", "sprint_id", "release_id", "status", "product"] if k in capability_args) >= 2:
                 result = await self.capabilities.execute("task.search.composite", capability_args)
             else:
                 result = await self.capabilities.execute(skill.capability_id, capability_args)

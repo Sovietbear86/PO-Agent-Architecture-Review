@@ -73,6 +73,60 @@ async def test_grounded_composite_search_applies_all_filters_not_only_first_one(
 
 
 @pytest.mark.asyncio
+async def test_specific_assignee_intent_with_sprint_uses_composite_execution():
+    """A specific semantic intent must not discard independent filters."""
+    frame = SemanticFrame(
+        canonical_query="task search assignee in sprint",
+        intent_hint="task_search_assignee",
+        slots={
+            "member_login": "Sidorov.S.S",
+            "sprint_id": "WMB-SPRNT-1",
+        },
+        llm_used=True,
+    )
+    runtime = build_runtime_bundle("fake", semantic_interpreter=ScriptedInterpreter(frame)).runtime
+    response = await runtime.process(HarnessRequest(query="Покажи задачи Sidorov.S.S в WMB-SPRNT-1", session_id="specific-multi"))
+
+    assert response.status is ResponseStatus.COMPLETED
+    assert response.skill_id == "task-search-assignee"
+    assert response.data["count"] == 1
+    assert response.data["tasks"][0]["key"] == "WMB-102"
+    assert response.data["filters"] == {
+        "assignee": "Sidorov.S.S",
+        "sprint_id": "WMB-SPRNT-1",
+    }
+
+
+@pytest.mark.asyncio
+async def test_final_execution_boundary_rejects_unproven_sprint():
+    """COMPLETED + empty is forbidden when a production validator says unknown."""
+    bundle = build_runtime_bundle("fake", semantic_interpreter=ScriptedInterpreter(SemanticFrame("unused")))
+    dialogue = bundle.runtime.inner
+    while not isinstance(dialogue, DialogueHarnessRuntime):
+        dialogue = dialogue.inner
+
+    async def reject_sprint(sprint_id):
+        assert sprint_id == "DMS-SPRNT-999999"
+        return False
+
+    dialogue.adapter.sprint_exists = reject_sprint
+    response = await dialogue._execute_frame(
+        SemanticFrame(
+            canonical_query="task search sprint",
+            intent_hint="task_search_sprint",
+            slots={"sprint_id": "DMS-SPRNT-999999"},
+            llm_used=True,
+        ),
+        "unproven-execution",
+        0.0,
+    )
+
+    assert response.status is ResponseStatus.NEEDS_CLARIFICATION
+    assert response.warnings == ["unproven_sprint"]
+    assert response.data == {"sprint_id": "DMS-SPRNT-999999", "source_proven": False}
+
+
+@pytest.mark.asyncio
 async def test_unambiguous_semantic_frame_executes_without_clarification():
     frame = SemanticFrame(
         canonical_query="история WMB-101",
