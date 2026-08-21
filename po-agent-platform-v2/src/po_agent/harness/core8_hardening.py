@@ -15,8 +15,20 @@ def _same_identity(task, expected: str) -> bool:
     wanted = expected.casefold().strip()
     return any(
         isinstance(value, str) and value.casefold().strip() == wanted
-        for value in (task.assignee_id, task.assignee_login, task.assignee)
+        for value in (
+            getattr(task, "assignee_id", None),
+            getattr(task, "assignee_login", None),
+            getattr(task, "assignee", None),
+        )
     )
+
+
+def _same_product(task, expected: str) -> bool:
+    wanted = expected.casefold().strip()
+    return any(
+        isinstance(value, str) and value.casefold().strip() == wanted
+        for value in (getattr(task, "project_space", None),)
+    ) or task.key.casefold().startswith(f"{wanted}-")
 
 
 def _task_dict(task):
@@ -43,6 +55,7 @@ async def _composite(adapter, args):
     product = (args.get("product") or "").strip().upper()
     assignee = (args.get("assignee") or "").strip()
     status = (args.get("status") or "").strip()
+    phrase = (args.get("phrase") or "").strip().casefold()
 
     if sprint_id:
         tasks = await adapter.get_sprint_tasks(sprint_id, space=product or None)
@@ -56,6 +69,15 @@ async def _composite(adapter, args):
         release_keys = {task.key.upper() for task in release_tasks}
         tasks = [task for task in tasks if task.key.upper() in release_keys]
 
+    # Every source selector is re-applied locally after facade reads.  This keeps
+    # sprint/product/release membership source-backed even if an upstream facade
+    # returns a broad candidate list or echoes an unproven selector.
+    if sprint_id:
+        tasks = [task for task in tasks if (task.sprint_id or "").upper() == sprint_id]
+    if release_id:
+        tasks = [task for task in tasks if (task.release_id or "").upper() == release_id]
+    if product:
+        tasks = [task for task in tasks if _same_product(task, product)]
     if assignee:
         tasks = [task for task in tasks if _same_identity(task, assignee)]
 
@@ -72,6 +94,13 @@ async def _composite(adapter, args):
                 or normalized == task.status_category.value.casefold()
                 or normalized in task.status.value.casefold().replace(" ", "_")
             ]
+    if phrase:
+        tasks = [
+            task for task in tasks
+            if phrase in task.key.casefold()
+            or phrase in task.title.casefold()
+            or phrase in (task.description or "").casefold()
+        ]
 
     filters = {key: value for key, value in args.items() if value not in (None, "")}
     return CapabilityResult(
@@ -85,7 +114,7 @@ async def _composite(adapter, args):
 
 
 def enable_core8_hardened_composite(runtime) -> None:
-    """Replace only the known-bad composite handler in the executable registry."""
+    """Route production task searches through the source-backed filter boundary."""
     registry = getattr(runtime, "capabilities", None)
     adapter = getattr(runtime, "adapter", None)
     handlers = getattr(registry, "_handlers", None)
@@ -96,3 +125,13 @@ def enable_core8_hardened_composite(runtime) -> None:
         return await _composite(adapter, args)
 
     handlers["task.search.composite"] = handler
+    for capability_id in (
+        "task.search",
+        "task.search_assignee",
+        "task.search_status",
+        "task.search_sprint",
+        "task.search_release",
+        "task.search_product",
+    ):
+        if capability_id in handlers:
+            handlers[capability_id] = handler

@@ -52,6 +52,16 @@ class ProductionEntityResolverV2(LiveGroundedEntityResolver):
         "closed/resolved",
         "closed+resolved",
     }
+    _PERSON_RAW_ALIASES = (
+        "person",
+        "person_name",
+        "member",
+        "member_name",
+        "assignee_raw",
+        "assignee_name",
+        "employee",
+        "user",
+    )
 
     async def semantic_context(self) -> dict[str, Any]:
         context = await super().semantic_context()
@@ -90,8 +100,24 @@ class ProductionEntityResolverV2(LiveGroundedEntityResolver):
             out.append(item)
         return out
 
+    @staticmethod
+    def _query_requests_open_task_set(query: str) -> bool:
+        text = query.casefold()
+        return any(
+            marker in text
+            for marker in (
+                "открытые",
+                "открытых",
+                "незакрытые",
+                "незаверш",
+                "open tasks",
+                "unresolved tasks",
+                "not completed",
+            )
+        )
+
     @classmethod
-    def _normalize_status_constraint(cls, slots: dict[str, str]) -> None:
+    def _normalize_status_constraint(cls, slots: dict[str, str], original_query: str) -> None:
         raw = str(slots.get("status_raw") or "").strip()
         status = str(slots.get("status") or "").strip()
         semantic = str(slots.get("status_semantic") or "").strip()
@@ -106,8 +132,20 @@ class ProductionEntityResolverV2(LiveGroundedEntityResolver):
             slots.pop("status_semantic", None)
             return
         if not status and any(value in cls._OPEN_STATUS_TERMS for value in values):
-            slots["status"] = "Open"
+            slots["status"] = "not_completed" if cls._query_requests_open_task_set(original_query) else "Open"
             slots.pop("status_semantic", None)
+
+    @classmethod
+    def _normalize_person_slots(cls, slots: dict[str, str]) -> None:
+        if not slots.get("person_raw"):
+            for alias in cls._PERSON_RAW_ALIASES:
+                value = slots.get(alias)
+                if value:
+                    slots["person_raw"] = value
+                    break
+        assignee = slots.get("assignee")
+        if assignee and not slots.get("member_login") and not slots.get("person_raw"):
+            slots["person_raw"] = assignee
 
     async def ground(self, frame: SemanticFrame, original_query: str) -> SemanticFrame:
         requested_slots = dict(frame.slots)
@@ -116,9 +154,8 @@ class ProductionEntityResolverV2(LiveGroundedEntityResolver):
         # Normalize semantic aliases into the canonical slots consumed downstream.
         if slots.get("status_raw") and not slots.get("status") and not slots.get("status_semantic"):
             slots["status"] = slots["status_raw"]
-        if slots.get("member_name") and not slots.get("person_raw"):
-            slots["person_raw"] = slots["member_name"]
-        self._normalize_status_constraint(slots)
+        self._normalize_person_slots(slots)
+        self._normalize_status_constraint(slots, original_query)
 
         person_raw = slots.get("person_raw")
         if person_raw and not slots.get("member_login"):
@@ -154,6 +191,9 @@ class ProductionEntityResolverV2(LiveGroundedEntityResolver):
         needs = list(grounded.clarifications)
         context = await self.semantic_context()
 
+        if final_slots.get("member_login"):
+            final_slots["assignee"] = final_slots["member_login"]
+
         # Product/space is a real source constraint too. Never accept arbitrary
         # uppercase text as a product and never drop a requested scope silently.
         requested_product = requested_slots.get("product")
@@ -174,10 +214,18 @@ class ProductionEntityResolverV2(LiveGroundedEntityResolver):
         # Invariant: an explicitly requested semantic constraint either survives in
         # canonical grounded form or produces clarification. It may never disappear
         # and broaden the query to all tasks.
-        if (requested_slots.get("person_raw") or requested_slots.get("member_name")) and not final_slots.get("member_login"):
+        requested_person = next(
+            (
+                requested_slots.get(key)
+                for key in ("person_raw", *self._PERSON_RAW_ALIASES, "assignee")
+                if requested_slots.get(key)
+            ),
+            None,
+        )
+        if requested_person and not final_slots.get("member_login"):
             needs.append(ClarificationNeed(
                 "member_login",
-                f"Не удалось однозначно подтвердить исполнителя «{requested_slots.get('person_raw') or requested_slots.get('member_name')}».",
+                f"Не удалось однозначно подтвердить исполнителя «{requested_person}».",
                 tuple(str(x) for x in context.get("known_assignees", [])),
             ))
         if requested_slots.get("sprint_id") and not final_slots.get("sprint_id"):
