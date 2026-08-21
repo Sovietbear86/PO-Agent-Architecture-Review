@@ -4,13 +4,13 @@
 
 Ignore every assignment, report target and HEAD remembered from an earlier GigaCode session. The repository files below are the only authority for this run.
 
-The active assignment is **033**, not 006, 017, 026, 029, 030, 031, 032 or any other historical assignment. The canonical 017 V2 file must be executed as the test specification, but its historical report must not be overwritten.
+The active assignment is **034**, not 006, 017, 026, 029, 030, 031, 032, 033 or any other historical assignment. Assignment 034 reviews the integrity of the 033 GREEN verdict and, if required, reruns the complete canonical 017 V2 matrix.
 
 ## Active assignment
 
 Read and execute exactly:
 
-`qa_assignments/CORE8_EXHAUSTIVE_REAL_QUERY_MATRIX_017_V2_RERUN_033.md`
+`qa_assignments/CORE8_017V2_VERDICT_INTEGRITY_RETEST_034.md`
 
 Repository:
 
@@ -22,7 +22,7 @@ Branch:
 
 Expected output path:
 
-`qa_reports/CORE8_EXHAUSTIVE_REAL_QUERY_MATRIX_017_V2_RERUN_033.md`
+`qa_reports/CORE8_017V2_VERDICT_INTEGRITY_RETEST_034.md`
 
 ## Mandatory Git preflight
 
@@ -32,28 +32,30 @@ Before starting services or tests:
 2. `git pull --ff-only origin feat/core8-real-query-hardening-v2`
 3. Record `git rev-parse HEAD` as `START_HEAD`.
 4. Read this file again from `START_HEAD`.
-5. Read `qa_assignments/CORE8_EXHAUSTIVE_REAL_QUERY_MATRIX_017_V2_RERUN_033.md` completely.
-6. Read the canonical 017 V2 assignment and referenced detailed specs completely:
+5. Read `qa_assignments/CORE8_017V2_VERDICT_INTEGRITY_RETEST_034.md` completely.
+6. Read the canonical 017 V2 assignment, referenced detailed specs, and the 033 report completely:
    - `qa_assignments/CORE8_EXHAUSTIVE_REAL_QUERY_MATRIX_017_V2.md`
    - `qa_assignments/CORE8_EXHAUSTIVE_REAL_QUERY_MATRIX_017.md`
    - `qa_assignments/CORE8_CORRECTION_LOOP_ADDENDUM_017A.md`
-7. Verify all three values below. If any value differs, do not run another assignment and do not modify any historical report; create the expected 033 report with `CORE8_REAL_QUERY_HARDENING_GREEN = NO`, `READY_TO_RESUME_GATE_E = NO`, exact mismatch evidence, then stop.
+   - `qa_reports/CORE8_EXHAUSTIVE_REAL_QUERY_MATRIX_017_V2_RERUN_033.md`
+7. Verify all three values below. If any value differs, do not run another assignment and do not modify any historical report; create the expected 034 report with `034_VERDICT = BLOCKED`, exact mismatch evidence, then stop.
 
 ```text
-ACTIVE_ASSIGNMENT = 033
-ACTIVE_ASSIGNMENT_FILE = qa_assignments/CORE8_EXHAUSTIVE_REAL_QUERY_MATRIX_017_V2_RERUN_033.md
-ALLOWED_REPORT_FILE = qa_reports/CORE8_EXHAUSTIVE_REAL_QUERY_MATRIX_017_V2_RERUN_033.md
+ACTIVE_ASSIGNMENT = 034
+ACTIVE_ASSIGNMENT_FILE = qa_assignments/CORE8_017V2_VERDICT_INTEGRITY_RETEST_034.md
+ALLOWED_REPORT_FILE = qa_reports/CORE8_017V2_VERDICT_INTEGRITY_RETEST_034.md
 ```
 
-The production commit, Assignment 032 GREEN report commit and Assignment 032 instruction commit must all be ancestors of `START_HEAD`:
+The production fix, Assignment 032 GREEN report, Assignment 033 instructions and Assignment 033 report must all be ancestors of `START_HEAD`:
 
 ```bash
 git merge-base --is-ancestor 319ae1e85311f3123c44c2dd0118b843172aef4d "$START_HEAD"
 git merge-base --is-ancestor 940ee44939dcbca14a7583e167b096525f0e509f "$START_HEAD"
-git merge-base --is-ancestor ca1ad3ab6e86f2e464bebb27527760f83d058842 "$START_HEAD"
+git merge-base --is-ancestor cc780219c4b29f5d0dd37e929c16ff528f1508f0 "$START_HEAD"
+git merge-base --is-ancestor 7a46762fd02cf43633e4fb5c18af2582941d5366 "$START_HEAD"
 ```
 
-If any check fails, report BLOCKED in the allowed 033 report and stop.
+If any check fails, report BLOCKED in the allowed 034 report and stop.
 
 ## Autonomous execution — no step-by-step confirmation
 
@@ -67,9 +69,10 @@ Do not pause with questions such as “continue?”, “run the integration?”,
 
 GigaCode is QA/tester only.
 
-- Do not modify production code, prompts, adapters, tests, fixtures, acceptance runners, configuration, AS21/SWTR data, historical reports or learning state.
+- Do not modify production code, prompts, adapters, tests, fixtures, acceptance runners, configuration, AS21/SWTR data, historical reports, roadmap files or learning state.
 - Do not repair discovered defects.
 - Do not weaken or tune the acceptance oracle.
+- Do not convert failed or not-executed canonical 017 V2 cases into GREEN.
 - Use real AS21/SWTR evidence as required by the active assignment.
 - Never commit `.env`, credentials or secrets.
 
@@ -77,20 +80,20 @@ GigaCode is QA/tester only.
 
 Create, commit and push only the report required by the active assignment:
 
-`qa_reports/CORE8_EXHAUSTIVE_REAL_QUERY_MATRIX_017_V2_RERUN_033.md`
+`qa_reports/CORE8_017V2_VERDICT_INTEGRITY_RETEST_034.md`
 
 Before commit, stage explicitly and verify the allowlist:
 
 ```bash
-git add -- qa_reports/CORE8_EXHAUSTIVE_REAL_QUERY_MATRIX_017_V2_RERUN_033.md
+git add -- qa_reports/CORE8_017V2_VERDICT_INTEGRITY_RETEST_034.md
 git diff --cached --name-only
 ```
 
-The staged file list must contain exactly the allowed 033 report. If any other path appears, do not commit until it is unstaged. Never modify or stage a historical report or result.
+The staged file list must contain exactly the allowed 034 report. If any other path appears, do not commit until it is unstaged. Never modify or stage a historical report or result.
 
 The commit subject must start with:
 
-`qa: CORE8_EXHAUSTIVE_REAL_QUERY_MATRIX_017_V2_RERUN_033`
+`qa: CORE8_017V2_VERDICT_INTEGRITY_RETEST_034`
 
 After pushing the report, stop. Return:
 
