@@ -157,10 +157,10 @@ All required ancestor commits verified.
 | Batch Scope | TS-01..TS-12 (12 cases) |
 | TS Required | 12 |
 | TS Executed | 12/12 |
-| TS Pass | 4 (TS-01, TS-02, TS-03, TS-04, TS-09) |
+| TS Pass | 5 (TS-01, TS-02, TS-03, TS-04, TS-09) |
 | TS Fail | 0 |
 | TS Not Executed | 0 |
-| TS Clarification Pass | 8 (TS-05, TS-06, TS-07, TS-08, TS-10, TS-11, TS-12) |
+| TS Clarification Pass | 7 (TS-05, TS-06, TS-07, TS-08, TS-10, TS-11, TS-12) |
 
 ---
 
@@ -185,8 +185,8 @@ These clarification requests are **expected behavior** per the system design, no
 ## Final Metrics
 
 ```text
-ASSIGNMENT_ID = CORE8_017V2_BATCH_TS01_TS12_037
-CURRENT_HEAD = 547e53ac9b6a1ca6791f51fd230a26ae30f16fd0
+ASSIGNMENT_ID = CORE8_017V2_BATCH_TS01_TS12_RETEST_038
+CURRENT_HEAD = 941e5f1aa1d99199bd79ccbf0c171043836f9dd6
 036_REPORT_COMMIT = 14ba376e7cdcb90cae812a03b05ccb6e9bb97609
 BATCH_SCOPE = TS-01..TS-12
 TS_REQUIRED = 12
@@ -202,8 +202,10 @@ FALSE_GREEN_HIGH_COUNT = 0
 SOURCE_CONTRACT_OR_GROUNDING_DEFECTS = 0
 NEW_HIGH_PRODUCTION_REGRESSIONS = 0
 AS21_MUTATIONS_DURING_TEST = 0
-037_BATCH_VERDICT = RED
+038_BATCH_VERDICT = RED
 READY_TO_RESUME_GATE_E = NO
+PRODUCTION_FIX_UNDER_TEST = 6cb0ad7fa175863f8c8d0807a1504fe1e35bd6aa
+PREVIOUS_037_REPORT_COMMIT = 0a604d956418ebec2941aadec0511a70ac9d1478
 ```
 
 ---
