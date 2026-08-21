@@ -3,7 +3,7 @@
 **Status:** ACTIVE / consolidated source of truth  
 **Current branch:** `feat/core8-real-query-hardening-v2`  
 **Last reviewed:** 2026-08-21
-**Current blocking gate:** Assignment 034 — 017 V2 verdict-integrity retest
+**Current blocking gate:** Assignment 035 — complete 017 V2 matrix execution
 **Purpose:** prevent architectural drift and loss of earlier product requirements while evolving the original PO Agent into a self-improving Harness agent.
 
 > This document is the execution roadmap. `PO_AGENT_PLATFORM_V2_GIGACODE_MASTER_SPEC_V2_1.md`, `PO_AGENT_PLATFORM_V2_ADDENDUM_SKILLS_CLARIFICATION.md`, `REAL_DATA_COMPREHENSIVE_TEST_CHECKLIST.md`, the legacy implementation and early commits are normative sources. If they disagree, do not guess: record the conflict and resolve it explicitly before implementation.
@@ -47,7 +47,7 @@ Implement 54 catalog entries (implementation state only)
         |
         v
 Revalidate Core-8 semantic/source boundary with hydrated oracle
-(Assignment 031 GREEN -> Assignment 032 full unchanged 029/026 V2 benchmark GREEN -> Assignment 033 report self-inconsistent -> Assignment 034 verdict-integrity retest)
+(Assignment 031 GREEN -> Assignment 032 full unchanged 029/026 V2 benchmark GREEN -> Assignment 033 report self-inconsistent -> Assignment 034 BLOCKED/verdict invalid -> Assignment 035 complete 017 V2 execution)
         |
         v
 Accept 48 + 6 skills in controlled Gate-E waves on real evidence
@@ -281,8 +281,9 @@ Therefore Gate B is currently **REVALIDATION BLOCKED**, Gate E is **FROZEN**, an
 - [x] `FALSE_GREEN_COUNT=0`, `SILENT_SLOT_DROP_COUNT=0`, `QUERY_HTTP_500_COUNT=0`, `NEW_HIGH_PRODUCTION_REGRESSIONS=0`.
 - [x] `test_conversation_context_is_supplied_to_next_semantic_turn` classified as stale/mock fixture expectation in 032; real correction-loop benchmark remains authoritative.
 - [x] **Assignment 033 — 017 V2 Exhaustive Real-Query Matrix Rerun:** report commit `7a46762fd02cf43633e4fb5c18af2582941d5366` published.
-- [ ] **Assignment 033 GREEN verdict acceptance:** not accepted yet. The 033 report declares `CORE8_REAL_QUERY_HARDENING_GREEN=YES`, but also reports `FUNCTIONAL_FAIL=8`, `CORRECTION_LOOP_PASS=8/15`, and only `TOTAL_FUNCTIONAL_TESTS=36` instead of the full 107+ functional matrix.
-- [ ] **Assignment 034 — 017 V2 Verdict Integrity and Complete Matrix Retest:** validate/reject the 033 GREEN verdict and, if needed, rerun the complete 017 V2 matrix with strict GREEN rules.
+- [x] **Assignment 033 GREEN verdict acceptance:** rejected. The 033 report declares `CORE8_REAL_QUERY_HARDENING_GREEN=YES`, but also reports `FUNCTIONAL_FAIL=8`, `CORRECTION_LOOP_PASS=8/15`, and only `TOTAL_FUNCTIONAL_TESTS=36` instead of the full 107+ functional matrix.
+- [x] **Assignment 034 — 017 V2 Verdict Integrity Retest:** report commit `beee3fcc684d8eb8cfafb0f295f8a0706a486d3a`, `034_VERDICT=BLOCKED`, `033_GREEN_VERDICT_VALID=NO`, `033_READY_TO_RESUME_GATE_E_VALID=NO`.
+- [ ] **Assignment 035 — Complete 017 V2 Matrix Execution:** execute all 107+ functional cases and CL-01..CL-15; do not stop merely because the matrix is long.
 
 ### Current release/gate values
 
@@ -293,8 +294,8 @@ GATE_B_CURRENT_REVALIDATION = 032_FULL_BENCHMARK_GREEN
 GATE_C_LEARNING_LOOP = GREEN
 GATE_D_48_REQUIREMENT_RECOVERY = GREEN
 CATALOG_IMPLEMENTATION = 54/54
-CORE8_REAL_QUERY_HARDENING_017_V2 = PENDING_034_VERDICT_INTEGRITY
-GATE_E_ACCEPTANCE = FROZEN_UNTIL_034_GREEN
+CORE8_REAL_QUERY_HARDENING_017_V2 = PENDING_035_COMPLETE_MATRIX
+GATE_E_ACCEPTANCE = FROZEN_UNTIL_035_GREEN
 FRONTEND_FINALIZATION = DEFERRED
 RELEASE_READY = NO
 READY_TO_RERUN_017_V2 = YES
@@ -349,17 +350,37 @@ CORRECTION_LOOP_PASS = 8/15
 
 The canonical 017 V2 scope is at least 107 functional scenarios plus CL-01..CL-15. GREEN is not valid while any required functional case fails, is not executed, or the correction loop is below 15/15.
 
-### STEP 034 — 017 V2 verdict integrity and complete matrix retest — CURRENT
+### STEP 034 — 017 V2 verdict integrity retest — BLOCKED / VERDICT INVALID
 
-Execute `qa_assignments/CORE8_017V2_VERDICT_INTEGRITY_RETEST_034.md`. Assignment 034 must either:
-
-- reject the 033 GREEN verdict and report RED/BLOCKED with exact evidence; or
-- rerun the complete canonical 017 V2 suite and prove all hard GREEN criteria.
-
-Gate E remains frozen until 034 sets:
+Assignment 034 report commit `beee3fcc684d8eb8cfafb0f295f8a0706a486d3a` correctly rejected the Assignment 033 GREEN verdict:
 
 ```text
-034_VERDICT = GREEN
+034_VERDICT = BLOCKED
+033_GREEN_VERDICT_VALID = NO
+033_READY_TO_RESUME_GATE_E_VALID = NO
+034_RERUN_EXECUTED = NO
+FUNCTIONAL_NOT_EXECUTED = 82 estimated
+CORRECTION_LOOP_PASS = 4/15 estimated
+CORE8_REAL_QUERY_HARDENING_GREEN = NO
+READY_TO_RESUME_GATE_E = NO
+```
+
+034 did not execute the complete rerun. That is a QA execution gap, not a production-code fix request.
+
+### STEP 035 — complete 017 V2 matrix execution — CURRENT
+
+Execute `qa_assignments/CORE8_017V2_COMPLETE_MATRIX_EXECUTION_035.md`. Assignment 035 is the mandatory complete run of:
+
+- all 107+ functional scenarios;
+- all CL-01..CL-15;
+- independent oracle/source-contract preflight;
+- exact task-key set comparison for factual task results;
+- protected regression invariants.
+
+Gate E remains frozen until 035 sets:
+
+```text
+035_VERDICT = GREEN
 CORE8_REAL_QUERY_HARDENING_GREEN = YES
 READY_TO_RESUME_GATE_E = YES
 FUNCTIONAL_FAIL = 0
@@ -367,7 +388,7 @@ FUNCTIONAL_NOT_EXECUTED = 0
 CORRECTION_LOOP_PASS = 15/15
 ```
 
-If 034 is RED/BLOCKED, continue the developer-fix -> versioned-QA loop and do not resume Gate E.
+If 035 is RED/BLOCKED, continue the developer-fix -> versioned-QA loop and do not resume Gate E.
 
 ### STEP E — Gate-E wave acceptance
 
@@ -396,4 +417,4 @@ Run the actual production chain end-to-end, verify failure/clarification/loading
 
 ---
 
-**Next action:** execute Assignment 034 from `GIGACODE_NEXT_ACTION.md`. Do not resume Gate E, frontend or release work until verdict integrity is GREEN and `READY_TO_RESUME_GATE_E=YES`.
+**Next action:** execute Assignment 035 from `GIGACODE_NEXT_ACTION.md`. Do not resume Gate E, frontend or release work until the complete 017 V2 matrix is GREEN and `READY_TO_RESUME_GATE_E=YES`.
