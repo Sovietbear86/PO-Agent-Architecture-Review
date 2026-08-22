@@ -332,6 +332,8 @@ async def get_sprint_tasks(
         "tasks": payload,
         "pagination": meta,
         "mcp_arguments": sorted(arguments),
+        "mcp_argument_shape": "request" if "request" in arguments else "flat",
+        "mcp_argument_preview": arguments,
         "complete": not meta["has_next"],
         "completeness_source": "mcp",
     }
