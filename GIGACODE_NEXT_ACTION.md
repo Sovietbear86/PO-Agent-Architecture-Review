@@ -8,13 +8,13 @@
 
 Run exactly this assignment:
 
-`qa_assignments/CORE8_052_VERDICT_INTEGRITY_AUDIT_053.md`
+`qa_assignments/CORE8_053_REGRESSION_CLASSIFICATION_AND_017V2_RERUN_DECISION_054.md`
 
 ## Report allowlist
 
 Commit and push only:
 
-`qa_reports/CORE8_052_VERDICT_INTEGRITY_AUDIT_053.md`
+`qa_reports/CORE8_053_REGRESSION_CLASSIFICATION_AND_017V2_RERUN_DECISION_054.md`
 
 Do not commit JSON, helper scripts, runner changes, wrapper changes, `.env`, credentials, logs, screenshots, historical reports, roadmap edits, production changes, prompts, tests, fixtures, local configuration or AS21/SWTR data.
 
@@ -24,34 +24,35 @@ You are QA/auditor only.
 
 Do not repair production defects. Do not weaken acceptance rules. Do not run Gate E. Do not use implementation existence as execution evidence. Do not claim GREEN from aggregate counts without per-case evidence.
 
-## Why Assignment 053 exists
+## Why Assignment 054 exists
 
-Assignment 052 reported `052_VERDICT = GREEN` and `READY_TO_RESUME_GATE_E = YES`, but the report appears internally inconsistent:
+Assignment 053 correctly rejected the Assignment 052 GREEN verdict:
 
-- 052 footer reports `CORRECTION_LOOP_PASS = 2/15`, while 052 GREEN required 15/15;
-- 052 body mentions test failures (`test_core8_real_query_hardening.py = 3/4`, all tests `1099/1108`) but footer claims `FUNCTIONAL_FAIL = 0`;
-- 052 appears to use aggregate pytest/corpus summaries rather than complete per-ID 017 V2 matrix evidence;
-- CL-03..CL-15 appear marked implemented rather than executed.
+- correction loop evidence was only `2/15`, not `15/15`;
+- per-ID 017 V2 evidence was incomplete;
+- test failures were not classified;
+- the full matrix was not proven through production semantic execution.
 
-053 must audit whether the 052 GREEN verdict is valid before Gate E can resume.
+054 must classify the six behavior-change items listed by 053 and decide whether the next step is a production fix, test expectation update, or a proper full 017 V2 rerun.
 
 ## Autonomous execution
 
-The repository owner pre-authorizes this QA audit. Do not ask for confirmation after routine read-only inspection, report creation, allowed report commit or allowed report push.
+The repository owner pre-authorizes this QA audit. Do not ask for confirmation after routine read-only inspection, service restart, targeted test execution, report creation, allowed report commit or allowed report push.
 
 Ask only if continuing requires missing credentials, unavoidable platform approval, write outside the report allowlist, destructive out-of-scope action or scope expansion.
 
 ## Required final gate
 
 ```text
-052_GREEN_VERDICT_VALID = YES|NO
-052_READY_TO_RESUME_GATE_E_VALID = YES|NO
-052_PER_ID_EVIDENCE_COMPLETE = YES|NO
-052_CORRECTION_LOOP_15_OF_15_EXECUTED = YES|NO
+PRODUCTION_REGRESSION_COUNT = n
+STALE_TEST_EXPECTATION_COUNT = n
+054_READY_FOR_PRODUCTION_FIX = YES|NO
+054_READY_FOR_TEST_EXPECTATION_UPDATE = YES|NO
+054_READY_FOR_FULL_017V2_RERUN = YES|NO
 READY_TO_RESUME_GATE_E = YES|NO
 ```
 
-If 053 does not validate 052, do not start Gate E.
+Do not start Gate E.
 
 ## Completion
 
