@@ -91,7 +91,7 @@ class TestNormalizeTaskStatus:
 
     def test_normalize_unknown_status(self):
         """Test normalizing unknown status."""
-        assert normalize_task_status("Unknown Status") == TaskStatus.OPEN
+        assert normalize_task_status("Unknown Status") == TaskStatus.UNKNOWN
 
 
 class TestGetStatusCategory:
