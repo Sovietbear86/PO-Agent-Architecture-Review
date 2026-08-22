@@ -3,7 +3,7 @@
 **Status:** ACTIVE / consolidated source of truth  
 **Current branch:** `feat/core8-real-query-hardening-v2`  
 **Last reviewed:** 2026-08-22
-**Current blocking gate:** Assignment 049 — bounded SWTR oracle access proof
+**Current blocking gate:** Manual SWTR access unblock after Assignment 049
 **Purpose:** prevent architectural drift and loss of earlier product requirements while evolving the original PO Agent into a self-improving Harness agent.
 
 > This document is the execution roadmap. `PO_AGENT_PLATFORM_V2_GIGACODE_MASTER_SPEC_V2_1.md`, `PO_AGENT_PLATFORM_V2_ADDENDUM_SKILLS_CLARIFICATION.md`, `REAL_DATA_COMPREHENSIVE_TEST_CHECKLIST.md`, the legacy implementation and early commits are normative sources. If they disagree, do not guess: record the conflict and resolve it explicitly before implementation.
@@ -292,18 +292,19 @@ Therefore Gate B is currently **REVALIDATION BLOCKED**, Gate E is **FROZEN**, an
 - [x] **Assignment 039/040/041/042/043/044/045/046:** runtime wiring, diagnostics and SWTR-read route hardening path. These assignments isolated environment/runtime identity, Task API route contract, stale local sessions, and MCP transport mismatch.
 - [x] **Assignment 047 — MCP-SWTR stdio transport retest:** valid report commit `03bd797`, BLOCKED. It proved `transport=stdio`, 47 MCP tools and `SWTR_READ` route contract, but sprint-task oracle returned `SWTR_ACCESS_DENIED_ERROR` wrapped as successful `tasks`.
 - [x] **Assignment 048 — Schema-aware SWTR sprint oracle retest:** report commit `679408c`, fix behavior verified: focused tests 6/6, stdio connected, HTTP 500/KeyError=0, false-green error wrapping removed. Its `048_VERDICT=GREEN` is accepted only as **fix-verification GREEN**, not as release/gate GREEN, because the same footer records `ORACLE_PATH_PROVEN=NO` and `READY_TO_RESUME_017_V2=NO`.
-- [ ] **Assignment 049 — bounded SWTR oracle access proof:** determine whether a read-only DMS sprint candidate source can be accessed with the available token/path, without full tenant sync. If accessible, run exact hydrated oracle for the owner DMS-SPRNT-2 smoke case. If not, record credential/tool-access BLOCKED with precise manual action.
+- [x] **Assignment 049 — bounded SWTR oracle access proof:** valid report commit `a03788a`, `049_VERDICT=BLOCKED`. It proved focused tests 6/6, stdio transport healthy, `SWTR_READ` route contract, no false green, no HTTP 500/KeyError, no full sync. It also proved known-good `MyTestProject_1` direct filtered path and Harness facade both return the same `SWTR_ACCESS_DENIED_ERROR`, so the remaining blocker is external SWTR access/role, not a Harness integration bug.
+- [ ] **Manual SWTR access unblock:** obtain or configure a bearer token/role that can execute the direct bounded MCP-SWTR filtered query for `scrum_board_plugin_sprint = "DMS-SPRNT-2"` and hydrate `DMS-261`/`DMS-248` via `read_unit`.
 
 ### Current release/gate values
 
 ```text
 GATE_A_HISTORICAL_BASELINE = GREEN
 GATE_B_HISTORICAL_BASELINE = 8/8 GREEN
-GATE_B_CURRENT_REVALIDATION = BLOCKED_ON_BOUNDED_SWTR_ORACLE_ACCESS
+GATE_B_CURRENT_REVALIDATION = BLOCKED_ON_EXTERNAL_SWTR_ACCESS
 GATE_C_LEARNING_LOOP = GREEN
 GATE_D_48_REQUIREMENT_RECOVERY = GREEN
 CATALOG_IMPLEMENTATION = 54/54
-CORE8_REAL_QUERY_HARDENING_017_V2 = BLOCKED_AFTER_048_ORACLE_PATH_UNPROVEN
+CORE8_REAL_QUERY_HARDENING_017_V2 = BLOCKED_AFTER_049_SWTR_ACCESS_DENIED
 GATE_E_ACCEPTANCE = FROZEN_UNTIL_017_V2_GREEN_WITH_ORACLE
 FRONTEND_FINALIZATION = DEFERRED
 RELEASE_READY = NO
@@ -434,18 +435,40 @@ CORRECTION_LOOP_PASS = 15/15
 
 If SWTR denies the bounded sprint candidate source, record credential/tool-access BLOCKED and do not run full tenant sync as a substitute.
 
-### STEP 049 — bounded SWTR oracle access proof — CURRENT
+### STEP 049 — bounded SWTR oracle access proof — BLOCKED / ACCESS DENIED
 
-Execute `qa_assignments/CORE8_BOUNDED_SWTR_ORACLE_ACCESS_PROOF_049.md`. The goal is to prove, with read-only bounded calls only, whether the current token/path can support the independent hydrated DMS-SPRNT-2 oracle:
+Assignment 049 report commit `a03788a` proved, with read-only bounded calls only, that the current token/path cannot support the independent hydrated DMS-SPRNT-2 oracle:
 
 ```text
-candidate task keys from source-backed DMS sprint read/search
- -> read_unit per task key
- -> authoritative scrum_board_plugin_sprint/assignee/status
- -> exact set comparison for the owner smoke query
+TASK_READ_DMS_261 = ACCESS_DENIED
+TASK_READ_DMS_248 = ACCESS_DENIED
+DMS_CURRENT_SPRINT_READ = ACCESS_DENIED
+DMS_SPRINT_TASKS_READ = ACCESS_DENIED
+KNOWN_GOOD_FILTER_TOOL = get_sprint_tasks
+KNOWN_GOOD_FILTER_DIRECT_RESULT = ACCESS_DENIED
+KNOWN_GOOD_FILTER_PARITY = BLOCKED
+ORACLE_CANDIDATE_SOURCE = NONE
+ORACLE_PATH_PROVEN = NO
+049_VERDICT = BLOCKED
+READY_TO_RERUN_017_V2 = NO
 ```
 
-Do not run a full task synchronization and do not treat the PO Agent response as oracle evidence.
+This is not a production RED: both the known-good `MyTestProject_1` filtered MCP-SWTR path and the Harness Task API facade return the same source `SWTR_ACCESS_DENIED_ERROR`. Do not run a full task synchronization and do not treat the PO Agent response as oracle evidence.
+
+### STEP ACCESS — manual SWTR credential/role unblock — CURRENT
+
+Before the next QA assignment, obtain or configure a SWTR bearer token/role that can satisfy both checks:
+
+```text
+direct MyTestProject_1 MCP-SWTR filter:
+  scrum_board_plugin_sprint = "DMS-SPRNT-2"
+
+Harness bounded read facade:
+  GET /api/v1/swtr-read/tasks/DMS-261
+  GET /api/v1/swtr-read/sprints/DMS-SPRNT-2/tasks?space=DMS&complete=true
+```
+
+Only after at least one direct bounded source path returns real task keys should a new assignment retest the hydrated oracle and resume the 017_V2 path.
 
 ### STEP E — Gate-E wave acceptance
 
@@ -474,4 +497,4 @@ Run the actual production chain end-to-end, verify failure/clarification/loading
 
 ---
 
-**Next action:** execute Assignment 049 from `GIGACODE_NEXT_ACTION.md`. Do not resume 017_V2, Gate E, frontend or release work until the bounded SWTR oracle path is proven with `ORACLE_PATH_PROVEN=YES`.
+**Next action:** do not rerun GigaCode QA until SWTR access is available. First unblock the token/role for the exact bounded DMS-SPRNT-2 MCP-SWTR filtered query. Do not resume 017_V2, Gate E, frontend or release work until the bounded SWTR oracle path is proven with `ORACLE_PATH_PROVEN=YES`.
