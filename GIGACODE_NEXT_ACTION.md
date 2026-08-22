@@ -4,15 +4,15 @@
 
 Ignore every assignment, report target and HEAD remembered from an earlier GigaCode session. The repository files below are the only authority for this run.
 
-The active assignment is **043**, not 006, 017, 026, 029, 030, 031, 032, 033, 034, 035, 036, 037, 038, 039, 040, 041, 042 or any other historical assignment.
+The active assignment is **044**, not 006, 017, 026, 029, 030, 031, 032, 033, 034, 035, 036, 037, 038, 039, 040, 041, 042, 043 or any other historical assignment.
 
-Assignment 042 is accepted as a valid BLOCKED report. It is not accepted as source acceptance evidence because QA/runtime wiring was not proven and the independent oracle path was not established.
+Assignment 043 is accepted as a valid RED report. It showed that env aliases and Task API route registration work, while runtime import-root hygiene and SWTR/MCP transport diagnostics still need a dedicated unblock gate.
 
 ## Active assignment
 
 Read and execute exactly:
 
-`qa_assignments/CORE8_RUNTIME_WIRING_AND_SPRINT_GUARD_RETEST_043.md`
+`qa_assignments/CORE8_AS21_RUNTIME_DIAGNOSTIC_AND_ORACLE_UNBLOCK_044.md`
 
 Repository:
 
@@ -24,7 +24,7 @@ Branch:
 
 Expected output path:
 
-`qa_reports/CORE8_RUNTIME_WIRING_AND_SPRINT_GUARD_RETEST_043.md`
+`qa_reports/CORE8_AS21_RUNTIME_DIAGNOSTIC_AND_ORACLE_UNBLOCK_044.md`
 
 ## Mandatory Git preflight
 
@@ -34,25 +34,24 @@ Before starting services or tests:
 2. `git pull --ff-only origin feat/core8-real-query-hardening-v2`
 3. Record `git rev-parse HEAD` as `START_HEAD`.
 4. Read this file again from `START_HEAD`.
-5. Read `qa_assignments/CORE8_RUNTIME_WIRING_AND_SPRINT_GUARD_RETEST_043.md` completely.
-6. Verify all three values below. If any value differs, do not run another assignment and do not modify any historical report; create the expected 043 report with `043_VERDICT = BLOCKED`, exact mismatch evidence, then stop.
+5. Read `qa_assignments/CORE8_AS21_RUNTIME_DIAGNOSTIC_AND_ORACLE_UNBLOCK_044.md` completely.
+6. Verify all three values below. If any value differs, do not run another assignment and do not modify any historical report; create the expected 044 report with `044_VERDICT = BLOCKED`, exact mismatch evidence, then stop.
 
 ```text
-ACTIVE_ASSIGNMENT = 043
-ACTIVE_ASSIGNMENT_FILE = qa_assignments/CORE8_RUNTIME_WIRING_AND_SPRINT_GUARD_RETEST_043.md
-ALLOWED_REPORT_FILE = qa_reports/CORE8_RUNTIME_WIRING_AND_SPRINT_GUARD_RETEST_043.md
+ACTIVE_ASSIGNMENT = 044
+ACTIVE_ASSIGNMENT_FILE = qa_assignments/CORE8_AS21_RUNTIME_DIAGNOSTIC_AND_ORACLE_UNBLOCK_044.md
+ALLOWED_REPORT_FILE = qa_reports/CORE8_AS21_RUNTIME_DIAGNOSTIC_AND_ORACLE_UNBLOCK_044.md
 ```
 
-7. Verify `git diff -- qa_026_test_runner_v2.py` is empty before running. If it is not empty, do not edit it; report BLOCKED.
-8. Verify no prohibited files are staged.
+7. Verify no prohibited files are staged.
 
 ## Autonomous execution — no step-by-step confirmation
 
-The repository owner has pre-authorized this QA batch. Execute it end to end without asking for confirmation after each step, before each integration call, before each TS case, before local service restart, before temporary local diagnostics, or before commit/push of the allowed report.
+The repository owner has pre-authorized this QA batch. Execute it end to end without asking for confirmation after each routine step, before each integration call, before each owner smoke case, before local service restart, before temporary local diagnostics, or before commit/push of the allowed report.
 
 No additional conversational confirmation is required for read-only AS21/SWTR calls, MCP-SWTR read-only calls, Task API SWTR-read diagnostics, the configured semantic LLM, local service restart/health checks, HTTP diagnostics, test runs, `git switch`, `git pull --ff-only`, Git inspection, or commit/push of the explicitly allowed QA report.
 
-Do not pause with questions such as “continue?”, “run the integration?”, “restart the service?”, “run the next TS case?”, “apply this QA-helper change?” or “commit the report?”.
+Do not pause with questions such as “continue?”, “run the integration?”, “restart the service?”, “run the next case?”, “apply this QA-helper change?” or “commit the report?”.
 
 Ask only if continuing requires an unconfigured credential/permission, an unavoidable platform approval, a write outside the report allowlist, a production/source-data/configuration mutation, a destructive out-of-scope action, or a material scope expansion.
 
@@ -64,11 +63,12 @@ GigaCode is QA/tester only.
 
 - Do not modify production code, prompts, adapters, tests, fixtures, acceptance runners, QA runners, configuration, AS21/SWTR data, historical reports, roadmap files or learning state.
 - Do not modify or commit `qa_026_test_runner_v2.py` or any other runner. If a local helper cannot parse a response, record `QA_INFRA_BLOCKED` or exact helper limitation in the report instead of changing the runner.
-- Do not repair discovered defects.
+- Do not repair discovered production defects.
 - Do not weaken or tune the acceptance oracle.
 - Do not change canonical query wording.
+- Do not run full tenant-wide task sync for 044.
 - Do not convert failed, missing or not-executed canonical 017 V2 cases into GREEN.
-- Do not publish aggregate/footer metrics that contradict the per-ID evidence table.
+- Do not publish aggregate/footer metrics that contradict per-case evidence.
 - Use real AS21/SWTR evidence as required by the active assignment.
 - Never commit `.env`, credentials or secrets.
 
@@ -76,20 +76,20 @@ GigaCode is QA/tester only.
 
 Create, commit and push only the report required by the active assignment:
 
-`qa_reports/CORE8_RUNTIME_WIRING_AND_SPRINT_GUARD_RETEST_043.md`
+`qa_reports/CORE8_AS21_RUNTIME_DIAGNOSTIC_AND_ORACLE_UNBLOCK_044.md`
 
 Before commit, stage explicitly and verify the allowlist:
 
 ```bash
-git add -- qa_reports/CORE8_RUNTIME_WIRING_AND_SPRINT_GUARD_RETEST_043.md
+git add -- qa_reports/CORE8_AS21_RUNTIME_DIAGNOSTIC_AND_ORACLE_UNBLOCK_044.md
 git diff --cached --name-only
 ```
 
-The staged file list must contain exactly the allowed 043 report. If any other path appears, do not commit until it is unstaged. Never modify or stage a historical report or result.
+The staged file list must contain exactly the allowed 044 report. If any other path appears, do not commit until it is unstaged. Never modify or stage a historical report or result.
 
 The commit subject must start with:
 
-`qa: CORE8_RUNTIME_WIRING_AND_SPRINT_GUARD_RETEST_043`
+`qa: CORE8_AS21_RUNTIME_DIAGNOSTIC_AND_ORACLE_UNBLOCK_044`
 
 After pushing the report, stop. Return:
 
