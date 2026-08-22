@@ -1,30 +1,32 @@
-from po_agent.harness.dialogue_runtime import DialogueHarnessRuntime
+import pytest
+
+from po_agent.adapters.task_api import AS21CapabilityUnavailable
+from po_agent.harness.sprint_intelligence import SprintIntelligenceCapabilities
 
 
-def test_all_sprint_task_scoped_capabilities_require_sprint_id():
-    runtime = object.__new__(DialogueHarnessRuntime)
+@pytest.mark.asyncio
+async def test_sprint_intelligence_requires_sprint_id_before_adapter_call():
+    capability = SprintIntelligenceCapabilities(adapter=object())
 
-    for capability_id in (
-        "sprint.health",
-        "sprint.scope",
-        "sprint.velocity",
-        "sprint.throughput",
-        "sprint.wip",
-        "sprint.cycle_time",
-        "sprint.lead_time",
-        "sprint.predictability",
-        "sprint.risk_queue",
-    ):
-        valid, error = runtime._validate_required_args(capability_id, {})
-
-        assert not valid
-        assert error == "Missing required slot: sprint_id"
+    with pytest.raises(AS21CapabilityUnavailable, match="sprint_id is required"):
+        await capability._tasks({})
 
 
-def test_sprint_current_requires_product_not_sprint_id():
-    runtime = object.__new__(DialogueHarnessRuntime)
+@pytest.mark.asyncio
+async def test_sprint_intelligence_normalizes_sprint_id_before_read():
+    class Adapter:
+        def __init__(self):
+            self.sprint_id = None
 
-    valid, error = runtime._validate_required_args("sprint.current", {"product": "DMS"})
+        async def get_sprint_tasks(self, sprint_id):
+            self.sprint_id = sprint_id
+            return []
 
-    assert valid
-    assert error is None
+    adapter = Adapter()
+    capability = SprintIntelligenceCapabilities(adapter=adapter)
+
+    sprint_id, tasks = await capability._tasks({"sprint_id": " dms-sprnt-2 "})
+
+    assert sprint_id == "DMS-SPRNT-2"
+    assert adapter.sprint_id == "DMS-SPRNT-2"
+    assert tasks == []
