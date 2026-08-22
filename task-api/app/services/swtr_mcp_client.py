@@ -1,13 +1,14 @@
 """Unified read-only MCP-SWTR client used by the Task API rich-read facade.
 
-The live MCP-SWTR server is an SSE service. Harness-facing read paths must use
-this client rather than the legacy subprocess/stdin bridge in SWTRSyncService.
-The legacy bridge is intentionally left in place for historical sync code until
-it is migrated separately; it must not be used by new Harness read capabilities.
+Harness-facing read paths must use this client rather than the historical
+bulk-sync subprocess bridge in SWTRSyncService.  The client supports both remote
+SSE and local stdio MCP transports while keeping the public Task API facade
+read-only.
 """
 from __future__ import annotations
 
 import os
+import shlex
 from typing import Any, Iterable
 
 
@@ -20,16 +21,84 @@ class SWTRMCPProtocolError(RuntimeError):
 
 
 class SWTRMCPClient:
-    """Small read-only FastMCP SSE client.
+    """Small read-only FastMCP client.
 
-    The URL is configuration, not a repository-specific filesystem path. The
-    MCP server owns AS21 credentials; Task API never receives or exposes them.
+    The transport is configuration, not a repository-specific filesystem path.
+    MCP server credentials are passed only through the child process environment
+    for stdio mode and are never exposed by the Task API response payloads.
     """
 
-    def __init__(self, sse_url: str | None = None) -> None:
+    def __init__(
+        self,
+        sse_url: str | None = None,
+        *,
+        transport: str | None = None,
+    ) -> None:
+        self.transport = (transport or os.getenv("SWTR_MCP_TRANSPORT", "sse")).strip().lower()
         self.sse_url = sse_url or os.getenv(
             "SWTR_MCP_SSE_URL", "http://127.0.0.1:3000/sse"
         )
+        self.stdio_command = os.getenv("SWTR_MCP_STDIO_COMMAND", "python3")
+        self.stdio_args = self._stdio_args()
+        self.stdio_cwd = os.getenv("SWTR_MCP_STDIO_CWD") or None
+
+    def transport_kind(self) -> str:
+        if self.transport in {"stdio", "sse"}:
+            return self.transport
+        return "unknown"
+
+    def _stdio_args(self) -> list[str]:
+        configured = os.getenv("SWTR_MCP_STDIO_ARGS")
+        if configured:
+            return shlex.split(configured)
+        script = os.getenv("SWTR_MCP_STDIO_SCRIPT")
+        return [script] if script else []
+
+    def _stdio_env(self) -> dict[str, str]:
+        names = {
+            name.strip()
+            for name in os.getenv("SWTR_MCP_STDIO_ENV_KEYS", "TOKEN,BASE_URL,PORT").split(",")
+            if name.strip()
+        }
+        env = {name: os.environ[name] for name in names if name in os.environ}
+        if "TOKEN" not in env and os.getenv("SWTR_TOKEN"):
+            env["TOKEN"] = os.environ["SWTR_TOKEN"]
+        if "BASE_URL" not in env and os.getenv("SWTR_MCP_BASE_URL"):
+            env["BASE_URL"] = os.environ["SWTR_MCP_BASE_URL"]
+        env.setdefault("PORT", "0")
+        return env
+
+    def _transport_target(self) -> str:
+        if self.transport == "stdio":
+            command = " ".join([self.stdio_command, *self.stdio_args]).strip()
+            return f"stdio:{command or '<missing command>'}"
+        return self.sse_url
+
+    def _build_transport(self) -> Any:
+        if self.transport == "stdio" and (not self.stdio_command or not self.stdio_args):
+            raise SWTRMCPUnavailable(
+                "MCP-SWTR stdio transport requires SWTR_MCP_STDIO_COMMAND "
+                "and SWTR_MCP_STDIO_ARGS or SWTR_MCP_STDIO_SCRIPT"
+            )
+
+        try:
+            from fastmcp.client.transports import SSETransport, StdioTransport
+        except ImportError as exc:  # pragma: no cover - environment contract
+            raise SWTRMCPUnavailable(
+                "fastmcp is not installed in the task-api environment"
+            ) from exc
+
+        if self.transport == "stdio":
+            return StdioTransport(
+                command=self.stdio_command,
+                args=self.stdio_args,
+                env=self._stdio_env(),
+                cwd=self.stdio_cwd,
+                keep_alive=False,
+            )
+        if self.transport == "sse":
+            return SSETransport(url=self.sse_url)
+        raise SWTRMCPUnavailable(f"Unsupported MCP-SWTR transport {self.transport!r}")
 
     @staticmethod
     def _tool_to_dict(tool: Any) -> dict[str, Any]:
@@ -51,17 +120,18 @@ class SWTRMCPClient:
         """Return MCP tool descriptors including input schemas when exposed."""
         try:
             from fastmcp import Client
-            from fastmcp.client.transports import SSETransport
         except ImportError as exc:  # pragma: no cover - environment contract
             raise SWTRMCPUnavailable(
                 "fastmcp is not installed in the task-api environment"
             ) from exc
 
         try:
-            async with Client(SSETransport(url=self.sse_url)) as client:
+            async with Client(self._build_transport()) as client:
                 tools = await client.list_tools()
         except Exception as exc:  # pragma: no cover - real transport failure
-            raise SWTRMCPUnavailable(f"MCP-SWTR unavailable at {self.sse_url}") from exc
+            raise SWTRMCPUnavailable(
+                f"MCP-SWTR unavailable via {self._transport_target()}"
+            ) from exc
 
         descriptors = [self._tool_to_dict(tool) for tool in (tools or [])]
         return [item for item in descriptors if isinstance(item.get("name"), str)]
@@ -133,23 +203,31 @@ class SWTRMCPClient:
 
         try:
             from fastmcp import Client
-            from fastmcp.client.transports import SSETransport
         except ImportError as exc:  # pragma: no cover - environment contract
             raise SWTRMCPUnavailable(
                 "fastmcp is not installed in the task-api environment"
             ) from exc
 
         try:
-            async with Client(SSETransport(url=self.sse_url)) as client:
+            async with Client(self._build_transport()) as client:
                 result = await client.call_tool(name, arguments)
         except Exception as exc:  # pragma: no cover - external MCP/tool failure
             # Keep credentials and remote payloads out of the exception text, but
             # retain the exception class so QA can distinguish validation/tool
             # failures from a dead transport without exposing secrets.
             exc_type = type(exc).__name__
-            if exc_type in {"ConnectError", "ConnectTimeout", "ReadTimeout", "PoolTimeout"}:
+            if exc_type in {
+                "BrokenPipeError",
+                "ConnectError",
+                "ConnectTimeout",
+                "FileNotFoundError",
+                "PermissionError",
+                "PoolTimeout",
+                "ProcessLookupError",
+                "ReadTimeout",
+            }:
                 raise SWTRMCPUnavailable(
-                    f"MCP-SWTR transport failed via {self.sse_url}: {exc_type}"
+                    f"MCP-SWTR transport failed via {self._transport_target()}: {exc_type}"
                 ) from exc
             raise SWTRMCPProtocolError(
                 f"MCP-SWTR tool {name!r} failed: {exc_type}"
