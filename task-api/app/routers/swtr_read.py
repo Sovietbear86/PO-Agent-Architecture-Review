@@ -1,8 +1,8 @@
 """Read-only rich SWTR facade for facts not exposed by the cached task list.
 
-New Harness read capabilities use the live MCP-SWTR SSE transport through
-SWTRMCPClient. The historical SWTRSyncService subprocess/stdin bridge is not
-used here because the live MCP server is an SSE service.
+New Harness read capabilities use the configured live MCP-SWTR transport through
+SWTRMCPClient. The historical SWTRSyncService subprocess bridge is not used here
+because it is a bulk-sync path rather than a bounded read facade.
 """
 from __future__ import annotations
 
@@ -178,7 +178,7 @@ async def swtr_read_health():
         raise _transport_http_error(exc) from exc
     return {
         "status": "connected",
-        "transport": "sse",
+        "transport": client.transport_kind(),
         "tool_count": len(tools),
         "read_unit": "read_unit" in tools,
         "get_unit_files": "get_unit_files" in tools,
