@@ -276,7 +276,7 @@ async def test_dialogue_executes_with_extracted_task_key():
     response = await bundle.runtime.process(HarnessRequest(query="Покажи задачу WMB-101", session_id="extract"))
     assert response.status in {ResponseStatus.COMPLETED, ResponseStatus.PARTIAL}
     if response.data:
-        assert "task_key" in response.data
+        assert response.data["task"]["key"] == "WMB-101"
 
 
 @pytest.mark.asyncio

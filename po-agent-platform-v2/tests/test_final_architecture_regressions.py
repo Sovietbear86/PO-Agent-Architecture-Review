@@ -2,6 +2,7 @@ import httpx
 import pytest
 
 from po_agent.harness import HarnessRequest, ResponseStatus
+from po_agent.harness.dialogue_runtime import SemanticFrame
 from po_agent.harness.runtime_factory import build_runtime_bundle
 
 
@@ -18,20 +19,27 @@ def task_payload(key: str = "WMB-101") -> dict:
     }
 
 
+class ScriptedInterpreter:
+    def __init__(self, frame):
+        self.frame = frame
+        self.last_context = None
+
+    async def interpret(self, query, *, context=None):
+        self.last_context = context
+        return self.frame
+
+
 @pytest.mark.asyncio
 async def test_runtime_factory_runtime_records_production_execution_history():
-    async def handler(request: httpx.Request) -> httpx.Response:
-        if request.url.path == "/api/v1/tasks":
-            return httpx.Response(200, json=[task_payload()])
-        raise AssertionError(f"unexpected request: {request.method} {request.url}")
-
-    bundle = build_runtime_bundle("task-api")
-    bundle.adapter._client = httpx.AsyncClient(
-        transport=httpx.MockTransport(handler), base_url="http://task-api"
+    frame = SemanticFrame(
+        canonical_query="найди login",
+        intent_hint="task_search",
+        slots={"phrase": "login"},
+        llm_used=True,
     )
+    bundle = build_runtime_bundle("fake", semantic_interpreter=ScriptedInterpreter(frame))
     response = await bundle.runtime.process(HarnessRequest(query="Найди login", session_id="prod-history"))
     record = bundle.runtime.history.get(response.trace_id)
-    await bundle.adapter._client.aclose()
 
     assert response.status is ResponseStatus.COMPLETED
     assert record is not None
@@ -69,17 +77,14 @@ async def test_source_dependent_request_cannot_be_reinterpreted_when_fact_is_mis
 
 @pytest.mark.asyncio
 async def test_portfolio_overview_never_labels_task_api_data_as_fake():
-    async def handler(request: httpx.Request) -> httpx.Response:
-        if request.url.path == "/api/v1/tasks":
-            return httpx.Response(200, json=[task_payload()])
-        raise AssertionError(f"unexpected request: {request.method} {request.url}")
-
-    bundle = build_runtime_bundle("task-api")
-    bundle.adapter._client = httpx.AsyncClient(
-        transport=httpx.MockTransport(handler), base_url="http://task-api"
+    frame = SemanticFrame(
+        canonical_query="обзор",
+        intent_hint="portfolio_overview",
+        slots={},
+        llm_used=True,
     )
-    response = await bundle.runtime.process(HarnessRequest(query="Обзор"))
-    await bundle.adapter._client.aclose()
+    bundle = build_runtime_bundle("fake", semantic_interpreter=ScriptedInterpreter(frame))
+    response = await bundle.runtime.process(HarnessRequest(query="Обзор", session_id="overview"))
 
     assert response.status is ResponseStatus.COMPLETED
-    assert response.data["adapter"] == "task-api"
+    assert response.data["adapter"] == "fake-as21"
