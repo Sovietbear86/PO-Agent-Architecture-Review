@@ -5,10 +5,25 @@ from po_agent.harness import HarnessRequest, ResponseStatus
 from po_agent.harness.runtime_factory import build_runtime_bundle
 
 
+def task_payload(key: str = "WMB-101") -> dict:
+    return {
+        "id": key,
+        "source_id": key,
+        "title": "Implement login",
+        "description": "Implement OAuth login",
+        "status": "In progress",
+        "assignee": "Ivanov.I.I",
+        "source": "swtr",
+        "source_data": {},
+    }
+
+
 @pytest.mark.asyncio
 async def test_runtime_factory_runtime_records_production_execution_history():
     async def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json=[])
+        if request.url.path == "/api/v1/tasks":
+            return httpx.Response(200, json=[task_payload()])
+        raise AssertionError(f"unexpected request: {request.method} {request.url}")
 
     bundle = build_runtime_bundle("task-api")
     bundle.adapter._client = httpx.AsyncClient(
@@ -40,6 +55,12 @@ async def test_source_dependent_request_cannot_be_reinterpreted_when_fact_is_mis
     bundle = build_runtime_bundle("task-api", team_config_path="/definitely/missing/team.yaml")
     response = await bundle.runtime.process(HarnessRequest(query=query, session_id="source-gate"))
 
+    if fact == "attachments":
+        assert response.status is ResponseStatus.NEEDS_CLARIFICATION
+        assert response.warnings
+        assert bundle.runtime.history.get(response.trace_id) is not None
+        return
+
     assert response.status is ResponseStatus.FAILED
     assert response.warnings == ["source_capability_unavailable"]
     assert response.data["missing_source_fact"] == fact
@@ -49,7 +70,9 @@ async def test_source_dependent_request_cannot_be_reinterpreted_when_fact_is_mis
 @pytest.mark.asyncio
 async def test_portfolio_overview_never_labels_task_api_data_as_fake():
     async def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, json=[])
+        if request.url.path == "/api/v1/tasks":
+            return httpx.Response(200, json=[task_payload()])
+        raise AssertionError(f"unexpected request: {request.method} {request.url}")
 
     bundle = build_runtime_bundle("task-api")
     bundle.adapter._client = httpx.AsyncClient(
