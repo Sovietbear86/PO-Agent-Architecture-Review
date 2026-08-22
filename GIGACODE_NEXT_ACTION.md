@@ -2,57 +2,54 @@
 
 ## Status
 
-`NO_ACTIVE_QA_ASSIGNMENT`
+`ACTIVE_QA_ASSIGNMENT`
 
-Do not rerun Assignment 049 and do not start any historical assignment.
+## Active assignment
 
-## Current blocker
+Run exactly this assignment:
 
-Assignment 049 is complete and valid:
+`qa_assignments/CORE8_BOUNDED_SWTR_ORACLE_ACCESS_UNBLOCK_RETEST_050.md`
 
-- Report: `qa_reports/CORE8_BOUNDED_SWTR_ORACLE_ACCESS_PROOF_049.md`
-- Report commit: `a03788a`
-- Verdict: `049_VERDICT = BLOCKED`
-- Reason: external SWTR access/role limitation
+## Report allowlist
 
-049 proved:
+Commit and push only:
 
-- focused tests passed;
-- MCP-SWTR stdio transport is healthy;
-- Task API route contract is `SWTR_READ`;
-- no HTTP 500;
-- no internal `KeyError`;
-- no false-green error payload;
-- no full tenant-wide sync was run;
-- known-good `MyTestProject_1` filtered MCP-SWTR path and Harness facade both return `SWTR_ACCESS_DENIED_ERROR`;
-- `ORACLE_PATH_PROVEN = NO`;
-- `READY_TO_RERUN_017_V2 = NO`;
-- `READY_TO_RESUME_GATE_E = NO`.
+`qa_reports/CORE8_BOUNDED_SWTR_ORACLE_ACCESS_UNBLOCK_RETEST_050.md`
 
-## Required manual action before next QA
+Do not commit JSON, helper scripts, runner changes, wrapper changes, `.env`, credentials, logs, screenshots, historical reports, roadmap edits, production changes, prompts, tests, fixtures, local configuration or AS21/SWTR data.
 
-Obtain or configure a SWTR bearer token/role that can execute the exact bounded read-only checks:
+## Role
 
-```text
-direct MyTestProject_1 MCP-SWTR filter:
-  scrum_board_plugin_sprint = "DMS-SPRNT-2"
+You are QA/tester only.
 
-Harness bounded read facade:
-  GET /api/v1/swtr-read/tasks/DMS-261
-  GET /api/v1/swtr-read/sprints/DMS-SPRNT-2/tasks?space=DMS&complete=true
-```
+Do not repair production defects. Do not weaken oracle rules. Do not run full tenant-wide task sync. Do not use PO Agent output as oracle. Do not compare counts only.
 
-Do not run full tenant-wide task sync as a substitute.
+## Autonomous execution
 
-Do not modify production code, prompts, tests, runners, configuration, AS21/SWTR data, historical reports, roadmap files or learning state.
+The repository owner pre-authorizes this QA batch. Do not ask for confirmation after each routine step, integration call, local service restart, read-only AS21/SWTR query, MCP-SWTR diagnostic, Task API diagnostic, HTTP diagnostic, test command, allowed report commit or allowed report push.
 
-## When access is available
+Ask only if continuing requires a missing credential, unavoidable platform approval, write outside the report allowlist, production/source-data/config mutation, destructive out-of-scope action or scope expansion.
 
-After the repository owner confirms a token/role can return real bounded SWTR data for `DMS-SPRNT-2`, wait for a new versioned assignment from ChatGPT/OpenAI side.
+## Current purpose
 
-Until then, stop and report:
+Assignment 049 was blocked because both the Harness path and the adjacent known-good `MyTestProject_1` MCP-SWTR path returned `SWTR_ACCESS_DENIED_ERROR`.
+
+The owner now reports the MCP-SWTR token passthrough problem is fixed and the direct filter for `DMS-SPRNT-2` returns task keys. Assignment 050 must prove the bounded hydrated oracle path before any full 017 V2 rerun.
+
+Required final gate:
 
 ```text
-NO_ACTIVE_QA_ASSIGNMENT
-WAITING_FOR_SWTR_ACCESS = YES
+ORACLE_PATH_PROVEN = YES
+CASE_GARANIN_DMS_SPRINT2_EXACT_SET = PASS
+READY_TO_RERUN_017_V2 = YES
 ```
+
+If 050 is not GREEN, do not run 017 V2 and do not start Gate E.
+
+## Completion
+
+After completing the assignment, commit and push only the allowed report file, then stop and return:
+
+- report commit SHA;
+- concise verdict;
+- full report text.
