@@ -11,6 +11,8 @@ READY_TO_RESUME_017_V2 = NO
 
 The remaining question is not whether the PO Agent can return some tasks. Owner smoke tests show that normal task queries can return data. The remaining question is whether QA can independently obtain source-backed DMS sprint candidate task keys and hydrate each task unit from SWTR to verify `scrum_board_plugin_sprint`, assignee and status.
 
+Important: the adjacent `MyTestProject_1` MCP-SWTR setup is reported to have a working filtered task retrieval path. Treat that working path as the reference contract to compare against the Harness Task API facade. Do not reimplement or copy it; use it to identify the exact MCP tool name, schema and argument shape that successfully returns bounded filtered tasks.
+
 Do not run full tenant-wide task synchronization. Full sync is not required for this assignment and must not be used as an oracle substitute.
 
 ## Repository
@@ -140,6 +142,33 @@ For each call record:
 - whether `errorType` appears under a successful `tasks` object;
 - whether HTTP 500 or internal traceback occurred.
 
+## Phase 3.5 — Known-good MCP-SWTR filter parity
+
+Before declaring credential BLOCKED, compare the Harness path with the known-good filtered task retrieval path from adjacent `MyTestProject_1`.
+
+Do this read-only and without copying code into this repository:
+
+1. Locate the exact working MCP-SWTR filtered task retrieval entrypoint in `MyTestProject_1`.
+2. Record the tool/function name, schema/argument names and redacted command shape.
+3. Run a bounded direct MCP-SWTR filtered query equivalent to:
+   - `space = DMS`;
+   - `scrum_board_plugin_sprint = DMS-SPRNT-2`;
+   - optionally `assignee = Garanin.R.V` if the working filter supports assignee.
+4. Record whether direct MCP-SWTR returns real task keys, access denied, no results, or an error.
+5. Compare with the Harness Task API facade result for:
+
+```bash
+curl -i "http://127.0.0.1:8003/api/v1/swtr-read/sprints/DMS-SPRNT-2/tasks?space=DMS&complete=true"
+```
+
+Classification:
+
+- If direct MCP-SWTR filtered query returns bounded task keys but the Harness facade returns access denied/error/no keys, report `KNOWN_GOOD_FILTER_PARITY = FAIL` and classify as production/integration defect candidate.
+- If both direct MCP-SWTR and Harness facade return access denied with the same credential evidence, report `KNOWN_GOOD_FILTER_PARITY = BLOCKED`.
+- If both return compatible bounded task keys, report `KNOWN_GOOD_FILTER_PARITY = PASS` and proceed to Phase 6 hydrated oracle.
+
+Never run full sync to create parity. The parity check is direct filtered read versus Harness bounded read.
+
 ## Phase 4 — No-full-sync proof
 
 Explicitly verify and record:
@@ -197,6 +226,7 @@ Agent result cannot be used as oracle.
 
 - focused tests pass or dependency skip is justified;
 - stdio MCP transport is connected;
+- known-good MCP-SWTR filtered retrieval is either parity PASS or not applicable because it is inaccessible with exact evidence;
 - bounded source candidate path for `DMS-SPRNT-2` is proven;
 - every oracle task is individually hydrated via SWTR `read_unit`;
 - O3 exact key set matches the hydrated oracle;
@@ -210,7 +240,7 @@ Agent result cannot be used as oracle.
 
 - transport/runtime is healthy;
 - owner smoke shows user-flow data can work;
-- but SWTR denies the bounded candidate source or task hydration due credential/tool permission;
+- but both Harness and known-good MCP-SWTR filtered paths deny the bounded candidate source or task hydration due credential/tool permission;
 - all denied paths fail closed without false green;
 - no full sync was run.
 
@@ -218,6 +248,7 @@ Agent result cannot be used as oracle.
 
 - HTTP 200 wraps SWTR errors as task data;
 - Task API/PO Agent returns HTTP 500 or internal traceback;
+- known-good MCP-SWTR filtered path returns bounded task keys but Harness cannot expose an equivalent bounded candidate source;
 - sprint/user constraints are silently dropped;
 - GigaCode modifies runner/production/config/source data;
 - GigaCode runs full tenant-wide sync;
@@ -238,6 +269,9 @@ TASK_READ_DMS_261 = PASS|FAIL|ACCESS_DENIED|NOT_FOUND|BLOCKED
 TASK_READ_DMS_248 = PASS|FAIL|ACCESS_DENIED|NOT_FOUND|BLOCKED
 DMS_CURRENT_SPRINT_READ = PASS|FAIL|ACCESS_DENIED|BLOCKED
 DMS_SPRINT_TASKS_READ = PASS|FAIL|ACCESS_DENIED|BLOCKED
+KNOWN_GOOD_FILTER_TOOL = <tool_or_function_name_or_UNKNOWN>
+KNOWN_GOOD_FILTER_DIRECT_RESULT = PASS|FAIL|ACCESS_DENIED|NOT_FOUND|BLOCKED
+KNOWN_GOOD_FILTER_PARITY = PASS|FAIL|BLOCKED|NOT_APPLICABLE
 ERROR_PAYLOAD_WRAPPED_AS_TASKS = YES|NO
 FULL_TASK_SYNC_RUN = YES|NO
 FULL_TASK_SYNC_REQUIRED_BY_QA = YES|NO
