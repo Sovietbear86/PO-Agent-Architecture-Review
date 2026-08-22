@@ -24,6 +24,19 @@ You are QA/tester only.
 
 Do not repair production defects. Do not weaken oracle rules. Do not run full tenant-wide task sync. Do not use PO Agent output as oracle. Do not compare counts only.
 
+## Mandatory clean-tree guard
+
+Before starting services or oracle checks, run:
+
+```bash
+git status --short
+git diff --name-only
+```
+
+If there are unstaged or staged tracked changes in production code, tests, prompts, runners, wrappers, config or roadmap files, do not continue the oracle retest. Write the allowed 050 report with `050_VERDICT = BLOCKED`, include the exact changed file list, set `LOCAL_TRACKED_RUNTIME_PATCH_PRESENT = YES`, commit only the report and stop.
+
+Ignored/untracked local secret files such as `.env` may exist but must not be committed, printed or pasted. External MCP-SWTR runtime files outside this repository may be used as environment setup evidence only if their secret values are redacted.
+
 ## Autonomous execution
 
 The repository owner pre-authorizes this QA batch. Do not ask for confirmation after each routine step, integration call, local service restart, read-only AS21/SWTR query, MCP-SWTR diagnostic, Task API diagnostic, HTTP diagnostic, test command, allowed report commit or allowed report push.
