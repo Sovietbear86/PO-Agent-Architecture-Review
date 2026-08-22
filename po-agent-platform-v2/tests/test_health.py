@@ -26,7 +26,7 @@ def test_root_endpoint(client):
 
 
 def test_health_endpoint(client):
-    """Test health check endpoint."""
+    """Root health endpoint reports runtime/source readiness."""
     response = client.get("/health")
     assert response.status_code == 200
     data = response.json()
@@ -34,6 +34,19 @@ def test_health_endpoint(client):
     assert "service" in data
     assert "timestamp" in data
     assert data["service"] == __app_name__
+    assert data["runtime"] == "harness-dialogue-v2"
+    assert "source_status" in data
+    assert "skill_readiness" in data
+
+
+def test_live_endpoint(client):
+    """Liveness endpoint remains a process-only ping."""
+    response = client.get("/live")
+    assert response.status_code == 200
+    data = response.json()
+    assert data["status"] == "healthy"
+    assert data["service"] == __app_name__
+    assert data["check"] == "liveness"
 
 
 def test_version_endpoint(client):
@@ -48,7 +61,7 @@ def test_version_endpoint(client):
 
 
 def test_health_returns_timestamp(client):
-    """Test health endpoint returns ISO timestamp."""
+    """Test readiness health endpoint returns ISO timestamp."""
     response = client.get("/health")
     data = response.json()
     timestamp = data["timestamp"]

@@ -11,6 +11,7 @@ from fastapi.responses import JSONResponse
 from po_agent import __app_name__, __version__
 from po_agent.config import get_settings
 from po_agent.core import errors
+from po_agent.api.v1 import health_check as api_v1_health_check
 from po_agent.api.v1 import router as api_v1_router
 
 # Configure logging
@@ -78,14 +79,30 @@ async def add_correlation_id(request: Request, call_next):
         )
 
 
-@app.get("/health")
-async def health_check():
-    """Health check endpoint."""
+@app.get("/live")
+async def live_check():
+    """Process liveness endpoint.
+
+    This endpoint only proves the web process is responding. Readiness checks
+    that gate QA or production traffic must use /health or /api/v1/health.
+    """
     return {
         "status": "healthy",
         "service": __app_name__,
+        "check": "liveness",
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     }
+
+
+@app.get("/health")
+async def health_check(request: Request):
+    """Runtime/source readiness endpoint.
+
+    Keep the historical root health URL, but make it readiness-aware so test
+    harnesses do not start acceptance runs while the Harness runtime or source
+    adapter is still degraded.
+    """
+    return await api_v1_health_check(request)
 
 
 @app.get("/version")

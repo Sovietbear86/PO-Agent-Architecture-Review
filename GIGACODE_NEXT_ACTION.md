@@ -4,15 +4,15 @@
 
 Ignore every assignment, report target and HEAD remembered from an earlier GigaCode session. The repository files below are the only authority for this run.
 
-The active assignment is **041**, not 006, 017, 026, 029, 030, 031, 032, 033, 034, 035, 036, 037, 038, 039, 040 or any other historical assignment.
+The active assignment is **042**, not 006, 017, 026, 029, 030, 031, 032, 033, 034, 035, 036, 037, 038, 039, 040, 041 or any other historical assignment.
 
-Assignment 040 is accepted only as branch-hygiene evidence. It is not accepted as TS-01..TS-12 acceptance evidence because the independent oracle was blocked and exact key-set evidence was missing.
+Assignment 041 is accepted as a valid BLOCKED report. It is not accepted as TS-01..TS-12 acceptance evidence because PO Agent/MCP readiness was unstable and the independent oracle path was not proven.
 
 ## Active assignment
 
 Read and execute exactly:
 
-`qa_assignments/CORE8_017V2_TS01_TS12_ORACLE_RECOVERY_041.md`
+`qa_assignments/CORE8_017V2_READINESS_ORACLE_RETEST_042.md`
 
 Repository:
 
@@ -24,7 +24,7 @@ Branch:
 
 Expected output path:
 
-`qa_reports/CORE8_017V2_TS01_TS12_ORACLE_RECOVERY_041.md`
+`qa_reports/CORE8_017V2_READINESS_ORACLE_RETEST_042.md`
 
 ## Mandatory Git preflight
 
@@ -34,13 +34,13 @@ Before starting services or tests:
 2. `git pull --ff-only origin feat/core8-real-query-hardening-v2`
 3. Record `git rev-parse HEAD` as `START_HEAD`.
 4. Read this file again from `START_HEAD`.
-5. Read `qa_assignments/CORE8_017V2_TS01_TS12_ORACLE_RECOVERY_041.md` completely.
-6. Verify all three values below. If any value differs, do not run another assignment and do not modify any historical report; create the expected 041 report with `041_VERDICT = BLOCKED`, exact mismatch evidence, then stop.
+5. Read `qa_assignments/CORE8_017V2_READINESS_ORACLE_RETEST_042.md` completely.
+6. Verify all three values below. If any value differs, do not run another assignment and do not modify any historical report; create the expected 042 report with `042_VERDICT = BLOCKED`, exact mismatch evidence, then stop.
 
 ```text
-ACTIVE_ASSIGNMENT = 041
-ACTIVE_ASSIGNMENT_FILE = qa_assignments/CORE8_017V2_TS01_TS12_ORACLE_RECOVERY_041.md
-ALLOWED_REPORT_FILE = qa_reports/CORE8_017V2_TS01_TS12_ORACLE_RECOVERY_041.md
+ACTIVE_ASSIGNMENT = 042
+ACTIVE_ASSIGNMENT_FILE = qa_assignments/CORE8_017V2_READINESS_ORACLE_RETEST_042.md
+ALLOWED_REPORT_FILE = qa_reports/CORE8_017V2_READINESS_ORACLE_RETEST_042.md
 ```
 
 7. Verify `git diff -- qa_026_test_runner_v2.py` is empty before running. If it is not empty, do not edit it; report BLOCKED.
@@ -76,20 +76,20 @@ GigaCode is QA/tester only.
 
 Create, commit and push only the report required by the active assignment:
 
-`qa_reports/CORE8_017V2_TS01_TS12_ORACLE_RECOVERY_041.md`
+`qa_reports/CORE8_017V2_READINESS_ORACLE_RETEST_042.md`
 
 Before commit, stage explicitly and verify the allowlist:
 
 ```bash
-git add -- qa_reports/CORE8_017V2_TS01_TS12_ORACLE_RECOVERY_041.md
+git add -- qa_reports/CORE8_017V2_READINESS_ORACLE_RETEST_042.md
 git diff --cached --name-only
 ```
 
-The staged file list must contain exactly the allowed 041 report. If any other path appears, do not commit until it is unstaged. Never modify or stage a historical report or result.
+The staged file list must contain exactly the allowed 042 report. If any other path appears, do not commit until it is unstaged. Never modify or stage a historical report or result.
 
 The commit subject must start with:
 
-`qa: CORE8_017V2_TS01_TS12_ORACLE_RECOVERY_041`
+`qa: CORE8_017V2_READINESS_ORACLE_RETEST_042`
 
 After pushing the report, stop. Return:
 
