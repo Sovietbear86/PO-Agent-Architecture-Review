@@ -136,6 +136,53 @@ def test_health_endpoint_qwen_llm_mode():
         assert payload["runtime"] == "harness-dialogue-v2"
 
 
+def test_as21_diagnostics_reports_runtime_wiring_without_secrets():
+    with hermetic_env(
+        AS21_MODE="fake",
+        PO_AGENT_AS21_MODE=None,
+        TASK_API_BASE_URL="http://127.0.0.1:8003",
+        PO_AGENT_TASK_API_BASE_URL=None,
+        SWTR_TOKEN="must-not-leak",
+        LLM_API_KEY="must-not-leak",
+        SEMANTIC_LLM_ENABLED="false",
+    ):
+        client = build_client()
+        response = client.get("/api/v1/ops/as21-diagnostics")
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["status"] == "degraded"
+        assert "as21_mode_not_task_api" in payload["blockers"]
+        assert payload["settings"]["as21_mode"] == "fake"
+        assert payload["settings"]["task_api_base_url"] == "http://127.0.0.1:8003"
+        assert payload["module_paths"]["po_agent"]["state"] == "OK"
+        assert payload["task_api"]["state"] == "SKIPPED_NON_TASK_API_MODE"
+        assert payload["oracle_guidance"]["full_task_sync_required"] is False
+        assert payload["repair_actions"]
+        assert "must-not-leak" not in response.text
+
+
+def test_as21_diagnostics_accepts_po_agent_env_aliases():
+    with hermetic_env(
+        AS21_MODE=None,
+        PO_AGENT_AS21_MODE="task-api",
+        TASK_API_BASE_URL=None,
+        PO_AGENT_TASK_API_BASE_URL="http://127.0.0.1:9",
+        SEMANTIC_LLM_ENABLED="false",
+        LLM_API_KEY=None,
+    ):
+        client = build_client()
+        response = client.get("/api/v1/ops/as21-diagnostics")
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["settings"]["as21_mode"] == "task-api"
+        assert payload["settings"]["task_api_base_url"] == "http://127.0.0.1:9"
+        assert payload["env"]["PO_AGENT_AS21_MODE"] == "task-api"
+        assert payload["task_api"]["state"] in {
+            "TASK_API_UNREACHABLE",
+            "SWTR_READ_ROUTES_UNPROVEN",
+        }
+
+
 def test_conservative_fallback_ignores_local_llm_api_key():
     """Regression test: local LLM_API_KEY should not affect conservative fallback mode."""
     # Set a local LLM_API_KEY (simulating ~/.config/openai/api_key scenario)
