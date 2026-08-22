@@ -2,8 +2,8 @@
 
 **Status:** ACTIVE / consolidated source of truth  
 **Current branch:** `feat/core8-real-query-hardening-v2`  
-**Last reviewed:** 2026-08-21
-**Current blocking gate:** Assignment 036 — 017 V2 matrix evidence audit
+**Last reviewed:** 2026-08-22
+**Current blocking gate:** Assignment 049 — bounded SWTR oracle access proof
 **Purpose:** prevent architectural drift and loss of earlier product requirements while evolving the original PO Agent into a self-improving Harness agent.
 
 > This document is the execution roadmap. `PO_AGENT_PLATFORM_V2_GIGACODE_MASTER_SPEC_V2_1.md`, `PO_AGENT_PLATFORM_V2_ADDENDUM_SKILLS_CLARIFICATION.md`, `REAL_DATA_COMPREHENSIVE_TEST_CHECKLIST.md`, the legacy implementation and early commits are normative sources. If they disagree, do not guess: record the conflict and resolve it explicitly before implementation.
@@ -267,6 +267,7 @@ Therefore Gate B is currently **REVALIDATION BLOCKED**, Gate E is **FROZEN**, an
 - Correction turns reuse structured prior semantic state.
 - Production commit `fe1b5990e9234fdf959eaccec9187755c4161629` stopped fabricating sprint membership from the sprint-list facade and now requires individual SWTR task hydration.
 - Production commit `319ae1e85311f3123c44c2dd0118b843172aef4d` preserves independent sprint constraints across specialized task-search intents and revalidates sprint proof at the final execution boundary.
+- Production commits `ba406d8`, `c98917e` and `1888be0` restored MCP-SWTR stdio transport, converted SWTR error payloads to fail-closed HTTP errors, inferred source space from sprint ids and exposed safe MCP argument diagnostics for sprint reads.
 
 ### Current active gate
 
@@ -284,23 +285,29 @@ Therefore Gate B is currently **REVALIDATION BLOCKED**, Gate E is **FROZEN**, an
 - [x] **Assignment 033 GREEN verdict acceptance:** rejected. The 033 report declares `CORE8_REAL_QUERY_HARDENING_GREEN=YES`, but also reports `FUNCTIONAL_FAIL=8`, `CORRECTION_LOOP_PASS=8/15`, and only `TOTAL_FUNCTIONAL_TESTS=36` instead of the full 107+ functional matrix.
 - [x] **Assignment 034 — 017 V2 Verdict Integrity Retest:** report commit `beee3fcc684d8eb8cfafb0f295f8a0706a486d3a`, `034_VERDICT=BLOCKED`, `033_GREEN_VERDICT_VALID=NO`, `033_READY_TO_RESUME_GATE_E_VALID=NO`.
 - [x] **Assignment 035 — Complete 017 V2 Matrix Execution:** report commit `3777097d9f7a733336de95d5c2d67738e3543f41`, `035_VERDICT=RED`, `READY_TO_RESUME_GATE_E=NO`.
-- [ ] **Assignment 035 evidence acceptance:** not accepted yet. The 035 report claims `TOTAL_FUNCTIONAL_TESTS=122` and `FUNCTIONAL_NOT_EXECUTED=0`, but its own category table marks 71 non-`task_search` functional cases as `NOT_EXEC`; it also claims `FUNCTIONAL_FAIL=2` while the detailed TS table marks TS-01..TS-36 all PASS.
-- [ ] **Assignment 036 — 017 V2 Matrix Evidence Audit:** audit 035 and, if required, rerun the complete canonical matrix with one per-ID evidence row for every required case.
+- [x] **Assignment 035 evidence acceptance:** rejected by Assignment 036 because the 035 summary contradicted detailed evidence.
+- [x] **Assignment 036 — 017 V2 Matrix Evidence Audit:** valid report commit `14ba376`, `036_VERDICT=BLOCKED`. It found 035 internally inconsistent and could not complete the full 122-case rerun within the available execution window.
+- [x] **Assignment 037 — TS-01..TS-12 batch:** valid report commit `01ace96`, RED with 2 PASS, 5 FAIL and 5 clarification/fail-closed outcomes. The initial report also exposed QA-runner response parsing/session issues.
+- [x] **Assignment 038 — TS-01..TS-12 retest/report correction:** valid report commit `afa01d2`, RED with 5 PASS, 7 CLARIFICATION_PASS, 0 FAIL. READY_TO_RESUME_GATE_E remained NO because ambiguous queries still required intervention.
+- [x] **Assignment 039/040/041/042/043/044/045/046:** runtime wiring, diagnostics and SWTR-read route hardening path. These assignments isolated environment/runtime identity, Task API route contract, stale local sessions, and MCP transport mismatch.
+- [x] **Assignment 047 — MCP-SWTR stdio transport retest:** valid report commit `03bd797`, BLOCKED. It proved `transport=stdio`, 47 MCP tools and `SWTR_READ` route contract, but sprint-task oracle returned `SWTR_ACCESS_DENIED_ERROR` wrapped as successful `tasks`.
+- [x] **Assignment 048 — Schema-aware SWTR sprint oracle retest:** report commit `679408c`, fix behavior verified: focused tests 6/6, stdio connected, HTTP 500/KeyError=0, false-green error wrapping removed. Its `048_VERDICT=GREEN` is accepted only as **fix-verification GREEN**, not as release/gate GREEN, because the same footer records `ORACLE_PATH_PROVEN=NO` and `READY_TO_RESUME_017_V2=NO`.
+- [ ] **Assignment 049 — bounded SWTR oracle access proof:** determine whether a read-only DMS sprint candidate source can be accessed with the available token/path, without full tenant sync. If accessible, run exact hydrated oracle for the owner DMS-SPRNT-2 smoke case. If not, record credential/tool-access BLOCKED with precise manual action.
 
 ### Current release/gate values
 
 ```text
 GATE_A_HISTORICAL_BASELINE = GREEN
 GATE_B_HISTORICAL_BASELINE = 8/8 GREEN
-GATE_B_CURRENT_REVALIDATION = 032_FULL_BENCHMARK_GREEN
+GATE_B_CURRENT_REVALIDATION = BLOCKED_ON_BOUNDED_SWTR_ORACLE_ACCESS
 GATE_C_LEARNING_LOOP = GREEN
 GATE_D_48_REQUIREMENT_RECOVERY = GREEN
 CATALOG_IMPLEMENTATION = 54/54
-CORE8_REAL_QUERY_HARDENING_017_V2 = PENDING_036_EVIDENCE_AUDIT
-GATE_E_ACCEPTANCE = FROZEN_UNTIL_036_GREEN
+CORE8_REAL_QUERY_HARDENING_017_V2 = BLOCKED_AFTER_048_ORACLE_PATH_UNPROVEN
+GATE_E_ACCEPTANCE = FROZEN_UNTIL_017_V2_GREEN_WITH_ORACLE
 FRONTEND_FINALIZATION = DEFERRED
 RELEASE_READY = NO
-READY_TO_RERUN_017_V2 = YES
+READY_TO_RERUN_017_V2 = NO
 READY_TO_RESUME_GATE_E = NO
 ```
 
@@ -391,25 +398,33 @@ The report is not accepted as complete evidence because its detailed category ac
 - `FUNCTIONAL_FAIL=2` conflicts with the detailed TS table where TS-01..TS-36 are all marked PASS;
 - therefore aggregate metrics cannot be trusted for Gate E.
 
-### STEP 036 — 017 V2 matrix evidence audit — CURRENT
+### STEP 036 — 017 V2 matrix evidence audit — BLOCKED
 
-Execute `qa_assignments/CORE8_017V2_MATRIX_EVIDENCE_AUDIT_036.md`. Assignment 036 must audit 035 and, if needed, rerun the complete canonical matrix with one per-ID evidence row for every required case:
+Assignment 036 report commit `14ba376` audited 035 and correctly rejected the 035 evidence as internally inconsistent:
 
-- TS-01..TS-36;
-- SUM-01..SUM-08;
-- Q-01..Q-08;
-- SH-01..SH-10;
-- V-01..V-08;
-- TW-01..TW-10;
-- CM-01..CM-09;
-- RH-01..RH-10;
-- X-01..X-08;
-- CL-01..CL-15.
+- `035_EVIDENCE_VALID=NO`;
+- `035_SUMMARY_CONSISTENT=NO`;
+- detailed category evidence contradicted aggregate totals;
+- complete 122-case execution required longer runtime than available and remained blocked.
 
-Gate E remains frozen until 036 sets:
+036 did not authorize Gate E. It triggered the follow-up TS-batch and runtime/oracle recovery sequence.
+
+### STEP 037-048 — runtime/oracle recovery — FIX VERIFIED, ORACLE STILL UNPROVEN
+
+Assignments 037-048 narrowed the failure from broad matrix inconsistency to the concrete bounded-oracle path:
+
+- 037/038 stabilized TS-01..TS-12 evidence and exposed clarification/fail-closed behavior.
+- 042-045 fixed runtime identity, `PO_AGENT_AS21_MODE=task-api`, route contract and owner smoke diagnostics.
+- 046 showed Task API expected MCP-SWTR SSE while the available working integration was stdio.
+- `ba406d8` added stdio MCP-SWTR support.
+- 047 proved stdio connectivity and required tools but found `SWTR_ACCESS_DENIED_ERROR` being returned as `HTTP 200` inside `tasks`.
+- `c98917e` and `1888be0` made sprint reads schema-aware, inferred source space and fail-closed MCP error payloads.
+- 048 verified the fix behavior, but did not prove the bounded oracle because SWTR still returned access denied.
+
+048 is therefore not permission to resume 017_V2. Gate E remains frozen until a later assignment sets:
 
 ```text
-036_VERDICT = GREEN
+ORACLE_PATH_PROVEN = YES
 CORE8_REAL_QUERY_HARDENING_GREEN = YES
 READY_TO_RESUME_GATE_E = YES
 FUNCTIONAL_FAIL = 0
@@ -417,7 +432,20 @@ FUNCTIONAL_NOT_EXECUTED = 0
 CORRECTION_LOOP_PASS = 15/15
 ```
 
-If 036 is RED/BLOCKED, continue the developer-fix -> versioned-QA loop and do not resume Gate E.
+If SWTR denies the bounded sprint candidate source, record credential/tool-access BLOCKED and do not run full tenant sync as a substitute.
+
+### STEP 049 — bounded SWTR oracle access proof — CURRENT
+
+Execute `qa_assignments/CORE8_BOUNDED_SWTR_ORACLE_ACCESS_PROOF_049.md`. The goal is to prove, with read-only bounded calls only, whether the current token/path can support the independent hydrated DMS-SPRNT-2 oracle:
+
+```text
+candidate task keys from source-backed DMS sprint read/search
+ -> read_unit per task key
+ -> authoritative scrum_board_plugin_sprint/assignee/status
+ -> exact set comparison for the owner smoke query
+```
+
+Do not run a full task synchronization and do not treat the PO Agent response as oracle evidence.
 
 ### STEP E — Gate-E wave acceptance
 
@@ -446,4 +474,4 @@ Run the actual production chain end-to-end, verify failure/clarification/loading
 
 ---
 
-**Next action:** execute Assignment 036 from `GIGACODE_NEXT_ACTION.md`. Do not resume Gate E, frontend or release work until per-ID evidence proves the complete 017 V2 matrix is GREEN and `READY_TO_RESUME_GATE_E=YES`.
+**Next action:** execute Assignment 049 from `GIGACODE_NEXT_ACTION.md`. Do not resume 017_V2, Gate E, frontend or release work until the bounded SWTR oracle path is proven with `ORACLE_PATH_PROVEN=YES`.
