@@ -3,7 +3,7 @@
 from pathlib import Path
 from typing import Optional
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # settings.py -> config -> po_agent -> src -> po-agent-platform-v2
@@ -34,10 +34,23 @@ class Settings(BaseSettings):
     log_format: str = Field(default="json")
     correlation_id_header: str = Field(default="X-Request-ID")
 
-    as21_mode: str = Field(default="fake", description="fake or task-api")
-    task_api_base_url: str = Field(default="http://localhost:8003")
-    task_api_timeout_seconds: float = Field(default=30.0)
-    team_config_path: Optional[str] = Field(default=None)
+    as21_mode: str = Field(
+        default="fake",
+        description="fake or task-api",
+        validation_alias=AliasChoices("AS21_MODE", "PO_AGENT_AS21_MODE"),
+    )
+    task_api_base_url: str = Field(
+        default="http://localhost:8003",
+        validation_alias=AliasChoices("TASK_API_BASE_URL", "PO_AGENT_TASK_API_BASE_URL"),
+    )
+    task_api_timeout_seconds: float = Field(
+        default=30.0,
+        validation_alias=AliasChoices("TASK_API_TIMEOUT_SECONDS", "PO_AGENT_TASK_API_TIMEOUT_SECONDS"),
+    )
+    team_config_path: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices("TEAM_CONFIG_PATH", "PO_AGENT_TEAM_CONFIG_PATH"),
+    )
     swtr_base_url: str = Field(default="https://portal.works.prod.sbt/swtr")
     swtr_token: Optional[str] = Field(default=None)
 
