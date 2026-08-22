@@ -55,7 +55,7 @@ async def test_conflicting_definition_never_silently_replaces_active_semantics(t
         slots={"learn_term": "open_tasks", "learn_meaning": "Open"},
         llm_used=True,
     )
-    bundle.runtime.inner.interpreter = ScriptedInterpreter(second)
+    bundle.runtime.inner.inner.interpreter = ScriptedInterpreter(second)
     response = await bundle.runtime.process(HarnessRequest(query="Теперь всегда считай только Open", session_id="learn-b"))
     assert response.status is ResponseStatus.COMPLETED
     assert response.warnings == ["learning_conflict_pending"]
