@@ -14,6 +14,7 @@ from po_agent.harness import HarnessRequest, HarnessRuntime
 from po_agent.harness.dialogue_runtime import LLMJsonSemanticInterpreter
 from po_agent.harness.runtime_factory import RuntimeBundle, build_runtime_bundle
 from po_agent.llm.real import RealLLMClient
+from po_agent.ops.as21_diagnostics import build_as21_diagnostics
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
@@ -138,6 +139,12 @@ async def health_check(request: Request):
         "correlation_id": correlation_id,
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
     }
+
+
+@router.get("/ops/as21-diagnostics")
+async def as21_diagnostics():
+    """Non-secret runtime diagnostic for AS21/SWTR connectivity and wiring."""
+    return await build_as21_diagnostics(get_settings())
 
 
 @router.post("/query")
