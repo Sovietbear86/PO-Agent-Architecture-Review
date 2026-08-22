@@ -4,15 +4,15 @@
 
 Ignore every assignment, report target and HEAD remembered from an earlier GigaCode session. The repository files below are the only authority for this run.
 
-The active assignment is **046**, not 006, 017, 026, 029, 030, 031, 032, 033, 034, 035, 036, 037, 038, 039, 040, 041, 042, 043, 044, 045 or any other historical assignment.
+The active assignment is **047**, not 006, 017, 026, 029, 030, 031, 032, 033, 034, 035, 036, 037, 038, 039, 040, 041, 042, 043, 044, 045, 046 or any other historical assignment.
 
-Assignment 045 is accepted as a valid BLOCKED report. It proved runtime identity and the Task API `/api/v1/swtr-read/*` route contract from the current HEAD. It also proved that simple AS21-backed owner task search works, while independent oracle hydration remains blocked only by unavailable MCP-SWTR transport.
+Assignment 046 is accepted as a valid BLOCKED report. It proved runtime identity and the Task API `/api/v1/swtr-read/*` route contract from the current HEAD. It also proved that the available working MCP-SWTR installation is stdio-based, while Task API previously expected only SSE.
 
 ## Active assignment
 
 Read and execute exactly:
 
-`qa_assignments/CORE8_MCP_SWTR_TRANSPORT_UNBLOCK_AND_ORACLE_RETEST_046.md`
+`qa_assignments/CORE8_MCP_SWTR_STDIO_TRANSPORT_RETEST_047.md`
 
 Repository:
 
@@ -24,7 +24,7 @@ Branch:
 
 Expected output path:
 
-`qa_reports/CORE8_MCP_SWTR_TRANSPORT_UNBLOCK_AND_ORACLE_RETEST_046.md`
+`qa_reports/CORE8_MCP_SWTR_STDIO_TRANSPORT_RETEST_047.md`
 
 ## Mandatory Git preflight
 
@@ -34,13 +34,13 @@ Before starting services or tests:
 2. `git pull --ff-only origin feat/core8-real-query-hardening-v2`
 3. Record `git rev-parse HEAD` as `START_HEAD`.
 4. Read this file again from `START_HEAD`.
-5. Read `qa_assignments/CORE8_MCP_SWTR_TRANSPORT_UNBLOCK_AND_ORACLE_RETEST_046.md` completely.
-6. Verify all three values below. If any value differs, do not run another assignment and do not modify any historical report; create the expected 046 report with `046_VERDICT = BLOCKED`, exact mismatch evidence, then stop.
+5. Read `qa_assignments/CORE8_MCP_SWTR_STDIO_TRANSPORT_RETEST_047.md` completely.
+6. Verify all three values below. If any value differs, do not run another assignment and do not modify any historical report; create the expected 047 report with `047_VERDICT = BLOCKED`, exact mismatch evidence, then stop.
 
 ```text
-ACTIVE_ASSIGNMENT = 046
-ACTIVE_ASSIGNMENT_FILE = qa_assignments/CORE8_MCP_SWTR_TRANSPORT_UNBLOCK_AND_ORACLE_RETEST_046.md
-ALLOWED_REPORT_FILE = qa_reports/CORE8_MCP_SWTR_TRANSPORT_UNBLOCK_AND_ORACLE_RETEST_046.md
+ACTIVE_ASSIGNMENT = 047
+ACTIVE_ASSIGNMENT_FILE = qa_assignments/CORE8_MCP_SWTR_STDIO_TRANSPORT_RETEST_047.md
+ALLOWED_REPORT_FILE = qa_reports/CORE8_MCP_SWTR_STDIO_TRANSPORT_RETEST_047.md
 ```
 
 7. Verify no prohibited files are staged.
@@ -66,7 +66,7 @@ GigaCode is QA/tester only.
 - Do not repair discovered production defects.
 - Do not weaken or tune the acceptance oracle.
 - Do not change canonical query wording.
-- Do not run full tenant-wide task sync for 046.
+- Do not run full tenant-wide task sync for 047.
 - Do not convert failed, missing or not-executed canonical 017 V2 cases into GREEN.
 - Do not publish aggregate/footer metrics that contradict per-case evidence.
 - Use real AS21/SWTR evidence as required by the active assignment.
@@ -76,20 +76,20 @@ GigaCode is QA/tester only.
 
 Create, commit and push only the report required by the active assignment:
 
-`qa_reports/CORE8_MCP_SWTR_TRANSPORT_UNBLOCK_AND_ORACLE_RETEST_046.md`
+`qa_reports/CORE8_MCP_SWTR_STDIO_TRANSPORT_RETEST_047.md`
 
 Before commit, stage explicitly and verify the allowlist:
 
 ```bash
-git add -- qa_reports/CORE8_MCP_SWTR_TRANSPORT_UNBLOCK_AND_ORACLE_RETEST_046.md
+git add -- qa_reports/CORE8_MCP_SWTR_STDIO_TRANSPORT_RETEST_047.md
 git diff --cached --name-only
 ```
 
-The staged file list must contain exactly the allowed 046 report. If any other path appears, do not commit until it is unstaged. Never modify or stage a historical report or result.
+The staged file list must contain exactly the allowed 047 report. If any other path appears, do not commit until it is unstaged. Never modify or stage a historical report or result.
 
 The commit subject must start with:
 
-`qa: CORE8_MCP_SWTR_TRANSPORT_UNBLOCK_AND_ORACLE_RETEST_046`
+`qa: CORE8_MCP_SWTR_STDIO_TRANSPORT_RETEST_047`
 
 After pushing the report, stop. Return:
 
