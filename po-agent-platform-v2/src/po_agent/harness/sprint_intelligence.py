@@ -9,6 +9,7 @@ import re
 from statistics import mean, median
 
 from po_agent.adapters.as21 import AS21Adapter
+from po_agent.adapters.task_api import AS21CapabilityUnavailable
 from po_agent.domain.models import Task, TaskStatus
 
 from .contracts import CapabilityResult, Evidence
@@ -122,7 +123,9 @@ class SprintIntelligenceCapabilities:
         )
 
     async def _tasks(self, args: dict[str, str]) -> tuple[str, list[Task]]:
-        sprint_id = args["sprint_id"].upper()
+        sprint_id = (args.get("sprint_id") or "").strip().upper()
+        if not sprint_id:
+            raise AS21CapabilityUnavailable("sprint_id is required for sprint intelligence")
         return sprint_id, await self.adapter.get_sprint_tasks(sprint_id)
 
     @staticmethod
