@@ -20,6 +20,28 @@ from app.services.swtr_mcp_client import (
 
 router = APIRouter(prefix="/api/v1/swtr-read", tags=["swtr-read"])
 _TASK_CODE_RE = re.compile(r"^[A-Z][A-Z0-9]*-\d+$")
+_SPRINT_ID_RE = re.compile(r"^(?P<space>[A-Z][A-Z0-9_-]*)-SPRNT-\d+$", re.I)
+_MCP_ERROR_KEYS = ("errorType", "uiErrorMessage", "exceptionUUID")
+
+
+def _mcp_error_detail(payload: dict[str, Any]) -> dict[str, Any]:
+    detail: dict[str, Any] = {}
+    if payload.get("errorType"):
+        detail["error_type"] = str(payload["errorType"])
+    if payload.get("uiErrorMessage"):
+        detail["message"] = str(payload["uiErrorMessage"])
+    if payload.get("exceptionUUID"):
+        detail["exception_uuid"] = str(payload["exceptionUUID"])
+    return detail or {"message": "SWTR MCP returned an error payload"}
+
+
+def _raise_mcp_error_payload(payload: Any) -> None:
+    if not isinstance(payload, dict) or not any(key in payload for key in _MCP_ERROR_KEYS):
+        return
+    detail = _mcp_error_detail(payload)
+    marker = " ".join(str(value) for value in detail.values()).upper()
+    status_code = 403 if "ACCESS_DENIED" in marker or "ДОСТУП ЗАПРЕЩЕН" in marker else 502
+    raise HTTPException(status_code=status_code, detail=detail)
 
 
 def _parse_tool_content(content: list[dict[str, Any]]) -> Any:
@@ -36,7 +58,9 @@ def _parse_tool_content(content: list[dict[str, Any]]) -> Any:
             raise HTTPException(status_code=502, detail="SWTR MCP returned invalid JSON") from exc
     if not decoded:
         raise HTTPException(status_code=502, detail="SWTR MCP returned no JSON payload")
-    return decoded[0] if len(decoded) == 1 else decoded
+    payload = decoded[0] if len(decoded) == 1 else decoded
+    _raise_mcp_error_payload(payload)
+    return payload
 
 
 def _extract_files(payload: Any) -> list[dict[str, Any]]:
@@ -118,6 +142,47 @@ def _put_declared(target: dict[str, Any], properties: dict[str, Any], aliases: t
     name = _first_declared(properties, aliases)
     if name is not None:
         target[name] = value
+
+
+def _infer_space_from_sprint(sprint_id: str) -> str | None:
+    match = _SPRINT_ID_RE.fullmatch(sprint_id.strip())
+    return match.group("space").upper() if match else None
+
+
+async def _schema_aware_get_sprint_tasks_arguments(
+    client: SWTRMCPClient,
+    *,
+    sprint_id: str,
+    space: str | None,
+    page: int,
+    limit: int,
+) -> dict[str, Any]:
+    schema = await client.tool_input_schema("get_sprint_tasks")
+    properties = schema.get("properties") if isinstance(schema, dict) else None
+    top = properties if isinstance(properties, dict) else {}
+
+    request_schema = top.get("request")
+    if isinstance(request_schema, dict):
+        nested = request_schema.get("properties")
+        nested_props = nested if isinstance(nested, dict) else {}
+        if request_schema.get("type") == "object" or nested_props:
+            request: dict[str, Any] = {}
+            _put_declared(request, nested_props, ("sprint_id", "sprintId", "sprint", "sprint_code", "sprintCode", "code", "id"), sprint_id)
+            _put_declared(request, nested_props, ("space", "project", "project_code", "spaceCode", "projectCode"), space)
+            _put_declared(request, nested_props, ("page", "page_number", "pageNumber"), page)
+            _put_declared(request, nested_props, ("offset", "start"), page * limit)
+            _put_declared(request, nested_props, ("limit", "size", "page_size", "pageSize"), limit)
+            return {"request": request}
+
+    result: dict[str, Any] = {}
+    _put_declared(result, top, ("sprint_id", "sprintId", "sprint", "sprint_code", "sprintCode", "code", "id"), sprint_id)
+    _put_declared(result, top, ("space", "project", "project_code", "spaceCode", "projectCode"), space)
+    _put_declared(result, top, ("page", "page_number", "pageNumber"), page)
+    _put_declared(result, top, ("offset", "start"), page * limit)
+    _put_declared(result, top, ("limit", "size", "page_size", "pageSize"), limit)
+    if not any(key in result for key in ("sprint_id", "sprintId", "sprint", "sprint_code", "sprintCode", "code", "id")):
+        result["sprint_id"] = sprint_id
+    return result
 
 
 async def _schema_aware_search_versions_arguments(
@@ -230,6 +295,7 @@ async def get_current_sprint(space: str):
 @router.get("/sprints/{sprint_id}/tasks")
 async def get_sprint_tasks(
     sprint_id: str,
+    space: str | None = Query(None, min_length=1, max_length=80),
     page: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     complete: bool = Query(False),
@@ -238,17 +304,19 @@ async def get_sprint_tasks(
     normalized = sprint_id.strip()
     if not normalized or len(normalized) > 200:
         raise HTTPException(status_code=400, detail="Invalid sprint id")
+    normalized_space = (space.upper().strip() if space else _infer_space_from_sprint(normalized))
+    if normalized_space and not re.fullmatch(r"^[A-Z][A-Z0-9_-]*$", normalized_space):
+        raise HTTPException(status_code=400, detail="Invalid SWTR space")
 
     client = SWTRMCPClient()
     try:
         properties = await client.tool_input_properties("get_sprint_tasks")
-        arguments = await client.preferred_alias_arguments(
-            "get_sprint_tasks",
-            [
-                (("page", "page_number", "pageNumber", "offset"), page if "offset" not in properties else page * limit),
-                (("limit", "size", "page_size", "pageSize"), limit),
-            ],
-            required={"sprint_id": normalized},
+        arguments = await _schema_aware_get_sprint_tasks_arguments(
+            client,
+            sprint_id=normalized,
+            space=normalized_space,
+            page=page,
+            limit=limit,
         )
         content = await client.call_tool("get_sprint_tasks", arguments)
     except (SWTRMCPUnavailable, SWTRMCPProtocolError) as exc:
@@ -258,6 +326,7 @@ async def get_sprint_tasks(
     meta = _page_meta(payload)
     result: dict[str, Any] = {
         "sprint_id": normalized,
+        "space": normalized_space,
         "requested_page": page,
         "requested_limit": limit,
         "tasks": payload,
@@ -279,13 +348,12 @@ async def get_sprint_tasks(
             if pages_read >= max_pages:
                 raise HTTPException(status_code=502, detail="SWTR sprint pagination exceeded max_pages")
             current_page += 1
-            next_arguments = await client.preferred_alias_arguments(
-                "get_sprint_tasks",
-                [
-                    (("page", "page_number", "pageNumber", "offset"), current_page if "offset" not in properties else current_page * limit),
-                    (("limit", "size", "page_size", "pageSize"), limit),
-                ],
-                required={"sprint_id": normalized},
+            next_arguments = await _schema_aware_get_sprint_tasks_arguments(
+                client,
+                sprint_id=normalized,
+                space=normalized_space,
+                page=current_page,
+                limit=limit,
             )
             try:
                 next_payload = _parse_tool_content(await client.call_tool("get_sprint_tasks", next_arguments))
