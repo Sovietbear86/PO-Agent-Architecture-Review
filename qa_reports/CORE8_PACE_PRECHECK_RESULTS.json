@@ -1,0 +1,29 @@
+{
+  "timestamp": "test",
+  "precheck_type": "PACE",
+  "queries": [
+    {
+      "query_id": "B1",
+      "session_id": "qa026-B1",
+      "status_code": 200,
+      "total_ms": 44052,
+      "status": "PASS",
+      "timeout": "NO",
+      "task_keys_count": 4
+    },
+    {
+      "query_id": "B2",
+      "session_id": "qa026-B2",
+      "status_code": 200,
+      "total_ms": 37632,
+      "status": "PASS",
+      "timeout": "NO",
+      "task_keys_count": 0
+    }
+  ],
+  "summary": {
+    "total_queries": 2,
+    "total_time_ms": 81772,
+    "passed": true
+  }
+}
