@@ -2,7 +2,9 @@ import httpx
 import pytest
 
 from po_agent.harness import HarnessRequest, ResponseStatus
+from po_agent.harness.dialogue_runtime import SemanticFrame
 from po_agent.harness.runtime_factory import build_runtime_bundle
+from po_agent.harness.semantic_core_v2 import ConversationAwareSemanticInterpreter, DialogueAct
 
 
 def task_payload(key: str = "WMB-101") -> dict:
@@ -18,6 +20,21 @@ def task_payload(key: str = "WMB-101") -> dict:
     }
 
 
+class ScriptedConversationInterpreter(ConversationAwareSemanticInterpreter):
+    """Deterministic semantic frame provider accepted by task-api runtime wiring."""
+
+    def __init__(self, frame: SemanticFrame) -> None:
+        self.frame = frame
+        self.client = None
+        self.model = None
+
+    async def classify_dialogue_act(self, current: str, previous_query: str) -> DialogueAct:
+        return DialogueAct(act="new")
+
+    async def interpret(self, query: str, *, context=None) -> SemanticFrame:
+        return self.frame
+
+
 @pytest.mark.asyncio
 async def test_runtime_factory_runtime_records_production_execution_history():
     async def handler(request: httpx.Request) -> httpx.Response:
@@ -27,7 +44,15 @@ async def test_runtime_factory_runtime_records_production_execution_history():
             return httpx.Response(200, json={"versions": []})
         raise AssertionError(f"unexpected request: {request.method} {request.url}")
 
-    bundle = build_runtime_bundle("task-api")
+    interpreter = ScriptedConversationInterpreter(
+        SemanticFrame(
+            canonical_query="найди login",
+            intent_hint="task_search",
+            slots={"phrase": "login"},
+            llm_used=True,
+        )
+    )
+    bundle = build_runtime_bundle("task-api", semantic_interpreter=interpreter)
     bundle.adapter._client = httpx.AsyncClient(
         transport=httpx.MockTransport(handler), base_url="http://task-api"
     )
@@ -78,7 +103,15 @@ async def test_portfolio_overview_never_labels_task_api_data_as_fake():
             return httpx.Response(200, json={"versions": []})
         raise AssertionError(f"unexpected request: {request.method} {request.url}")
 
-    bundle = build_runtime_bundle("task-api")
+    interpreter = ScriptedConversationInterpreter(
+        SemanticFrame(
+            canonical_query="обзор",
+            intent_hint="portfolio_overview",
+            slots={},
+            llm_used=True,
+        )
+    )
+    bundle = build_runtime_bundle("task-api", semantic_interpreter=interpreter)
     bundle.adapter._client = httpx.AsyncClient(
         transport=httpx.MockTransport(handler), base_url="http://task-api"
     )
