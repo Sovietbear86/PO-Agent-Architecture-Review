@@ -8,13 +8,13 @@
 
 Run exactly this assignment:
 
-`qa_assignments/CORE8_TASK_API_TEST_COVERAGE_RESTORED_AND_017V2_RERUN_056.md`
+`qa_assignments/CORE8_TASK_API_SEMANTIC_STUB_AND_017V2_RERUN_057.md`
 
 ## Report allowlist
 
 Commit and push only:
 
-`qa_reports/CORE8_TASK_API_TEST_COVERAGE_RESTORED_AND_017V2_RERUN_056.md`
+`qa_reports/CORE8_TASK_API_SEMANTIC_STUB_AND_017V2_RERUN_057.md`
 
 Do not commit JSON, helper scripts, runner changes, wrapper changes, `.env`, credentials, logs, screenshots, historical reports, roadmap edits, production changes, prompts, tests, fixtures, local configuration or AS21/SWTR data.
 
@@ -24,13 +24,13 @@ You are QA/tester only.
 
 Do not repair production defects. Do not weaken acceptance rules. Do not run Gate E directly. Do not use implementation existence as execution evidence. Do not claim GREEN from aggregate counts without per-case evidence.
 
-## Why Assignment 056 Exists
+## Why Assignment 057 Exists
 
-Assignment 055 targeted cleanup initially passed only after architecture tests were incorrectly weakened from `task-api` coverage to `fake` mode.
+Assignment 056 passed the task-api coverage guard but targeted tests still failed because pytest had no real LLM semantic model.
 
-ChatGPT/developer restored `task-api` coverage in commit `c413e6c8a81d596da1f83172c23afe1342338f66`.
+ChatGPT/developer fixed this in commit `9f9e7407c4474f7fe9ea1ec4e6fc9ecc267661bf` by keeping `build_runtime_bundle("task-api")` while injecting deterministic conversation-aware semantic frames for unit regression tests only.
 
-Assignment 056 must verify that guard first, then run targeted cleanup, oracle smoke, and full 017 V2 only if the earlier gates pass.
+Assignment 057 must verify this targeted cleanup, then run oracle smoke and full 017 V2 only if the earlier gates pass.
 
 ## Autonomous Execution
 
@@ -41,9 +41,9 @@ Ask only if continuing requires missing credentials, unavoidable platform approv
 ## Required Final Gate
 
 ```text
-056_TASK_API_COVERAGE_GUARD = PASS|FAIL
-056_TARGETED_CLEANUP_PASS = YES|NO|BLOCKED
-056_ORACLE_SMOKE_PASS = YES|NO|BLOCKED
+057_TASK_API_COVERAGE_GUARD = PASS|FAIL
+057_TARGETED_CLEANUP_PASS = YES|NO|BLOCKED
+057_ORACLE_SMOKE_PASS = YES|NO|BLOCKED
 ENVIRONMENT_TIMEOUT_COUNT = n
 017V2_FULLY_EXECUTED = YES|NO
 CORRECTION_LOOP_PASS = x/15
@@ -51,7 +51,7 @@ FALSE_GREEN_COUNT = n
 SILENT_SLOT_DROP_COUNT = n
 NEW_HIGH_PRODUCTION_REGRESSIONS = n
 READY_TO_RESUME_GATE_E = YES|NO
-056_VERDICT = GREEN|RED|BLOCKED
+057_VERDICT = GREEN|RED|BLOCKED
 ```
 
 Do not start Gate E.
