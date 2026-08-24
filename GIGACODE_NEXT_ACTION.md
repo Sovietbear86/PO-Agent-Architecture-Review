@@ -8,13 +8,13 @@
 
 Run exactly this assignment:
 
-`qa_assignments/CORE8_DETERMINISTIC_CLARIFICATION_REPLAY_RETEST_066.md`
+`qa_assignments/CORE8_FRESH_PROCESS_CLARIFICATION_REPLAY_RETEST_067.md`
 
 ## Report allowlist
 
 Commit and push only:
 
-`qa_reports/CORE8_DETERMINISTIC_CLARIFICATION_REPLAY_RETEST_066.md`
+`qa_reports/CORE8_FRESH_PROCESS_CLARIFICATION_REPLAY_RETEST_067.md`
 
 Do not commit JSON, helper scripts, runner changes, wrapper changes, `.env`, credentials, logs, screenshots, historical reports, roadmap edits, production changes, prompts, tests, fixtures, local configuration or AS21/SWTR data.
 
@@ -36,22 +36,24 @@ Regression contract:
 
 Your START_HEAD must contain both commits and the tracked working tree must be clean.
 
-## Mandatory environment guard
+## Mandatory process provenance guard
 
-Before executing tests, prove Python imports the current local checkout and that `/private/tmp/PO-Agent-Architecture-Review` is absent from `sys.path`. If the guard fails, stop with BLOCKED instead of testing stale code.
+QA 066 proved current CLI imports and unit tests were correct, but did not prove the already-running FastAPI/uvicorn service had been restarted after the fix. Assignment 067 MUST stop the old service, prove it is down, and launch a fresh PO Agent process from the current checkout before any live query.
+
+If fresh-process provenance cannot be proven, stop with BLOCKED instead of producing a product RED.
 
 ## Purpose
 
-Validate deterministic replay of an already-open pending clarification without re-running semantic interpretation/grounding, while preserving independent-turn isolation and genuine correction behavior.
+Distinguish a genuine production clarification-replay defect from a stale in-memory service process. Validate the live `/api/v1/query` path only after a proven fresh restart.
 
-Assignments 060/062 remain paused until 066 is GREEN.
+Assignments 060/062 remain paused until 067 is GREEN.
 
 ## Autonomous execution
 
-Routine QA actions are pre-authorized. Do not ask for confirmation after branch fetch/pull, clean-tree verification, environment guard, service restart, test execution, read-only AS21/SWTR queries, report creation, allowed report commit or allowed report push.
+Routine QA actions are pre-authorized. Do not ask for confirmation after branch fetch/pull, clean-tree verification, environment/import guard, stopping/restarting the local PO Agent service, health verification, read-only AS21/SWTR queries, test execution, report creation, allowed report commit or allowed report push.
 
 Ask only if continuing requires missing credentials, unavoidable platform approval, write outside the report allowlist, destructive out-of-scope action or scope expansion.
 
 ## Completion
 
-After completing Assignment 066, commit and push only the allowed report file, then stop and return report commit SHA, concise verdict and full report text.
+After completing Assignment 067, commit and push only the allowed report file, then stop and return report commit SHA, concise verdict and full report text.
