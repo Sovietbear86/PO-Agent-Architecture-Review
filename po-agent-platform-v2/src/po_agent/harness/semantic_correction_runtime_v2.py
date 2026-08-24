@@ -47,6 +47,28 @@ class SemanticCorrectionRuntimeV2:
             "semantic_state_reused": True,
         }
 
+    @staticmethod
+    def _same_query(current: str, previous: str) -> bool:
+        """Treat an exact natural-language repeat as an idempotent rerun.
+
+        Repeating the same standalone request must never become a correction/recheck
+        solely because the session already contains a previous turn. Whitespace and
+        letter case are not semantically meaningful for this guard.
+        """
+        normalize = lambda value: " ".join((value or "").split()).casefold()
+        return bool(normalize(current)) and normalize(current) == normalize(previous)
+
+    def _clear_semantic_previous_turn(self, session: str) -> None:
+        """Remove only the interpreter's cached previous semantic turn for a rerun.
+
+        The outer Harness session remains unchanged. This prevents the repeated query
+        from being interpreted as a continuation/correction while still returning the
+        response in the same user-visible session.
+        """
+        state = getattr(self.semantic_interpreter, "_last", None)
+        if isinstance(state, dict):
+            state.pop(session, None)
+
     async def _classify(self, current: str, previous_query: str) -> DialogueAct:
         classifier = getattr(self.semantic_interpreter, "classify_dialogue_act", None)
         if not callable(classifier):
@@ -70,6 +92,14 @@ class SemanticCorrectionRuntimeV2:
 
         previous = self._last.get(session)
         if previous is None:
+            response = await self.inner.process(HarnessRequest(query=current, session_id=session))
+            self._last[session] = _PreviousTurn(current, response)
+            return response
+
+        # A literal repeat is not negative feedback and not a correction. Execute it
+        # again from clean semantic context so the result does not depend on turn order.
+        if self._same_query(current, previous.query):
+            self._clear_semantic_previous_turn(session)
             response = await self.inner.process(HarnessRequest(query=current, session_id=session))
             self._last[session] = _PreviousTurn(current, response)
             return response
