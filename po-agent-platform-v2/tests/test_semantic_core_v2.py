@@ -143,28 +143,29 @@ async def test_unrepaired_contract_violation_fails_closed_instead_of_broadening(
 
 @pytest.mark.asyncio
 async def test_conversation_context_is_supplied_to_next_semantic_turn():
-    client = QueueClient([
-        {
-            "canonical_query": "search tasks",
-            "intent_hint": "task_search",
-            "slots": {"person_raw": "Гаранин", "product": "DMS"},
-            "clarifications": [],
-            "confidence": 0.95,
-            "dialogue_act": "new",
-        },
-        {
-            "canonical_query": "search tasks",
-            "intent_hint": "task_search",
-            "slots": {"person_raw": "Моисеев", "product": "DMS"},
-            "clarifications": [],
-            "confidence": 0.96,
-            "dialogue_act": "correction",
-        },
-    ])
+    first = {
+        "canonical_query": "search tasks",
+        "intent_hint": "task_search",
+        "slots": {"person_raw": "Гаранин", "product": "DMS"},
+        "clarifications": [],
+        "confidence": 0.95,
+        "dialogue_act": "new",
+    }
+    second_payload = {
+        "canonical_query": "search tasks",
+        "intent_hint": "task_search",
+        "slots": {"person_raw": "Моисеев", "product": "DMS"},
+        "clarifications": [],
+        "confidence": 0.96,
+        "dialogue_act": "correction",
+    }
+    # Every production semantic turn performs extraction + audit. Supply both payloads
+    # for each turn so this test validates conversation state rather than queue layout.
+    client = QueueClient([first, first, second_payload, second_payload])
     interpreter = ConversationAwareSemanticInterpreter(LLMFirstSemanticInterpreter(client))
     await interpreter.interpret("Покажи задачи Гаранина по DMS", context=context())
     second = await interpreter.interpret("Опечатался, я имел в виду Моисеева", context=context())
-    second_user_payload = json.loads(client.seen[1][-1].content)
+    second_user_payload = json.loads(client.seen[2][-1].content)
     assert second_user_payload["context"]["previous_turn"]["slots"]["person_raw"] == "Гаранин"
     assert second.slots["person_raw"] == "Моисеев"
     assert second.slots["dialogue_act"] == "correction"
