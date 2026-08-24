@@ -264,19 +264,19 @@ def test_enrich_team_matching_with_extracted_key():
 @pytest.mark.asyncio
 async def test_dialogue_executes_with_extracted_task_key():
     frame = SemanticFrame(
-        canonical_query="покажи задачу OLP-3134",
+        canonical_query="покажи задачу WMB-101",
         intent_hint="task_by_id",
         slots={},
         llm_used=True,
     )
-    enriched = DialogueHarnessRuntime._enrich_explicit_task_key(frame, "Покажи задачу OLP-3134")
-    assert enriched.slots.get("task_key") == "OLP-3134"
+    enriched = DialogueHarnessRuntime._enrich_explicit_task_key(frame, "Покажи задачу WMB-101")
+    assert enriched.slots.get("task_key") == "WMB-101"
 
     bundle = build_runtime_bundle("fake", semantic_interpreter=ScriptedInterpreter(enriched))
-    response = await bundle.runtime.process(HarnessRequest(query="Покажи задачу OLP-3134", session_id="extract"))
+    response = await bundle.runtime.process(HarnessRequest(query="Покажи задачу WMB-101", session_id="extract"))
     assert response.status in {ResponseStatus.COMPLETED, ResponseStatus.PARTIAL}
     if response.data:
-        assert "task_key" in response.data
+        assert response.data["task"]["key"] == "WMB-101"
 
 
 @pytest.mark.asyncio

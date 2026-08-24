@@ -90,16 +90,29 @@ magic keywords. For task searches preserve EVERY independent user constraint in 
 Typical slots: person_raw, member_login, sprint_raw, sprint_id, release_raw, release_id,
 status_raw, status_semantic, status, product, phrase, task_key.
 
+EXTRACTION CONTRACT — extraction and source resolution are different stages:
+- Extract raw semantic constraints from the user's actual wording. Do NOT normalize a
+  human name, product or business status into an AS21 identifier here.
+- person_raw: preserve the complete human reference as written, including Russian
+  grammatical case (e.g. a genitive surname remains genitive). Never invent a login,
+  externalId or nominative spelling. Downstream person resolution owns normalization.
+- product: preserve the concise product/project/space value explicitly constraining
+  the request. Do not put the surrounding phrase or a sprint identifier into product.
+- status_raw: preserve natural status wording when the user expresses a status or
+  workflow-state constraint. status_semantic may carry its business meaning. Use
+  concrete status only when the user explicitly supplied a concrete source status.
+- A constraint is still a constraint when expressed indirectly: possession/assignment
+  to a person, work 'in' a product/space, and phrases such as open/closed/in progress
+  must not disappear merely because the wording is inflected or conversational.
+- When person + product + status/sprint occur together, emit ALL of them. Never choose
+  one filter at the expense of another.
+
 Rules:
-- person_raw is the user's human name/reference. Never invent login/externalId.
-- product is the requested product/space scope only when explicitly intended.
 - Exact task/sprint IDs written by the user must be preserved exactly.
-- Concrete source statuses may go in status; business meanings such as 'незакрытые'
-  should use status_semantic/status_raw unless the requested meaning is unambiguous.
 - Multi-filter requests use task_search and keep ALL filters.
 - Never calculate metrics or fabricate source facts.
-- If a requested constraint cannot be represented confidently, add clarification;
-  DO NOT silently drop that constraint and broaden the query.
+- If a requested constraint cannot be represented confidently, preserve its raw value
+  and add clarification; DO NOT silently drop that constraint and broaden the query.
 
 Conversation corrections: context.previous_turn is trusted semantic conversation state.
 For correction/recheck merge the previous intent/slots with only the user's change.
@@ -112,23 +125,30 @@ Given the original user query, context and a candidate semantic frame, return ON
 object with keys intent_hint, slots, clarifications, confidence, audit_ok.
 
 Audit by MEANING, not keyword matching. Your job is to prevent false broadening.
-1. Enumerate mentally every independent constraint explicitly requested by the user:
-   person, product/space, sprint, release, status/meaning, exact task ID, period, etc.
-2. Ensure each requested constraint is present in slots. If the candidate omitted one,
-   restore it using the user's wording (e.g. person_raw/status_raw/sprint_raw).
-3. Remove constraints that the user did not request.
-4. Structural IDs must be concise entity values only, never the whole sentence.
-5. Do not invent logins, IDs, source facts or statuses. Grounding happens later.
-6. If a constraint is genuinely ambiguous, keep the raw semantic value and add a
+1. Enumerate every independent constraint explicitly or grammatically expressed by the
+   user: person/assignee, product/project/space, sprint, release, status/meaning, exact
+   task ID, period, etc. Inflection does not make a constraint optional.
+2. Ensure each requested constraint is present in slots. If omitted, restore the raw
+   surface value from the user's wording: person_raw for a human reference, product for
+   product/project/space scope, status_raw/status_semantic for workflow-state meaning.
+3. Preserve raw values; do not resolve them to AS21 logins, IDs, canonical people,
+   products or statuses. Entity/source resolution belongs downstream.
+4. For compound requests, explicitly verify that no person/product/status/sprint filter
+   vanished. A candidate containing only a subset is audit_ok=false and must be repaired.
+5. Remove constraints that the user did not request.
+6. Structural IDs must be concise entity values only, never the whole sentence.
+7. Do not invent logins, IDs, source facts or statuses.
+8. If a constraint is genuinely ambiguous, keep its raw semantic value and add a
    clarification instead of deleting it.
-7. Preserve an allowed intent. For multi-filter task retrieval use task_search.
+9. Preserve an allowed intent. For multi-filter task retrieval use task_search.
 
 The audited frame must never execute a broader query than the user requested simply
 because one constraint was difficult to parse."""
 
     REPAIR_SYSTEM = """Repair the previous semantic JSON for the same user request.
 Return JSON only. Use only an allowed intent. Preserve every independently requested
-filter. Do not invent source identifiers."""
+filter. Keep human/product/status values as raw user-language constraints; source
+normalization and entity resolution happen downstream. Do not invent identifiers."""
 
     DIALOGUE_ACT_SYSTEM = """Classify the current message relative to the previous PO
 Harness request. Return JSON only: {\"act\": one of [\"new\",\"recheck\",\"correction\"],
@@ -144,13 +164,7 @@ not literal trigger phrases."""
     async def _complete_json(self, messages: list[LLMMessage], *, max_tokens: int = 1000) -> dict[str, Any] | None:
         for extra in ({"response_format": {"type": "json_object"}}, {}):
             try:
-                response = await self.client.complete(
-                    messages,
-                    model=self.model,
-                    temperature=0.0,
-                    max_tokens=max_tokens,
-                    **extra,
-                )
+                response = await self.client.complete(messages, model=self.model, temperature=0.0, max_tokens=max_tokens, **extra)
             except Exception:
                 continue
             if response.choices:
@@ -185,14 +199,12 @@ not literal trigger phrases."""
         if len(sprints) == 1:
             out["sprint_id"] = sprints[0]
             out.pop("sprint_raw", None)
-            # A sprint token must never degrade into SPRNT-1 task lookup.
             if not tasks:
                 out.pop("task_key", None)
                 out.pop("task_id", None)
                 out.pop("issue_key", None)
         elif "sprint_id" in out and not _SPRINT_ID_FULL.fullmatch(out["sprint_id"]):
             out["sprint_raw"] = out.pop("sprint_id")
-
         if len(tasks) == 1:
             out["task_key"] = tasks[0]
         elif "task_key" in out and not _TASK_KEY_FULL.fullmatch(out["task_key"]):
@@ -201,10 +213,7 @@ not literal trigger phrases."""
 
     async def _audit(self, query: str, context: dict[str, Any], candidate: dict[str, Any]) -> dict[str, Any]:
         payload = json.dumps({"query": query, "context": context, "candidate_frame": candidate}, ensure_ascii=False)
-        audited = await self._complete_json(
-            [LLMMessage(role="system", content=self.AUDIT_SYSTEM), LLMMessage(role="user", content=payload)],
-            max_tokens=800,
-        )
+        audited = await self._complete_json([LLMMessage(role="system", content=self.AUDIT_SYSTEM), LLMMessage(role="user", content=payload)], max_tokens=800)
         if not audited:
             return candidate
         merged = dict(candidate)
@@ -215,10 +224,7 @@ not literal trigger phrases."""
 
     async def classify_dialogue_act(self, current: str, previous_query: str) -> DialogueAct:
         payload = json.dumps({"previous_query": previous_query, "current_message": current}, ensure_ascii=False)
-        data = await self._complete_json(
-            [LLMMessage(role="system", content=self.DIALOGUE_ACT_SYSTEM), LLMMessage(role="user", content=payload)],
-            max_tokens=180,
-        )
+        data = await self._complete_json([LLMMessage(role="system", content=self.DIALOGUE_ACT_SYSTEM), LLMMessage(role="user", content=payload)], max_tokens=180)
         if not data:
             return DialogueAct("new")
         act = str(data.get("act") or "new").strip().casefold()
@@ -231,64 +237,41 @@ not literal trigger phrases."""
         semantic_context = dict(context or {})
         allowed = self._allowed(semantic_context)
         payload = json.dumps({"query": query, "context": semantic_context}, ensure_ascii=False)
-        data = await self._complete_json([
-            LLMMessage(role="system", content=self.SYSTEM),
-            LLMMessage(role="user", content=payload),
-        ])
+        data = await self._complete_json([LLMMessage(role="system", content=self.SYSTEM), LLMMessage(role="user", content=payload)])
         if data is None:
             raise ValueError("semantic_model_unavailable_or_invalid_json")
-
         intent = self._normalize_intent(data.get("intent_hint"))
         if intent not in allowed and intent != "learn_semantic":
             repaired = await self._complete_json([
-                LLMMessage(role="system", content=self.SYSTEM),
-                LLMMessage(role="system", content=self.REPAIR_SYSTEM),
+                LLMMessage(role="system", content=self.SYSTEM), LLMMessage(role="system", content=self.REPAIR_SYSTEM),
                 LLMMessage(role="user", content=json.dumps({"query": query, "context": semantic_context, "invalid_semantic_frame": data}, ensure_ascii=False)),
             ])
             if repaired is not None:
                 data = repaired
-
-        # Independent semantic audit is the production boundary against silent slot
-        # loss. It is deliberately language-model based rather than phrase-regex based.
         data = await self._audit(query, semantic_context, data)
         intent = self._normalize_intent(data.get("intent_hint"))
         slots = self._structural_overlay(query, self._string_slots(data.get("slots")))
         act = str(data.get("dialogue_act") or "new").strip().casefold()
         if act in {"correction", "recheck"}:
             slots["dialogue_act"] = act
-
         needs: list[ClarificationNeed] = []
         for item in data.get("clarifications", []) or []:
             if isinstance(item, dict) and item.get("field") and item.get("question"):
-                needs.append(ClarificationNeed(
-                    str(item["field"]),
-                    str(item["question"]),
-                    tuple(str(x) for x in item.get("options", []) if x),
-                ))
-
+                needs.append(ClarificationNeed(str(item["field"]), str(item["question"]), tuple(str(x) for x in item.get("options", []) if x)))
         if intent not in allowed and intent != "learn_semantic":
             intent = None
             if not any(need.field == "intent" for need in needs):
                 needs.append(ClarificationNeed("intent", "Уточните, какой результат PO Agent должен получить."))
-
         canonical = str(data.get("canonical_query") or query).strip() or query
         try:
             confidence = float(data.get("confidence", 1.0))
         except (TypeError, ValueError):
             confidence = 0.0
-        return SemanticFrame(
-            canonical_query=canonical,
-            intent_hint=intent,
-            slots=slots,
-            clarifications=needs,
-            confidence=max(0.0, min(1.0, confidence)),
-            llm_used=True,
-        )
+        return SemanticFrame(canonical_query=canonical, intent_hint=intent, slots=slots, clarifications=needs, confidence=max(0.0, min(1.0, confidence)), llm_used=True)
 
 
 class ConversationAwareSemanticInterpreter(SemanticInterpreter):
     """Inject prior canonical semantic state for corrections and follow-ups."""
-
     def __init__(self, delegate: LLMFirstSemanticInterpreter) -> None:
         self.delegate = delegate
         self.client = delegate.client
@@ -305,26 +288,11 @@ class ConversationAwareSemanticInterpreter(SemanticInterpreter):
             ctx["previous_turn"] = self._last[session]
         frame = await self.delegate.interpret(query, context=ctx)
         if session:
-            self._last[session] = {
-                "query": query,
-                "canonical_query": frame.canonical_query,
-                "intent_hint": frame.intent_hint,
-                "slots": dict(frame.slots),
-            }
+            self._last[session] = {"query": query, "canonical_query": frame.canonical_query, "intent_hint": frame.intent_hint, "slots": dict(frame.slots)}
         return frame
 
 
 class FailClosedSemanticInterpreter(SemanticInterpreter):
     async def interpret(self, query: str, *, context: dict[str, Any] | None = None) -> SemanticFrame:
         del context
-        return SemanticFrame(
-            canonical_query=query,
-            intent_hint=None,
-            slots={},
-            clarifications=[ClarificationNeed(
-                "semantic_model",
-                "Семантическая модель недоступна. Я не буду угадывать смысл запроса по шаблонам.",
-            )],
-            confidence=0.0,
-            llm_used=False,
-        )
+        return SemanticFrame(canonical_query=query, intent_hint=None, slots={}, clarifications=[ClarificationNeed("semantic_model", "Семантическая модель недоступна. Я не буду угадывать смысл запроса по шаблонам.")], confidence=0.0, llm_used=False)
