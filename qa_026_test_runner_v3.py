@@ -663,29 +663,31 @@ class QA026TestRunner:
         3. data.tasks[].key (alternative structured format)
         4. Fallback: regex on answer string (legacy)
         """
-        if not result or not result.get("data"):
+        if not result:
             return []
 
-        data = result["data"]
+        data = result.get("data")
         
-        # Handle None data gracefully
+        # Handle None/missing data gracefully
         if data is None:
             return []
 
-        # Try structured task list
-        tasks = data.get("data", {}).get("tasks", [])
-        if tasks:
-            keys = []
-            for task in tasks:
-                if isinstance(task, dict):
-                    key = task.get("key") or task.get("id") or task.get("source_id")
-                    if key:
-                        keys.append(key)
-            if keys:
-                return keys
+        # Handle nested data structure (data.data.tasks)
+        nested_data = data.get("data") if isinstance(data, dict) else None
+        if nested_data is not None and isinstance(nested_data, dict):
+            tasks = nested_data.get("tasks", [])
+            if tasks:
+                keys = []
+                for task in tasks:
+                    if isinstance(task, dict):
+                        key = task.get("key") or task.get("id") or task.get("source_id")
+                        if key:
+                            keys.append(key)
+                if keys:
+                    return keys
 
         # Try evidence
-        evidence = data.get("evidence", [])
+        evidence = data.get("evidence", []) if isinstance(data, dict) else []
         if evidence:
             keys = []
             for e in evidence:
@@ -697,7 +699,7 @@ class QA026TestRunner:
                 return keys
 
         # Fallback: regex on answer string
-        answer = data.get("answer", "")
+        answer = data.get("answer", "") if isinstance(data, dict) else ""
         import re
         keys = re.findall(r'[A-Z][A-Z0-9]+-\d+', str(answer))
         return keys
