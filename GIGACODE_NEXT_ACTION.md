@@ -8,13 +8,13 @@
 
 Run exactly this assignment:
 
-`qa_assignments/CORE8_SAME_SESSION_IDEMPOTENCY_RETEST_061.md`
+`qa_assignments/CORE8_SEMANTIC_SESSION_ISOLATION_RETEST_063.md`
 
 ## Report allowlist
 
 Commit and push only:
 
-`qa_reports/CORE8_SAME_SESSION_IDEMPOTENCY_RETEST_061.md`
+`qa_reports/CORE8_SEMANTIC_SESSION_ISOLATION_RETEST_063.md`
 
 Do not commit JSON, helper scripts, runner changes, wrapper changes, `.env`, credentials, logs, screenshots, historical reports, roadmap edits, production changes, prompts, tests, fixtures, local configuration or AS21/SWTR data.
 
@@ -22,25 +22,25 @@ Do not commit JSON, helper scripts, runner changes, wrapper changes, `.env`, cre
 
 You are QA/tester only.
 
-The owner/developer makes all production and test changes. Do not repair failures or alter behavior during this assignment.
+The owner/developer makes all production and test changes. Do not repair failures, weaken expectations or alter behavior during this assignment.
 
 ## Baseline under test
 
-Production fix:
+Production session-isolation fix:
 
-`76ed1ada782118bd10567cc19fa40e9a2857d4e5`
+`66ce936a3fbc6bb7695639ad5bbdc8ef298136fb`
 
-Unit coverage:
+Regression tests:
 
-`e5444c7d2b5ad8ef0def8a53fb2e3fc230b69182`
+`bfd6a67b34d9003732277042510ea2aa75f7966f`
 
 Your START_HEAD must contain both commits and the tracked working tree must be clean.
 
 ## Purpose
 
-Validate that exact repeated standalone requests in one session are idempotent reruns and never become semantic correction clarifications, while genuine correction behavior remains intact.
+Validate the session-state corruption fix discovered by Assignment 062. Prove clarification replay idempotency, independent-turn A→B→A isolation, cross-session isolation and preservation of genuine correction behavior.
 
-Assignment 060 is paused until 061 is GREEN.
+Assignments 060/062 remain paused until 063 is GREEN.
 
 ## Autonomous execution
 
@@ -52,22 +52,21 @@ Ask only if continuing requires missing credentials, unavoidable platform approv
 
 ```text
 START_HEAD = <sha>
-CONTAINS_FIX_76ED1AD = YES|NO
-CONTAINS_TEST_E5444C7 = YES|NO
+CONTAINS_FIX_66CE936 = YES|NO
+CONTAINS_TEST_BFD6A67 = YES|NO
 CLEAN_TREE_GUARD = PASS|FAIL
-UNIT_GATE = x/y PASS
-SAME_SESSION_REPEAT = x/3 PASS
-NORMALIZED_REPEAT = x/2 PASS
-FRESH_SESSION_CONTROL = x/3 PASS
-SEMANTIC_CORRECTION_CLARIFICATION_ON_REPEAT_COUNT = n
-INTENT_LOSS_ON_REPEAT_COUNT = n
-SKILL_LOSS_ON_REPEAT_COUNT = n
-HTTP_500_COUNT = n
-GENUINE_CORRECTION_REGRESSION = PASS|FAIL|BLOCKED
-READY_TO_RESUME_ASSIGNMENT_060 = YES|NO
-061_VERDICT = GREEN|RED|BLOCKED
+UNIT_SESSION_TESTS = x/y PASS
+REPEAT_A1_A2_A3 = PASS|FAIL
+A_B_A_ISOLATION = PASS|FAIL
+CROSS_SESSION_ISOLATION = PASS|FAIL
+GENUINE_CORRECTION = PASS|FAIL|BLOCKED
+STALE_SLOT_CONTAMINATION_COUNT = n
+UNEXPECTED_NEEDS_CLARIFICATION_COUNT = n
+NEW_REGRESSIONS = n
+READY_TO_RESUME_060_AND_062 = YES|NO
+063_VERDICT = GREEN|RED|BLOCKED
 ```
 
 ## Completion
 
-After completing Assignment 061, commit and push only the allowed report file, then stop and return report commit SHA, concise verdict and full report text.
+After completing Assignment 063, commit and push only the allowed report file, then stop and return report commit SHA, concise verdict and full report text.
