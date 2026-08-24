@@ -1,0 +1,112 @@
+[
+  {
+    "scenario_id": "E1",
+    "query": "Покажи задачи Гаранина в спринте DMS-SPRNT-2",
+    "session_id": "e2e-062-E1",
+    "latency_ms": 23512,
+    "status": "NEEDS_CLARIFICATION",
+    "skill": null,
+    "tasks_count": 0,
+    "verdict": "PRODUCT_FAIL"
+  },
+  {
+    "scenario_id": "E2",
+    "query": "Какие открытые задачи у Гаранина?",
+    "session_id": "e2e-062-E2",
+    "latency_ms": 224,
+    "status": "COMPLETED",
+    "skill": "task-search-assignee",
+    "tasks_count": 0,
+    "verdict": "BLOCKED"
+  },
+  {
+    "scenario_id": "E3",
+    "query": "Какие задачи в спринте DMS-SPRNT-2?",
+    "session_id": "e2e-062-E3",
+    "latency_ms": 27024,
+    "status": "NEEDS_CLARIFICATION",
+    "skill": null,
+    "tasks_count": 0,
+    "verdict": "PRODUCT_FAIL"
+  },
+  {
+    "scenario_id": "E4",
+    "query": "Кто наиболее загружен в спринте DMS-SPRNT-2?",
+    "session_id": "e2e-062-E4",
+    "latency_ms": 51991,
+    "status": "NEEDS_CLARIFICATION",
+    "skill": null,
+    "tasks_count": 0,
+    "verdict": "PRODUCT_FAIL"
+  },
+  {
+    "scenario_id": "E5",
+    "query": "Покажи задачи со статусом Open",
+    "session_id": "e2e-062-E5",
+    "latency_ms": 22088,
+    "status": "NEEDS_CLARIFICATION",
+    "skill": null,
+    "tasks_count": 0,
+    "verdict": "PRODUCT_FAIL"
+  },
+  {
+    "scenario_id": "E6",
+    "query": "Что висит на Гаранине в спринте DMS-SPRNT-2?",
+    "session_id": "e2e-062-E6",
+    "latency_ms": 6,
+    "status": "NEEDS_CLARIFICATION",
+    "skill": null,
+    "tasks_count": 0,
+    "verdict": "PRODUCT_FAIL"
+  },
+  {
+    "scenario_id": "E7",
+    "query": "Покажи задачи Гаранна в спринте DMS-SPRNT-2",
+    "session_id": "e2e-062-E7",
+    "latency_ms": 54724,
+    "status": "NEEDS_CLARIFICATION",
+    "skill": null,
+    "tasks_count": 0,
+    "verdict": "PRODUCT_FAIL"
+  },
+  {
+    "scenario_id": "E8",
+    "query": "Покажи задачу DMS-261",
+    "session_id": "e2e-062-E8",
+    "latency_ms": 17792,
+    "status": "NEEDS_CLARIFICATION",
+    "skill": null,
+    "tasks_count": 0,
+    "verdict": "PRODUCT_FAIL"
+  },
+  {
+    "scenario_id": "E9",
+    "query": "Покажи задачи в несуществующем спринте DMS-SPRNT-999999",
+    "session_id": "e2e-062-E9",
+    "latency_ms": 5,
+    "status": "NEEDS_CLARIFICATION",
+    "skill": null,
+    "tasks_count": 0,
+    "verdict": "PRODUCT_FAIL"
+  },
+  {
+    "scenario_id": "E10",
+    "query": "Покажи задачи Гаранина в спринте DMS-SPRNT-2 со статусом Open",
+    "session_id": "e2e-062-E10",
+    "latency_ms": 6874,
+    "status": "COMPLETED",
+    "skill": "task-search-assignee",
+    "tasks_count": 0,
+    "verdict": "BLOCKED"
+  },
+  {
+    "scenario_id": "E11",
+    "query": "Покажи задачи с attachment",
+    "session_id": "e2e-062-E11",
+    "latency_ms": 75039,
+    "status": "NEEDS_CLARIFICATION",
+    "skill": null,
+    "tasks_count": 0,
+    "verdict": "PRODUCT_FAIL"
+  }
+]
