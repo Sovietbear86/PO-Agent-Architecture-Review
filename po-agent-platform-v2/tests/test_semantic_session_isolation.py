@@ -41,6 +41,7 @@ class _ClarifyingInner:
             session_id=session,
             question="Уточните логин",
             clarification_id=f"{session}:member_login",
+            warnings=["clarification_required"],
         )
 
 
@@ -62,7 +63,7 @@ class _RecordingInner:
 
 
 @pytest.mark.asyncio
-async def test_repeating_request_that_opened_clarification_restarts_instead_of_becoming_answer() -> None:
+async def test_repeating_request_that_opened_clarification_replays_without_consuming_pending() -> None:
     semantic = _SemanticStub()
     inner = _ClarifyingInner()
     runtime = SemanticCorrectionRuntimeV2(inner, semantic)
@@ -70,12 +71,23 @@ async def test_repeating_request_that_opened_clarification_restarts_instead_of_b
 
     first = await runtime.process(HarnessRequest(query=query, session_id="same-session"))
     second = await runtime.process(HarnessRequest(query=query, session_id="same-session"))
+    third = await runtime.process(HarnessRequest(query=query, session_id="same-session"))
 
-    assert first.status == ResponseStatus.NEEDS_CLARIFICATION
-    assert second.status == ResponseStatus.NEEDS_CLARIFICATION
-    assert inner.calls == [query, query]
+    assert [first.status, second.status, third.status] == [
+        ResponseStatus.NEEDS_CLARIFICATION,
+        ResponseStatus.NEEDS_CLARIFICATION,
+        ResponseStatus.NEEDS_CLARIFICATION,
+    ]
+    # Only the first request reaches the inner DialogueHarnessRuntime. Exact replays
+    # are served from the accepted pending clarification state and cannot consume it.
+    assert inner.calls == [query]
     assert semantic.classify_calls == 0
     assert "same-session" in inner._pending
+    assert first.question == second.question == third.question == "Уточните логин"
+    assert first.clarification_id == second.clarification_id == third.clarification_id
+    assert "clarification_replay" in second.warnings
+    assert "clarification_replay" in third.warnings
+    assert first.trace_id != second.trace_id != third.trace_id
 
 
 @pytest.mark.asyncio
