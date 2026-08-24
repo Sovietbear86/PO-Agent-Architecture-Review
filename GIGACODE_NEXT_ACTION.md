@@ -8,13 +8,13 @@
 
 Run exactly this assignment:
 
-`qa_assignments/CORE8_SEMANTIC_CONTRACT_REPAIR_TARGETED_RETEST_060.md`
+`qa_assignments/CORE8_SAME_SESSION_IDEMPOTENCY_RETEST_061.md`
 
 ## Report allowlist
 
 Commit and push only:
 
-`qa_reports/CORE8_SEMANTIC_CONTRACT_REPAIR_TARGETED_RETEST_060.md`
+`qa_reports/CORE8_SAME_SESSION_IDEMPOTENCY_RETEST_061.md`
 
 Do not commit JSON, helper scripts, runner changes, wrapper changes, `.env`, credentials, logs, screenshots, historical reports, roadmap edits, production changes, prompts, tests, fixtures, local configuration or AS21/SWTR data.
 
@@ -22,29 +22,29 @@ Do not commit JSON, helper scripts, runner changes, wrapper changes, `.env`, cre
 
 You are QA/tester only.
 
-The owner/developer makes all production and test changes. You must not repair failures, change semantic prompts, weaken acceptance rules or edit QA infrastructure during this assignment.
+The owner/developer makes all production and test changes. Do not repair failures or alter behavior during this assignment.
 
 ## Baseline under test
 
-Production semantic fix:
+Production fix:
 
-`9ba842e49ed5406e8f456893f2e533edf0a7f258`
+`76ed1ada782118bd10567cc19fa40e9a2857d4e5`
 
-Contract tests:
+Unit coverage:
 
-`81fce0e218edbf08cdaf5d571a8b145ce407480d`
+`e5444c7d2b5ad8ef0def8a53fb2e3fc230b69182`
 
 Your START_HEAD must contain both commits and the tracked working tree must be clean.
 
 ## Purpose
 
-Validate the new semantic slot-contract repair against the exact 19 PRODUCT_FAIL cases from QA026 V3/V4, plus semantic unit tests, independent SWTR oracle anchors and a representative regression sample.
+Validate that exact repeated standalone requests in one session are idempotent reruns and never become semantic correction clarifications, while genuine correction behavior remains intact.
 
-Do not run the full 42-case QA026 in this assignment. Do not fix any failure.
+Assignment 060 is paused until 061 is GREEN.
 
-## Autonomous Execution
+## Autonomous execution
 
-Routine QA actions are pre-authorized. Do not ask for confirmation after read-only inspection, branch fetch/pull, clean-tree verification, service restart, test execution, direct read-only SWTR oracle checks, report creation, allowed report commit or allowed report push.
+Routine QA actions are pre-authorized. Do not ask for confirmation after branch fetch/pull, clean-tree verification, service restart, test execution, read-only AS21/SWTR queries, report creation, allowed report commit or allowed report push.
 
 Ask only if continuing requires missing credentials, unavoidable platform approval, write outside the report allowlist, destructive out-of-scope action or scope expansion.
 
@@ -52,28 +52,22 @@ Ask only if continuing requires missing credentials, unavoidable platform approv
 
 ```text
 START_HEAD = <sha>
-CONTAINS_PRODUCTION_FIX_9BA842E = YES|NO
-CONTAINS_CONTRACT_TESTS_81FCE0E = YES|NO
+CONTAINS_FIX_76ED1AD = YES|NO
+CONTAINS_TEST_E5444C7 = YES|NO
 CLEAN_TREE_GUARD = PASS|FAIL
-SEMANTIC_UNIT_TESTS = x/y PASS
-PERSON_CLUSTER = x/12 PASS
-STATUS_CLUSTER = x/4 PASS
-PRODUCT_CLUSTER = x/3 PASS
-TOTAL_RECOVERED = x/19
-PRODUCT_FAIL_REMAINING = n
-NEW_REGRESSIONS = n
-SOURCE_ORACLE = PASS|FAIL|BLOCKED
-SILENT_SLOT_DROP_COUNT = n
-UNSAFE_FULL_QUERY_SLOT_COUNT = n
-DERIVED_LOGIN_WITHOUT_PERSON_RAW_COUNT = n
-READY_FOR_FULL_QA026 = YES|NO
-060_VERDICT = GREEN|RED|BLOCKED
+UNIT_GATE = x/y PASS
+SAME_SESSION_REPEAT = x/3 PASS
+NORMALIZED_REPEAT = x/2 PASS
+FRESH_SESSION_CONTROL = x/3 PASS
+SEMANTIC_CORRECTION_CLARIFICATION_ON_REPEAT_COUNT = n
+INTENT_LOSS_ON_REPEAT_COUNT = n
+SKILL_LOSS_ON_REPEAT_COUNT = n
+HTTP_500_COUNT = n
+GENUINE_CORRECTION_REGRESSION = PASS|FAIL|BLOCKED
+READY_TO_RESUME_ASSIGNMENT_060 = YES|NO
+061_VERDICT = GREEN|RED|BLOCKED
 ```
 
 ## Completion
 
-After completing Assignment 060, commit and push only the allowed report file, then stop and return:
-
-- report commit SHA;
-- concise verdict;
-- full report text.
+After completing Assignment 061, commit and push only the allowed report file, then stop and return report commit SHA, concise verdict and full report text.
