@@ -8,13 +8,13 @@
 
 Run exactly this assignment:
 
-`qa_assignments/CORE8_FRESH_HEAD_057_RERUN_058.md`
+`qa_assignments/CORE8_SEMANTIC_CONTRACT_REPAIR_TARGETED_RETEST_060.md`
 
 ## Report allowlist
 
 Commit and push only:
 
-`qa_reports/CORE8_FRESH_HEAD_057_RERUN_058.md`
+`qa_reports/CORE8_SEMANTIC_CONTRACT_REPAIR_TARGETED_RETEST_060.md`
 
 Do not commit JSON, helper scripts, runner changes, wrapper changes, `.env`, credentials, logs, screenshots, historical reports, roadmap edits, production changes, prompts, tests, fixtures, local configuration or AS21/SWTR data.
 
@@ -22,51 +22,57 @@ Do not commit JSON, helper scripts, runner changes, wrapper changes, `.env`, cre
 
 You are QA/tester only.
 
-Do not repair production defects. Do not weaken acceptance rules. Do not run Gate E directly. Do not use implementation existence as execution evidence. Do not claim GREEN from aggregate counts without per-case evidence.
+The owner/developer makes all production and test changes. You must not repair failures, change semantic prompts, weaken acceptance rules or edit QA infrastructure during this assignment.
 
-## Why Assignment 058 Exists
+## Baseline under test
 
-Assignment 057 is stale and must not be used for release decisions.
+Production semantic fix:
 
-Its report started from `af0ad146c7c6b5a493827160504e3c2b1a0f9e8d7c6b5a4`, before the cleanup fix `9f9e7407c4474f7fe9ea1ec4e6fc9ecc267661bf` was present in the working tree. The later merge did not make the already-collected evidence fresh.
+`9ba842e49ed5406e8f456893f2e533edf0a7f258`
 
-Assignment 058 must first prove that execution starts from a fresh branch HEAD containing `9f9e7407c4474f7fe9ea1ec4e6fc9ecc267661bf`, then rerun the targeted cleanup gate, the bounded SWTR oracle smoke and full 017 V2 only if the earlier gates pass.
+Contract tests:
+
+`81fce0e218edbf08cdaf5d571a8b145ce407480d`
+
+Your START_HEAD must contain both commits and the tracked working tree must be clean.
+
+## Purpose
+
+Validate the new semantic slot-contract repair against the exact 19 PRODUCT_FAIL cases from QA026 V3/V4, plus semantic unit tests, independent SWTR oracle anchors and a representative regression sample.
+
+Do not run the full 42-case QA026 in this assignment. Do not fix any failure.
 
 ## Autonomous Execution
 
-The repository owner pre-authorizes this QA run. Do not ask for confirmation after routine read-only inspection, branch fetch/pull, clean-tree verification, service restart, targeted test execution, oracle smoke, full acceptance execution, report creation, allowed report commit or allowed report push.
+Routine QA actions are pre-authorized. Do not ask for confirmation after read-only inspection, branch fetch/pull, clean-tree verification, service restart, test execution, direct read-only SWTR oracle checks, report creation, allowed report commit or allowed report push.
 
 Ask only if continuing requires missing credentials, unavoidable platform approval, write outside the report allowlist, destructive out-of-scope action or scope expansion.
 
-## Required Final Gate
+## Required final metrics
 
 ```text
+START_HEAD = <sha>
+CONTAINS_PRODUCTION_FIX_9BA842E = YES|NO
+CONTAINS_CONTRACT_TESTS_81FCE0E = YES|NO
 CLEAN_TREE_GUARD = PASS|FAIL
-PRODUCTION_CODE_MODIFIED_BY_QA = NO
-058_FRESH_HEAD_GUARD = PASS|FAIL
-CONTAINS_FIX_9F9E740 = YES|NO
-057_REPORT_STALE = YES
-058_TARGETED_CLEANUP_PASS = YES|NO|BLOCKED
-058_ORACLE_SMOKE_PASS = YES|NO|BLOCKED
-ENVIRONMENT_TIMEOUT_COUNT = n
-017V2_FULLY_EXECUTED = YES|NO
-ORACLE_PREFLIGHT_PASS = YES|NO|BLOCKED
-ORACLE_INDEPENDENCE_PASS = YES|NO|BLOCKED
-CORRECTION_LOOP_PASS = x/15
-FALSE_GREEN_COUNT = n
+SEMANTIC_UNIT_TESTS = x/y PASS
+PERSON_CLUSTER = x/12 PASS
+STATUS_CLUSTER = x/4 PASS
+PRODUCT_CLUSTER = x/3 PASS
+TOTAL_RECOVERED = x/19
+PRODUCT_FAIL_REMAINING = n
+NEW_REGRESSIONS = n
+SOURCE_ORACLE = PASS|FAIL|BLOCKED
 SILENT_SLOT_DROP_COUNT = n
-QUERY_HTTP_500_COUNT = n
-NEW_HIGH_PRODUCTION_REGRESSIONS = n
-READY_TO_RESUME_GATE_E = YES|NO
-READY_FOR_FRONTEND_FINALIZATION = YES|NO
-058_VERDICT = GREEN|RED|BLOCKED
+UNSAFE_FULL_QUERY_SLOT_COUNT = n
+DERIVED_LOGIN_WITHOUT_PERSON_RAW_COUNT = n
+READY_FOR_FULL_QA026 = YES|NO
+060_VERDICT = GREEN|RED|BLOCKED
 ```
-
-Do not start Gate E.
 
 ## Completion
 
-After completing the assignment, commit and push only the allowed report file, then stop and return:
+After completing Assignment 060, commit and push only the allowed report file, then stop and return:
 
 - report commit SHA;
 - concise verdict;
