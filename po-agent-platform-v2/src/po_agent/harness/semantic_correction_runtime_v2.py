@@ -6,6 +6,7 @@ mega-query, which previously allowed the model to lose or duplicate filters.
 """
 from __future__ import annotations
 
+import copy
 import time
 import uuid
 from dataclasses import dataclass
@@ -49,22 +50,12 @@ class SemanticCorrectionRuntimeV2:
 
     @staticmethod
     def _same_query(current: str, previous: str) -> bool:
-        """Treat an exact natural-language repeat as an idempotent rerun.
-
-        Repeating the same standalone request must never become a correction/recheck
-        solely because the session already contains a previous turn. Whitespace and
-        letter case are not semantically meaningful for this guard.
-        """
+        """Treat an exact natural-language repeat as an idempotent rerun."""
         normalize = lambda value: " ".join((value or "").split()).casefold()
         return bool(normalize(current)) and normalize(current) == normalize(previous)
 
     def _clear_semantic_previous_turn(self, session: str) -> None:
-        """Remove only the interpreter's cached previous semantic turn.
-
-        The outer Harness session remains unchanged. This prevents a standalone
-        request from being interpreted as a continuation/correction while preserving
-        user-visible session identity for genuine dialogue flows.
-        """
+        """Remove only the interpreter's cached previous semantic turn."""
         reset = getattr(self.semantic_interpreter, "reset_session", None)
         if callable(reset):
             reset(session)
@@ -72,12 +63,6 @@ class SemanticCorrectionRuntimeV2:
         state = getattr(self.semantic_interpreter, "_last", None)
         if isinstance(state, dict):
             state.pop(session, None)
-
-    def _clear_pending(self, session: str) -> None:
-        """Discard only the current inner clarification state for an explicit rerun."""
-        pending = getattr(self.inner, "_pending", None)
-        if isinstance(pending, dict):
-            pending.pop(session, None)
 
     async def _classify(self, current: str, previous_query: str) -> DialogueAct:
         classifier = getattr(self.semantic_interpreter, "classify_dialogue_act", None)
@@ -88,28 +73,43 @@ class SemanticCorrectionRuntimeV2:
         except Exception:
             return DialogueAct("new")
 
+    @staticmethod
+    def _replay_clarification(previous: _PreviousTurn, session: str) -> HarnessResponse:
+        """Replay an already-open clarification without consuming or recomputing it.
+
+        Exact repetition of the request that opened a clarification is not an
+        answer to that clarification. Re-running semantic interpretation here would
+        also reintroduce LLM stochasticity and could mutate otherwise grounded slots.
+        Return a defensive copy of the accepted clarification state instead.
+        """
+        response = copy.deepcopy(previous.response)
+        response.trace_id = str(uuid.uuid4())
+        response.session_id = session
+        if "clarification_replay" not in response.warnings:
+            response.warnings.append("clarification_replay")
+        return response
+
     async def process(self, request: HarnessRequest) -> HarnessResponse:
         session = request.session_id or str(uuid.uuid4())
         current = (request.query or "").strip()
         previous = self._last.get(session)
 
-        # If the user repeats the exact request that opened a clarification, treat it
-        # as an explicit rerun of the original request, not as the answer to that
-        # clarification. The pending clarification and stale semantic turn are both
-        # cleared before the request is interpreted again.
         pending = getattr(self.inner, "_pending", None)
+
+        # Exact replay of the request that opened the active clarification is a
+        # deterministic replay of that clarification. Never consume it as the user's
+        # answer and never call the semantic model/grounder again.
         if (
             previous is not None
+            and previous.response.status == ResponseStatus.NEEDS_CLARIFICATION
             and isinstance(pending, dict)
             and session in pending
             and self._same_query(current, previous.query)
         ):
-            self._clear_pending(session)
-            self._clear_semantic_previous_turn(session)
-            response = await self.inner.process(HarnessRequest(query=current, session_id=session))
-            self._last[session] = _PreviousTurn(current, response)
-            return response
+            return self._replay_clarification(previous, session)
 
+        # Any other message while a clarification is pending is the user's answer to
+        # that clarification and must be delegated to DialogueHarnessRuntime.
         if isinstance(pending, dict) and session in pending:
             response = await self.inner.process(HarnessRequest(query=current, session_id=session))
             if response.status != ResponseStatus.NEEDS_CLARIFICATION:
@@ -122,8 +122,8 @@ class SemanticCorrectionRuntimeV2:
             self._last[session] = _PreviousTurn(current, response)
             return response
 
-        # A literal repeat is not negative feedback and not a correction. Execute it
-        # again from clean semantic context so the result does not depend on turn order.
+        # A literal repeat after a completed/failed standalone request is not negative
+        # feedback and not a correction. Execute it again from clean semantic context.
         if self._same_query(current, previous.query):
             self._clear_semantic_previous_turn(session)
             response = await self.inner.process(HarnessRequest(query=current, session_id=session))
@@ -141,15 +141,11 @@ class SemanticCorrectionRuntimeV2:
             return response
 
         started = time.perf_counter()
-        # Reopen the previous evidence chain first. This also refreshes the
-        # ConversationAwareSemanticInterpreter's previous_turn with the canonical
-        # previous request before a correction is applied.
+        # Reopen the previous evidence chain first. This refreshes semantic previous
+        # turn for an actual correction/recheck only.
         rechecked = await self.inner.process(HarnessRequest(query=previous.query, session_id=session))
 
         if act.act == "correction" and act.specific_correction:
-            # Pass only the user's correction in the SAME session. The semantic
-            # interpreter receives previous_turn structurally from session state and
-            # therefore merges slots without parsing an artificial combined sentence.
             corrected = await self.inner.process(HarnessRequest(query=current, session_id=session))
             self._attach_meta(
                 corrected,
