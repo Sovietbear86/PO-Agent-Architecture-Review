@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import re
+from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
@@ -17,6 +18,7 @@ from app.services.swtr_mcp_client import (
     SWTRMCPProtocolError,
     SWTRMCPUnavailable,
 )
+from app.models.history import HistoryEvent, HistoryResponse
 
 router = APIRouter(prefix="/api/v1/swtr-read", tags=["swtr-read"])
 _TASK_CODE_RE = re.compile(r"^[A-Z][A-Z0-9]*-\d+$")
@@ -430,4 +432,118 @@ async def search_versions(
         "pagination": _page_meta(payload),
         "mcp_arguments": sorted(arguments),
         "mcp_argument_shape": "request" if "request" in arguments else "flat",
+    }
+
+
+@router.get("/tasks/{task_code}/history")
+async def get_task_history(task_code: str):
+    """Get task history (status and assignee transitions) from SWTR.
+
+    Returns normalized history events with timestamps, actors, and value changes.
+    """
+    normalized = task_code.upper().strip()
+    if not _TASK_CODE_RE.fullmatch(normalized):
+        raise HTTPException(status_code=400, detail="Invalid SWTR task code")
+
+    client = SWTRMCPClient()
+    try:
+        # First verify the task exists via read_unit
+        await client.call_tool("read_unit", {"code": normalized})
+    except (SWTRMCPUnavailable, SWTRMCPProtocolError) as exc:
+        raise _transport_http_error(exc) from exc
+
+    # Now fetch history
+    try:
+        content = await client.call_tool("get_task_history", {"task_code": normalized})
+    except (SWTRMCPUnavailable, SWTRMCPProtocolError) as exc:
+        raise _transport_http_error(exc) from exc
+
+    # Parse the history payload
+    payload = _parse_tool_content(content)
+
+    # Check for error response from MCP
+    if isinstance(payload, dict):
+        if payload.get("errorType") or payload.get("uiErrorMessage"):
+            detail = _mcp_error_detail(payload)
+            raise HTTPException(status_code=502, detail=detail)
+
+    # Normalize the history response
+    history_events = []
+    if isinstance(payload, dict):
+        # Handle standard SWTR history response structure
+        events_data = payload.get("content", [])
+        if not isinstance(events_data, list):
+            events_data = []
+        page_info = {
+            "has_next": payload.get("hasNext", False),
+            "page": payload.get("pageNumber", payload.get("page", 0)),
+            "page_size": payload.get("pageSize", payload.get("size", 100)),
+            "total": payload.get("totalElements", payload.get("total", len(events_data))),
+        }
+    elif isinstance(payload, list):
+        events_data = payload
+        page_info = {"has_next": False, "page": 0, "page_size": len(payload), "total": len(payload)}
+    else:
+        events_data = []
+        page_info = {"has_next": False, "page": 0, "page_size": 0, "total": 0}
+
+    # Convert raw events to normalized HistoryEvent objects
+    for event in events_data:
+        if not isinstance(event, dict):
+            continue
+        # Extract fields from the event
+        changed_at_raw = event.get("createdAt") or event.get("created_at") or event.get("timestamp")
+        changed_at = None
+        if isinstance(changed_at_raw, str):
+            try:
+                changed_at = datetime.fromisoformat(changed_at_raw.replace("Z", "+00:00"))
+            except ValueError:
+                changed_at = None
+
+        field_code = event.get("field") or event.get("fieldCode") or ""
+        actor = ""
+
+        # Extract actor from user object
+        user = event.get("user") or event.get("actor") or {}
+        if isinstance(user, dict):
+            actor = user.get("externalId") or user.get("login") or ""
+
+        # Extract old_value and new_value from the event
+        # SWTR history typically has values in a nested structure
+        old_value = event.get("oldValue") or event.get("old_value")
+        new_value = event.get("newValue") or event.get("new_value")
+
+        # Try to extract from event.payload if present
+        if not old_value or not new_value:
+            payload_obj = event.get("payload", {})
+            if isinstance(payload_obj, dict):
+                old_value = payload_obj.get("oldValue") or payload_obj.get("old_value")
+                new_value = payload_obj.get("newValue") or payload_obj.get("new_value")
+
+        field_name = event.get("fieldName") or event.get("field_name")
+
+        history_events.append(HistoryEvent(
+            task_code=normalized,
+            event_id=event.get("id"),
+            changed_at=changed_at or datetime.now(),
+            field_code=str(field_code) if field_code else "",
+            field_name=field_name,
+            old_value=str(old_value) if old_value else None,
+            new_value=str(new_value) if new_value else None,
+            actor=actor,
+        ))
+
+    # Sort events by timestamp
+    history_events.sort(key=lambda e: e.changed_at)
+
+    history_response = HistoryResponse(
+        task_code=normalized,
+        events=history_events,
+        page_info=page_info,
+    )
+
+    return {
+        "task_code": normalized,
+        "events": [e.model_dump(mode="json") for e in history_response.events],
+        "page_info": history_response.page_info,
     }

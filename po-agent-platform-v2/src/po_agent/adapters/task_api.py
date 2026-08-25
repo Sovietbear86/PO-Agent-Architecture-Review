@@ -335,7 +335,80 @@ class TaskApiAS21Adapter(AS21Adapter):
         return await self.search_tasks(query, max_results=self._scan_limit)
 
     async def get_task_history(self, task_key: str) -> list[StatusTransition]:
-        raise AS21CapabilityUnavailable(f"task-api does not expose proven status-transition history for {task_key}")
+        """Get task history (status and assignee transitions) from Task API.
+
+        Returns list of StatusTransition objects for workflow_status changes.
+        Assignee changes are available in the raw response but not yet mapped
+        to domain models (reserved for future use).
+        """
+        normalized = task_key.upper().strip()
+        if not re.fullmatch(r"[A-Z]+-\d+", normalized):
+            raise AS21SourceError(f"Invalid task key: {task_key}")
+
+        try:
+            response = await self._client.get(f"/api/v1/swtr-read/tasks/{normalized}/history")
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 404:
+                raise AS21SourceError(f"Task {task_key} not found in SWTR history")
+            if exc.response.status_code in (502, 503):
+                raise AS21SourceUnavailable(
+                    f"Task API history endpoint unavailable: HTTP {exc.response.status_code}"
+                ) from exc
+            raise AS21SourceError(
+                f"Task API history request failed: HTTP {exc.response.status_code}"
+            ) from exc
+        except httpx.HTTPError as exc:
+            raise AS21SourceUnavailable(
+                f"Task API history request failed: {type(exc).__name__}"
+            ) from exc
+
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            raise AS21SourceError("Task API history endpoint returned invalid JSON") from exc
+
+        if not isinstance(payload, dict):
+            raise AS21SourceError("Task API history response must be a JSON object")
+
+        events = payload.get("events", [])
+        if not isinstance(events, list):
+            raise AS21SourceError("Task API history events must be a JSON array")
+
+        transitions: list[StatusTransition] = []
+
+        for event in events:
+            if not isinstance(event, dict):
+                continue
+
+            field_code = event.get("field_code", "")
+            # Only process workflow_status changes for StatusTransition
+            if field_code != "workflow_status":
+                continue
+
+            old_value_raw = event.get("old_value")
+            new_value_raw = event.get("new_value")
+            timestamp_raw = event.get("changed_at")
+            actor = event.get("actor")
+
+            from_status = normalize_task_status(str(old_value_raw) if old_value_raw else "")
+            to_status = normalize_task_status(str(new_value_raw) if new_value_raw else "")
+
+            timestamp = _parse_datetime(timestamp_raw)
+            if timestamp is None:
+                # Use current time if no timestamp available
+                timestamp = datetime.now()
+
+            transitions.append(
+                StatusTransition(
+                    from_status=from_status,
+                    to_status=to_status,
+                    timestamp=timestamp,
+                    author=actor,
+                )
+            )
+
+        return transitions
 
     async def get_attachment_metadata(
         self,

@@ -1,0 +1,18 @@
+{
+  "timestamp": "test",
+  "total_ms": 41417,
+  "results": {
+    "B1": {
+      "status_code": 200,
+      "status": "PASS",
+      "total_ms": 8992,
+      "task_keys_count": 4
+    },
+    "B2": {
+      "status_code": 200,
+      "status": "PASS",
+      "total_ms": 31347,
+      "task_keys_count": 0
+    }
+  }
+}

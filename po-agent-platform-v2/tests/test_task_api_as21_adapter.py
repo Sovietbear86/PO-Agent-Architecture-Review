@@ -184,7 +184,42 @@ async def test_attachment_metadata_can_select_one_file_and_malformed_metadata_fa
 
 
 @pytest.mark.asyncio
-async def test_status_history_remains_explicitly_unsupported():
-    client=httpx.AsyncClient(transport=httpx.MockTransport(lambda request:httpx.Response(200,json=[])),base_url="http://task-api"); adapter=TaskApiAS21Adapter(client=client)
-    with pytest.raises(AS21CapabilityUnavailable): await adapter.get_task_history("WMB-101")
+async def test_get_task_history_maps_workflow_status_changes():
+    history_payload = {
+        "task_code": "WMB-101",
+        "events": [
+            {
+                "task_code": "WMB-101",
+                "field_code": "workflow_status",
+                "old_value": "Open",
+                "new_value": "In progress",
+                "changed_at": "2026-07-10T10:00:00Z",
+                "actor": "User1"
+            },
+            {
+                "task_code": "WMB-101",
+                "field_code": "workflow_status",
+                "old_value": "In progress",
+                "new_value": "Resolved",
+                "changed_at": "2026-07-11T14:30:00Z",
+                "actor": "User2"
+            }
+        ],
+        "page_info": {"has_next": False, "page": 0, "page_size": 100, "total": 2}
+    }
+    
+    async def handler(request):
+        return httpx.Response(200, json=history_payload)
+    
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="http://task-api")
+    adapter = TaskApiAS21Adapter(client=client)
+    transitions = await adapter.get_task_history("WMB-101")
     await client.aclose()
+    
+    assert len(transitions) == 2
+    assert transitions[0].from_status == TaskStatus.OPEN
+    assert transitions[0].to_status == TaskStatus.IN_PROGRESS
+    assert transitions[0].author == "User1"
+    assert transitions[1].from_status == TaskStatus.IN_PROGRESS
+    assert transitions[1].to_status == TaskStatus.RESOLVED
+    assert transitions[1].author == "User2"
