@@ -501,6 +501,13 @@ async def get_task_history(task_code: str):
                 changed_at = None
 
         field_code = event.get("field") or event.get("fieldCode") or ""
+        
+        # Extract entity.code if available (SWTR history uses this for field type)
+        if not field_code:
+            entity = event.get("entity")
+            if isinstance(entity, dict):
+                field_code = entity.get("code") or ""
+        
         actor = ""
 
         # Extract actor from user object
@@ -509,15 +516,20 @@ async def get_task_history(task_code: str):
             actor = user.get("externalId") or user.get("login") or ""
 
         # Extract old_value and new_value from the event
-        # SWTR history typically has values in a nested structure
+        # SWTR history typically has values in a nested structure (oldValue/newValue camelCase)
+        # Note: SWTR can return null for oldValue on CREATE actions (legitimate)
         old_value = event.get("oldValue") or event.get("old_value")
         new_value = event.get("newValue") or event.get("new_value")
 
-        # Try to extract from event.payload if present
-        if not old_value or not new_value:
+        # Only fall back to payload extraction if values are missing entirely
+        # (not present as keys vs present as null). We check key existence.
+        if old_value is None and "oldValue" not in event and "old_value" not in event:
             payload_obj = event.get("payload", {})
             if isinstance(payload_obj, dict):
                 old_value = payload_obj.get("oldValue") or payload_obj.get("old_value")
+        if new_value is None and "newValue" not in event and "new_value" not in event:
+            payload_obj = event.get("payload", {})
+            if isinstance(payload_obj, dict):
                 new_value = payload_obj.get("newValue") or payload_obj.get("new_value")
 
         field_name = event.get("fieldName") or event.get("field_name")
@@ -541,6 +553,30 @@ async def get_task_history(task_code: str):
 
             if status_like:
                 field_code = "workflow_status"
+
+        # Convert old_value and new_value to JSON strings if they are dicts
+        # SWTR returns structured oldValue/newValue as dictionaries
+        if isinstance(old_value, dict):
+            old_value = json.dumps(old_value, ensure_ascii=False)
+        elif old_value is not None:
+            old_value = str(old_value)
+
+        if isinstance(new_value, dict):
+            new_value = json.dumps(new_value, ensure_ascii=False)
+        elif new_value is not None:
+            new_value = str(new_value)
+
+        # Create and append the HistoryEvent
+        history_events.append(HistoryEvent(
+            task_code=normalized,
+            event_id=event.get("id"),
+            changed_at=changed_at or datetime.now(),
+            field_code=field_code,
+            field_name=field_name,
+            old_value=old_value,
+            new_value=new_value,
+            actor=actor,
+        ))
 
     # Sort events by timestamp
     history_events.sort(key=lambda e: e.changed_at)
