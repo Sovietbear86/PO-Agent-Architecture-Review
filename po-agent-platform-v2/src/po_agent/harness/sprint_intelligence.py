@@ -76,11 +76,13 @@ class SprintIntelligenceCapabilities:
 
     async def cycle_time(self, args: dict[str, str]) -> CapabilityResult:
         sprint_id, tasks = await self._tasks(args)
+        tasks = await self._hydrate_completed_history(tasks)
         values = [value for task in tasks if (value := self._cycle_hours(task)) is not None]
         return self._duration_result(sprint_id, "cycle_time", values, tasks)
 
     async def lead_time(self, args: dict[str, str]) -> CapabilityResult:
         sprint_id, tasks = await self._tasks(args)
+        tasks = await self._hydrate_completed_history(tasks)
         values = [value for task in tasks if (value := self._lead_hours(task)) is not None]
         return self._duration_result(sprint_id, "lead_time", values, tasks)
 
@@ -127,6 +129,22 @@ class SprintIntelligenceCapabilities:
         if not sprint_id:
             raise AS21CapabilityUnavailable("sprint_id is required for sprint intelligence")
         return sprint_id, await self.adapter.get_sprint_tasks(sprint_id)
+
+    async def _hydrate_completed_history(self, tasks: list[Task]) -> list[Task]:
+        """Load history only when a duration metric actually needs it.
+
+        Sprint scope reads stay lightweight. Completed tasks that already carry
+        transitions are reused as-is; missing histories are fetched sequentially
+        through the certified adapter path to avoid burst load on AS21/SWTR.
+        """
+        hydrated: list[Task] = []
+        for task in tasks:
+            if not task.is_completed or task.status_transitions:
+                hydrated.append(task)
+                continue
+            history = await self.adapter.get_task_history(task.key)
+            hydrated.append(task.model_copy(update={"status_transitions": history}))
+        return hydrated
 
     @staticmethod
     def _effort(tasks: list[Task], completed: list[Task]) -> tuple[str, float, float]:
