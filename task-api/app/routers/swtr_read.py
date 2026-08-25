@@ -522,16 +522,25 @@ async def get_task_history(task_code: str):
 
         field_name = event.get("fieldName") or event.get("field_name")
 
-        history_events.append(HistoryEvent(
-            task_code=normalized,
-            event_id=event.get("id"),
-            changed_at=changed_at or datetime.now(),
-            field_code=str(field_code) if field_code else "",
-            field_name=field_name,
-            old_value=str(old_value) if old_value else None,
-            new_value=str(new_value) if new_value else None,
-            actor=actor,
-        ))
+        # Detect field_code from old_value/new_value if not provided
+        # SWTR history API returns status changes with status info in old_value/new_value
+        if not field_code:
+            # Check if old_value or new_value contains status-like structure
+            status_like = False
+            try:
+                if isinstance(old_value, str):
+                    old_obj = json.loads(old_value.replace("'", '"'))
+                    if isinstance(old_obj, dict) and ('code' in old_obj or 'name' in old_obj):
+                        status_like = True
+                if isinstance(new_value, str):
+                    new_obj = json.loads(new_value.replace("'", '"'))
+                    if isinstance(new_obj, dict) and ('code' in new_obj or 'name' in new_obj):
+                        status_like = True
+            except (json.JSONDecodeError, ValueError):
+                pass
+
+            if status_like:
+                field_code = "workflow_status"
 
     # Sort events by timestamp
     history_events.sort(key=lambda e: e.changed_at)
