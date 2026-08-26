@@ -1,9 +1,9 @@
 """Hardened production AS21 adapter for real multi-filter Core-8 queries.
 
 The cached `/api/v1/tasks` representation and the SWTR sprint-list facade are
-not authoritative for relation membership on their own.  Sprint membership is
+not authoritative for relation membership on their own. Sprint membership is
 therefore proven by hydrating each candidate task from the individual SWTR unit
-and comparing its real sprint attribute with the requested sprint.  A facade
+and comparing its real sprint attribute with the requested sprint. A facade
 must never be allowed to broaden a requested sprint silently.
 """
 from __future__ import annotations
@@ -33,11 +33,28 @@ from .task_api import (
 _TASK_CODE = re.compile(r"^[A-Z][A-Z0-9]*-\d+$", re.I)
 
 
+def _canonical_task_code(value: Any) -> str | None:
+    if not isinstance(value, str):
+        return None
+    normalized = value.upper().strip()
+    return normalized if _TASK_CODE.fullmatch(normalized) else None
+
+
 def _unit_from_payload(value: Any) -> dict[str, Any] | None:
+    """Find a real SWTR task/unit object in nested Task API payloads.
+
+    Live task lookups may expose the canonical key as `task_code` rather than
+    `code`.  Normalise that shape here so all downstream mapping continues to
+    consume the canonical `code` field without duplicating transport quirks.
+    """
     if isinstance(value, dict):
-        code = value.get("code")
-        if isinstance(code, str) and _TASK_CODE.fullmatch(code.strip()):
-            return value
+        code = _canonical_task_code(value.get("code")) or _canonical_task_code(value.get("task_code"))
+        if code:
+            if value.get("code") == code:
+                return value
+            normalized = dict(value)
+            normalized["code"] = code
+            return normalized
         for key in ("unit", "content", "task", "data"):
             if key in value:
                 found = _unit_from_payload(value[key])
@@ -56,10 +73,10 @@ def _task_code_from_row(row: Any) -> str | None:
     if unit is not None:
         return str(unit["code"]).upper().strip()
     if isinstance(row, dict):
-        for key in ("source_id", "key", "id"):
-            value = row.get(key)
-            if isinstance(value, str) and _TASK_CODE.fullmatch(value.upper().strip()):
-                return value.upper().strip()
+        for key in ("task_code", "source_id", "key", "id"):
+            code = _canonical_task_code(row.get(key))
+            if code:
+                return code
     return None
 
 
@@ -130,8 +147,8 @@ class HardenedProductionTaskApiAS21Adapter(ProductionTaskApiAS21Adapter):
 
     @staticmethod
     def _map_raw_unit(unit: dict[str, Any], *, sprint_id: str | None = None, space: str | None = None) -> Task | None:
-        code = unit.get("code")
-        if not isinstance(code, str) or not _TASK_CODE.fullmatch(code.upper().strip()):
+        code = _canonical_task_code(unit.get("code")) or _canonical_task_code(unit.get("task_code"))
+        if not code:
             return None
         attrs_list = unit.get("attributes") if isinstance(unit.get("attributes"), list) else []
         source_data = {
@@ -157,7 +174,7 @@ class HardenedProductionTaskApiAS21Adapter(ProductionTaskApiAS21Adapter):
         grounded_sprint = sprint_id or _identifier(attrs.get("scrum_board_plugin_sprint"))
         release_id = _identifier(attrs.get("fix_version_s"))
         return Task(
-            key=code.upper().strip(), id=code.upper().strip(), title=title,
+            key=code, id=code, title=title,
             description=unit.get("description") if isinstance(unit.get("description"), str) else None,
             status=status, status_raw=status_raw or None, status_category=get_status_category(status),
             created_at=created, updated_at=updated, assignee=display, assignee_id=external_id,
