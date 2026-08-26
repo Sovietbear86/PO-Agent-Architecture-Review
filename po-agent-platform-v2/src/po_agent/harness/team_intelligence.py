@@ -20,21 +20,96 @@ class TeamIntelligenceCapabilities:
 
     @staticmethod
     def _member(task: Task) -> str:
-        return task.assignee or "unassigned"
+        # Prefer the stable login for aggregation. Display names are not stable
+        # identifiers and can merge/split one person when source formatting changes.
+        return task.assignee_login or task.assignee or "unassigned"
+
+    @staticmethod
+    def _member_name(task: Task) -> str | None:
+        return task.assignee
 
     @staticmethod
     def _evidence(tasks: list[Task], kind: str) -> list[Evidence]:
-        return [Evidence(type=kind, source="as21", entity_id=t.key, label=t.title, value=t.assignee or "unassigned") for t in tasks]
+        return [Evidence(type=kind, source="as21", entity_id=t.key, label=t.title, value=t.assignee_login or t.assignee or "unassigned") for t in tasks]
 
     async def workload(self, args: dict[str, str]) -> CapabilityResult:
-        tasks = [t for t in await self._tasks() if not t.is_completed]
-        by_member: dict[str, dict[str, float | int]] = defaultdict(lambda: {"tasks": 0, "estimated_hours": 0.0})
+        """Return factual workload by assignee from the current real task corpus.
+
+        Workload is deliberately task-count based. Estimate/capacity information is
+        surfaced only when it is actually present in AS21 and is never invented.
+        Completed tasks are reported separately from active/WIP so callers can audit
+        the aggregation without confusing historical throughput with current load.
+        """
+        tasks = await self._tasks()
+        by_member: dict[str, dict[str, object]] = {}
+
         for task in tasks:
-            row = by_member[self._member(task)]
-            row["tasks"] += 1
-            row["estimated_hours"] += task.estimate_hours or 0.0
-        ranking = sorted(({"member": m, **v} for m, v in by_member.items()), key=lambda x: (-float(x["estimated_hours"]), -int(x["tasks"]), str(x["member"])))
-        return CapabilityResult(answer=f"Активная нагрузка команды: {len(tasks)} задач у {len(by_member)} исполнителей/очередей.", data={"active_tasks": len(tasks), "workload": ranking}, evidence=self._evidence(tasks, "team_workload_task"))
+            member = self._member(task)
+            row = by_member.setdefault(
+                member,
+                {
+                    "member": member,
+                    "name": self._member_name(task),
+                    "active_tasks": 0,
+                    "wip": 0,
+                    "in_progress": 0,
+                    "blocked": 0,
+                    "completed": 0,
+                    "estimated_hours": 0.0,
+                    "estimated_hours_available": False,
+                },
+            )
+            # Preserve a real display name if an earlier row was created from a
+            # task where the source exposed only the login.
+            if not row["name"] and self._member_name(task):
+                row["name"] = self._member_name(task)
+
+            if task.is_completed:
+                row["completed"] = int(row["completed"]) + 1
+                continue
+
+            row["active_tasks"] = int(row["active_tasks"]) + 1
+            if task.status_category == StatusCategory.ACTIVE_WORK:
+                row["wip"] = int(row["wip"]) + 1
+                row["in_progress"] = int(row["in_progress"]) + 1
+            if task.is_blocked:
+                row["blocked"] = int(row["blocked"]) + 1
+            if task.estimate_hours is not None:
+                row["estimated_hours"] = float(row["estimated_hours"]) + task.estimate_hours
+                row["estimated_hours_available"] = True
+
+        rows = list(by_member.values())
+        for row in rows:
+            if row["estimated_hours_available"]:
+                row["estimated_hours"] = round(float(row["estimated_hours"]), 2)
+            else:
+                # Missing estimates are unknown, not zero workload.
+                row["estimated_hours"] = None
+
+        rows.sort(key=lambda row: (-int(row["active_tasks"]), -int(row["wip"]), str(row["member"])))
+        active_tasks = sum(int(row["active_tasks"]) for row in rows)
+        completed_tasks = sum(int(row["completed"]) for row in rows)
+        unassigned_active = next((int(row["active_tasks"]) for row in rows if row["member"] == "unassigned"), 0)
+
+        warnings: list[str] = []
+        if any(not bool(row["estimated_hours_available"]) for row in rows):
+            warnings.append("estimate_hours_partially_or_fully_unavailable")
+        if unassigned_active:
+            warnings.append("unassigned_active_tasks_present")
+
+        return CapabilityResult(
+            answer=f"Текущая нагрузка команды: {active_tasks} активных задач у {len(rows)} исполнителей/очередей.",
+            data={
+                "source": "as21",
+                "active_tasks": active_tasks,
+                "completed_tasks": completed_tasks,
+                "members_count": len(rows),
+                "unassigned_active_tasks": unassigned_active,
+                "workload": rows,
+            },
+            evidence=self._evidence(tasks, "team_workload_task"),
+            warnings=warnings,
+        )
 
     async def wip(self, args: dict[str, str]) -> CapabilityResult:
         tasks = [t for t in await self._tasks() if t.status_category == StatusCategory.ACTIVE_WORK]
@@ -54,8 +129,9 @@ class TeamIntelligenceCapabilities:
         estimates: dict[str, float] = defaultdict(float)
         counts: Counter[str] = Counter()
         for task in tasks:
-            estimates[task.assignee] += task.estimate_hours or 0.0
-            counts[task.assignee] += 1
+            member = self._member(task)
+            estimates[member] += task.estimate_hours or 0.0
+            counts[member] += 1
         rows = []
         for member in sorted(counts):
             load = round(estimates[member], 1)
