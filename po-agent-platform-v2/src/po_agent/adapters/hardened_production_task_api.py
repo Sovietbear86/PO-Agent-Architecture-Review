@@ -64,9 +64,6 @@ def _task_code_from_row(row: Any) -> str | None:
 
 
 def _sprint_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
-    # Some real SWTR sprint responses include `complete_tasks: []` alongside a
-    # populated `tasks.content`.  An empty completion projection is not an
-    # authoritative empty sprint, so prefer it only when it actually has rows.
     complete = payload.get("complete_tasks")
     if isinstance(complete, list) and complete:
         return [row for row in complete if isinstance(row, dict)]
@@ -141,3 +138,127 @@ class HardenedProductionTaskApiAS21Adapter(ProductionTaskApiAS21Adapter):
             "swtr_code": code,
             "swtr_space": _space_code(unit.get("space")) or (space.upper() if space else None),
             "workflow_status": unit.get("workflow_status"),
+            "swtr_attributes": attrs_list,
+            "sprint_id": sprint_id,
+        }
+        attrs = _attributes(source_data)
+        status_value = attrs.get("workflow_status") or unit.get("workflow_status") or ""
+        if isinstance(status_value, dict):
+            status_raw = status_value.get("code") or status_value.get("name") or ""
+        else:
+            status_raw = str(status_value or "")
+        status = normalize_task_status(status_raw)
+        display, external_id, login = _user_identity(attrs.get("assigned_to"))
+        title = unit.get("summary") or unit.get("title")
+        if not isinstance(title, str) or not title.strip():
+            return None
+        created = _parse_datetime(unit.get("createdAt")) or datetime.now()
+        updated = _parse_datetime(unit.get("updatedAt")) or created
+        grounded_sprint = sprint_id or _identifier(attrs.get("scrum_board_plugin_sprint"))
+        release_id = _identifier(attrs.get("fix_version_s"))
+        return Task(
+            key=code.upper().strip(), id=code.upper().strip(), title=title,
+            description=unit.get("description") if isinstance(unit.get("description"), str) else None,
+            status=status, status_raw=status_raw or None, status_category=get_status_category(status),
+            created_at=created, updated_at=updated, assignee=display, assignee_id=external_id,
+            assignee_login=login, project_space=source_data["swtr_space"], sprint_id=grounded_sprint,
+            release_id=release_id, source="swtr", source_data=source_data,
+        )
+
+    async def _hydrate_relation(self, task: Task) -> Task:
+        unit = await self._read_raw_unit(task.key)
+        if unit is None:
+            return task
+        project_space, sprint_id = _raw_relations(unit)
+        source_data = dict(task.source_data)
+        attrs = unit.get("attributes") if isinstance(unit.get("attributes"), list) else []
+        if project_space:
+            source_data["swtr_space"] = project_space
+        if sprint_id:
+            source_data["sprint_id"] = sprint_id
+        if attrs:
+            source_data["swtr_attributes"] = attrs
+        return task.model_copy(update={
+            "project_space": project_space or task.project_space,
+            "sprint_id": sprint_id or task.sprint_id,
+            "source_data": source_data,
+        })
+
+    async def _hydrate_relations(self, tasks: list[Task]) -> list[Task]:
+        semaphore = asyncio.Semaphore(12)
+        async def hydrate(task: Task) -> Task:
+            async with semaphore:
+                return await self._hydrate_relation(task)
+        return list(await asyncio.gather(*(hydrate(task) for task in tasks))) if tasks else []
+
+    async def get_sprint_tasks(self, sprint_id: str, space: str | None = None) -> list[Task]:
+        normalized = (sprint_id or "").strip().upper()
+        if not normalized:
+            return []
+        params = {"complete": "true", "limit": 100, "max_pages": 500}
+        try:
+            response = await self._client.get(f"/api/v1/swtr-read/sprints/{normalized}/tasks", params=params)
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 404:
+                return []
+            raise AS21SourceUnavailable(f"task-api sprint task read failed: HTTP {exc.response.status_code}") from exc
+        except httpx.HTTPError as exc:
+            raise AS21SourceUnavailable(f"task-api sprint task read failed: {type(exc).__name__}") from exc
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            raise AS21SourceError("task-api sprint task endpoint returned invalid JSON") from exc
+        if not isinstance(payload, dict):
+            raise AS21SourceError("task-api sprint task endpoint returned malformed payload")
+        if payload.get("complete") is False:
+            raise AS21SourceError("task-api sprint task endpoint returned an incomplete corpus")
+
+        rows = _sprint_rows(payload)
+        codes: list[str] = []
+        seen: set[str] = set()
+        for row in rows:
+            code = _task_code_from_row(row)
+            if code and code not in seen:
+                seen.add(code); codes.append(code)
+        if rows and not codes:
+            raise AS21SourceError("live sprint rows do not expose canonical task codes")
+
+        semaphore = asyncio.Semaphore(12)
+        async def prove(code: str):
+            async with semaphore:
+                unit = await self._read_raw_unit(code)
+            if unit is None:
+                return None
+            real_space, real_sprint = _raw_relations(unit)
+            if not real_sprint or real_sprint.casefold() != normalized.casefold():
+                return None
+            if space and (not real_space or real_space.casefold() != space.strip().casefold()):
+                return None
+            return self._map_raw_unit(unit, sprint_id=real_sprint, space=real_space)
+
+        proven = await asyncio.gather(*(prove(code) for code in codes)) if codes else []
+        return [task for task in proven if task is not None]
+
+    async def search_tasks(self, jql: str, max_results: int = 50, fields: list[str] | None = None) -> list[Task]:
+        filters, free_text = _parse_query(jql)
+        if "__impossible__" in filters:
+            return []
+        project = filters.get("project_space")
+        sprint = filters.get("sprint_id")
+        if not project and not sprint:
+            return await super().search_tasks(jql, max_results=max_results, fields=fields)
+        remaining = dict(filters)
+        remaining.pop("project_space", None); remaining.pop("sprint_id", None)
+        if sprint:
+            candidates = await self.get_sprint_tasks(sprint, space=project)
+        else:
+            cached_filters = {k: v for k, v in remaining.items() if k in {"assignee", "status", "release_id", "key", "source"}}
+            query = " AND ".join(f"{k if k != 'release_id' else 'release'} = {v}" for k, v in cached_filters.items())
+            candidates = await TaskApiAS21Adapter.search_tasks(self, query, max_results=self._scan_limit, fields=fields)
+            candidates = await self._hydrate_relations(candidates)
+        final_filters = dict(remaining)
+        if project:
+            final_filters["project_space"] = project
+        result = [task for task in candidates if _task_matches(task, final_filters, free_text)]
+        return result[:max_results]
