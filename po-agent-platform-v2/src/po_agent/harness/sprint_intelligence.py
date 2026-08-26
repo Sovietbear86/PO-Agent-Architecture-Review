@@ -16,6 +16,8 @@ from .contracts import CapabilityResult, Evidence
 
 
 class SprintIntelligenceCapabilities:
+    STALLED_STATUS_HOURS = 7 * 24
+
     def __init__(self, adapter: AS21Adapter) -> None:
         self.adapter = adapter
 
@@ -100,6 +102,7 @@ class SprintIntelligenceCapabilities:
 
     async def risk_queue(self, args: dict[str, str]) -> CapabilityResult:
         sprint_id, tasks = await self._tasks(args)
+        tasks = await self._hydrate_active_history(tasks)
         risks: list[dict[str, object]] = []
         for task in tasks:
             if task.is_completed:
@@ -115,12 +118,26 @@ class SprintIntelligenceCapabilities:
             if task.age_days >= 7:
                 reasons.append(f"aging_{task.age_days}d")
                 score += min(task.age_days, 30)
+            current_status_hours = self._current_status_hours(task)
+            if current_status_hours is not None and current_status_hours >= self.STALLED_STATUS_HOURS:
+                reasons.append(f"stalled_status_{round(current_status_hours, 1)}h")
+                score += min(int(current_status_hours // 24), 30)
             if reasons:
-                risks.append({**self._task_data(task), "risk_score": score, "reasons": reasons})
+                risks.append({**self._task_data(task), "risk_score": score, "reasons": reasons, "current_status_hours": round(current_status_hours, 2) if current_status_hours is not None else None})
         risks.sort(key=lambda item: (-int(item["risk_score"]), str(item["key"])))
         return CapabilityResult(
             answer=f"В risk queue {sprint_id}: {len(risks)} задач.",
-            data={"sprint_id": sprint_id, "count": len(risks), "risks": risks, "scoring": {"blocked": 100, "critical_or_urgent": 50, "aging_days": "min(age_days,30)"}},
+            data={
+                "sprint_id": sprint_id,
+                "count": len(risks),
+                "risks": risks,
+                "scoring": {
+                    "blocked": 100,
+                    "critical_or_urgent": 50,
+                    "aging_days": "min(age_days,30)",
+                    "stalled_status": f">={self.STALLED_STATUS_HOURS}h; +min(full_status_days,30)",
+                },
+            },
             evidence=[Evidence(type="sprint_risk", source="deterministic", entity_id=str(item["key"]), label="risk_score", value=item["risk_score"]) for item in risks],
         )
 
@@ -140,6 +157,17 @@ class SprintIntelligenceCapabilities:
         hydrated: list[Task] = []
         for task in tasks:
             if not task.is_completed or task.status_transitions:
+                hydrated.append(task)
+                continue
+            history = await self.adapter.get_task_history(task.key)
+            hydrated.append(task.model_copy(update={"status_transitions": history}))
+        return hydrated
+
+    async def _hydrate_active_history(self, tasks: list[Task]) -> list[Task]:
+        """Hydrate active-task history sequentially for grounded stalled detection."""
+        hydrated: list[Task] = []
+        for task in tasks:
+            if task.is_completed or task.status_transitions:
                 hydrated.append(task)
                 continue
             history = await self.adapter.get_task_history(task.key)
@@ -191,6 +219,14 @@ class SprintIntelligenceCapabilities:
         if not end:
             return None
         return max(0.0, (end - task.created_at).total_seconds() / 3600)
+
+    @staticmethod
+    def _current_status_hours(task: Task) -> float | None:
+        if not task.status_transitions:
+            return None
+        latest = max(task.status_transitions, key=lambda transition: transition.timestamp)
+        from datetime import datetime
+        return max(0.0, (datetime.now(tz=latest.timestamp.tzinfo) - latest.timestamp).total_seconds() / 3600)
 
     @staticmethod
     def _task_data(task: Task) -> dict[str, object]:
