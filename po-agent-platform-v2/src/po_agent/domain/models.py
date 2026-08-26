@@ -3,7 +3,7 @@
 Transport-independent domain entities. AS21-specific parsing belongs in adapters;
 canonical fields contain only facts that deterministic capabilities may consume.
 """
-from datetime import datetime
+from datetime import datetime, timezone
 from enum import Enum
 from typing import Any, Optional
 from pydantic import BaseModel, Field
@@ -17,6 +17,10 @@ def task_key_schema(): return {"type":"string","pattern":r"^[A-Z]+-\d+$"}
 def sprint_id_schema(): return {"type":"string","pattern":r"^[A-Z]+-SPRNT-\d+$"}
 def release_id_schema(): return {"type":"string","pattern":r"^[A-Z]+-\d{4}-[A-Z]+\d*$"}
 def member_id_schema(): return {"type":"string","pattern":r"^[A-Z]+\.[A-Z]+\.[A-Z]+$"}
+
+def _now_for(value: datetime) -> datetime:
+    """Return a current datetime compatible with the supplied canonical timestamp."""
+    return datetime.now(tz=value.tzinfo) if value.tzinfo is not None else datetime.now()
 
 class Timestamp(BaseModel):
     value: datetime
@@ -50,15 +54,18 @@ class Task(BaseModel):
     @property
     def is_blocked(self): return self.status==TaskStatus.NEED_INFO
     @property
-    def age_days(self): return (datetime.now()-self.created_at).days
+    def age_days(self): return (_now_for(self.created_at)-self.created_at).days
     @property
-    def time_in_current_status_hours(self): return 0.0 if not self.status_transitions else (datetime.now()-self.status_transitions[-1].timestamp).total_seconds()/3600
+    def time_in_current_status_hours(self):
+        if not self.status_transitions: return 0.0
+        timestamp=self.status_transitions[-1].timestamp
+        return (_now_for(timestamp)-timestamp).total_seconds()/3600
     @property
     def cycle_time_hours(self):
-        start=next((t.timestamp for t in self.status_transitions if t.to_status==TaskStatus.IN_PROGRESS),self.created_at); end=self.resolved_at or self.closed_at or datetime.now(); return (end-start).total_seconds()/3600
+        start=next((t.timestamp for t in self.status_transitions if t.to_status==TaskStatus.IN_PROGRESS),self.created_at); end=self.resolved_at or self.closed_at or _now_for(start); return (end-start).total_seconds()/3600
     @property
     def lead_time_hours(self):
-        end=self.resolved_at or self.closed_at or datetime.now(); return (end-self.created_at).total_seconds()/3600
+        end=self.resolved_at or self.closed_at or _now_for(self.created_at); return (end-self.created_at).total_seconds()/3600
 
 class SprintState(str,Enum): FUTURE="future"; ACTIVE="active"; CLOSED="closed"
 class Sprint(BaseModel):
@@ -67,11 +74,11 @@ class Sprint(BaseModel):
     def duration_days(self): return (self.end_date-self.start_date).days
     @property
     def is_current(self):
-        now=datetime.now(); return self.start_date<=now<=self.end_date and self.state==SprintState.ACTIVE
+        now=_now_for(self.start_date); return self.start_date<=now<=self.end_date and self.state==SprintState.ACTIVE
     @property
     def is_past(self): return self.state==SprintState.CLOSED
     @property
-    def is_upcoming(self): return datetime.now()<self.start_date and self.state==SprintState.FUTURE
+    def is_upcoming(self): return _now_for(self.start_date)<self.start_date and self.state==SprintState.FUTURE
 
 class ReleaseState(str,Enum): PLANNED="planned"; IN_PROGRESS="in_progress"; READY_FOR_TESTING="ready_for_testing"; RELEASED="released"; CANCELLED="cancelled"
 class Release(BaseModel):
