@@ -44,7 +44,7 @@ def _unit_from_payload(value: Any) -> dict[str, Any] | None:
     """Find a real SWTR task/unit object in nested Task API payloads.
 
     Live task lookups may expose the canonical key as `task_code` rather than
-    `code`.  Normalise that shape here so all downstream mapping continues to
+    `code`. Normalise that shape here so all downstream mapping continues to
     consume the canonical `code` field without duplicating transport quirks.
     """
     if isinstance(value, dict):
@@ -138,6 +138,26 @@ class HardenedProductionTaskApiAS21Adapter(ProductionTaskApiAS21Adapter):
         unit = _unit_from_payload(payload.get("unit") if isinstance(payload, dict) else payload)
         self._raw_unit_cache[key] = unit
         return unit
+
+    async def get_task(self, task_key: str) -> Task | None:
+        """Resolve a full task key directly against live SWTR, never the cache.
+
+        Exact-key lookup is an authoritative point read. Requiring the bounded
+        `/api/v1/tasks` cache to be populated made a valid DMS-271 lookup fail
+        even while `/api/v1/swtr-read/tasks/DMS-271` was healthy. Preserve the
+        rich-read contract by attaching live attachment metadata after mapping.
+        """
+        normalized = _canonical_task_code(task_key)
+        if not normalized:
+            return None
+        unit = await self._read_raw_unit(normalized)
+        if unit is None:
+            return None
+        task = self._map_raw_unit(unit)
+        if task is None:
+            raise AS21SourceError(f"raw SWTR task {normalized} cannot be mapped to canonical Task")
+        attachments = await self.get_attachment_metadata(normalized)
+        return task.model_copy(update={"attachments": attachments})
 
     async def sprint_exists(self, sprint_id: str) -> bool:
         normalized = (sprint_id or "").strip()
