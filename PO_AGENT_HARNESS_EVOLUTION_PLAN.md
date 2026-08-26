@@ -2,91 +2,80 @@
 
 **Status:** ACTIVE / consolidated source of truth  
 **Current branch:** `feat/core8-real-query-hardening-v2`  
-**Last reviewed:** 2026-08-22
-**Current blocking gate:** Manual SWTR access unblock after Assignment 049
-**Purpose:** prevent architectural drift and loss of earlier product requirements while evolving the original PO Agent into a self-improving Harness agent.
+**Last reviewed:** 2026-08-27  
+**Current active gate:** Assignment 095 — total real-agent regression + per-skill learning-loop certification  
+**Purpose:** preserve the original PO Agent behavior while evolving it into a source-grounded, self-improving Harness with controlled persistent learning.
 
-> This document is the execution roadmap. `PO_AGENT_PLATFORM_V2_GIGACODE_MASTER_SPEC_V2_1.md`, `PO_AGENT_PLATFORM_V2_ADDENDUM_SKILLS_CLARIFICATION.md`, `REAL_DATA_COMPREHENSIVE_TEST_CHECKLIST.md`, the legacy implementation and early commits are normative sources. If they disagree, do not guess: record the conflict and resolve it explicitly before implementation.
+> This document is the execution roadmap. Historical QA reports remain evidence, but the current runtime and current regression results outrank historical GREEN. GigaCode remains QA-only unless the owner explicitly changes that rule.
 
 ## 0. Non-negotiable principles
 
-1. Preserve the product behavior of the original PO Agent while evolving the architecture.
-2. The final target is the complete original skill model (48 skills/capabilities from the original specification), implemented in the Harness architecture.
-3. Do not jump directly to all 48. First prove the architecture on the eight core domain skills.
-4. AS21/SWTR behavior must be validated on real read-only data. Fixtures are allowed only for fault injection and impossible-to-reproduce edge cases.
-5. GigaCode is tester/reviewer for this work unless the owner explicitly changes this rule. Production code changes are implemented by ChatGPT/OpenAI side of the workflow.
-6. Deterministic retrieval/filtering/calculation stays in code. LLM interprets, clarifies and synthesizes; it must not invent AS21 facts or deterministic metrics.
-7. Learning never mutates active production behavior directly. Required path: evidence -> failure cluster/feedback -> candidate -> eval -> shadow -> regression gate -> human approval -> promotion; rollback must exist.
-8. No AS21 write authority during real-data acceptance. Search/evaluation/shadow are read-only.
-9. Any regression in an already-green skill blocks promotion of a candidate.
-10. Frontend finalization and full browser E2E happen only after the real-data skill contract and learning loop are proven.
-11. Never compensate for an AS21 source-contract defect in a prompt, skill, learning rule or UI.
-12. A task-api 200 response is not proof of correct filtering; supported query parameters and returned source facts must be contract-tested.
-13. Historical GREEN is a baseline, not permanent acceptance: a later source-backed counterexample reopens the affected gate.
-14. The sprint-list facade is only a candidate-key source. Sprint membership, assignee, status and other task facts used by an oracle must come from individually hydrated authoritative SWTR task units.
-15. Every explicit user constraint must survive semantic interpretation, grounding and capability arguments, or execution must clarify/fail closed. Silent broadening is forbidden.
-16. Production NLU is LLM-first. Deterministic code normalizes structural identifiers and validates/grounds facts; it must not replace semantic interpretation with Russian phrase dictionaries or keyword routing.
-17. Exact task-key-set equality against an independent hydrated oracle outranks answer prose, HTTP status and count-only checks.
+1. Preserve the product behavior of the original PO Agent.
+2. The complete production skill catalog must be discovered from the running registry; do not rely on a manually remembered skill count. Historical target remains 48 original requirements plus 6 reconciled additions.
+3. AS21/SWTR business facts must be validated against real read-only source data. Fixtures are allowed only for controlled fault injection, never as acceptance evidence for source facts.
+4. GigaCode is tester/adversarial reviewer. Production code changes are made on the ChatGPT/OpenAI side.
+5. Deterministic retrieval, filtering and calculation stay in code. LLM interprets, clarifies and synthesizes; it must not invent AS21 facts or deterministic metrics.
+6. A successful HTTP response is not proof of semantic correctness. Requested filters must survive semantic interpretation, grounding, capability arguments and final source validation.
+7. Exact task-key-set equality against an independent authoritative oracle outranks answer prose and count-only checks.
+8. Exact task-key lookup must use the authoritative point-read path and must not depend on a bounded `/api/v1/tasks` cache.
+9. Historical GREEN is a baseline, not permanent acceptance. A later source-backed counterexample reopens the affected gate.
+10. Every production skill must pass both functional regression and learning-loop regression before backend acceptance is complete.
+11. Learning must generalize behavior, not memorize entities, task IDs, sprint IDs, answers or user-provided source facts.
+12. Learned behavior may only come from an allow-listed policy type and must be versioned, auditable, restart-safe and rollbackable.
+13. A user correction never overrides contradictory authoritative SWTR evidence.
+14. Runtime learning must not rewrite Python, prompts, Skill Catalog definitions or AS21 source data.
+15. Any regression in an already-green skill blocks backend certification.
+16. Frontend finalization and full browser E2E happen only after backend functional + learning certification is GREEN.
+17. No AS21 write authority is permitted during acceptance.
 
-## 1. Target evolution
+## 1. Current target evolution
 
 ```text
-Original PO Agent / legacy proven behavior
+Original PO Agent / legacy behavior
         |
         v
-Restore AS21 source contract + Core-8 real-data baseline
+AS21/SWTR source contract + Core-8 hardening
         |
         v
-Controlled Learning Loop with human approval and rollback
+Exact-key / sprint / multi-filter / history hardening
         |
         v
-Recover/freeze original 48 requirements + preserve 6 reconciled additions
+Persistent controlled Learning Loop
         |
         v
-Implement 54 catalog entries (implementation state only)
+TOTAL REGRESSION OF EVERY PRODUCTION SKILL
+(functional + real source + evidence + NL variants)
         |
         v
-Revalidate Core-8 semantic/source boundary with hydrated oracle
-(Assignment 031 GREEN -> Assignment 032 full unchanged 029/026 V2 benchmark GREEN -> Assignment 033 report self-inconsistent -> Assignment 034 BLOCKED/verdict invalid -> Assignment 035 RED/inconsistent evidence -> Assignment 036 per-ID evidence audit)
+PER-SKILL LEARNING CERTIFICATION
+(correction -> source recheck -> generalized policy -> persistence -> restart -> rollback)
         |
         v
-Accept 48 + 6 skills in controlled Gate-E waves on real evidence
+Backend catalog certification / Gate E closure
         |
         v
-Frontend integration / PO Workspace / all original screens
+Frontend / PO Workspace acceptance
         |
         v
-Full backend + Harness + AS21 + frontend E2E
+Full browser E2E
         |
         v
-Release readiness
+Release hardening and release readiness
 ```
 
 ## 2. Phase gates
 
-### GATE A — AS21 Source Contract GREEN
-Required before any learning-loop work.
+### GATE A — AS21 Source Contract
 
-Must prove on real AS21 data:
-- exact task lookup;
-- title/description and identity mapping;
-- assignee id/login extraction and filtering;
-- project/space filtering;
-- status raw -> normalized mapping;
-- sprint source/list/current-sprint contract and task-to-sprint relation;
-- release/fix-version source contract if required by `release_health`;
-- attachment metadata/read path required by task intelligence skills;
-- status history/changelog/read path required by flow metrics;
-- pagination / bounded queries;
-- no fabricated fallback records;
-- read-only boundary.
+Required source capabilities include task point read, task search, task relations, sprint membership, project/space, assignee, status, release, attachments and history/changelog where required by active skills.
 
-Canonical model must expose fields required by active skills. Raw `source_data` may remain available for future mapping, but active business logic must not depend on ad-hoc raw parsing throughout the codebase.
+The critical rule is authoritative hydration: facade/list endpoints may provide candidate keys, but task facts used for acceptance must come from the real authoritative unit/read path where available.
 
-**Important source architecture:** current task-api is not the only possible read facade. The repository already contains `SWTRSyncService`, which calls the real MCP-SWTR source read-only for `find_units`, `find_units_by_filter`, `read_unit`, `get_current_sprint`, and sprint-task retrieval. Gate A must inspect and reuse proven source read paths rather than assuming all required facts must already be present in `/api/v1/tasks`.
+**Status:** historically GREEN, but individual source facts may be reopened by current regression. Exact-key direct lookup and history are explicitly rechecked in Assignment 095.
 
-### GATE B — Eight Core Skills GREEN on real AS21
-The canonical eight domain skills are:
+### GATE B — Core-8 and semantic/source boundary
+
+Canonical eight domain skills remain:
 
 1. `task_search`
 2. `task_summary`
@@ -97,404 +86,272 @@ The canonical eight domain skills are:
 7. `competency_match`
 8. `release_health`
 
-`help` is a platform/support skill and is tested separately; it does not count toward the 8/8 core-domain gate.
+Historical Core-8 GREEN is preserved as a baseline only. Current acceptance comes from total regression, not from historical runs.
 
-For every skill require:
-- at least one real-data happy path;
-- negative/empty-result path;
-- context/clarification case where applicable;
-- deterministic source/evidence verification;
-- trace with `skill_id` + version;
-- no unauthorized capability/tool call;
-- no AS21 mutation;
-- no regression in the other core skills.
+### GATE C — Controlled persistent Learning Loop
 
-**Exit criterion:** `CORE_SKILLS_REAL_AS21 = 8/8 GREEN`.
+The learning design now has two layers:
 
-### GATE C — Learning Loop GREEN
-Run only after Gate B.
+**Governance layer:** candidate/evaluation/promotion lifecycle with technical gates, human approval and rollback.
 
-For at least two representative core skills (first `task_search`, then one analytical skill such as `sprint_health`):
-1. Capture a reproducible failure or controlled weaker baseline.
-2. Link feedback/evidence to trace + skill version.
-3. Create improvement candidate; active version remains unchanged.
-4. Evaluate baseline and candidate on identical frozen corpus.
-5. Run shadow comparison.
-6. Reject false-green candidates and any candidate that regresses protected tests.
-7. Require human approval before promotion.
-8. Verify promoted version measurably improves the intended metric.
-9. Verify all eight skills still pass regression.
-10. Exercise rollback and confirm restoration of previous active version.
+**Runtime behavioral layer:** explicit negative feedback can trigger a fresh authoritative source recheck and, only after a source-grounded correction, create an allow-listed generalized persistent learned policy for the affected skill.
 
-**Exit criterion:** measurable improvement demonstrated, `NEW_CODE_REGRESSIONS_VS_BASE=0`, no auto-promotion, rollback verified.
+Implemented production milestones:
 
-### GATE D — Recover and Freeze the 48-Skill Catalog
-Do not invent the catalog from memory.
+- `f6e36ea` — persistent versioned `LearnedPolicyStore`;
+- `d53124a` — correction runtime integration with persistent learning.
 
-Actions:
-- inspect earliest specification/technical assignment commits;
-- locate the original 48-skill/capability list;
-- map legacy names to current Harness skill/capability names;
-- identify duplicates, renamed items and composite capabilities;
-- freeze a versioned matrix: `original_requirement -> current_skill -> capability -> required_context -> AS21 fields -> tests -> UI consumer`.
-
-Deliverable: `PO_AGENT_48_SKILL_MATRIX.md`.
-
-**Exit criterion:** exactly 48 original requirements are accounted for as `implemented / mapped / intentionally merged / not-yet-implemented`, with no silent omissions.
-
-### GATE E — Accept the implemented catalog in controlled waves
-
-The production catalog currently contains 54 entries marked `implemented`: the frozen historical 48 plus six reconciled additions. `implemented` proves that an executable path exists; it does **not** by itself prove real-data, grounding, safety or cross-skill acceptance. Gate E remains open until every wave passes its source/evidence contract and protected regression suite.
-
-Expand/accept in waves:
-- Wave 1: task intelligence/search/attachments;
-- Wave 2: sprint/flow metrics;
-- Wave 3: team/capacity/competency;
-- Wave 4: release/product analytics;
-- Wave 5: the six reconciled additions, cross-capability PO scenarios, drafts/actions and support capabilities.
-
-Each new skill gets source contract requirements, unit tests, real-AS21 test where applicable, registry definition, trace/evidence, protected regression cases and learning-loop eligibility policy.
-
-### GATE F — Frontend / PO Workspace integration
-Only after Gates A-E. Recover the original UI specification and compare it with current frontend implementation screen by screen: conversational PO workspace, clarification UX, task search/results/detail, sprint health, velocity/flow metrics, team workload/performance, competency view, release health/risk, execution/evidence/trace, feedback controls, AI-PDLC lifecycle surfaces and all loading/empty/error/partial states.
-
-### GATE G — Full E2E
-Browser E2E must exercise the actual chain:
+Expected learned behavior currently allowed:
 
 ```text
-Frontend -> API -> Orchestrator -> Context/Clarification -> Skill Resolver/Executor
- -> deterministic capability -> AS21 adapter/read source -> evidence/trace -> response -> UI
+authoritative_recheck_on_negative
 ```
 
-Critical E2E suites cover Core-8, clarification/resume, session isolation, AS21 unavailable, LLM unavailable **fail-closed behavior**, empty results, real sprint/release selection, attachments where supported, feedback capture, learning candidate isolation and zero mutation authority. Production must not fall back to deterministic natural-language phrase routing when the semantic model is unavailable.
+Forbidden learned artifacts include concrete truths such as `DMS-271 exists`, stored answers, sprint membership facts, assignee facts or arbitrary prompt/code mutations.
 
-## 3. Core-8 Real-AS21 Test Matrix
+**New exit criterion:** Gate C is no longer considered fully release-certified from two representative skills only. Before release, every callable production skill must pass the applicable per-skill learning contract or explicitly prove that the learning behavior is safely non-applicable under the production policy. Assignment 095 is the certification gate.
 
-| Skill | Mandatory real-AS21 checks | Minimum source fields/contracts |
-|---|---|---|
-| task_search | exact key; phrase; assignee; status; sprint; project/space; empty result | key, title, description, assignee_id/login, raw+normalized status, sprint relation, project/space |
-| task_summary | meaningful real task; grounded summary; attachment-aware when referenced | key, title, description, requirements-related fields, attachment metadata/read path |
-| task_quality | complete/incomplete task; reproducible reasons; attachment-aware evidence | description, acceptance criteria/required sections, attachments/links as defined by metric |
-| sprint_health | real current/recent sprint; WIP/blocked/aging/scope | current sprint/list endpoint, sprint tasks, status, dates/history, assignee, scope/effort |
-| velocity | real sprint; reproducible formula; explicit unit | sprint tasks, completed state, estimate/task-count policy, sprint dates/history as formula requires |
-| team_workload | actual team; active/WIP/blocked by assignee | assignee_id/login, status, sprint/project, effort where used |
-| competency_match | task + approved competency config; no invented skills | task type/components/labels/description + approved team config |
-| release_health | real release; scope/done/remaining/blocked/risk | release/fix version, status, sprint/project, dependencies, dates/timeline where required |
+### GATE D — Historical requirement recovery
 
-## 4. AS21 field/source policy
+`PO_AGENT_48_SKILL_MATRIX.md` accounts for the original 48 requirements and six reconciled additions.
 
-1. Preserve sanitized raw `source_data` for diagnostics/future mapping.
-2. Canonicalize every field required by active skills.
-3. Centralize AS21 extraction in adapters/mappers, not skills/prompts/UI.
-4. Prefer a proven dedicated source capability over scanning an unrelated cached corpus.
-5. `/api/v1/tasks` is a local task read facade; it does not support arbitrary `q`/JQL.
-6. `SWTRSyncService`/MCP-SWTR may provide richer read-only facts (`read_unit`, current sprint, sprint tasks, filtered unit search). These must be contract-tested and wrapped cleanly before Harness consumption.
-7. Unknown attributes remain raw but cannot silently influence deterministic logic.
-8. Every newly activated skill declares required facts first.
-9. Real examples define schema truth; never guess codes/nesting.
-10. Do not truncate a real source description merely to satisfy an artificial canonical limit.
+**Status:** GREEN as requirement-recovery inventory.
 
-## 5. Learning-loop protection rules
+### GATE E — Complete backend skill acceptance
 
-- Never learn a source-data bug.
-- Feedback may create eval/failure records; it may not directly rewrite the active skill.
-- Candidate changes go through AI-PDLC only.
-- Baseline/candidate comparisons use identical frozen evidence/corpus.
-- Candidate must improve target metrics and preserve protected metrics.
+Gate E is no longer accepted wave-by-wave only on implementation presence. The final backend acceptance rule is:
 
-## 6. Frontend rule
+```text
+EVERY DISCOVERED PRODUCTION SKILL
+= functional GREEN
++ correct REAL source behavior where applicable
++ grounded evidence
++ natural-language variants
++ learning-loop certification
++ restart survival
++ rollback
+```
 
-Frontend work is deliberately sequenced after source/skill/learning correctness. Before release, compare every original screen requirement from the earliest technical assignment with current implementation and build a screen-level acceptance matrix.
+Assignment 095 is the first total certification run against this rule.
 
-## 7. Work ownership and Git QA handoff
+**Exit criterion:** `FULLY_CERTIFIED` with zero functional RED and zero learning RED across the complete runtime skill catalog.
+
+### GATE F — Frontend / PO Workspace
+
+After Gate E closes, recover the original screen scope and compare it with the current frontend screen by screen. Required areas include conversational workspace, clarification UX, task search/results/detail, sprint/flow analytics, team/capacity/competency, release/product analytics, evidence/trace, feedback/learning controls, loading/empty/error/partial states and AI-PDLC lifecycle surfaces.
+
+### GATE G — Full browser E2E
+
+Exercise the actual production chain:
+
+```text
+Frontend -> API -> Orchestrator -> semantic interpretation/context
+ -> Skill Resolver -> deterministic capability -> AS21/SWTR
+ -> evidence/trace -> response -> UI -> feedback/learning path
+```
+
+Critical cases include clarification/resume, session isolation, source unavailable, LLM unavailable fail-closed behavior, empty results, exact-key task lookup, sprint/release selection, attachments/history, feedback capture, persistent learning, restart survival, rollback and zero AS21 mutation authority.
+
+## 3. Learning-loop release contract
+
+For each production skill where feedback learning is applicable, certify:
+
+```text
+initial execution
+ -> explicit user negative feedback/correction
+ -> fresh authoritative source validation
+ -> generalized allow-listed behavioral policy
+ -> persistent policy record with skill_id/version/audit
+ -> different query/entity benefits
+ -> cold process restart
+ -> policy reloads and still applies
+ -> rollback
+ -> policy no longer applies
+```
+
+Required safety properties:
+
+- no entity memorization;
+- no answer memorization;
+- no source-fact fabrication;
+- no direct code/prompt/catalog mutation;
+- no policy promotion from unsupported user assertion;
+- no persistence of contradictory facts;
+- malformed policy store fails safely;
+- repeated identical correction does not create unbounded duplicate active policies;
+- rollback removes the policy from active resolution.
+
+## 4. Current production milestones
+
+Verified important production changes in the current hardening line include:
+
+- source-backed sprint membership and multi-filter preservation;
+- MCP-SWTR stdio transport recovery and fail-closed source error handling;
+- authoritative direct exact-key task lookup, including the historical DMS-271 class of failures;
+- correction-aware fresh source recheck;
+- controlled lifecycle for improvement candidates/evaluation/promotion/rollback;
+- persistent versioned learned policy store;
+- correction runtime integration that can apply a generalized learned behavior in future requests.
+
+Historical assignments 030-049 remain diagnostic evidence for the sprint/oracle recovery path. Subsequent hardening supersedes the old roadmap state that was blocked on manual SWTR access. The active gate is now the complete Assignment 095 regression.
+
+## 5. Assignment 095 — active total certification gate
+
+Assignment 095 must dynamically enumerate every production skill from the running registry and produce one certification row per skill.
+
+It includes:
+
+- clean runtime provenance and REAL AS21 mode;
+- total functional black-box regression;
+- canonical Russian query plus paraphrase variants;
+- critical historical exact-key, sprint, multi-filter and history regressions;
+- complete Sprint Intelligence and Team Workload rechecks;
+- per-skill learning trigger, source revalidation and persistent policy evidence;
+- cross-entity/query generalization;
+- cold restart survival;
+- idempotency/versioning/rollback;
+- learning safety checks;
+- the entire automated test suite;
+- final complete skill certification matrix.
+
+Final allowed verdicts:
+
+```text
+FULLY_CERTIFIED
+REGRESSION_DETECTED
+BLOCKED_BY_ENVIRONMENT
+```
+
+`FULLY_CERTIFIED` is allowed only when every production skill is functionally GREEN and every applicable learning-loop contract is GREEN.
+
+## 6. Ordered next steps and estimated duration
+
+Durations below are engineering elapsed-time estimates, not guarantees. REAL SWTR latency and the number of regressions found by 095 are the largest uncertainty.
+
+| Step | Work | Expected duration | Exit |
+|---|---|---:|---|
+| 095 | Total real-agent regression + per-skill learning certification | **1.5–3 h** | Full report with complete skill matrix |
+| 096A | If 095 RED: diagnose the narrowest broken boundary, no broad refactor | **0.5–1.5 h per defect cluster** | Reproducible root cause + focused fix |
+| 096B | Focused post-fix certification for affected skill/source boundary | **20–45 min per cluster** | Affected RED becomes GREEN without protected regressions |
+| 097 | Final clean rerun of total 095-equivalent gate after all fixes | **1.5–3 h** | `FULLY_CERTIFIED` |
+| 098 | Freeze backend certification artifacts, catalog/version matrix and release baseline | **30–60 min** | Backend/Gate E formally closed |
+| 099 | Frontend screen-level gap/acceptance audit against original PO Agent scope | **2–4 h** | Exact UI gap matrix |
+| 100 | Frontend remediation if gaps exist | **0.5–2 working days** depending on gaps | Screen matrix GREEN |
+| 101 | Full browser E2E including learning/feedback/restart/failure states | **3–6 h** | Critical E2E 100% GREEN |
+| 102 | Release hardening: security/read-only checks, secrets, packaging, clean install/restart smoke | **2–4 h** | Release candidate |
+| 103 | Final release-readiness certification | **1–2 h** | `RELEASE_READY=YES` |
+
+### Best-case path
+
+If Assignment 095 is immediately `FULLY_CERTIFIED`, backend work is essentially complete. Remaining work is approximately:
+
+```text
+backend freeze          0.5–1 h
+frontend audit          2–4 h
+frontend fixes          0.5–2 working days, only if needed
+full browser E2E        3–6 h
+release hardening       2–4 h
+final certification     1–2 h
+```
+
+Without meaningful frontend defects, the project can reach release-candidate quality in roughly **1 working day after 095**. With moderate frontend remediation, plan on **2–3 working days**.
+
+### Expected path if 095 finds backend regressions
+
+Do not restart the whole architecture campaign. Use this loop:
+
+```text
+095 RED
+ -> classify each RED by narrow boundary
+ -> fix one boundary
+ -> focused certification
+ -> protected regression
+ -> repeat until zero RED
+ -> one final total clean rerun
+```
+
+For one or two narrow backend defect clusters, add approximately **2–5 hours** before frontend work. If 095 exposes systemic learning-loop or source-contract failures across many skills, reserve **1–2 additional working days** before Gate E can close.
+
+## 7. Decision rules after Assignment 095
+
+### If `FULLY_CERTIFIED`
+
+1. Do not keep polishing backend behavior without evidence.
+2. Freeze backend skill/runtime versions and QA evidence.
+3. Close Gate E.
+4. Move directly to frontend screen audit and then browser E2E.
+
+### If `REGRESSION_DETECTED`
+
+1. GigaCode does not fix anything.
+2. Read the complete skill matrix and group REDs by shared boundary.
+3. Prefer one root-cause fix over per-skill patches.
+4. Run a focused retest after each boundary fix.
+5. After all focused gates are GREEN, rerun the complete total certification once from a clean process/state.
+
+### If `BLOCKED_BY_ENVIRONMENT`
+
+1. Separate source/environment failure from product failure.
+2. Prove the failing external dependency independently where possible.
+3. Do not replace REAL source evidence with fake/mock data.
+4. Resume the same gate after the environment is restored.
+
+## 8. Work ownership and Git QA handoff
 
 ### ChatGPT/OpenAI side
-- architecture analysis and production changes;
-- source-contract, semantic-boundary and deterministic execution decisions;
-- test/acceptance design without weakening existing oracles;
-- roadmap and contract updates;
-- create versioned assignments under `qa_assignments/`;
-- point `GIGACODE_NEXT_ACTION.md` to exactly one active assignment;
-- inspect QA reports directly from `qa_reports/`;
-- diagnose and fix production defects reported by QA.
+
+- architecture and production changes;
+- source-contract and learning-policy decisions;
+- QA assignment design;
+- roadmap updates;
+- diagnosis and fixes after QA reports;
+- acceptance/release decisions.
 
 ### GigaCode side
-- pull the target branch and restart the real local services;
-- read `GIGACODE_NEXT_ACTION.md`, then the referenced assignment;
-- act only as tester/adversarial reviewer;
-- execute the complete authorized QA workflow autonomously without asking for confirmation after every step or integration; source/LLM reads, local restarts, tests and publishing the allowed report are pre-authorized;
-- ask only for genuinely missing authority/credentials, unavoidable platform approval, destructive/out-of-scope action or material scope expansion, and batch unavoidable approval prompts;
-- use real read-only AS21/SWTR evidence when required;
-- never modify production code, prompts, tests, fixtures, acceptance runners, learning state or local source data unless the owner explicitly changes the role;
-- create, commit and push only the report named by the active assignment (plus an already-supported machine-readable result only when allowed);
-- stop after publishing the report and return its commit SHA and full contents.
 
-### Stable command to GigaCode
+- QA only;
+- pull current branch and restart real services;
+- use real read-only source data where required;
+- run the complete active assignment autonomously;
+- never weaken tests or acceptance rules;
+- never modify production code/prompts/fixtures/learning implementation;
+- commit/push only the explicitly allowed QA report;
+- stop after the report and return SHA + full report.
 
-```text
-Открой репозиторий Sovietbear86/PO-Agent-Architecture-Review, перейди в ветку feat/core8-real-query-hardening-v2 и выполни GIGACODE_NEXT_ACTION.md. Работай только как тестировщик и выполни весь разрешённый QA-сценарий автономно, без подтверждения после каждого шага или интеграции. Закоммить и отправь только разрешённый заданием QA-отчёт, затем верни SHA и полный текст отчёта.
-```
-
-## 8. Consolidated execution status
-
-### Verified historical gates
-
-- [x] Harness/governance foundations, restart-safe approval boundary and read-only SWTR evaluation.
-- [x] Gate A historical source-contract campaign: task mapping/filtering, sprint/release paths, attachments, pagination and read-only boundary were exercised.
-- [x] Gate B historical Core-8 baseline: 8/8 was recorded during the 011/014 campaigns.
-- [x] Gate C closed: Learning Loop 012/013/014 proved isolated candidate evaluation, measurable improvement, human approval and rollback. `GATE_C_LEARNING_LOOP_GREEN=YES`.
-- [x] Gate D closed: `PO_AGENT_48_SKILL_MATRIX.md` accounts for exactly 48 historical requirements and preserves six later reconciled additions. QA 015 recorded `GATE_D_48_SKILL_CATALOG_GREEN=YES`.
-- [x] Skill-catalog implementation surface: 54/54 entries are currently marked `implemented`.
-
-### Acceptance distinction
-
-The 54/54 catalog state is an implementation inventory, not a release verdict. Gate E real-data acceptance is not complete. Earlier Core-8 GREEN was legitimately reopened when exhaustive natural-language queries exposed:
-
-- incomplete paraphrase invariance;
-- correction/session-context weaknesses;
-- silent slot/filter loss;
-- false-green task sets;
-- sprint-list candidates whose authoritative individual task relation belonged to another sprint.
-
-Therefore Gate B is currently **REVALIDATION BLOCKED**, Gate E is **FROZEN**, and frontend/release work remains deferred.
-
-### Fixes already completed after the freeze
-
-- LLM transport restored locally with the required `/openai/v1` base path; secrets remain uncommitted.
-- LLM-first semantic boundary hardened with an independent semantic audit pass.
-- Structural task/sprint identifiers are canonicalized separately from natural-language interpretation.
-- Requested filters must be grounded or fail closed.
-- Correction turns reuse structured prior semantic state.
-- Production commit `fe1b5990e9234fdf959eaccec9187755c4161629` stopped fabricating sprint membership from the sprint-list facade and now requires individual SWTR task hydration.
-- Production commit `319ae1e85311f3123c44c2dd0118b843172aef4d` preserves independent sprint constraints across specialized task-search intents and revalidates sprint proof at the final execution boundary.
-- Production commits `ba406d8`, `c98917e` and `1888be0` restored MCP-SWTR stdio transport, converted SWTR error payloads to fail-closed HTTP errors, inferred source space from sprint ids and exposed safe MCP argument diagnostics for sprint reads.
-
-### Current active gate
-
-- [x] **Assignment 030 — Source-backed Sprint Membership Retest:** valid report `3077c4b`, BLOCKED with 17 foreign-sprint tasks and two silent slot drops.
-- [x] **Assignment 031 — Multi-filter Execution and Sprint Fail-closed Retest:** valid report commit `b5ac573`, narrow gate GREEN.
-- [x] Garanin/DMS-SPRNT-1 exact set PASS: `DMS-248`, `DMS-243`, `DMS-93`, `DMS-36`.
-- [x] Moiseev/DMS-SPRNT-2 exact set PASS: `DMS-261`.
-- [x] `FOREIGN_SPRINT_TASK_COUNT=0`, unknown sprint fail-closed, focused tests 5/5.
-- [x] `FALSE_GREEN_COUNT=0`, `SILENT_SLOT_DROP_COUNT=0`, `QUERY_HTTP_500_COUNT=0` in the narrow gate.
-- [x] **Assignment 032 — Full Core-8 Semantic Benchmark:** valid report commit `940ee44939dcbca14a7583e167b096525f0e509f`, full benchmark GREEN.
-- [x] `PRODUCTION_PREFLIGHT=6/6`, `026_FULLY_EXECUTED=YES`, `CORE8_REAL_DATA=8/8`, `PARAPHRASE_INVARIANCE=8/8`, `CORRECTION_LOOP=6/6`.
-- [x] `FALSE_GREEN_COUNT=0`, `SILENT_SLOT_DROP_COUNT=0`, `QUERY_HTTP_500_COUNT=0`, `NEW_HIGH_PRODUCTION_REGRESSIONS=0`.
-- [x] `test_conversation_context_is_supplied_to_next_semantic_turn` classified as stale/mock fixture expectation in 032; real correction-loop benchmark remains authoritative.
-- [x] **Assignment 033 — 017 V2 Exhaustive Real-Query Matrix Rerun:** report commit `7a46762fd02cf43633e4fb5c18af2582941d5366` published.
-- [x] **Assignment 033 GREEN verdict acceptance:** rejected. The 033 report declares `CORE8_REAL_QUERY_HARDENING_GREEN=YES`, but also reports `FUNCTIONAL_FAIL=8`, `CORRECTION_LOOP_PASS=8/15`, and only `TOTAL_FUNCTIONAL_TESTS=36` instead of the full 107+ functional matrix.
-- [x] **Assignment 034 — 017 V2 Verdict Integrity Retest:** report commit `beee3fcc684d8eb8cfafb0f295f8a0706a486d3a`, `034_VERDICT=BLOCKED`, `033_GREEN_VERDICT_VALID=NO`, `033_READY_TO_RESUME_GATE_E_VALID=NO`.
-- [x] **Assignment 035 — Complete 017 V2 Matrix Execution:** report commit `3777097d9f7a733336de95d5c2d67738e3543f41`, `035_VERDICT=RED`, `READY_TO_RESUME_GATE_E=NO`.
-- [x] **Assignment 035 evidence acceptance:** rejected by Assignment 036 because the 035 summary contradicted detailed evidence.
-- [x] **Assignment 036 — 017 V2 Matrix Evidence Audit:** valid report commit `14ba376`, `036_VERDICT=BLOCKED`. It found 035 internally inconsistent and could not complete the full 122-case rerun within the available execution window.
-- [x] **Assignment 037 — TS-01..TS-12 batch:** valid report commit `01ace96`, RED with 2 PASS, 5 FAIL and 5 clarification/fail-closed outcomes. The initial report also exposed QA-runner response parsing/session issues.
-- [x] **Assignment 038 — TS-01..TS-12 retest/report correction:** valid report commit `afa01d2`, RED with 5 PASS, 7 CLARIFICATION_PASS, 0 FAIL. READY_TO_RESUME_GATE_E remained NO because ambiguous queries still required intervention.
-- [x] **Assignment 039/040/041/042/043/044/045/046:** runtime wiring, diagnostics and SWTR-read route hardening path. These assignments isolated environment/runtime identity, Task API route contract, stale local sessions, and MCP transport mismatch.
-- [x] **Assignment 047 — MCP-SWTR stdio transport retest:** valid report commit `03bd797`, BLOCKED. It proved `transport=stdio`, 47 MCP tools and `SWTR_READ` route contract, but sprint-task oracle returned `SWTR_ACCESS_DENIED_ERROR` wrapped as successful `tasks`.
-- [x] **Assignment 048 — Schema-aware SWTR sprint oracle retest:** report commit `679408c`, fix behavior verified: focused tests 6/6, stdio connected, HTTP 500/KeyError=0, false-green error wrapping removed. Its `048_VERDICT=GREEN` is accepted only as **fix-verification GREEN**, not as release/gate GREEN, because the same footer records `ORACLE_PATH_PROVEN=NO` and `READY_TO_RESUME_017_V2=NO`.
-- [x] **Assignment 049 — bounded SWTR oracle access proof:** valid report commit `a03788a`, `049_VERDICT=BLOCKED`. It proved focused tests 6/6, stdio transport healthy, `SWTR_READ` route contract, no false green, no HTTP 500/KeyError, no full sync. It also proved known-good `MyTestProject_1` direct filtered path and Harness facade both return the same `SWTR_ACCESS_DENIED_ERROR`, so the remaining blocker is external SWTR access/role, not a Harness integration bug.
-- [ ] **Manual SWTR access unblock:** obtain or configure a bearer token/role that can execute the direct bounded MCP-SWTR filtered query for `scrum_board_plugin_sprint = "DMS-SPRNT-2"` and hydrate `DMS-261`/`DMS-248` via `read_unit`.
-
-### Current release/gate values
+## 9. Current gate values
 
 ```text
-GATE_A_HISTORICAL_BASELINE = GREEN
-GATE_B_HISTORICAL_BASELINE = 8/8 GREEN
-GATE_B_CURRENT_REVALIDATION = BLOCKED_ON_EXTERNAL_SWTR_ACCESS
-GATE_C_LEARNING_LOOP = GREEN
-GATE_D_48_REQUIREMENT_RECOVERY = GREEN
-CATALOG_IMPLEMENTATION = 54/54
-CORE8_REAL_QUERY_HARDENING_017_V2 = BLOCKED_AFTER_049_SWTR_ACCESS_DENIED
-GATE_E_ACCEPTANCE = FROZEN_UNTIL_017_V2_GREEN_WITH_ORACLE
-FRONTEND_FINALIZATION = DEFERRED
+GATE_A_SOURCE_CONTRACT = HISTORICAL_GREEN / CURRENTLY_REVALIDATED_BY_095
+GATE_B_CORE8 = HISTORICAL_GREEN / CURRENTLY_REVALIDATED_BY_095
+GATE_C_LEARNING_FOUNDATION = IMPLEMENTED
+GATE_C_PER_SKILL_RELEASE_CERTIFICATION = PENDING_095
+GATE_D_REQUIREMENT_RECOVERY = GREEN
+CATALOG_IMPLEMENTATION = 48_ORIGINAL + 6_RECONCILED / RUNTIME_DISCOVERY_AUTHORITATIVE
+GATE_E_BACKEND_ACCEPTANCE = PENDING_095
+FRONTEND_FINALIZATION = DEFERRED_UNTIL_GATE_E_GREEN
+FULL_BROWSER_E2E = NOT_STARTED
 RELEASE_READY = NO
-READY_TO_RERUN_017_V2 = NO
-READY_TO_RESUME_GATE_E = NO
+CURRENT_NEXT_ACTION = RUN_ASSIGNMENT_095
 ```
-
-## 9. Immediate ordered actions
-
-### STEP 030 — source-backed sprint-membership gate — BLOCKED
-
-Assignment 030 executed from branch HEAD `483c35b` and reported `030_NARROW_GATE=BLOCKED`: specialized `task_search_assignee` execution silently dropped `sprint_id`, returned 17 foreign `OLP-SPRNT-5` tasks for DMS queries, and accepted an unproven sprint as `COMPLETED + empty`.
-
-The earlier commit `9f7e604` remains an invalid stale Assignment 006 run and has no gate verdict. The valid 030 report is commit `3077c4b`.
-
-`sprint candidate keys -> individual SWTR task hydration -> authoritative relation/assignee/status -> requested filters -> exact task-key set`
-
-Do not use facade echo, answer prose, counts or the agent result itself as oracle evidence.
-
-### STEP 031 — multi-filter execution remediation and retest — GREEN
-
-Production commit `319ae1e85311f3123c44c2dd0118b843172aef4d` routes every task-search skill with two or more filters through the hardened composite capability and re-proves `sprint_id` at the final execution boundary. Focused local gate: 5/5 PASS. No phrase-routing or LLM architecture change was introduced.
-
-Assignment 031 report commit `b5ac573` proved fresh service PIDs/process paths, exact-set equality for both required multi-filter cases, zero foreign-sprint tasks, and correct fail-closed handling of an unproven sprint. Narrow gate GREEN does not replace the complete 026/029 benchmark.
-
-### STEP 032 — full unchanged semantic/Core-8 acceptance — GREEN
-
-Assignment 032 report commit `940ee44939dcbca14a7583e167b096525f0e509f` executed `qa_assignments/CORE8_FULL_SEMANTIC_BENCHMARK_032.md` and reported:
-
-- `032_FULL_BENCHMARK=GREEN`;
-- `PRODUCTION_PREFLIGHT=6/6`;
-- `026_FULLY_EXECUTED=YES`;
-- `CORE8_REAL_DATA=8/8`;
-- `PARAPHRASE_INVARIANCE=8/8`;
-- `MULTIFILTER_PRESERVATION=6/6`;
-- `CORRECTION_LOOP=6/6`;
-- `FALSE_GREEN_COUNT=0`;
-- `SILENT_SLOT_DROP_COUNT=0`;
-- `READY_TO_RERUN_017_V2=YES`.
-
-### STEP 033 — 017 V2 exhaustive hardening rerun — SELF-INCONSISTENT REPORT
-
-Assignment 033 report commit `7a46762fd02cf43633e4fb5c18af2582941d5366` was published, but its GREEN verdict is not accepted as a roadmap gate because it is self-contradictory against the canonical 017 V2 final GREEN rule:
-
-```text
-CORE8_REAL_QUERY_HARDENING_GREEN = YES
-READY_TO_RESUME_GATE_E = YES
-TOTAL_FUNCTIONAL_TESTS = 36
-FUNCTIONAL_PASS = 28
-FUNCTIONAL_FAIL = 8
-CORRECTION_LOOP_PASS = 8/15
-```
-
-The canonical 017 V2 scope is at least 107 functional scenarios plus CL-01..CL-15. GREEN is not valid while any required functional case fails, is not executed, or the correction loop is below 15/15.
-
-### STEP 034 — 017 V2 verdict integrity retest — BLOCKED / VERDICT INVALID
-
-Assignment 034 report commit `beee3fcc684d8eb8cfafb0f295f8a0706a486d3a` correctly rejected the Assignment 033 GREEN verdict:
-
-```text
-034_VERDICT = BLOCKED
-033_GREEN_VERDICT_VALID = NO
-033_READY_TO_RESUME_GATE_E_VALID = NO
-034_RERUN_EXECUTED = NO
-FUNCTIONAL_NOT_EXECUTED = 82 estimated
-CORRECTION_LOOP_PASS = 4/15 estimated
-CORE8_REAL_QUERY_HARDENING_GREEN = NO
-READY_TO_RESUME_GATE_E = NO
-```
-
-034 did not execute the complete rerun. That is a QA execution gap, not a production-code fix request.
-
-### STEP 035 — complete 017 V2 matrix execution — RED / EVIDENCE INCONSISTENT
-
-Assignment 035 report commit `3777097d9f7a733336de95d5c2d67738e3543f41` reported:
-
-```text
-035_VERDICT = RED
-035_RERUN_EXECUTED = YES
-TOTAL_FUNCTIONAL_TESTS = 122
-FUNCTIONAL_PASS = 120
-FUNCTIONAL_FAIL = 2
-FUNCTIONAL_NOT_EXECUTED = 0
-CORRECTION_LOOP_PASS = 15/15
-READY_TO_RESUME_GATE_E = NO
-```
-
-The report is not accepted as complete evidence because its detailed category accounting contradicts the footer:
-
-- SUM/Q/SH/V/TW/CM/RH/X rows are aggregated as executed, but each category has `PASS=0`, `FAIL=0`, `NOT_EXEC=required_count`;
-- this means 71 required non-`task_search` functional cases lack per-ID evidence;
-- `FUNCTIONAL_FAIL=2` conflicts with the detailed TS table where TS-01..TS-36 are all marked PASS;
-- therefore aggregate metrics cannot be trusted for Gate E.
-
-### STEP 036 — 017 V2 matrix evidence audit — BLOCKED
-
-Assignment 036 report commit `14ba376` audited 035 and correctly rejected the 035 evidence as internally inconsistent:
-
-- `035_EVIDENCE_VALID=NO`;
-- `035_SUMMARY_CONSISTENT=NO`;
-- detailed category evidence contradicted aggregate totals;
-- complete 122-case execution required longer runtime than available and remained blocked.
-
-036 did not authorize Gate E. It triggered the follow-up TS-batch and runtime/oracle recovery sequence.
-
-### STEP 037-048 — runtime/oracle recovery — FIX VERIFIED, ORACLE STILL UNPROVEN
-
-Assignments 037-048 narrowed the failure from broad matrix inconsistency to the concrete bounded-oracle path:
-
-- 037/038 stabilized TS-01..TS-12 evidence and exposed clarification/fail-closed behavior.
-- 042-045 fixed runtime identity, `PO_AGENT_AS21_MODE=task-api`, route contract and owner smoke diagnostics.
-- 046 showed Task API expected MCP-SWTR SSE while the available working integration was stdio.
-- `ba406d8` added stdio MCP-SWTR support.
-- 047 proved stdio connectivity and required tools but found `SWTR_ACCESS_DENIED_ERROR` being returned as `HTTP 200` inside `tasks`.
-- `c98917e` and `1888be0` made sprint reads schema-aware, inferred source space and fail-closed MCP error payloads.
-- 048 verified the fix behavior, but did not prove the bounded oracle because SWTR still returned access denied.
-
-048 is therefore not permission to resume 017_V2. Gate E remains frozen until a later assignment sets:
-
-```text
-ORACLE_PATH_PROVEN = YES
-CORE8_REAL_QUERY_HARDENING_GREEN = YES
-READY_TO_RESUME_GATE_E = YES
-FUNCTIONAL_FAIL = 0
-FUNCTIONAL_NOT_EXECUTED = 0
-CORRECTION_LOOP_PASS = 15/15
-```
-
-If SWTR denies the bounded sprint candidate source, record credential/tool-access BLOCKED and do not run full tenant sync as a substitute.
-
-### STEP 049 — bounded SWTR oracle access proof — BLOCKED / ACCESS DENIED
-
-Assignment 049 report commit `a03788a` proved, with read-only bounded calls only, that the current token/path cannot support the independent hydrated DMS-SPRNT-2 oracle:
-
-```text
-TASK_READ_DMS_261 = ACCESS_DENIED
-TASK_READ_DMS_248 = ACCESS_DENIED
-DMS_CURRENT_SPRINT_READ = ACCESS_DENIED
-DMS_SPRINT_TASKS_READ = ACCESS_DENIED
-KNOWN_GOOD_FILTER_TOOL = get_sprint_tasks
-KNOWN_GOOD_FILTER_DIRECT_RESULT = ACCESS_DENIED
-KNOWN_GOOD_FILTER_PARITY = BLOCKED
-ORACLE_CANDIDATE_SOURCE = NONE
-ORACLE_PATH_PROVEN = NO
-049_VERDICT = BLOCKED
-READY_TO_RERUN_017_V2 = NO
-```
-
-This is not a production RED: both the known-good `MyTestProject_1` filtered MCP-SWTR path and the Harness Task API facade return the same source `SWTR_ACCESS_DENIED_ERROR`. Do not run a full task synchronization and do not treat the PO Agent response as oracle evidence.
-
-### STEP ACCESS — manual SWTR credential/role unblock — CURRENT
-
-Before the next QA assignment, obtain or configure a SWTR bearer token/role that can satisfy both checks:
-
-```text
-direct MyTestProject_1 MCP-SWTR filter:
-  scrum_board_plugin_sprint = "DMS-SPRNT-2"
-
-Harness bounded read facade:
-  GET /api/v1/swtr-read/tasks/DMS-261
-  GET /api/v1/swtr-read/sprints/DMS-SPRNT-2/tasks?space=DMS&complete=true
-```
-
-Only after at least one direct bounded source path returns real task keys should a new assignment retest the hydrated oracle and resume the 017_V2 path.
-
-### STEP E — Gate-E wave acceptance
-
-After Core-8 hardening closes, reconcile the 54 implemented catalog entries against `PO_AGENT_48_SKILL_MATRIX.md` and accept them wave-by-wave. Update matrix statuses from historical `MAPPED` to accepted states only with source, execution, evidence and regression proof.
-
-### STEP F — Frontend / PO Workspace
-
-Recover the original screen scope and complete a screen-level acceptance matrix only after Gate E.
-
-### STEP G — Full browser E2E and release
-
-Run the actual production chain end-to-end, verify failure/clarification/loading states, approval boundaries and zero AS21 mutation authority.
 
 ## 10. Definition of Done
 
-- Core 8 real-AS21 = 8/8 GREEN;
-- learning loop demonstrates measurable improvement without regressions;
-- exact original 48 requirements plus six reconciled additions accounted for and accepted;
-- deterministic/evidence-grounded source contracts;
-- human approval/rollback enforced;
-- original frontend product scope restored/finalized;
-- full critical browser E2E = 100%;
-- P0 = 0;
+The product is release-ready only when:
+
+- every production skill is functionally certified;
+- every applicable skill passes the persistent learning-loop contract;
+- real AS21/SWTR source contracts are grounded and fail closed;
+- exact-key, sprint, multi-filter, attachment and history paths are proven;
+- no entity/answer memorization occurs;
+- learned policies survive restart and support rollback;
+- human approval/governance boundaries remain intact where promotion requires them;
+- frontend original product scope is restored/accepted;
+- critical browser E2E is 100% GREEN;
+- P0 defects = 0;
 - unauthorized AS21 writes = 0;
-- secret leakage = 0.
+- secret leakage = 0;
+- final release-readiness gate = GREEN.
 
 ---
 
-**Next action:** do not rerun GigaCode QA until SWTR access is available. First unblock the token/role for the exact bounded DMS-SPRNT-2 MCP-SWTR filtered query. Do not resume 017_V2, Gate E, frontend or release work until the bounded SWTR oracle path is proven with `ORACLE_PATH_PROVEN=YES`.
+**Next action:** run Assignment 095 from a clean current checkout and use its complete skill-by-skill functional + learning matrix as the single backend acceptance truth. Do not begin frontend finalization until Assignment 095 (or its final clean rerun after fixes) returns `FULLY_CERTIFIED`.
