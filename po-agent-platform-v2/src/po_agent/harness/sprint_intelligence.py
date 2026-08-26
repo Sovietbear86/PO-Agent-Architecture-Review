@@ -91,13 +91,26 @@ class SprintIntelligenceCapabilities:
     async def predictability(self, args: dict[str, str]) -> CapabilityResult:
         sprint_id, tasks = await self._tasks(args)
         completed = [task for task in tasks if task.is_completed]
-        unit, committed, delivered = self._effort(tasks, completed)
-        percent = round(delivered / committed * 100, 1) if committed else 0.0
+        unit, current_scope, delivered = self._effort(tasks, completed)
+        percent = round(delivered / current_scope * 100, 1) if current_scope else 0.0
         return CapabilityResult(
-            answer=f"Predictability {sprint_id}: {percent}% ({delivered:g}/{committed:g} {unit}).",
-            data={"sprint_id": sprint_id, "predictability_percent": percent, "delivered": delivered, "committed": committed, "unit": unit},
+            answer=(
+                f"Predictability proxy {sprint_id}: {percent}% "
+                f"({delivered:g}/{current_scope:g} {unit} текущего scope). "
+                "Authoritative commitment baseline на начало спринта недоступен."
+            ),
+            data={
+                "sprint_id": sprint_id,
+                "predictability_percent": percent,
+                "delivered": delivered,
+                "current_scope": current_scope,
+                "committed": None,
+                "unit": unit,
+                "metric_semantics": "current_scope_completion_proxy",
+                "commitment_baseline_available": False,
+            },
             evidence=self._task_evidence(sprint_id, tasks, "predictability_input"),
-            warnings=["current_scope_used_as_commitment_baseline"],
+            warnings=["authoritative_commitment_baseline_unavailable", "current_scope_completion_proxy"],
         )
 
     async def risk_queue(self, args: dict[str, str]) -> CapabilityResult:
