@@ -18,6 +18,7 @@ import httpx
 from po_agent.domain.models import Task, get_status_category, normalize_task_status
 
 from .production_task_api import ProductionTaskApiAS21Adapter
+from .qa_fault_injection import apply_qa_fault_if_applicable, consume_qa_fault, is_qa_fault_consumed
 from .task_api import (
     AS21SourceError,
     AS21SourceUnavailable,
@@ -157,7 +158,12 @@ class HardenedProductionTaskApiAS21Adapter(ProductionTaskApiAS21Adapter):
         if task is None:
             raise AS21SourceError(f"raw SWTR task {normalized} cannot be mapped to canonical Task")
         attachments = await self.get_attachment_metadata(normalized)
-        return task.model_copy(update={"attachments": attachments})
+        # Preserve _qa_fault metadata when copying task
+        fault_metadata = task.source_data.get("_qa_fault")
+        new_task = task.model_copy(update={"attachments": attachments})
+        if fault_metadata:
+            new_task.source_data["_qa_fault"] = fault_metadata
+        return new_task
 
     async def sprint_exists(self, sprint_id: str) -> bool:
         normalized = (sprint_id or "").strip()
@@ -181,10 +187,31 @@ class HardenedProductionTaskApiAS21Adapter(ProductionTaskApiAS21Adapter):
         attrs = _attributes(source_data)
         status_value = attrs.get("workflow_status") or unit.get("workflow_status") or ""
         if isinstance(status_value, dict):
-            status_raw = status_value.get("code") or status_value.get("name") or ""
+            # Prefer 'name' for readability, fall back to 'code' if needed
+            status_raw = status_value.get("name") or status_value.get("code") or ""
         else:
             status_raw = str(status_value or "")
-        status = normalize_task_status(status_raw)
+
+        # Store original status before fault injection
+        original_status_raw = status_raw
+        original_status = normalize_task_status(status_raw)
+
+        # Apply QA fault injection if configured
+        injected_status, injected_status_raw, fault_metadata = apply_qa_fault_if_applicable(
+            source_data=source_data,
+            original_status=original_status,
+            original_status_raw=original_status_raw,
+            task_code=code,
+        )
+        # Use injected status for first read, original for recovery
+        if fault_metadata:
+            status_raw = injected_status_raw
+            status = injected_status
+            # Mark fault as consumed so recovery will use real status
+            consume_qa_fault(code)
+        else:
+            status = original_status
+        
         display, external_id, login = _user_identity(attrs.get("assigned_to"))
         title = unit.get("summary") or unit.get("title")
         if not isinstance(title, str) or not title.strip():
@@ -193,7 +220,8 @@ class HardenedProductionTaskApiAS21Adapter(ProductionTaskApiAS21Adapter):
         updated = _parse_datetime(unit.get("updatedAt")) or created
         grounded_sprint = sprint_id or _identifier(attrs.get("scrum_board_plugin_sprint"))
         release_id = _identifier(attrs.get("fix_version_s"))
-        return Task(
+        
+        task = Task(
             key=code, id=code, title=title,
             description=unit.get("description") if isinstance(unit.get("description"), str) else None,
             status=status, status_raw=status_raw or None, status_category=get_status_category(status),
@@ -201,6 +229,12 @@ class HardenedProductionTaskApiAS21Adapter(ProductionTaskApiAS21Adapter):
             assignee_login=login, project_space=source_data["swtr_space"], sprint_id=grounded_sprint,
             release_id=release_id, source="swtr", source_data=source_data,
         )
+
+        # Attach fault metadata to source_data if injected
+        if fault_metadata:
+            task.source_data["_qa_fault"] = fault_metadata
+
+        return task
 
     async def _hydrate_relation(self, task: Task) -> Task:
         unit = await self._read_raw_unit(task.key)

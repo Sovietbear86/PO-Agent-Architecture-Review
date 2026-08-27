@@ -22,6 +22,7 @@ from po_agent.domain.models import (
     get_status_category,
     normalize_task_status,
 )
+from .qa_fault_injection import apply_qa_fault_if_applicable, consume_qa_fault, is_qa_fault_consumed
 from .as21 import AS21Adapter
 
 
@@ -229,7 +230,28 @@ class TaskApiAS21Adapter(AS21Adapter):
         source_data = data.get("source_data") if isinstance(data.get("source_data"), dict) else {}
         attrs = _attributes(source_data)
         status_raw = source_data.get("workflow_status") or data.get("status") or ""
-        status = normalize_task_status(str(status_raw))
+        
+        # Store original status before fault injection
+        original_status_raw = status_raw
+        original_status = normalize_task_status(str(status_raw))
+        
+        # Apply QA fault injection if configured
+        injected_status, injected_status_raw, fault_metadata = apply_qa_fault_if_applicable(
+            source_data=source_data,
+            original_status=original_status,
+            original_status_raw=original_status_raw,
+            task_code=source_id,
+        )
+        
+        # Use injected status for first read, original for recovery
+        if fault_metadata:
+            status_raw = injected_status_raw
+            status = injected_status
+            # Mark fault as consumed so recovery will use real status
+            consume_qa_fault(source_id)
+        else:
+            status = original_status
+        
         display, external_id, login = _user_identity(attrs.get("assigned_to"))
         assignee = data.get("assignee") if isinstance(data.get("assignee"), str) else display
         title = data.get("title")
@@ -240,7 +262,8 @@ class TaskApiAS21Adapter(AS21Adapter):
         project_space = source_data.get("swtr_space") if isinstance(source_data.get("swtr_space"), str) else None
         sprint_id = _identifier(data.get("sprint")) or _identifier(attrs.get("scrum_board_plugin_sprint"))
         release_id = _identifier(attrs.get("fix_version_s"))
-        return Task(
+        
+        task = Task(
             key=source_id,
             id=source_id,
             title=title,
@@ -261,6 +284,12 @@ class TaskApiAS21Adapter(AS21Adapter):
             source_url=data.get("source_url"),
             source_data=source_data,
         )
+        
+        # Attach fault metadata to source_data if injected
+        if fault_metadata:
+            task.source_data["_qa_fault"] = fault_metadata
+        
+        return task
 
     async def _fetch_tasks(self, *, limit: int, offset: int = 0, source: str | None = None) -> list[Task]:
         params: dict[str, Any] = {"limit": limit, "offset": offset}

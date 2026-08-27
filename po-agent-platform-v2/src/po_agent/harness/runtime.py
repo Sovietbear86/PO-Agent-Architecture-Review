@@ -66,7 +66,7 @@ class SkillRegistry:
 class PortfolioCapabilities:
     def __init__(self,adapter): self.a=adapter
     @staticmethod
-    def task(t:Task): return {"key":t.key,"id":t.id,"title":t.title,"description":t.description,"status":t.status.value,"status_category":t.status_category.value,"assignee":t.assignee,"priority":t.priority.value if t.priority else None,"sprint_id":t.sprint_id,"release_id":t.release_id,"source":t.source}
+    def task(t:Task): return {"key":t.key,"id":t.id,"title":t.title,"description":t.description,"status":t.status.value,"status_category":t.status_category.value,"assignee":t.assignee,"priority":t.priority.value if t.priority else None,"sprint_id":t.sprint_id,"release_id":t.release_id,"source":t.source,"source_data":t.source_data}
     @classmethod
     def task_list_result(cls,*,answer,tasks,filters,evidence_type="task"): return CapabilityResult(answer=answer,data={"count":len(tasks),"filters":filters,"tasks":[cls.task(t) for t in tasks]},evidence=[Evidence(type=evidence_type,source="as21",entity_id=t.key,label=t.title,value=t.status.value) for t in tasks])
     async def task_lookup(self,args):
