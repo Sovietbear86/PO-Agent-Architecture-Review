@@ -71,6 +71,37 @@ class SemanticCorrectionRuntimeV2:
             )
         ):
             return True
+
+        # A task can be returned successfully while its semantic state is
+        # explicitly Unknown (for example when a source field is missing or a QA
+        # fault injects an invalid status).  That is still a negative/uncertain
+        # result for the bounded ``authoritative_recheck_on_negative`` policy.
+        # Inspect structured response data rather than treating arbitrary prose
+        # containing the word "unknown" as negative.  A recheck is single-shot:
+        # ``_apply_learned_policy`` calls the inner runtime directly, so a truly
+        # authoritative Unknown cannot recurse indefinitely.
+        unknown_markers = {"unknown", "неизвестно", "неизвестен", "неизвестный"}
+
+        def has_explicit_unknown(value: Any) -> bool:
+            if isinstance(value, dict):
+                for key, nested in value.items():
+                    normalized_key = str(key).casefold()
+                    if normalized_key in {"status", "status_raw", "workflow_status", "status_category"}:
+                        if isinstance(nested, str) and nested.strip().casefold() in unknown_markers:
+                            return True
+                    if normalized_key == "_qa_fault" and isinstance(nested, dict):
+                        injected = nested.get("qa_fault_injected_status")
+                        if isinstance(injected, str) and injected.strip().casefold() in unknown_markers:
+                            return True
+                    if has_explicit_unknown(nested):
+                        return True
+            elif isinstance(value, list):
+                return any(has_explicit_unknown(item) for item in value)
+            return False
+
+        if has_explicit_unknown(response.data):
+            return True
+
         answer = (response.answer or "").casefold()
         return any(marker in answer for marker in ("не найден", "нет данных", "недоступ", "не удалось найти"))
 
