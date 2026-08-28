@@ -38,8 +38,13 @@ _consumed_faults: set[str] = set()
 
 
 def is_qa_fault_injection_enabled() -> bool:
-    """Check if QA fault injection is enabled via environment variable."""
-    return os.getenv("PO_AGENT_QA_FAULT_INJECTION", "").strip() == "1"
+    """Check whether QA fault injection is enabled in resolved QA config.
+
+    Use the same configuration path as fault application so environment and
+    .env fallback semantics cannot diverge. The resolved config remains
+    disabled by default.
+    """
+    return bool(get_qa_fault_config()["enabled"])
 
 
 def get_qa_fault_config() -> dict[str, str | None]:
