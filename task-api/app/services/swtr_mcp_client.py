@@ -8,6 +8,7 @@ read-only.
 from __future__ import annotations
 
 import os
+from pathlib import Path
 import shlex
 from typing import Any, Iterable
 
@@ -26,6 +27,9 @@ class SWTRMCPClient:
     The transport is configuration, not a repository-specific filesystem path.
     MCP server credentials are passed only through the child process environment
     for stdio mode and are never exposed by the Task API response payloads.
+
+    Local development historically uses the repository MCP-SWTR wrapper over
+    stdio.  SSE remains available through explicit SWTR_MCP_TRANSPORT=sse.
     """
 
     def __init__(
@@ -34,13 +38,20 @@ class SWTRMCPClient:
         *,
         transport: str | None = None,
     ) -> None:
-        self.transport = (transport or os.getenv("SWTR_MCP_TRANSPORT", "sse")).strip().lower()
+        self.transport = (transport or os.getenv("SWTR_MCP_TRANSPORT", "stdio")).strip().lower()
         self.sse_url = sse_url or os.getenv(
             "SWTR_MCP_SSE_URL", "http://127.0.0.1:3000/sse"
         )
-        self.stdio_command = os.getenv("SWTR_MCP_STDIO_COMMAND", "python3")
+        self.stdio_command = os.getenv("SWTR_MCP_STDIO_COMMAND") or self._default_stdio_command()
         self.stdio_args = self._stdio_args()
         self.stdio_cwd = os.getenv("SWTR_MCP_STDIO_CWD") or None
+
+    @staticmethod
+    def _default_stdio_command() -> str:
+        """Return the repository wrapper path without embedding workstation paths."""
+        repo_root = Path(__file__).resolve().parents[3]
+        wrapper = repo_root / "mcp-swtr-wrapper.sh"
+        return str(wrapper)
 
     def transport_kind(self) -> str:
         if self.transport in {"stdio", "sse"}:
@@ -75,10 +86,10 @@ class SWTRMCPClient:
         return self.sse_url
 
     def _build_transport(self) -> Any:
-        if self.transport == "stdio" and (not self.stdio_command or not self.stdio_args):
+        if self.transport == "stdio" and not self.stdio_command:
             raise SWTRMCPUnavailable(
-                "MCP-SWTR stdio transport requires SWTR_MCP_STDIO_COMMAND "
-                "and SWTR_MCP_STDIO_ARGS or SWTR_MCP_STDIO_SCRIPT"
+                "MCP-SWTR stdio transport requires a command; configure "
+                "SWTR_MCP_STDIO_COMMAND or keep the repository wrapper available"
             )
 
         try:
