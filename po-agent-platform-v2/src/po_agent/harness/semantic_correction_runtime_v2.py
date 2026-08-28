@@ -210,9 +210,18 @@ class SemanticCorrectionRuntimeV2:
         if not callable(classifier):
             return DialogueAct("new")
         try:
-            return await classifier(current, previous_query)
+            act = await classifier(current, previous_query)
         except Exception:
             return DialogueAct("new")
+        # Contract hardening: the classifier contract defines `correction` as a
+        # semantic replacement/change and `recheck` as a generic challenge.  Some
+        # LLM backends have nevertheless emitted `specific_correction: null`, which
+        # is parsed as False and silently bypasses the correction/learning path.
+        # Once the act itself is `correction`, treat it as specific; a non-specific
+        # challenge must be classified as `recheck` and therefore remains safe.
+        if act.act == "correction" and not act.specific_correction:
+            return DialogueAct("correction", True, act.clarification_question)
+        return act
 
     @staticmethod
     def _replay_clarification(previous: _PreviousTurn, session: str) -> HarnessResponse:
