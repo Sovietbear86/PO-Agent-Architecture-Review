@@ -109,6 +109,7 @@ def normalize_task_status(raw_status:str)->TaskStatus:
     status_map={
         "open":TaskStatus.OPEN,"открыта":TaskStatus.OPEN,
         "todo":TaskStatus.OPEN,"backlog":TaskStatus.OPEN,
+        "registered":TaskStatus.OPEN,"зарегистрирован":TaskStatus.OPEN,"зарегистрирована":TaskStatus.OPEN,
         "need info":TaskStatus.NEED_INFO,"требуется информация":TaskStatus.NEED_INFO,
         "in progress":TaskStatus.IN_PROGRESS,"in_progress":TaskStatus.IN_PROGRESS,"в работе":TaskStatus.IN_PROGRESS,
         "ready for review":TaskStatus.READY_FOR_REVIEW,"готово к ревью":TaskStatus.READY_FOR_REVIEW,
