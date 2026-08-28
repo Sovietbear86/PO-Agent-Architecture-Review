@@ -72,8 +72,29 @@ def _identifier(value):
     return None
 
 
+def _source_workflow_status(source_data: dict) -> str | None:
+    """Return the authoritative raw SWTR workflow status when present."""
+    for key in ('workflow_status', 'workflow_status_name'):
+        value = source_data.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+
+    for attr in source_data.get('swtr_attributes', []):
+        if not isinstance(attr, dict) or attr.get('code') != 'workflow_status':
+            continue
+        value = attr.get('value')
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+        if isinstance(value, dict):
+            for key in ('name', 'value', 'code'):
+                candidate = value.get(key)
+                if isinstance(candidate, str) and candidate.strip():
+                    return candidate.strip()
+    return None
+
+
 def task_to_response(task) -> TaskResponse:
-    """Convert Task model while preserving proven AS21 space/sprint facts."""
+    """Convert Task model while preserving proven AS21 space/sprint/status facts."""
     deadline = task.deadline
     source_data = task.source_data or {}
     if not deadline:
@@ -90,6 +111,13 @@ def task_to_response(task) -> TaskResponse:
                 if sprint_id:
                     break
 
+    # For SWTR-backed tasks the source workflow status is authoritative.  The
+    # local task.status field can be absent/stale for statuses that are not in
+    # the legacy three-state Task API enum, so expose the raw source value when
+    # it is available instead of silently returning None/a stale local status.
+    raw_workflow_status = _source_workflow_status(source_data) if task.source == 'swtr' else None
+    response_status = raw_workflow_status or task.status
+
     return TaskResponse(
         id=str(task.id),
         title=task.title,
@@ -97,7 +125,7 @@ def task_to_response(task) -> TaskResponse:
         assignee=task.assignee,
         deadline=deadline,
         source_url=task.source_url,
-        status=task.status,
+        status=response_status,
         created_at=task.created_at,
         updated_at=task.updated_at,
         source=task.source,
