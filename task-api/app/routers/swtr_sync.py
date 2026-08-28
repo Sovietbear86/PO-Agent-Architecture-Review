@@ -1,8 +1,15 @@
 """SWTR sync router for importing tasks from SberWorks Task Tracker."""
+import json
 from typing import List, Optional, Dict, Any
 from fastapi import APIRouter, HTTPException, status, Query
 from pydantic import BaseModel
 
+from app.repositories.task_repository import TaskRepository
+from app.services.swtr_mcp_client import (
+    SWTRMCPClient,
+    SWTRMCPProtocolError,
+    SWTRMCPUnavailable,
+)
 from app.services.swtr_sync_service import SWTRSyncService
 
 router = APIRouter(prefix="/api/v1/swtr", tags=["swtr-sync"])
@@ -43,6 +50,28 @@ class SyncMyResponse(BaseModel):
     imported: int
     tasks: List[Dict[str, Any]]
     space: str
+
+
+def _parse_read_unit_content(content: List[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    """Normalize a read_unit MCP response without the legacy subprocess bridge."""
+    for item in content:
+        if not isinstance(item, dict) or item.get("type") != "text":
+            continue
+        text = item.get("text")
+        if not isinstance(text, str):
+            continue
+        try:
+            payload = json.loads(text)
+        except json.JSONDecodeError:
+            continue
+        if not isinstance(payload, dict):
+            continue
+        # Some MCP-SWTR versions wrap the unit, others return it directly.
+        unit = payload.get("unit")
+        if isinstance(unit, dict):
+            return unit
+        return payload
+    return None
 
 
 @router.get("/health")
@@ -111,12 +140,34 @@ async def sync_my_swtr_tasks_get(space: str = Query("WMB", description="SWTR spa
 
 @router.get("/tasks/{task_code}")
 async def sync_single_task(task_code: str):
-    """Sync a single task from SWTR by its code."""
-    service = SWTRSyncService()
-    task = service.sync_single_task(task_code)
+    """Read one real SWTR task through the unified MCP client and persist it.
 
-    if task is None:
+    The historical SWTRSyncService._run_mcp_command() bridge hand-crafted MCP
+    JSON-RPC and could drift from the live server protocol.  The rich-read
+    facade already uses SWTRMCPClient/FastMCP successfully, so bounded single
+    task synchronization must use the same transport and configuration.
+    """
+    normalized = task_code.upper().strip()
+    client = SWTRMCPClient()
+    try:
+        content = await client.call_tool("read_unit", {"code": normalized})
+    except (SWTRMCPUnavailable, SWTRMCPProtocolError) as exc:
+        return SingleSyncResponse(task=None, error=str(exc))
+
+    swtr_data = _parse_read_unit_content(content)
+    if not swtr_data:
         return SingleSyncResponse(task=None, error="Task not found or sync failed")
+
+    service = SWTRSyncService()
+    task = service._convert_swtr_to_task(swtr_data)
+
+    # Preserve the local identity when refreshing a task that was synced before.
+    repository = TaskRepository()
+    existing = repository.find_by_source_id(normalized)
+    if existing is not None:
+        task.id = existing.id
+        task.created_at = existing.created_at
+    repository.save(task)
 
     return SingleSyncResponse(task=task.to_dict(), error=None)
 
