@@ -22,7 +22,7 @@ from typing import Any
 from po_agent.llm.client import LLMMessage
 
 from .dialogue_runtime import SemanticFrame
-from .semantic_core_v2 import LLMFirstSemanticInterpreter
+from .semantic_core_v2 import _SPRINT_ID_FULL, _TASK_KEY_FULL, LLMFirstSemanticInterpreter
 
 
 class RecoveringLLMFirstSemanticInterpreter(LLMFirstSemanticInterpreter):
@@ -108,12 +108,16 @@ Rules:
                 # Stop a status span before common following filter markers.
                 value = re.split(r"\s+(?:в|по|на|для|из)\s+", value, maxsplit=1, flags=re.I)[0].strip()
                 if value:
+                    # Map common status words to status_semantic for proper grounding
+                    status_folded = value.casefold()
+                    if status_folded in {"todo", "незавершенн", "открыт", "актуальн"}:
+                        recovered["status_semantic"] = "open"
                     recovered["status_raw"] = value
 
         product_match = cls._PRODUCT_SURFACE_RE.search(query)
         if product_match:
             value = cls._literal_surface_value(query, product_match.group("value"))
-            if value and not cls._SPRINT_ID_FULL.fullmatch(value) and not cls._TASK_KEY_FULL.fullmatch(value):
+            if value and not _SPRINT_ID_FULL.fullmatch(value) and not _TASK_KEY_FULL.fullmatch(value):
                 recovered["product"] = value
 
         person_match = cls._PERSON_AFTER_TASK_RE.search(query) or cls._PERSON_MARKER_RE.search(query)
@@ -134,7 +138,13 @@ Rules:
         context: dict[str, Any] | None,
         frame: SemanticFrame,
     ) -> SemanticFrame:
-        if frame.intent_hint != "task_search" or frame.slots:
+        if frame.intent_hint != "task_search":
+            return frame
+        # Run recovery if key semantic slots are missing (even if structural IDs exist)
+        missing_semantic_slots = not all(
+            k in frame.slots for k in ("person_raw", "product", "status_raw")
+        )
+        if not missing_semantic_slots:
             return frame
 
         payload = {
