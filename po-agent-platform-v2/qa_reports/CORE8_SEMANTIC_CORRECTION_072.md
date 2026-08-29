@@ -271,8 +271,8 @@ po-agent-platform-v2/src/po_agent/harness/semantic_slot_recovery.py | +24/-1
 
 ## Git Commit SHA
 
-**HEAD before fix:** `b4646a4`  
-**HEAD after fix:** (to be committed)
+**HEAD before fix:** `b4646a4`
+**HEAD after fix:** `c3768e77065ef87c4f6c6b3a5e0287873771cee2`
 
 ---
 
