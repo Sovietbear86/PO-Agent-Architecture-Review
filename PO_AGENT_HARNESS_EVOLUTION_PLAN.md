@@ -2,18 +2,19 @@
 
 **Status:** ACTIVE / consolidated source of truth  
 **Current branch:** `feat/core8-real-query-hardening-v2`  
-**Last reviewed:** 2026-08-27  
-**Current active gate:** Assignment 095 — total real-agent regression + per-skill learning-loop certification  
+**Last reviewed:** 2026-08-29  
+**Current active gate:** Assignment 072 — production semantic-correction boundary localization; owner fix follows only after QA evidence  
+**Next major certification gate:** Assignment 095 — total real-agent regression + per-skill learning-loop certification  
 **Purpose:** preserve the original PO Agent behavior while evolving it into a source-grounded, self-improving Harness with controlled persistent learning.
 
-> This document is the execution roadmap. Historical QA reports remain evidence, but the current runtime and current regression results outrank historical GREEN. GigaCode remains QA-only unless the owner explicitly changes that rule.
+> This document is the execution roadmap. Historical QA reports remain evidence, but the current runtime and current regression results outrank historical GREEN. GigaCode is QA-only. Production code changes are owned by ChatGPT/OpenAI side after a defect boundary is proven.
 
 ## 0. Non-negotiable principles
 
 1. Preserve the product behavior of the original PO Agent.
 2. The complete production skill catalog must be discovered from the running registry; do not rely on a manually remembered skill count. Historical target remains 48 original requirements plus 6 reconciled additions.
 3. AS21/SWTR business facts must be validated against real read-only source data. Fixtures are allowed only for controlled fault injection, never as acceptance evidence for source facts.
-4. GigaCode is tester/adversarial reviewer. Production code changes are made on the ChatGPT/OpenAI side.
+4. GigaCode is tester/adversarial reviewer only. It must not modify production code, prompts, fixtures or learning implementation. Production fixes are made on the ChatGPT/OpenAI side after QA evidence identifies the first failing boundary.
 5. Deterministic retrieval, filtering and calculation stay in code. LLM interprets, clarifies and synthesizes; it must not invent AS21 facts or deterministic metrics.
 6. A successful HTTP response is not proof of semantic correctness. Requested filters must survive semantic interpretation, grounding, capability arguments and final source validation.
 7. Exact task-key-set equality against an independent authoritative oracle outranks answer prose and count-only checks.
@@ -25,8 +26,9 @@
 13. A user correction never overrides contradictory authoritative SWTR evidence.
 14. Runtime learning must not rewrite Python, prompts, Skill Catalog definitions or AS21 source data.
 15. Any regression in an already-green skill blocks backend certification.
-16. Frontend finalization and full browser E2E happen only after backend functional + learning certification is GREEN.
-17. No AS21 write authority is permitted during acceptance.
+16. Any semantic-correction fix must preserve the complete learning loop. A fix that makes correction output correct but breaks authoritative recheck, policy promotion, persistence, generalization, restart survival or rollback is RED.
+17. Frontend finalization and full browser E2E happen only after backend functional + learning certification is GREEN.
+18. No AS21 write authority is permitted during acceptance.
 
 ## 1. Current target evolution
 
@@ -43,7 +45,10 @@ Exact-key / sprint / multi-filter / history hardening
 Persistent controlled Learning Loop
         |
         v
-TOTAL REGRESSION OF EVERY PRODUCTION SKILL
+CURRENT: semantic correction-state hardening (Assignment 072)
+        |
+        v
+TOTAL REGRESSION OF EVERY PRODUCTION SKILL (Assignment 095)
 (functional + real source + evidence + NL variants)
         |
         v
@@ -71,7 +76,7 @@ Required source capabilities include task point read, task search, task relation
 
 The critical rule is authoritative hydration: facade/list endpoints may provide candidate keys, but task facts used for acceptance must come from the real authoritative unit/read path where available.
 
-**Status:** historically GREEN, but individual source facts may be reopened by current regression. Exact-key direct lookup and history are explicitly rechecked in Assignment 095.
+**Status:** historically GREEN. Real AS21 remains mandatory evidence for current correction/regression work and will be revalidated comprehensively by Assignment 095.
 
 ### GATE B — Core-8 and semantic/source boundary
 
@@ -86,11 +91,13 @@ Canonical eight domain skills remain:
 7. `competency_match`
 8. `release_health`
 
-Historical Core-8 GREEN is preserved as a baseline only. Current acceptance comes from total regression, not from historical runs.
+Historical Core-8 GREEN is preserved as a baseline only. Assignment 071 proved semantic recovery defects A1/A2 and exposed a production correction-state corruption: correction can corrupt `member_login` and fail to replace stale `status_raw`. This reopens the affected semantic/correction boundary without invalidating unrelated historical GREEN.
+
+**Current status:** LOCALLY REOPENED by Assignment 072 until the first failing correction boundary is proven, minimally fixed by the owner, and post-fix regression is GREEN.
 
 ### GATE C — Controlled persistent Learning Loop
 
-The learning design now has two layers:
+The learning design has two layers:
 
 **Governance layer:** candidate/evaluation/promotion lifecycle with technical gates, human approval and rollback.
 
@@ -109,7 +116,21 @@ authoritative_recheck_on_negative
 
 Forbidden learned artifacts include concrete truths such as `DMS-271 exists`, stored answers, sprint membership facts, assignee facts or arbitrary prompt/code mutations.
 
-**New exit criterion:** Gate C is no longer considered fully release-certified from two representative skills only. Before release, every callable production skill must pass the applicable per-skill learning contract or explicitly prove that the learning behavior is safely non-applicable under the production policy. Assignment 095 is the certification gate.
+**Protected regression rule for Assignment 072:** correction hardening must not disable or bypass the learning loop. After the owner fix, certification must explicitly prove:
+
+```text
+negative correction
+ -> fresh authoritative recheck
+ -> valid generalized policy candidate/promotion path
+ -> persistent learned policy
+ -> reuse on a different query/entity where applicable
+ -> cold restart survival
+ -> rollback
+```
+
+If correction state is fixed but this chain regresses, Assignment 072 remains RED and Gate C is reopened.
+
+**Release exit criterion:** every callable production skill must pass the applicable per-skill learning contract or explicitly prove that learning is safely non-applicable under production policy. Assignment 095 remains the comprehensive certification gate after 072 closes.
 
 ### GATE D — Historical requirement recovery
 
@@ -119,7 +140,7 @@ Forbidden learned artifacts include concrete truths such as `DMS-271 exists`, st
 
 ### GATE E — Complete backend skill acceptance
 
-Gate E is no longer accepted wave-by-wave only on implementation presence. The final backend acceptance rule is:
+Final backend acceptance remains:
 
 ```text
 EVERY DISCOVERED PRODUCTION SKILL
@@ -132,7 +153,7 @@ EVERY DISCOVERED PRODUCTION SKILL
 + rollback
 ```
 
-Assignment 095 is the first total certification run against this rule.
+Assignment 095 is the next total certification run after Assignment 072 correction hardening is closed.
 
 **Exit criterion:** `FULLY_CERTIFIED` with zero functional RED and zero learning RED across the complete runtime skill catalog.
 
@@ -179,9 +200,11 @@ Required safety properties:
 - no persistence of contradictory facts;
 - malformed policy store fails safely;
 - repeated identical correction does not create unbounded duplicate active policies;
-- rollback removes the policy from active resolution.
+- rollback removes the policy from active resolution;
+- internal semantic rechecks must not accidentally corrupt conversation state;
+- preventing correction-state contamination must not suppress the authoritative learning evidence path.
 
-## 4. Current production milestones
+## 4. Current production milestones and active regression
 
 Verified important production changes in the current hardening line include:
 
@@ -191,15 +214,34 @@ Verified important production changes in the current hardening line include:
 - correction-aware fresh source recheck;
 - controlled lifecycle for improvement candidates/evaluation/promotion/rollback;
 - persistent versioned learned policy store;
-- correction runtime integration that can apply a generalized learned behavior in future requests.
+- correction runtime integration that can apply a generalized learned behavior in future requests;
+- Assignment 071 semantic slot recovery fixes A1/A2 retained unless a regression is proven.
 
-Historical assignments 030-049 remain diagnostic evidence for the sprint/oracle recovery path. Subsequent hardening supersedes the old roadmap state that was blocked on manual SWTR access. The active gate is now the complete Assignment 095 regression.
+### Active regression — Assignment 072
 
-## 5. Assignment 095 — active total certification gate
+Known production symptom from Assignment 071:
 
-Assignment 095 must dynamically enumerate every production skill from the running registry and produce one certification row per skill.
+```text
+initial:    Покажи задачи Гаранина в DMS со статусом todo
+correction: Покажи задачи Гаранина в DMS со статусом in progress
+```
 
-It includes:
+Observed corruption included:
+
+- `member_login` becoming the full correction query instead of the authoritative member login;
+- `status_raw` remaining `todo` instead of being replaced by `in progress`.
+
+Current QA task is boundary localization only. GigaCode must reproduce the defect and trace semantic state through interpretation, cached previous frame, dialogue classification, correction processing, grounding and pre-execution slots. It must identify `FIRST_FAILING_BOUNDARY` separately for identity and status.
+
+GigaCode must not repair production code. After evidence is available, the owner makes the narrowest justified production fix. The post-fix test must include both correction-state regression and the protected learning-loop contract.
+
+Historical assignments 030-049 remain diagnostic evidence for the sprint/oracle recovery path. Historical GREEN remains useful but does not override current production counterexamples.
+
+## 5. Assignment 095 — next major total certification gate
+
+Assignment 095 starts only after Assignment 072 closes GREEN.
+
+It must dynamically enumerate every production skill from the running registry and produce one certification row per skill. It includes:
 
 - clean runtime provenance and REAL AS21 mode;
 - total functional black-box regression;
@@ -226,12 +268,16 @@ BLOCKED_BY_ENVIRONMENT
 
 ## 6. Ordered next steps and estimated duration
 
-Durations below are engineering elapsed-time estimates, not guarantees. REAL SWTR latency and the number of regressions found by 095 are the largest uncertainty.
+Durations are engineering elapsed-time estimates, not guarantees. REAL SWTR latency and regressions found by the total gate remain the largest uncertainty.
 
 | Step | Work | Expected duration | Exit |
 |---|---|---:|---|
+| 072A | QA-only correction reproduction ×3 + A-I boundary trace | **30–60 min** | Proven `FIRST_FAILING_BOUNDARY`; no production changes |
+| 072B | Owner diagnosis + minimal production correction fix | **20–45 min** | Narrow diff tied to proven boundary |
+| 072C | QA post-fix correction trace ×3 + focused regression matrix + second member + REAL AS21 proof | **30–60 min** | Correction-state invariants GREEN |
+| 072D | Protected Learning Loop certification after correction fix | **30–60 min** | Recheck/promotion/persistence/generalization/restart/rollback GREEN |
 | 095 | Total real-agent regression + per-skill learning certification | **1.5–3 h** | Full report with complete skill matrix |
-| 096A | If 095 RED: diagnose the narrowest broken boundary, no broad refactor | **0.5–1.5 h per defect cluster** | Reproducible root cause + focused fix |
+| 096A | If 095 RED: diagnose narrowest broken boundary, no broad refactor | **0.5–1.5 h per defect cluster** | Reproducible root cause + focused owner fix |
 | 096B | Focused post-fix certification for affected skill/source boundary | **20–45 min per cluster** | Affected RED becomes GREEN without protected regressions |
 | 097 | Final clean rerun of total 095-equivalent gate after all fixes | **1.5–3 h** | `FULLY_CERTIFIED` |
 | 098 | Freeze backend certification artifacts, catalog/version matrix and release baseline | **30–60 min** | Backend/Gate E formally closed |
@@ -241,60 +287,56 @@ Durations below are engineering elapsed-time estimates, not guarantees. REAL SWT
 | 102 | Release hardening: security/read-only checks, secrets, packaging, clean install/restart smoke | **2–4 h** | Release candidate |
 | 103 | Final release-readiness certification | **1–2 h** | `RELEASE_READY=YES` |
 
-### Best-case path
+### Best-case path from current state
 
-If Assignment 095 is immediately `FULLY_CERTIFIED`, backend work is essentially complete. Remaining work is approximately:
+If 072 is a narrow correction-state defect and the owner fix preserves the learning loop, then 095 is immediately `FULLY_CERTIFIED`:
 
 ```text
-backend freeze          0.5–1 h
-frontend audit          2–4 h
-frontend fixes          0.5–2 working days, only if needed
-full browser E2E        3–6 h
-release hardening       2–4 h
-final certification     1–2 h
+072 closure             ~1.5–3 h
+095 total certification  1.5–3 h
+097/098 final rerun+freeze 2–4 h
+frontend audit           2–4 h
+frontend fixes           0.5–2 working days, only if needed
+full browser E2E         3–6 h
+release hardening        2–4 h
+final certification      1–2 h
 ```
 
-Without meaningful frontend defects, the project can reach release-candidate quality in roughly **1 working day after 095**. With moderate frontend remediation, plan on **2–3 working days**.
+Without meaningful frontend defects, release-candidate quality remains plausible in roughly **1–2 working days after backend certification**. With moderate frontend remediation, plan on **2–3 working days**. If systemic learning/source failures are found, reserve additional time rather than weakening acceptance.
 
-### Expected path if 095 finds backend regressions
+### Expected defect loop
 
-Do not restart the whole architecture campaign. Use this loop:
+Do not restart the architecture campaign. Use:
 
 ```text
-095 RED
- -> classify each RED by narrow boundary
- -> fix one boundary
- -> focused certification
- -> protected regression
+QA proves first failing boundary
+ -> owner fixes one boundary
+ -> focused QA certification
+ -> protected functional + learning regression
  -> repeat until zero RED
  -> one final total clean rerun
 ```
 
-For one or two narrow backend defect clusters, add approximately **2–5 hours** before frontend work. If 095 exposes systemic learning-loop or source-contract failures across many skills, reserve **1–2 additional working days** before Gate E can close.
+## 7. Decision rules
 
-## 7. Decision rules after Assignment 095
+### During Assignment 072
 
-### If `FULLY_CERTIFIED`
+1. GigaCode does not fix production code.
+2. New defects are traced to the first failing boundary before any owner change.
+3. Do not patch formatter/output to hide semantic corruption.
+4. Do not hardcode member identities, task IDs, sprint IDs, query strings or unsupported status semantics.
+5. Do not replace REAL AS21 evidence with fake/mock/frozen data.
+6. Owner fix must be minimal and directly justified by trace evidence.
+7. Post-fix certification must explicitly prove the Learning Loop remains intact.
+8. Do not start Assignment 095 until 072 is GREEN.
 
-1. Do not keep polishing backend behavior without evidence.
-2. Freeze backend skill/runtime versions and QA evidence.
-3. Close Gate E.
-4. Move directly to frontend screen audit and then browser E2E.
+### After Assignment 095
 
-### If `REGRESSION_DETECTED`
+If `FULLY_CERTIFIED`: freeze backend evidence, close Gate E and move to frontend audit.
 
-1. GigaCode does not fix anything.
-2. Read the complete skill matrix and group REDs by shared boundary.
-3. Prefer one root-cause fix over per-skill patches.
-4. Run a focused retest after each boundary fix.
-5. After all focused gates are GREEN, rerun the complete total certification once from a clean process/state.
+If `REGRESSION_DETECTED`: group REDs by shared boundary, owner fixes one boundary at a time, focused QA follows each fix, then rerun the complete total gate once.
 
-### If `BLOCKED_BY_ENVIRONMENT`
-
-1. Separate source/environment failure from product failure.
-2. Prove the failing external dependency independently where possible.
-3. Do not replace REAL source evidence with fake/mock data.
-4. Resume the same gate after the environment is restored.
+If `BLOCKED_BY_ENVIRONMENT`: prove the external dependency failure independently where possible; never substitute fake source evidence; resume the same gate when the environment is restored.
 
 ## 8. Work ownership and Git QA handoff
 
@@ -309,29 +351,32 @@ For one or two narrow backend defect clusters, add approximately **2–5 hours**
 
 ### GigaCode side
 
-- QA only;
+- QA/tester only;
 - pull current branch and restart real services;
 - use real read-only source data where required;
-- run the complete active assignment autonomously;
+- run the active assignment autonomously;
+- collect traces and adversarial evidence;
 - never weaken tests or acceptance rules;
 - never modify production code/prompts/fixtures/learning implementation;
-- commit/push only the explicitly allowed QA report;
-- stop after the report and return SHA + full report.
+- commit/push only explicitly allowed QA artifacts;
+- stop after the report and return SHA + report.
 
 ## 9. Current gate values
 
 ```text
-GATE_A_SOURCE_CONTRACT = HISTORICAL_GREEN / CURRENTLY_REVALIDATED_BY_095
-GATE_B_CORE8 = HISTORICAL_GREEN / CURRENTLY_REVALIDATED_BY_095
+GATE_A_SOURCE_CONTRACT = HISTORICAL_GREEN / REAL_SOURCE_REQUIRED_FOR_CURRENT_QA
+GATE_B_CORE8 = HISTORICAL_GREEN / CORRECTION_BOUNDARY_LOCALLY_REOPENED_BY_072
 GATE_C_LEARNING_FOUNDATION = IMPLEMENTED
+GATE_C_CORRECTION_PROTECTED_REGRESSION = PENDING_072D
 GATE_C_PER_SKILL_RELEASE_CERTIFICATION = PENDING_095
 GATE_D_REQUIREMENT_RECOVERY = GREEN
 CATALOG_IMPLEMENTATION = 48_ORIGINAL + 6_RECONCILED / RUNTIME_DISCOVERY_AUTHORITATIVE
-GATE_E_BACKEND_ACCEPTANCE = PENDING_095
+GATE_E_BACKEND_ACCEPTANCE = BLOCKED_UNTIL_072_GREEN_THEN_095
 FRONTEND_FINALIZATION = DEFERRED_UNTIL_GATE_E_GREEN
 FULL_BROWSER_E2E = NOT_STARTED
 RELEASE_READY = NO
-CURRENT_NEXT_ACTION = RUN_ASSIGNMENT_095
+CURRENT_NEXT_ACTION = ASSIGNMENT_072_QA_BOUNDARY_LOCALIZATION
+NEXT_MAJOR_GATE = ASSIGNMENT_095
 ```
 
 ## 10. Definition of Done
@@ -342,6 +387,8 @@ The product is release-ready only when:
 - every applicable skill passes the persistent learning-loop contract;
 - real AS21/SWTR source contracts are grounded and fail closed;
 - exact-key, sprint, multi-filter, attachment and history paths are proven;
+- semantic correction preserves prior valid constraints and replaces corrected constraints without state corruption;
+- correction hardening does not break authoritative recheck or persistent learning;
 - no entity/answer memorization occurs;
 - learned policies survive restart and support rollback;
 - human approval/governance boundaries remain intact where promotion requires them;
@@ -354,4 +401,4 @@ The product is release-ready only when:
 
 ---
 
-**Next action:** run Assignment 095 from a clean current checkout and use its complete skill-by-skill functional + learning matrix as the single backend acceptance truth. Do not begin frontend finalization until Assignment 095 (or its final clean rerun after fixes) returns `FULLY_CERTIFIED`.
+**Current next action:** complete Assignment 072 QA boundary localization. After the report proves the first failing boundary, the owner makes the minimal production fix. Then run focused correction + protected Learning Loop certification. Only after Assignment 072 is GREEN proceed to Assignment 095 as the complete backend acceptance truth.
