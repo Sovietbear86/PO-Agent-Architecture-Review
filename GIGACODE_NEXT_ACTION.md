@@ -8,48 +8,57 @@
 
 Run exactly:
 
-`qa_assignments/CORE8_SEMANTIC_SLOT_REGRESSION_ARCHEOLOGY_068.md`
+`qa_assignments/CORE8_SEMANTIC_SLOT_RECOVERY_RETEST_069.md`
 
-## Why this assignment is active
+## Production fix under test
 
-Assignment 060 completed RED and found 19 remaining product failures: representative real semantic queries return empty `slots: {}` although person/product/status/multi-filter constraints are expected.
+Owner/developer commit:
 
-Before any production fix, we must prove whether this behavior worked in an earlier revision and identify the exact GOOD→BAD regression boundary.
+`88d602ff006bb5b3af4c3ca5c157a52055f43620`
 
-Historical code evidence makes commit `9ba842e49ed5406e8f456893f2e533edf0a7f258` especially important because it introduced semantic slot-contract enforcement/repair. Its parent is `3b683ae5dc776a0245ed632d049e1e19d1f6f4ed`.
+The fix adds a bounded LLM-first flat-slot recovery pass when the primary semantic frame and audit both return empty task-search slots. Recovery values are accepted only when they are literal spans of the original query; no AS21 identifiers are guessed.
 
-Do not assume that `9ba842e` is guilty; prove or disprove it by historical replay.
+Assignment 068 already established that the empty-slot behavior predates the recently suspected slot-contract commit, so do not continue historical archaeology.
 
 ## Role
 
-QA / diagnostic tester only.
+QA/tester only.
 
-Do not modify production code or test expectations.
+Do not modify production code, prompts, runtime factory, tests, fixtures, credentials, wrappers or AS21/SWTR configuration.
 
 ## Mandatory rules
 
-1. Fetch/pull current branch first and record current HEAD.
-2. Preserve the current branch; use detached worktrees/checkouts for historical revisions as needed.
-3. Execute Assignment 068 exactly as written.
-4. Test the same representative semantic probes on current HEAD, `9ba842e`, and its parent; continue backwards if necessary until a proven GOOD revision is found or evidence is exhausted.
-5. Use repeated runs to distinguish deterministic code regression from LLM/model variance.
-6. Trace the semantic slot lifecycle and identify the first stage where slots disappear.
-7. Do not implement a fix even if the cause becomes obvious.
-8. Do not start Assignment 062 and do not resume 060 yet.
-9. Commit/push only the allowed Assignment 068 QA report, then STOP.
+1. Pull/fetch `feat/core8-real-query-hardening-v2` first and record `START_HEAD`.
+2. Prove production fix `88d602ff006bb5b3af4c3ca5c157a52055f43620` is an ancestor of the tested HEAD.
+3. Start fresh/current-checkout PO Agent and Task API processes; prove module/runtime provenance before testing.
+4. Run the existing runtime freshness and SWTR health preflight first.
+5. Execute Assignment 069 exactly as written.
+6. Live certification uses REAL AS21/SWTR data only. No fake/mock positive data.
+7. Run person/product/status/multi-filter/exact-task/sprint probes and repeat each required probe 3 times.
+8. Run the genuine-correction control that was not certified by the latest 067 run.
+9. Run the targeted automated regression suites specified by 069.
+10. Do not repair failures. If a product defect remains, report the first proven failing boundary and STOP.
+11. Do not start Assignment 062 or any later assignment.
+12. Commit/push only `qa_reports/CORE8_SEMANTIC_SLOT_RECOVERY_RETEST_069.md`, then STOP.
 
 ## Required completion summary
 
-Report:
-- CURRENT_HEAD
-- LAST_KNOWN_GOOD
-- FIRST_KNOWN_BAD
-- REGRESSION_BOUNDARY_PROVEN = YES/NO
-- whether `9ba842e` introduced the regression
-- first slot-loss stage
-- repeatability classification
-- final 068 verdict
-- QA report path
-- commit SHA
+Report at minimum:
+- START_HEAD;
+- production-fix ancestor proof;
+- fresh-process/current-checkout proof;
+- SWTR health verdict;
+- focused semantic query matrix and 3x repeatability;
+- semantic slot pass/fail counts;
+- genuine-correction verdict;
+- automated test counts;
+- HTTP 500 count;
+- fake/mock source call count;
+- new product regressions count;
+- Assignment 060 resume/retest verdict;
+- READY_FOR_060_FULL_RERUN = YES/NO;
+- QA report path;
+- QA commit SHA;
+- final 069 verdict.
 
-STOP after Assignment 068.
+STOP after Assignment 069.
