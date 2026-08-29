@@ -689,30 +689,46 @@ class DialogueHarnessRuntime:
     def _refine_skill_id_by_slots(skill_id, slots):
         return _refine_skill_id_by_slots(skill_id, slots)
 
-    async def process(self, request):
+    async def process(self, request, *, recheck_context: dict[str, Any] | None = None):
         session = request.session_id or str(uuid.uuid4())
         started = time.perf_counter()
         if not request.query or not request.query.strip():
             return HarnessResponse(status=ResponseStatus.FAILED, trace_id=str(uuid.uuid4()), session_id=session, answer="Запрос пуст. Пожалуйста, уточните, что вы хотите получить.", data=None, warnings=["query_empty"], latency_ms=(time.perf_counter() - started) * 1000)
         if session in self._pending:
             pending = self._pending[session]
-            need = pending.remaining.pop(0)
-            answer = request.query.strip()
-            if not answer:
-                pending.remaining.insert(0, need)
-                return self._clarification_response(session, pending)
-            pending.answers[need.field] = answer
-            pending.frame.slots[need.field] = answer
-            if pending.remaining:
-                return self._clarification_response(session, pending)
-            self._pending.pop(session, None)
-            return await self._execute_frame(self._apply_answers(pending.frame, pending.answers), session, started)
+            # CRITICAL FIX: Check if this query is a CORRECTION (not just an answer to clarification)
+            # If the query contains a status keyword and person/product selectors, treat it as correction
+            # This prevents the pending clarification from hijacking correction queries
+            query_lower = request.query.strip().casefold()
+            has_status_kw = any(kw in query_lower for kw in ("статус", "status", "todo", "in progress", "open", "closed"))
+            has_person_or_product = any(kw in query_lower for kw in ("задач", "task", "в ", "по ", "person", "assignee", "для "))
+            is_full_query = len(request.query.strip().split()) >= 4  # At least 4 words
+            
+            if has_status_kw and has_person_or_product and is_full_query:
+                # This looks like a full correction query, not a clarification answer
+                # Skip pending clarification handling and proceed to normal interpretation
+                pass
+            else:
+                # Normal clarification answer handling
+                need = pending.remaining.pop(0)
+                answer = request.query.strip()
+                if not answer:
+                    pending.remaining.insert(0, need)
+                    return self._clarification_response(session, pending)
+                pending.answers[need.field] = answer
+                pending.frame.slots[need.field] = answer
+                if pending.remaining:
+                    return self._clarification_response(session, pending)
+                self._pending.pop(session, None)
+                return await self._execute_frame(self._apply_answers(pending.frame, pending.answers), session, started)
         missing_fact = self._missing_required_source_fact(request.query)
         if missing_fact:
             return self._source_failure(session, "source_capability_unavailable", f"Источник AS21 не предоставляет обязательные данные для этого запроса: {missing_fact}.", started, data={"missing_source_fact": missing_fact})
 
         allowed_intents, available_capabilities = _semantic_capability_contract()
         semantic_context = {"session_id": session, "allowed_intents": allowed_intents, "available_capabilities": available_capabilities}
+        if recheck_context:
+            semantic_context.update(recheck_context)
         if self.semantics is not None:
             semantic_context["learned_semantics"] = self.semantics.context("global")
         if self.grounder is not None:

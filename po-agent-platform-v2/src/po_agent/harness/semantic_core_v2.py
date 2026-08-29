@@ -219,7 +219,20 @@ not literal trigger phrases."""
 
     @staticmethod
     def _surface_contains(query: str, value: str) -> bool:
-        return value.casefold() in query.casefold()
+        """Check if value appears as a meaningful substring in query.
+
+        Returns False if value is nearly the entire query (likely LLM prose leakage).
+        """
+        if not value:
+            return False
+        value_folded = value.casefold()
+        query_folded = query.casefold()
+        if value_folded not in query_folded:
+            return False
+        # Prevent matching when value is nearly the entire query (LLM prose leakage)
+        # A valid surface span should be significantly shorter than the query
+        # Allow up to ~70% of query length for reasonable surface spans
+        return len(value.strip()) <= len(query.strip()) * 0.7
 
     @classmethod
     def _slot_contract_issues(cls, query: str, slots: dict[str, str]) -> list[str]:
@@ -527,13 +540,16 @@ class ConversationAwareSemanticInterpreter(SemanticInterpreter):
     async def classify_dialogue_act(self, current: str, previous_query: str) -> DialogueAct:
         return await self.delegate.classify_dialogue_act(current, previous_query)
 
-    async def interpret(self, query: str, *, context: dict[str, Any] | None = None) -> SemanticFrame:
+    async def interpret(self, query: str, *, context: dict[str, Any] | None = None, _preserve_cache: bool = False) -> SemanticFrame:
         ctx = dict(context or {})
         session = str(ctx.get("session_id") or "")
-        if session and session in self._last:
+        # For rechecks (_semantic_correction_recheck=True), do NOT update the cache after interpretation
+        # This prevents the recheck from polluting the conversation state
+        should_update_cache = session and not _preserve_cache and not ctx.get("_semantic_correction_recheck")
+        if session and session in self._last and not ctx.get("_semantic_correction_recheck"):
             ctx["previous_turn"] = self._last[session]
         frame = await self.delegate.interpret(query, context=ctx)
-        if session:
+        if should_update_cache:
             self._last[session] = {
                 "query": query,
                 "canonical_query": frame.canonical_query,

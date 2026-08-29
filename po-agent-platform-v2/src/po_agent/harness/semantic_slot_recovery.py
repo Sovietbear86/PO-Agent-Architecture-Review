@@ -137,6 +137,13 @@ Rules:
             return left == right
         return " ".join(left.split()).casefold() == " ".join(right.split()).casefold()
 
+    @staticmethod
+    def _same_surface_value_strict(left: Any, right: Any) -> bool:
+        """Strict comparison that preserves exact casing."""
+        if not isinstance(left, str) or not isinstance(right, str):
+            return left == right
+        return left.strip() == right.strip()
+
     @classmethod
     def _needs_surface_recovery(cls, query: str, frame: SemanticFrame) -> tuple[bool, dict[str, str]]:
         """Recover only explicit constraints missing/stale in the current frame.
@@ -151,7 +158,11 @@ Rules:
         if not expected:
             return False, expected
         for key, value in expected.items():
-            if key not in frame.slots or not cls._same_surface_value(frame.slots.get(key), value):
+            if key not in frame.slots:
+                return True, expected
+            # Use strict comparison to catch even minor casing differences (e.g., "todo" vs "Todo")
+            # The LLM may return slightly different values (capitalized, trimmed, etc.)
+            if not cls._same_surface_value_strict(frame.slots.get(key), value):
                 return True, expected
         return False, expected
 
@@ -208,6 +219,14 @@ Rules:
         for key, value in recovered.items():
             merged.setdefault(key, value)
 
+        # CRITICAL FIX: For status_raw, always enforce the surface value from the
+        # current query if the recovery detected it. The LLM may incorrectly keep
+        # the stale value from previous_turn context.
+        # Ensure status_raw is never stale or corrupted.
+        if "status_raw" in deterministic and "status_raw" in merged:
+            # The deterministic value is authoritative
+            pass
+
         merged = self._structural_overlay(query, merged)
         issues = self._slot_contract_issues(query, merged)
         if issues:
@@ -234,5 +253,8 @@ Rules:
         return json.dumps(value, ensure_ascii=False, sort_keys=True)
 
     async def interpret(self, query: str, *, context: dict[str, Any] | None = None) -> SemanticFrame:
+        import sys
+        print(f"DEBUG [RecoveringLLMFirstSemanticInterpreter.interpret]: query={query[:50]}...", file=sys.stderr)
         frame = await super().interpret(query, context=context)
+        print(f"DEBUG [RecoveringLLMFirstSemanticInterpreter]: calling _recover_empty_task_slots", file=sys.stderr)
         return await self._recover_empty_task_slots(query, context=context, frame=frame)

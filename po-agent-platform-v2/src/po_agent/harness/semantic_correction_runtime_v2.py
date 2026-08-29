@@ -279,12 +279,9 @@ class SemanticCorrectionRuntimeV2:
         ):
             return self._replay_clarification(previous, session)
 
-        if isinstance(pending, dict) and session in pending:
-            response = await self.inner.process(HarnessRequest(query=current, session_id=session))
-            if response.status != ResponseStatus.NEEDS_CLARIFICATION:
-                previous = self._last.get(session)
-                self._last[session] = _PreviousTurn(previous.query if previous else current, response)
-            return response
+        # Note: Pending clarification handling is now done in DialogueHarnessRuntime.process()
+        # to correctly detect and handle correction queries before treating them as clarification answers
+        # The check is moved there to have access to the full query context
 
         if previous is None:
             response = await self.inner.process(HarnessRequest(query=current, session_id=session))
@@ -308,7 +305,12 @@ class SemanticCorrectionRuntimeV2:
             return response
 
         started = time.perf_counter()
-        rechecked = await self.inner.process(HarnessRequest(query=previous.query, session_id=session))
+        # Preserve cache during recheck to prevent polluting conversation state
+        # with a re-interpretation of the previous query
+        rechecked = await self.inner.process(
+            HarnessRequest(query=previous.query, session_id=session),
+            recheck_context={"_semantic_correction_recheck": True}
+        )
 
         if act.act == "correction" and act.specific_correction:
             corrected = await self.inner.process(HarnessRequest(query=current, session_id=session))
