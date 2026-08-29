@@ -147,6 +147,46 @@ class ProductionEntityResolverV2(LiveGroundedEntityResolver):
         if assignee and not slots.get("member_login") and not slots.get("person_raw"):
             slots["person_raw"] = assignee
 
+    async def _ground_person_login(self, slots: dict[str, str]) -> None:
+        """Canonicalize a model-proposed login from the user's person literal.
+
+        `member_login` is a source identifier, not a semantic free-text field. If a
+        correction/follow-up LLM leaks the full query (or any other prose) into that
+        slot, never trust it merely because it is non-empty. Whenever `person_raw`
+        exists, resolve the login again from configured/live AS21 identities and
+        replace the proposal only with authoritative evidence.
+        """
+        person_raw = str(slots.get("person_raw") or "").strip()
+        if not person_raw:
+            return
+
+        configured = self.team.resolve_person(person_raw)
+        if len(configured) == 1:
+            slots["member_login"] = configured[0].login
+            return
+        if configured:
+            # Ambiguous configured identity: remove an unproven LLM proposal so the
+            # invariant below produces clarification rather than a wrong assignee.
+            slots.pop("member_login", None)
+            return
+
+        context = await self.semantic_context()
+        wanted = _tokens(person_raw)
+        matches: list[dict[str, str]] = []
+        for identity in context.get("assignee_identities", []):
+            hay = " ".join(str(identity.get(k) or "") for k in ("display_name", "login", "external_id"))
+            if _token_match(wanted, hay):
+                matches.append(identity)
+        unique = {
+            (m.get("display_name", ""), m.get("login", ""), m.get("external_id", ""))
+            for m in matches
+        }
+        if len(unique) == 1:
+            display, login, external_id = next(iter(unique))
+            slots["member_login"] = login or external_id or display
+        else:
+            slots.pop("member_login", None)
+
     async def ground(self, frame: SemanticFrame, original_query: str) -> SemanticFrame:
         requested_slots = dict(frame.slots)
         slots = dict(frame.slots)
@@ -157,26 +197,10 @@ class ProductionEntityResolverV2(LiveGroundedEntityResolver):
         self._normalize_person_slots(slots)
         self._normalize_status_constraint(slots, original_query)
 
-        person_raw = slots.get("person_raw")
-        if person_raw and not slots.get("member_login"):
-            configured = self.team.resolve_person(person_raw)
-            if len(configured) == 1:
-                slots["member_login"] = configured[0].login
-            elif not configured:
-                context = await self.semantic_context()
-                wanted = _tokens(person_raw)
-                matches: list[dict[str, str]] = []
-                for identity in context.get("assignee_identities", []):
-                    hay = " ".join(str(identity.get(k) or "") for k in ("display_name", "login", "external_id"))
-                    if _token_match(wanted, hay):
-                        matches.append(identity)
-                unique = {
-                    (m.get("display_name", ""), m.get("login", ""), m.get("external_id", ""))
-                    for m in matches
-                }
-                if len(unique) == 1:
-                    display, login, external_id = next(iter(unique))
-                    slots["member_login"] = login or external_id or display
+        # Always re-ground a source identifier when a user-visible person literal is
+        # available. This prevents stale/corrupted member_login values from a prior
+        # correction turn from surviving into execution.
+        await self._ground_person_login(slots)
 
         enriched = SemanticFrame(
             canonical_query=frame.canonical_query,
