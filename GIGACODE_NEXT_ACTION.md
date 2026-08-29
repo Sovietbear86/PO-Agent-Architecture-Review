@@ -6,67 +6,50 @@
 
 ## Active assignment
 
-Run exactly this assignment:
+Run exactly:
 
-`qa_assignments/CORE8_REAL_QUERY_CERTIFICATION_060.md`
+`qa_assignments/CORE8_SEMANTIC_SLOT_REGRESSION_ARCHEOLOGY_068.md`
 
-## Preconditions
+## Why this assignment is active
 
-Assignment 067 is complete and GREEN.
+Assignment 060 completed RED and found 19 remaining product failures: representative real semantic queries return empty `slots: {}` although person/product/status/multi-filter constraints are expected.
 
-Carry-forward evidence from 067:
-- fresh PO Agent process from current checkout proven;
-- current-checkout import provenance PASS;
-- stale `/private/tmp` path absent;
-- health after restart PASS;
-- live clarification replay A1/A2/A3 PASS;
-- replay warning appears on A2/A3 and is not consumed as an answer;
-- A→B→A isolation PASS;
-- HTTP 500 count = 0;
-- new regressions = 0;
-- READY_TO_RESUME_060_AND_062 = YES.
+Before any production fix, we must prove whether this behavior worked in an earlier revision and identify the exact GOOD→BAD regression boundary.
 
-067 QA commit: `c6f5f601d8ab225fb44569ce4f242a880e005615`.
-Production clarification replay fix verified by 067: `64f4e254446262d4e08c5917133a3e3b926561c8`.
+Historical code evidence makes commit `9ba842e49ed5406e8f456893f2e533edf0a7f258` especially important because it introduced semantic slot-contract enforcement/repair. Its parent is `3b683ae5dc776a0245ed632d049e1e19d1f6f4ed`.
 
-## Report allowlist
-
-Commit and push only the Assignment 060 QA report/artifacts explicitly permitted by `qa_assignments/CORE8_REAL_QUERY_CERTIFICATION_060.md`.
-
-Do not commit JSON, helper scripts, runner changes, wrapper changes, `.env`, credentials, logs, screenshots, historical reports, roadmap edits, production changes, prompts, tests, fixtures, local configuration or AS21/SWTR data unless Assignment 060 explicitly requires a particular QA artifact.
+Do not assume that `9ba842e` is guilty; prove or disprove it by historical replay.
 
 ## Role
 
-You are QA/tester only.
+QA / diagnostic tester only.
 
-The owner/developer makes all production and test changes. Do not repair failures, weaken expectations or alter product behavior during this assignment.
+Do not modify production code or test expectations.
 
-## Mandatory execution rules
+## Mandatory rules
 
-1. Fetch/pull `feat/core8-real-query-hardening-v2` first and record `START_HEAD`.
-2. Execute Assignment 060 exactly as written; do not silently reduce its scope because 067 passed.
-3. Before live tests, prove that the PO Agent and Task API processes used by the run are fresh/current-checkout processes. Run the existing SWTR/runtime health preflight and STOP with an environment classification if it fails.
-4. Reuse evidence from 067 only where Assignment 060 explicitly permits it; otherwise perform the check again.
-5. Include a genuine-correction control in certification evidence. Do not treat `GENUINE_CORRECTION = NOT_TESTED` from the latest 067 report as certified behavior.
-6. Distinguish product defects from environment/test-harness defects. Do not modify production code to make a QA test pass.
-7. Do not start Assignment 062 or any later assignment.
-8. Produce/update only QA report/artifacts permitted by Assignment 060, commit and push them to the current branch, then STOP.
+1. Fetch/pull current branch first and record current HEAD.
+2. Preserve the current branch; use detached worktrees/checkouts for historical revisions as needed.
+3. Execute Assignment 068 exactly as written.
+4. Test the same representative semantic probes on current HEAD, `9ba842e`, and its parent; continue backwards if necessary until a proven GOOD revision is found or evidence is exhausted.
+5. Use repeated runs to distinguish deterministic code regression from LLM/model variance.
+6. Trace the semantic slot lifecycle and identify the first stage where slots disappear.
+7. Do not implement a fix even if the cause becomes obvious.
+8. Do not start Assignment 062 and do not resume 060 yet.
+9. Commit/push only the allowed Assignment 068 QA report, then STOP.
 
 ## Required completion summary
 
-Report at minimum:
-- `START_HEAD`;
-- fresh-process/current-checkout proof;
-- SWTR health/preflight verdict;
-- Assignment 060 test matrix and pass/fail counts;
-- genuine-correction verdict;
-- HTTP 500 count;
-- new product regressions count;
-- final `060_VERDICT`;
-- QA report path;
-- commit SHA;
-- whether Assignment 062 is ready to start.
+Report:
+- CURRENT_HEAD
+- LAST_KNOWN_GOOD
+- FIRST_KNOWN_BAD
+- REGRESSION_BOUNDARY_PROVEN = YES/NO
+- whether `9ba842e` introduced the regression
+- first slot-loss stage
+- repeatability classification
+- final 068 verdict
+- QA report path
+- commit SHA
 
-## Completion
-
-After completing Assignment 060, commit and push only the allowed QA report/artifacts, then STOP. Do not start Assignment 062.
+STOP after Assignment 068.
