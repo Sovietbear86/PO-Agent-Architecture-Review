@@ -89,11 +89,11 @@ Rules:
 
     @classmethod
     def _deterministic_surface_slots(cls, query: str) -> dict[str, str]:
-        """Preserve explicit filter spans when both semantic LLM passes drop them.
+        """Preserve explicit filter spans when semantic LLM passes drop them.
 
-        This deliberately does not know team members, products, statuses or AS21 IDs.
-        It recognizes only stable request syntax and literal structural IDs. Any value
-        still has to pass the existing slot-contract checks and downstream grounding.
+        This deliberately does not know team members, products, status semantics or
+        AS21 IDs. It recognizes only stable request syntax and literal structural IDs.
+        Any value still has to pass slot-contract checks and downstream grounding.
         """
         recovered: dict[str, str] = {}
 
@@ -108,10 +108,9 @@ Rules:
                 # Stop a status span before common following filter markers.
                 value = re.split(r"\s+(?:в|по|на|для|из)\s+", value, maxsplit=1, flags=re.I)[0].strip()
                 if value:
-                    # Map common status words to status_semantic for proper grounding
-                    status_folded = value.casefold()
-                    if status_folded in {"todo", "незавершенн", "открыт", "актуальн"}:
-                        recovered["status_semantic"] = "open"
+                    # Preserve the user's literal status only. Business semantics
+                    # (for example whether Todo belongs to an open set) are grounded
+                    # by the AS21/domain resolver, never hard-coded in this parser.
                     recovered["status_raw"] = value
 
         product_match = cls._PRODUCT_SURFACE_RE.search(query)
@@ -131,6 +130,30 @@ Rules:
 
         return cls._drop_unsafe_slots(query, recovered)
 
+    @staticmethod
+    def _same_surface_value(left: Any, right: Any) -> bool:
+        if not isinstance(left, str) or not isinstance(right, str):
+            return left == right
+        return " ".join(left.split()).casefold() == " ".join(right.split()).casefold()
+
+    @classmethod
+    def _needs_surface_recovery(cls, query: str, frame: SemanticFrame) -> tuple[bool, dict[str, str]]:
+        """Recover only explicit constraints missing/stale in the current frame.
+
+        A task/sprint-only lookup whose structural selector is already present must
+        not trigger an unnecessary LLM recovery pass. Conversely, a structural ID
+        must not suppress recovery of an explicit person/status/product filter.
+        During a correction, an explicit *new* literal (e.g. status=in progress)
+        overrides stale semantic state from the previous turn.
+        """
+        expected = cls._deterministic_surface_slots(query)
+        if not expected:
+            return False, expected
+        for key, value in expected.items():
+            if key not in frame.slots or not cls._same_surface_value(frame.slots.get(key), value):
+                return True, expected
+        return False, expected
+
     async def _recover_empty_task_slots(
         self,
         query: str,
@@ -140,11 +163,9 @@ Rules:
     ) -> SemanticFrame:
         if frame.intent_hint != "task_search":
             return frame
-        # Run recovery if key semantic slots are missing (even if structural IDs exist)
-        missing_semantic_slots = not all(
-            k in frame.slots for k in ("person_raw", "product", "status_raw")
-        )
-        if not missing_semantic_slots:
+
+        needs_recovery, deterministic = self._needs_surface_recovery(query, frame)
+        if not needs_recovery:
             return frame
 
         payload = {
@@ -172,27 +193,34 @@ Rules:
             if phrase_value is not None:
                 recovered["phrase"] = phrase_value
 
-        # Do not make production correctness depend on the recovery LLM obeying a
-        # JSON contract. Literal constraints found by deterministic request-syntax
-        # parsing fill only still-missing keys and are never source-resolved here.
-        deterministic = self._deterministic_surface_slots(query)
+        # Start with the primary frame so valid grounded/structural constraints are
+        # never discarded merely because one semantic field needs recovery.
+        merged = dict(frame.slots)
+
+        # A literal surface constraint in the *current* query is authoritative over
+        # stale prior-turn semantic state, but it still remains raw/unresolved here.
         for key, value in deterministic.items():
-            recovered.setdefault(key, value)
+            merged[key] = value
 
-        if not recovered:
-            return frame
+        # LLM recovery may fill additional safe fields only when not already fixed
+        # by the current literal surface or primary frame.
+        for key, value in recovered.items():
+            merged.setdefault(key, value)
 
-        recovered = self._structural_overlay(query, recovered)
-        issues = self._slot_contract_issues(query, recovered)
+        merged = self._structural_overlay(query, merged)
+        issues = self._slot_contract_issues(query, merged)
         if issues:
-            recovered = self._drop_unsafe_slots(query, recovered)
-            if not recovered:
+            # Fail closed on unsafe additions, while preserving the original frame
+            # and deterministic literal constraints that independently pass checks.
+            safe = self._drop_unsafe_slots(query, merged)
+            if not safe:
                 return frame
+            merged = safe
 
         return SemanticFrame(
             canonical_query=frame.canonical_query,
             intent_hint=frame.intent_hint,
-            slots=recovered,
+            slots=merged,
             clarifications=list(frame.clarifications),
             confidence=frame.confidence,
             llm_used=True,
