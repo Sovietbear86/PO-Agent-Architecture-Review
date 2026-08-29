@@ -146,6 +146,49 @@ async def test_recovery_does_not_override_nonempty_primary_slots():
     assert client.payloads == []
 
 
+@pytest.mark.asyncio
+async def test_structural_only_sprint_does_not_trigger_recovery_llm():
+    client = QueueClient([empty_frame(), empty_frame()])
+    frame = await RecoveringLLMFirstSemanticInterpreter(client).interpret(
+        "Покажи задачи в DMS-SPRNT-2",
+        context=context(),
+    )
+    assert frame.slots["sprint_id"] == "DMS-SPRNT-2"
+    assert client.payloads == []
+
+
+@pytest.mark.asyncio
+async def test_current_literal_status_replaces_stale_previous_turn_status():
+    stale = {
+        "canonical_query": "search tasks",
+        "intent_hint": "task_search",
+        "slots": {
+            "person_raw": "Гаранина",
+            "member_login": "Garanin.R.V",
+            "status_raw": "todo",
+        },
+        "clarifications": [],
+        "confidence": 0.96,
+        "dialogue_act": "correction",
+    }
+    client = QueueClient([stale, stale, {}])
+    frame = await RecoveringLLMFirstSemanticInterpreter(client).interpret(
+        "Покажи задачи Гаранина со статусом in progress",
+        context=context(),
+    )
+    assert frame.slots["person_raw"] == "Гаранина"
+    assert frame.slots["member_login"] == "Garanin.R.V"
+    assert frame.slots["status_raw"] == "in progress"
+
+
+def test_surface_recovery_keeps_todo_raw_without_hardcoded_open_semantics():
+    slots = RecoveringLLMFirstSemanticInterpreter._deterministic_surface_slots(
+        "Покажи задачи со статусом todo"
+    )
+    assert slots["status_raw"] == "todo"
+    assert "status_semantic" not in slots
+
+
 def test_surface_recovery_does_not_guess_unmarked_free_text():
     slots = RecoveringLLMFirstSemanticInterpreter._deterministic_surface_slots(
         "Расскажи что-нибудь полезное про команду"
