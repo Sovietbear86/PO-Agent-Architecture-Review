@@ -239,11 +239,40 @@ not literal trigger phrases."""
             elif len(query_text) >= 16 and len(compact) >= max(16, int(len(query_text) * 0.72)):
                 issues.append(f"{name}:looks_like_full_query")
 
+        # status_semantic must not be a full query or long prose. It should be a
+        # concise semantic term like "open_tasks" or "resolved". If it looks like
+        # a natural language query (too long, not in original query), drop it.
+        status_semantic = slots.get("status_semantic")
+        if status_semantic:
+            compact = str(status_semantic).strip()
+            if len(compact) >= max(16, int(len(query_text) * 0.5)):
+                issues.append("status_semantic:looks_like_full_query")
+            elif compact.casefold() not in query_folded:
+                issues.append("status_semantic:not_surface_span")
+
         member_login = slots.get("member_login")
+        # member_login is a source identifier, not a surface span. It may be derived
+        # from person_raw or other sources. Only allow it if:
+        # 1. It's a valid login format AND either:
+        #    a. person_raw is also present (valid derivation from raw person name)
+        #    b. member_login IS in the query (explicit in user text)
         if member_login and not cls._surface_contains(query, member_login):
-            issues.append("member_login:not_explicit_in_query")
+            # Allow member_login only if it's a valid login AND person_raw is also present
+            if cls._looks_like_valid_login(member_login):
+                if not slots.get("person_raw"):
+                    # member_login without person_raw - check if it's in the query
+                    # If not, it's unsafe (LLM derived value without source)
+                    issues.append("member_login:not_explicit_in_query")
+            else:
+                # Not a valid login format - always unsafe
+                issues.append("member_login:not_explicit_in_query")
         if member_login and not slots.get("person_raw") and not cls._surface_contains(query, member_login):
-            issues.append("person_raw:missing_while_login_was_derived")
+            # Same check for person_raw:missing_while_login_was_derived
+            if cls._looks_like_valid_login(member_login):
+                if not slots.get("person_raw"):
+                    issues.append("person_raw:missing_while_login_was_derived")
+            else:
+                issues.append("person_raw:missing_while_login_was_derived")
         return issues
 
     @classmethod
@@ -256,6 +285,35 @@ not literal trigger phrases."""
             if name in out:
                 out.pop(name, None)
         return out
+
+    @classmethod
+    def _looks_like_valid_login(cls, value: str) -> bool:
+        """Check if a member_login value looks like a valid login (not prose)."""
+        compact = value.strip()
+        if not compact:
+            return False
+        # A valid login typically:
+        # - Is short (less than 30 characters)
+        # - Contains a dot (e.g., "Garanin.R.V") or is a short email-like string
+        # - Doesn't contain common prose words
+        if len(compact) > 30:
+            return False
+        # Contains dot (e.g., "Garanin.R.V") - common login pattern
+        if "." in compact:
+            return True
+        # Contains uppercase letters (e.g., "IvanovIV") - common in Russian logins
+        if any(c.isupper() for c in compact):
+            return True
+        # Contains underscore (e.g., "ivanov_iv") - common login pattern
+        if "_" in compact:
+            return True
+        # Contains @ (e.g., "ivanov@company.com") - email-like login
+        if "@" in compact:
+            return True
+        # Very short (2-10 chars) - likely a short login like "ivanov"
+        if 2 <= len(compact) <= 10:
+            return True
+        return False
 
     @classmethod
     def _structural_overlay(cls, query: str, slots: dict[str, str]) -> dict[str, str]:
@@ -327,11 +385,18 @@ not literal trigger phrases."""
         )
         if repaired is None:
             return candidate, issues
+        # If repair returned empty or invalid slots, fall back to original candidate
+        repaired_slots = self._string_slots(repaired.get("slots"))
+        if not repaired_slots:
+            return candidate, issues
         remaining = self._slot_contract_issues(
             query,
-            self._string_slots(repaired.get("slots")),
+            repaired_slots,
         )
-        return repaired, remaining
+        # If repair still has issues, fall back to original candidate
+        if remaining:
+            return candidate, remaining
+        return repaired, []
 
     async def classify_dialogue_act(self, current: str, previous_query: str) -> DialogueAct:
         payload = json.dumps(

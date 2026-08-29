@@ -55,9 +55,10 @@ Rules:
 
     # These expressions recognize *request syntax*, not AS21 domain values. Values
     # captured by them are always literal spans from the query and are grounded later.
+    # Note: Use [ \t]+ instead of \s+ to avoid matching newlines in combined queries.
     _STATUS_SURFACE_RE = re.compile(
         r"(?:\bсо\s+статусом\b|\bстатус(?:ом|а)?\b|\bstatus\b)\s*[:=]?\s*[\"']?"
-        r"(?P<value>[A-Za-zА-Яа-яЁё0-9_.-]+(?:\s+[A-Za-zА-Яа-яЁё0-9_.-]+){0,2})",
+        r"(?P<value>[A-Za-zА-Яа-яЁё0-9_.-]+(?:[ \t]+[A-Za-zА-Яа-яЁё0-9_.-]+){0,2})",
         re.I,
     )
     _PRODUCT_SURFACE_RE = re.compile(
