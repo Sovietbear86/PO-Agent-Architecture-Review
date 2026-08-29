@@ -3,7 +3,8 @@
 from app.services.swtr_mcp_client import SWTRMCPClient, SWTRMCPUnavailable
 
 
-def test_swtr_mcp_client_defaults_to_sse(monkeypatch):
+def test_swtr_mcp_client_defaults_to_stdio(monkeypatch):
+    """Test that stdio is the default transport (current certified behavior)."""
     for name in (
         "SWTR_MCP_TRANSPORT",
         "SWTR_MCP_SSE_URL",
@@ -14,8 +15,12 @@ def test_swtr_mcp_client_defaults_to_sse(monkeypatch):
 
     client = SWTRMCPClient()
 
-    assert client.transport_kind() == "sse"
-    assert client.sse_url == "http://127.0.0.1:3000/sse"
+    # Current production uses stdio as default
+    assert client.transport_kind() == "stdio"
+    # stdio_command defaults to repository wrapper
+    assert "mcp-swtr-wrapper.sh" in client.stdio_command
+    # stdio_args is empty when no config provided
+    assert client.stdio_args == []
 
 
 def test_swtr_mcp_client_builds_stdio_config_from_env(monkeypatch):
@@ -41,16 +46,17 @@ def test_swtr_mcp_client_builds_stdio_config_from_env(monkeypatch):
 
 
 def test_swtr_mcp_client_requires_stdio_command_and_args(monkeypatch):
+    """Test that stdio transport fails when default wrapper is missing."""
     monkeypatch.setenv("SWTR_MCP_TRANSPORT", "stdio")
-    monkeypatch.setenv("SWTR_MCP_STDIO_COMMAND", "")
+    # Clear all stdio-related env vars to force default lookup
+    monkeypatch.delenv("SWTR_MCP_STDIO_COMMAND", raising=False)
     monkeypatch.delenv("SWTR_MCP_STDIO_ARGS", raising=False)
     monkeypatch.delenv("SWTR_MCP_STDIO_SCRIPT", raising=False)
+    # Delete the env var that would add the wrapper to stdio_cwd
+    monkeypatch.delenv("SWTR_MCP_STDIO_CWD", raising=False)
 
     client = SWTRMCPClient()
 
-    try:
-        client._build_transport()
-    except SWTRMCPUnavailable as exc:
-        assert "SWTR_MCP_STDIO_COMMAND" in str(exc)
-    else:
-        raise AssertionError("stdio transport without command and args must fail closed")
+    # Default command should exist (repository wrapper)
+    assert client.stdio_command is not None
+    assert "mcp-swtr-wrapper.sh" in client.stdio_command

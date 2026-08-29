@@ -61,7 +61,9 @@ async def test_predictability_exposes_current_scope_baseline_warning():
     response = await build_fake_runtime().process(HarnessRequest(query="Предсказуемость WMB-SPRNT-1"))
     assert response.skill_id == "sprint-predictability"
     assert response.data["predictability_percent"] == 61.5
-    assert "current_scope_used_as_commitment_baseline" in response.warnings
+    # Warning text changed: authoritative_commitment_baseline_unavailable + current_scope_completion_proxy
+    assert "authoritative_commitment_baseline_unavailable" in response.warnings
+    assert "current_scope_completion_proxy" in response.warnings
 
 
 @pytest.mark.asyncio
