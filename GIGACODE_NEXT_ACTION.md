@@ -2,7 +2,7 @@
 
 ## Status
 
-`ACTIVE_QA_ASSIGNMENT_072D`
+`ACTIVE_QA_ASSIGNMENT_072E`
 
 ## Role boundary — mandatory
 
@@ -10,169 +10,174 @@ You are QA/tester only.
 
 **DO NOT modify production code, prompts, tests, fixtures, runtime configuration, credentials, AS21/SWTR data, GIGACODE.md, PO_AGENT_HARNESS_EVOLUTION_PLAN.md, or this file.**
 
-The current branch contains a candidate correction patch produced during the previous GigaCode run. Treat that code as an immutable candidate under owner review. Your job is to test it adversarially, not improve it.
+The current production candidate is immutable for this assignment. Do not improve, refactor or repair it.
 
 If any production file becomes dirty during this assignment: STOP and report RED.
 
-## Assignment 072D — correction candidate + protected Learning Loop certification
+## Assignment 072E — factual persistent Learning Loop proof
 
-### Goal
+### Why this assignment exists
 
-Determine whether the current candidate patch can be accepted without damaging the Harness learning contract or dialogue/clarification behavior.
+Assignment 072D established useful correction/clarification evidence, but its Learning Loop section is not sufficient for acceptance. The report showed `source_recheck_performed=true` while also showing `persistent_behavior_learning=false`, then inferred promotion/persistence/restart/rollback without supplying the required concrete artifacts.
+
+072E is deliberately narrow. **Do not repeat correction, clarification or the full 1274-test regression unless required to execute the learning trace.** The only goal is to prove or disprove the actual persistent Learning Loop end to end.
 
 Do not start Assignment 095. Do not implement fixes.
 
-Production mode: `task-api` + REAL AS21(SWTR). Fake/mock/frozen source data cannot be used as positive acceptance evidence.
+Production mode: `task-api` + REAL read-only AS21(SWTR). Fake/mock/frozen source data cannot be used as authoritative acceptance evidence.
 
-## Phase 0 — provenance and clean start
+## Phase 0 — provenance
 
 1. Fetch/pull `feat/core8-real-query-hardening-v2`.
-2. Record exact HEAD SHA.
-3. Record `git status --short` and prove production worktree is clean.
+2. Record exact tested HEAD SHA.
+3. Record `git status --short`; production worktree must be clean.
 4. Restart PO Agent and task-api from that exact HEAD.
-5. Record production runtime provenance and REAL AS21 mode.
-6. Record initial HTTP 500 count and fake/mock source-call count.
+5. Prove REAL AS21 mode and record process IDs/start timestamps so the later cold restart is independently verifiable.
+6. Identify the exact production persistent-learning implementation and policy-store location/API used by the running runtime. Do not create an alternative test-only learning path.
 
-## Phase 1 — correction regression
+## Phase 1 — establish policy-store baseline
 
-Using three independent session IDs, repeat:
+Before triggering learning, capture the active learned-policy state for the selected production skill:
+- policy count;
+- active policy IDs/versions;
+- policy type/behaviour;
+- skill_id;
+- audit/provenance fields;
+- persistence location/backend.
 
-Turn 1:
-`Покажи задачи Гаранина в DMS со статусом todo`
+Do not expose secrets. Entity/source facts may be redacted, but structural fields must remain visible.
 
-Turn 2:
-`Покажи задачи Гаранина в DMS со статусом in progress`
+If a policy for the exact intended test behaviour already exists, either safely roll it back through the supported production mechanism before the test or choose another applicable skill/session so that a newly promoted policy can be distinguished from pre-existing state. Record what was done.
 
-For each run prove:
-- `member_login == Garanin.R.V` after correction;
-- `status_raw` is replaced by the new status, not appended beside the old one;
-- product/person constraints from the prior semantic frame survive;
-- no full-query prose appears in semantic slots;
-- grounded execution uses the corrected slots.
+## Phase 2 — trigger real bounded learning
 
-Repeat the same correction pattern with a second real member from `team_members.yaml`; do not hardcode a second identity into production code or tests.
+Use an applicable production skill and the allow-listed generalized behaviour `authoritative_recheck_on_negative`.
 
-## Phase 2 — clarification regression (critical adversarial test)
+Prove with exact runtime evidence:
 
-The candidate patch changed pending-clarification behavior. Prove it has not broken ordinary clarification.
+`initial execution`
+`-> explicit negative feedback/correction`
+`-> fresh authoritative REAL AS21 recheck`
+`-> source-grounded validation`
+`-> generalized policy candidate/promotion`
+`-> persistent active policy record`
 
-Create at least 6 black-box cases covering:
-1. genuine short clarification answer;
-2. genuine multi-word clarification answer;
-3. clarification answer containing a status word;
-4. clarification answer containing Russian prepositions such as `в`, `по`, `для`;
-5. a full new query while clarification is pending;
-6. a genuine semantic correction while clarification is pending.
+Mandatory evidence:
+- request/response or trace showing the negative feedback event;
+- `source_recheck_performed == true` (or exact equivalent production evidence);
+- successful REAL AS21 read used by the authoritative recheck;
+- exact promotion event/decision;
+- policy store state BEFORE and AFTER promotion;
+- newly created/activated policy ID + version + skill_id + generalized policy type;
+- persisted policy payload/schema sufficient to prove it does not contain a task ID, member login, sprint ID, stored answer, correction prose or entity truth.
 
-For every case capture:
-- pending state before request;
-- dialogue act if available;
-- whether the request was consumed as clarification vs interpreted as correction/new query;
-- resulting semantic frame/slots;
-- final response status.
+**Critical rule:** if the production response says `persistent_behavior_learning=false`, do not call the phase GREEN unless you separately prove that a persistent policy was actually promoted by the same event through another production surface. If no persistent policy appears, verdict is RED and identify the first failing boundary.
 
-A keyword heuristic accidentally classifying normal clarification as correction/new query is RED.
+If a safe initial negative requires an existing QA fault-injection mechanism, it may be used only to create the initial negative condition. The authoritative recheck and validation must still hit REAL read-only AS21. Do not modify fixtures or source facts.
 
-## Phase 3 — protected Learning Loop (mandatory)
+## Phase 3 — prove generalization
 
-This phase is release-critical. A correction fix is RED if this chain is broken.
+After promotion, execute a **different query/entity/input** that is eligible for the same learned behaviour.
 
-Use an applicable production skill and the existing bounded learned behaviour `authoritative_recheck_on_negative`.
+Prove:
+- the learned policy is selected/applied;
+- the second request is not the original memorized query;
+- no entity-specific stored truth is required;
+- REAL AS21 remains authoritative for business facts;
+- behavior differs in the expected generalized way because of the policy.
 
-Prove the complete chain with exact evidence:
+Capture policy-selection/application evidence tied to the policy ID/version from Phase 2.
 
-`negative/incorrect result`
-`-> explicit user correction/negative feedback`
-`-> fresh authoritative AS21 recheck`
-`-> source-grounded validated result`
-`-> generalized learned policy promotion`
-`-> persistent policy record`
-`-> different query/entity benefits from policy`
-`-> cold process restart`
-`-> policy reloads and still applies`
-`-> rollback`
-`-> policy no longer applies after rollback`
+## Phase 4 — genuine cold restart
 
-Mandatory assertions:
-- learned behaviour is exactly allow-listed/generalized, not a stored answer;
-- no task ID, member login, sprint ID, entity truth, correction prose or answer text is persisted as learned fact;
-- `source_recheck_performed == true` where the contract requires it;
-- promotion is backed by authoritative evidence;
-- repeated identical correction does not create unbounded duplicate active policies;
-- restart uses a genuinely new process/runtime, not the same in-memory object;
-- rollback is demonstrated, not inferred;
-- REAL AS21 evidence is present for authoritative validation.
+1. Record current PO Agent/task-api process IDs.
+2. Stop the relevant runtime process(es).
+3. Start genuinely new process(es) from the same tested HEAD without reconstructing the learned policy manually.
+4. Record new process IDs/start timestamps.
+5. Prove the persisted policy is loaded from the production policy store after restart.
+6. Re-run a qualifying different query and prove the same policy ID/version is applied after restart.
 
-If a safe production negative cannot be created without source mutation, use an already-supported QA fault-injection mechanism ONLY for the initial negative condition, while authoritative validation must still use REAL read-only AS21. Do not create or modify fixtures/source facts.
+Reusing the same Python object, interpreter session, in-memory singleton or cached runtime is NOT a cold restart.
 
-## Phase 4 — semantic/source regression matrix
+## Phase 5 — rollback and negative proof
 
-Run at least 3 independent sessions each for:
-- person-only;
-- sprint-id;
-- exact task-id;
-- status-only;
-- combined person+product+status;
-- correction preserving prior constraints.
+Use the supported production learning-policy rollback/deactivation mechanism for the policy created in Phase 2.
 
-Use proven real identifiers from the source/team configuration. No invented IDs.
+Prove:
+- rollback/deactivation command/API/event;
+- policy-store state after rollback;
+- policy is no longer active/selectable;
+- another qualifying request after rollback does **not** apply that policy;
+- REAL AS21 behavior remains correct and read-only.
 
-Record expected vs actual grounded slots and source result evidence.
+Do not delete/edit the policy-store file manually unless manual file editing is itself the documented production rollback mechanism. If no supported rollback exists, report RED.
 
-## Phase 5 — automated tests
+## Phase 6 — idempotency and safety
 
-Run all relevant existing tests for:
-- semantic core;
-- semantic slot recovery;
-- correction runtime;
-- dialogue/clarification runtime;
-- learned policy store / persistent learning;
-- any existing Core-8 regression suite touching these paths.
+Where possible without recreating the rolled-back policy incorrectly, prove from the captured trace/store history that:
+- repeated identical feedback does not create unbounded duplicate active policies;
+- promotion/audit history is versioned or otherwise traceable;
+- learned payload contains generalized behavior only;
+- AS21 write calls = 0;
+- fake/mock/frozen authoritative calls = 0.
 
-Do not edit tests to make them pass.
+Record HTTP 500 and HTTP 502 counts observed during this narrow test. Any 502 must be mapped to the exact endpoint/time and state whether it affected the learning chain. Do not dismiss 502 as external without evidence.
 
-Report every failure, including pre-existing failures. Distinguish pre-existing from newly introduced only with evidence from an earlier baseline/commit.
+## Acceptance matrix — every row needs concrete evidence
 
-## Phase 6 — source integrity
+| Contract step | Required evidence | PASS condition |
+|---|---|---|
+| Negative feedback | request/trace | event reached production correction/feedback path |
+| Authoritative recheck | runtime trace + REAL AS21 read | fresh source validation occurred |
+| Promotion | promotion event/decision | generalized allow-listed policy promoted |
+| Persistence | store BEFORE/AFTER | new active policy ID/version persisted |
+| Safety | persisted payload | no entity/answer memorization |
+| Generalization | different query + policy application trace | same policy applies beyond original query |
+| Cold restart | old/new PID + reload evidence | persisted policy reloads in new runtime |
+| Post-restart reuse | query + application trace | same policy works after restart |
+| Rollback | supported rollback + store state | policy becomes inactive |
+| Post-rollback negative | qualifying query trace | rolled-back policy no longer applies |
+| Source integrity | counters + REAL reads | writes=0, fake authoritative calls=0 |
 
-Mandatory final counters:
-- HTTP 500 count;
-- HTTP 502 count, if observed;
-- fake/mock/frozen source calls count;
-- AS21 write calls count (must be 0);
-- successful REAL AS21 read evidence.
-
-Timeout/hang is not PASS.
+A checkbox or statement such as "mechanism exists", "verified from code review", "rollback mechanism in place" or "cold restart supported" is **not evidence**.
 
 ## Output
 
 Create only:
 
-`po-agent-platform-v2/qa_reports/CORE8_SEMANTIC_CORRECTION_LEARNING_072D.md`
+`po-agent-platform-v2/qa_reports/CORE8_PERSISTENT_LEARNING_PROOF_072E.md`
 
-The report must contain:
+The report must include:
 - exact commands;
 - tested HEAD SHA;
-- clean-worktree proof before/after;
-- correction traces ×3 plus second-member evidence;
-- 6-case clarification matrix;
-- complete Learning Loop trace from negative feedback through rollback;
-- persisted policy record schema/content with entity facts redacted if necessary but structural fields visible;
-- cold restart evidence;
-- semantic/source regression matrix;
-- automated-test results;
-- REAL AS21 evidence;
-- HTTP 500/502 counts;
-- fake/mock/frozen source-call count;
+- clean-worktree proof;
+- runtime/process provenance;
+- exact policy-store backend/location;
+- policy state BEFORE learning;
+- full learning trace;
+- policy state AFTER promotion;
+- policy ID/version/skill_id/type and safe payload excerpt;
+- different-query generalization trace;
+- old/new PID cold-restart evidence;
+- post-restart policy reload/application evidence;
+- rollback evidence;
+- post-rollback negative evidence;
+- idempotency/safety evidence;
+- REAL AS21 reads;
+- HTTP 500/502 counts and endpoint mapping;
+- fake/mock/frozen authoritative-call count;
 - AS21 write-call count;
+- the completed acceptance matrix above;
 - remaining known failures.
 
-Final verdict rules:
+### Final verdict
 
-`GREEN` only if correction, clarification behavior, complete protected Learning Loop, source integrity and relevant regressions are all GREEN.
+`GREEN` only if **every acceptance-matrix row is concretely proven**.
 
-Otherwise `RED` and identify the **FIRST_FAILING_BOUNDARY**. Do not fix it.
+If any step is absent, inferred, unsupported, or reports `persistent_behavior_learning=false` without separate proof of actual promotion/persistence from the same production event, verdict must be `RED` and the report must identify `FIRST_FAILING_BOUNDARY`.
 
-Commit and push ONLY the QA report. Do not modify any other file.
+Do not fix the failure.
 
-STOP after the report. Do not start Assignment 073 or 095.
+Commit and push ONLY the QA report. Verify that the report exists in remote HEAD after push. Report final SHA and STOP.
+
+Do not start Assignment 073 or 095.
