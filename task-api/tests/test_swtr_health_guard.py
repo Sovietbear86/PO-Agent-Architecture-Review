@@ -17,8 +17,11 @@ Return values (exactly one):
 
 import httpx
 import subprocess
+import asyncio
+import json
 from pathlib import Path
 from typing import Optional
+from typing import Dict, Any
 
 # Expected smoke task
 SMOKE_TASK_CODE = "DMS-273"
@@ -45,11 +48,15 @@ class SWTRHealthGuard:
         task_api_url: str = "http://127.0.0.1:8003",
         expected_checkout_path: Optional[str] = None,
         expected_head: Optional[str] = None,
+        wrapper_path: Optional[str] = None,
+        mcp_cwd: Optional[str] = None,
     ):
         self.task_api_url = task_api_url
         self.expected_checkout_path = expected_checkout_path
         self.expected_head = expected_head
         self.details = {}
+        self.wrapper_path = wrapper_path or "/Users/kalachanov.v.v/Desktop/Мои документы/Обучение/GIGACodeCLI/PO_Agent_Harness/mcp-swtr-wrapper.sh"
+        self.mcp_cwd = mcp_cwd or "/Users/kalachanov.v.v/Desktop/Мои документы/Обучение/GIGACodeCLI/PO_Agent_Harness/mcp-swtr"
 
     def check_runtime_freshness(self) -> SWTRHealthCheckResult:
         """Check 1: RUNTIME FRESHNESS."""
@@ -105,6 +112,14 @@ class SWTRHealthGuard:
     def check_mcp_swtr_health(self) -> SWTRHealthCheckResult:
         """Check 2: MCP-SWTR HEALTH."""
         try:
+            import sys
+            from pathlib import Path
+            
+            # Add task-api to path
+            task_api_path = str(Path(__file__).resolve().parent.parent)
+            if task_api_path not in sys.path:
+                sys.path.insert(0, task_api_path)
+            
             client = httpx.Client(timeout=30)
             health_url = f"{self.task_api_url}/api/v1/swtr-read/health"
             response = client.get(health_url)
@@ -219,6 +234,125 @@ class SWTRHealthGuard:
                 status="SWTR_HTTP_PATH_FAILED",
                 details=self.details,
                 error=f"HTTP path check failed: {e}",
+            )
+
+    def check_mcp_stdio_transport(self) -> SWTRHealthCheckResult:
+        """Check 4.5: MCP STDIO TRANSPORT AND PROTOCOL VALIDATION."""
+        try:
+            # Test MCP stdio transport using FastMCP client
+            import sys
+            import os
+            from pathlib import Path
+            
+            # Add task-api to path
+            task_api_path = str(Path(__file__).resolve().parent.parent)
+            if task_api_path not in sys.path:
+                sys.path.insert(0, task_api_path)
+            
+            # Import and create MCP client
+            from app.services.swtr_mcp_client import SWTRMCPClient
+
+            client = SWTRMCPClient()
+            client.stdio_command = self.wrapper_path
+            client.stdio_args = []
+            client.stdio_cwd = self.mcp_cwd
+            
+            # Verify transport is stdio
+            transport = client.transport_kind()
+            self.details["mcp_transport"] = transport
+            
+            if transport != "stdio":
+                return SWTRHealthCheckResult(
+                    status="MCP_SWTR_UNAVAILABLE",
+                    details=self.details,
+                    error=f"MCP transport not stdio: {transport}",
+                )
+            
+            # Try to list tools (this will fail if protocol is invalid)
+            tools = asyncio.run(client.list_tools())
+            
+            # list_tools() returns strings, not Tool objects
+            if isinstance(tools, list) and len(tools) > 0:
+                if isinstance(tools[0], str):
+                    tool_names = tools
+                else:
+                    tool_names = [t.name for t in tools]
+            else:
+                tool_names = []
+            
+            self.details["mcp_tools_count"] = len(tool_names)
+            
+            if not tool_names:
+                return SWTRHealthCheckResult(
+                    status="MCP_PROTOCOL_INVALID",
+                    details=self.details,
+                    error="MCP tools list is empty",
+                )
+            
+            # Check read_unit tool exists
+            if "read_unit" not in tool_names:
+                return SWTRHealthCheckResult(
+                    status="MCP_PROTOCOL_INVALID",
+                    details=self.details,
+                    error="read_unit tool not found",
+                )
+            
+            # Test direct MCP canary
+            content = asyncio.run(client.call_tool("read_unit", {"code": SMOKE_TASK_CODE}))
+            
+            if not content:
+                return SWTRHealthCheckResult(
+                    status="MCP_STDIO_FAILED",
+                    details=self.details,
+                    error=f"read_unit returned empty: {content}",
+                )
+            
+            # Verify response structure
+            item = content[0]
+            self.details["mcp_response_type"] = item.get("type")
+            
+            if item.get("type") != "text":
+                return SWTRHealthCheckResult(
+                    status="MCP_PROTOCOL_INVALID",
+                    details=self.details,
+                    error=f"Unexpected response type: {item.get('type')}",
+                )
+            
+            # Verify task code in response
+            text_content = item.get("text", "")
+            if not text_content:
+                return SWTRHealthCheckResult(
+                    status="MCP_PROTOCOL_INVALID",
+                    details=self.details,
+                    error="read_unit text content is empty",
+                )
+            
+            # Parse JSON
+            try:
+                task_data = json.loads(text_content)
+            except json.JSONDecodeError as e:
+                return SWTRHealthCheckResult(
+                    status="MCP_PROTOCOL_INVALID",
+                    details=self.details,
+                    error=f"Invalid MCP JSON: {e}",
+                )
+            
+            self.details["mcp_response_code"] = task_data.get("code")
+            
+            if task_data.get("code") != SMOKE_TASK_CODE:
+                return SWTRHealthCheckResult(
+                    status="MCP_PROTOCOL_INVALID",
+                    details=self.details,
+                    error=f"Unexpected task code in MCP response: {task_data.get('code')}",
+                )
+            
+            return SWTRHealthCheckResult(status="SWTR_HEALTHY", details=self.details)
+            
+        except Exception as e:
+            return SWTRHealthCheckResult(
+                status="MCP_STDIO_FAILED",
+                details=self.details,
+                error=f"MCP stdio transport failed: {e}",
             )
 
     def check_bounded_sync(self) -> SWTRHealthCheckResult:
@@ -364,6 +498,7 @@ class SWTRHealthGuard:
         checks = [
             ("Runtime freshness", self.check_runtime_freshness),
             ("MCP-SWTR health", self.check_mcp_swtr_health),
+            ("MCP stdio transport", self.check_mcp_stdio_transport),
             ("Real SWTR read", self.check_real_swtr_read),
             ("HTTP path", self.check_http_path),
             ("Bounded sync", self.check_bounded_sync),
