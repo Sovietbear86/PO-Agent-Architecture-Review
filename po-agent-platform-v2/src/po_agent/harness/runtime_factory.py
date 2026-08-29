@@ -28,6 +28,7 @@ from .semantic_core_v2 import (
     FailClosedSemanticInterpreter,
     LLMFirstSemanticInterpreter,
 )
+from .semantic_slot_recovery import RecoveringLLMFirstSemanticInterpreter
 from .semantic_correction_runtime_v2 import SemanticCorrectionRuntimeV2
 from .source_aware_runtime import SourceAwareHarnessRuntime
 from .source_contracts import (
@@ -104,7 +105,7 @@ def _build_runtime_with_adapter(
 
     if mode == "task-api":
         if isinstance(semantic_interpreter, LLMJsonSemanticInterpreter):
-            semantic_v2 = LLMFirstSemanticInterpreter(
+            semantic_v2 = RecoveringLLMFirstSemanticInterpreter(
                 semantic_interpreter.client,
                 model=semantic_interpreter.model,
             )
@@ -112,7 +113,11 @@ def _build_runtime_with_adapter(
         elif isinstance(semantic_interpreter, ConversationAwareSemanticInterpreter):
             selected_interpreter = semantic_interpreter
         elif isinstance(semantic_interpreter, LLMFirstSemanticInterpreter):
-            selected_interpreter = ConversationAwareSemanticInterpreter(semantic_interpreter)
+            semantic_v2 = RecoveringLLMFirstSemanticInterpreter(
+                semantic_interpreter.client,
+                model=semantic_interpreter.model,
+            )
+            selected_interpreter = ConversationAwareSemanticInterpreter(semantic_v2)
         else:
             selected_interpreter = FailClosedSemanticInterpreter()
     else:
