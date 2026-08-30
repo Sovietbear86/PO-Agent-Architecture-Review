@@ -6,6 +6,8 @@
 
 Главный принцип: **PASS означает доказанную корректность на доступных source facts.** Если источник данных отсутствует, тест получает `BLOCKED/UNAVAILABLE`, а не PASS. Нельзя менять код, ослаблять assertion или подменять источник fake-данными только ради зелёного результата.
 
+**MANDATORY POST-CHANGE RULE:** после каждого изменения production-кода/поведения, способного повлиять на ответы агента, выполняется независимая A/B Oracle Certification по `POST_CHANGE_AB_ORACLE_CERTIFICATION.md`. A = production PO Agent Harness, B = GigaCode, независимо получающий и рассчитывающий ожидаемые бизнес-факты из REAL AS21/SWTR. HTTP 200, `COMPLETED`, unit/pytest или успешный skill resolution не заменяют A/B-проверку. HEAD после изменения не считается GREEN/merge-ready без применимой A/B-сертификации. GigaCode остаётся только QA/tester и не исправляет production-код.
+
 Машиночитаемый корпус: `tests/corpus/harness_acceptance_corpus.yaml`.
 
 ## 2. Что было перенесено из старого S21 Agent
@@ -17,43 +19,34 @@
 ## 3. Уровни тестирования
 
 ### L0 — Static/contract
-
 Проверить: 54/54 записи каталога; уникальные IDs/intents/capability IDs; version присутствует; каждый capability allow-listed; для каждого Skill есть минимум две естественные фразы; `implemented != source-ready`; секреты и локальные пути не попадают в tracked files.
 
 ### L1 — Deterministic unit
-
 Проверить отдельно router, normalizers, metrics, source contracts, FIO resolver, task mapping, scoring, forecast math, regression gate, approval/promotion/rollback. LLM и сеть запрещены.
 
 ### L2 — FakeAS21 Harness acceptance
-
 Для каждого source-ready Skill выполнить каноническую фразу через полный `HarnessRequest -> Router -> Skill -> Capability -> Evidence -> HarnessResponse`. Проверять `status`, `skill_id`, `skill_version`, `trace_id`, `session_id`, evidence и отсутствие неожиданных warnings.
 
 ### L3 — Failure/degraded
-
 Проверить timeout, connection refused, HTTP error, invalid JSON, JSON неправильной формы, unmappable task, отсутствие history/attachments/snapshot/timeline/team profile. Источник, который упал, никогда не должен выглядеть как пустой backlog.
 
-### L4 — Real task-api/AS21 acceptance
-
-Выполняется только в корпоративной среде. Сначала health/readiness, затем read-only запросы по разрешённым пространствам. Значения выборочно сверяются с UI/API источника.
+### L4 — Real task-api/AS21 acceptance + independent A/B Oracle
+Выполняется только в корпоративной среде. Сначала health/readiness, затем read-only запросы по разрешённым пространствам. Для source-backed acceptance значения не просто выборочно сверяются: после production behavior/code change применимые Skills проходят A/B Oracle protocol из `POST_CHANGE_AB_ORACLE_CERTIFICATION.md`. Oracle B должен быть независим от Harness execution path и сравнивать нормализованные бизнес-факты, а не текст ответа.
 
 ### L5 — UI acceptance
-
 Overview, Tasks, Sprint, Releases, Team, Quality и Agent Chat должны использовать Harness API, а не считать метрики в браузере. Проверяются loading/error/degraded/empty states, trace/evidence, drawers и session persistence.
 
 ### L6 — AI-PDLC/Harness lifecycle
-
-Feedback -> eval seed -> failure mining -> inert candidate -> shadow/offline evaluation -> regression gate -> human approval -> promotion -> rollback. Ни один кандидат не меняет runtime до approval.
+Feedback -> eval seed -> failure mining -> inert candidate -> shadow/offline evaluation -> regression gate -> human approval -> promotion -> rollback. Ни один кандидат не меняет runtime до approval. Для доказанного A/B mismatch Learning Loop может сформировать generalized candidate только после authoritative source recheck; запрещено учить конкретные task/member counts или правило вида `0 невозможно`. Обязательны same-case correction, generalization, negative control, persistence/cold restart и rollback согласно `POST_CHANGE_AB_ORACLE_CERTIFICATION.md`.
 
 ## 4. Обязательный тест каждого из 54 Skills
 
 Полный список и фразы находятся в YAML-корпусе. Для каждого Skill обязательны четыре проверки: canonical positive, paraphrase, negative/insufficient-data, provenance. Для source-dependent Skills добавляется degraded test.
 
 ### Tasks — 21 Skills
-
 `task-lookup`, `task-search`, четыре attachment Skills, поиск по assignee/status/sprint/release/product, summary, quality, missing requirements, acceptance, dependencies, history, time-in-status, aging, blockers, similar.
 
 Особые проверки:
-
 - exact task key не подменяется первым похожим search hit;
 - поиск по статусу использует нормализованный workflow status;
 - attachment metadata не означает content search внутри файла;
@@ -63,11 +56,9 @@ Feedback -> eval seed -> failure mining -> inert candidate -> shadow/offline eva
 - quality score детерминирован и одинаков при повторном запуске.
 
 ### Sprints — 12 Skills
-
 `health`, `current`, `scope`, `velocity`, `throughput`, `wip`, `cycle-time`, `lead-time`, `carryover`, `scope-change`, `predictability`, `risk-queue`.
 
 Особые проверки:
-
 - velocity не равен throughput, если effort units доступны;
 - cycle/lead time не вычисляются из текущего статуса;
 - carryover/scope-change требуют commitment snapshot;
@@ -75,25 +66,22 @@ Feedback -> eval seed -> failure mining -> inert candidate -> shadow/offline eva
 - `когда закончится спринт` без исторического основания не должен выдумывать дату.
 
 ### Team — 8 Skills
-
 `workload`, `wip`, `blocked`, `capacity`, `competency-match`, `assignee-recommendation`, `bottlenecks`, `distribution`.
 
 Особые проверки:
-
 - competency match использует только declared `professional_profile`/`competencies`;
 - пустой `competencies` не заполняется догадками по ФИО, грейду или прошлым назначениям;
 - рекомендация исполнителя учитывает match и текущую нагрузку;
 - при недостаточных данных возвращается отказ от рекомендации, а не случайный сотрудник;
-- capacity baseline явно указан и не маскируется под фактическую доступность человека.
+- capacity baseline явно указан и не маскируется под фактическую доступность человека;
+- подозрительный `0 исполнителей / 0 задач` обязан быть независимо проверен Oracle B: если REAL AS21 подтверждает пустой scope — это допустимо; если источник доказывает ненулевые данные — `AB_MISMATCH`, а не PASS.
 
 ### Releases — 7 Skills
-
 `health`, `scope`, `progress`, `blockers`, `dependencies`, `risk-queue`, `forecast`.
 
 Особые проверки: forecast требует timeline, должен возвращать bounded forecast и не представляться обещанной датой; progress определяется кодом; blockers/dependencies имеют evidence.
 
 ### Portfolio/PO — 6 Skills
-
 `portfolio-overview`, `po-attention-queue`, `po-daily-brief`, `po-status-report`, `po-reminder-draft`, `po-local-task-draft`.
 
 Особые проверки: overview показывает реальный adapter mode; attention score детерминирован; drafts ничего не отправляют и не записывают во внешний AS21; write/action возможен только отдельным approval lifecycle.
@@ -101,7 +89,6 @@ Feedback -> eval seed -> failure mining -> inert candidate -> shadow/offline eva
 ## 5. Матрица ФИО, login и членов команды
 
 Для каждого реального team member из `team_members.yaml` прогнать только те варианты, которые можно однозначно связать с одной записью:
-
 1. точный `login`;
 2. login без регистра;
 3. login prefix;
@@ -122,7 +109,6 @@ Feedback -> eval seed -> failure mining -> inert candidate -> shadow/offline eva
 ## 6. Multi-turn/session tests
 
 Обязательные сценарии:
-
 - `Покажи WMB-101` -> `что с ней?` в том же `session_id`;
 - аналогичный follow-up в другом `session_id` не видит чужую сущность;
 - новая явная сущность заменяет bounded context;
@@ -134,7 +120,6 @@ Feedback -> eval seed -> failure mining -> inert candidate -> shadow/offline eva
 ## 7. Anti-hallucination tests
 
 Каждый пункт — обязательный FAIL, если агент придумывает данные:
-
 - AS21 недоступен -> `source_unavailable`, не `0 задач`;
 - отсутствует history -> `source_capability_unavailable`;
 - отсутствуют attachments -> unavailable, не `вложений нет`;
@@ -155,26 +140,27 @@ Feedback -> eval seed -> failure mining -> inert candidate -> shadow/offline eva
 
 ## 9. Performance/resilience
 
-Минимальная локальная планка перед merge: 100 последовательных deterministic queries без утечки session context; 20 параллельных read-only queries; 1k fake tasks для search/overview/risk queue; timeout source; cancellation; повторный запрос после временного outage. Порог latency задаётся средой и фиксируется в отчёте, а не захардкоживается без baseline.
+Минимальная локальная планка перед merge: 100 последовательных deterministic queries без утечки session context; 20 параллельных read-only queries; 1k fake tasks для search/overview/risk queue; timeout source; cancellation; повторный запрос после временного outage. Порог latency задаётся средой и фиксируется в отчёте, а не захардкоживается без baseline. Для REAL SWTR acceptance 40–60+ секунд на обращение считается нормальным; timeout должен учитывать этот baseline, а concurrency не должна превращать тест в искусственный DoS источника.
 
 ## 10. Real AS21 sample validation
 
-На реальном источнике выбрать минимум: 5 task lookups, 5 assignee searches, 3 sprint scopes, 2 releases, 5 quality reviews, 3 team workload checks. Для каждого записать `query`, `trace_id`, source URL/key, expected/actual, PASS/FAIL/BLOCKED. Минимум 10 результатов вручную сверить с SberWorks UI.
+На реальном источнике выбрать минимум: 5 task lookups, 5 assignee searches, 3 sprint scopes, 2 releases, 5 quality reviews, 3 team workload checks. Для каждого записать `query`, `trace_id`, source URL/key, Agent A facts, independent Oracle B facts, expected/actual, PASS/FAIL/BLOCKED. После code/behavior change минимальная выборка не заменяет обязательную применимую A/B matrix из `POST_CHANGE_AB_ORACLE_CERTIFICATION.md`.
 
 ## 11. Правила triage при падении
 
 Каждое падение сначала классифицируется:
-
 - `ENV`: процесс/порт/DNS/cert/token/корпоративная сеть;
 - `SOURCE`: AS21/SWTR не отдаёт требуемый факт;
 - `DATA`: реальные данные не соответствуют предпосылке теста;
 - `CONTRACT`: API shape/semantic contract изменился;
 - `ROUTING`: неверный intent/entity resolution;
 - `CODE`: воспроизводимый дефект реализации;
-- `TEST`: неверное ожидание теста.
+- `TEST`: неверное ожидание теста;
+- `AB_MISMATCH`: Agent A расходится с независимо доказанными Oracle B business facts;
+- `LEARNING`: correction/generalization/persistence/rollback нарушает Learning Loop contract.
 
-**Запрещено править код до классификации и воспроизведения.** Для `ENV/SOURCE/DATA` изменение production-кода ради зелёного теста запрещено.
+**Запрещено править код до классификации и воспроизведения.** Для `ENV/SOURCE/DATA` изменение production-кода ради зелёного теста запрещено. GigaCode при любом классе дефекта остаётся tester-only: локализует `FIRST_FAILING_BOUNDARY`, формирует evidence/report и STOP; production fix выполняется отдельно.
 
 ## 12. Exit criteria перед merge
 
-Merge разрешён только если: blocking CI green; 54/54 corpus coverage green; P0=0; P1=0 либо явно принято владельцем; secret scan чистый; tracked junk cleanup завершён; PR mergeable; GigaCode/Qwen runbook актуален; реальный AS21 acceptance либо PASS, либо явно помечен как внешний `BLOCKED` и не подменён fake acceptance.
+Merge разрешён только если: blocking CI green; 54/54 corpus coverage green; P0=0; P1=0 либо явно принято владельцем; secret scan чистый; tracked junk cleanup завершён; PR mergeable; GigaCode/Qwen runbook актуален; реальный AS21 acceptance либо PASS, либо явно помечен как внешний `BLOCKED` и не подменён fake acceptance; **каждый production behavior/code change имеет применимую `GREEN_AB_ORACLE_CERTIFIED` сертификацию по `POST_CHANGE_AB_ORACLE_CERTIFICATION.md`.** Неразобранный `AB_MISMATCH` или `LEARNING_LOOP_REGRESSION` блокирует merge.
