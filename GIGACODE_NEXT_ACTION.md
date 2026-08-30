@@ -2,7 +2,7 @@
 
 ## Status
 
-`ACTIVE_QA_ASSIGNMENT_072E`
+`ACTIVE_QA_ASSIGNMENT_072F`
 
 ## Role boundary — mandatory
 
@@ -10,174 +10,189 @@ You are QA/tester only.
 
 **DO NOT modify production code, prompts, tests, fixtures, runtime configuration, credentials, AS21/SWTR data, GIGACODE.md, PO_AGENT_HARNESS_EVOLUTION_PLAN.md, or this file.**
 
-The current production candidate is immutable for this assignment. Do not improve, refactor or repair it.
+The current production candidate is immutable. Do not improve, refactor or repair it.
 
 If any production file becomes dirty during this assignment: STOP and report RED.
 
-## Assignment 072E — factual persistent Learning Loop proof
+## Assignment 072F — cold-restart certification only
 
 ### Why this assignment exists
 
-Assignment 072D established useful correction/clarification evidence, but its Learning Loop section is not sufficient for acceptance. The report showed `source_recheck_performed=true` while also showing `persistent_behavior_learning=false`, then inferred promotion/persistence/restart/rollback without supplying the required concrete artifacts.
+Assignment 072E proved all protected Learning Loop stages except one: genuine cold-restart survival and post-restart policy reuse. Its final verdict was correctly RED because the same runtime process remained alive.
 
-072E is deliberately narrow. **Do not repeat correction, clarification or the full 1274-test regression unless required to execute the learning trace.** The only goal is to prove or disprove the actual persistent Learning Loop end to end.
+072F is intentionally minimal. **Do not repeat correction regression, clarification regression, full semantic matrix or the 1274-test suite.** Reuse 072E evidence for those already-proven stages. The only goal is to close the cold-restart gap with concrete process-level proof.
 
 Do not start Assignment 095. Do not implement fixes.
 
-Production mode: `task-api` + REAL read-only AS21(SWTR). Fake/mock/frozen source data cannot be used as authoritative acceptance evidence.
+Production mode: `task-api` + REAL read-only AS21(SWTR).
 
-## Phase 0 — provenance
+## Phase 0 — clean provenance
 
 1. Fetch/pull `feat/core8-real-query-hardening-v2`.
 2. Record exact tested HEAD SHA.
-3. Record `git status --short`; production worktree must be clean.
-4. Restart PO Agent and task-api from that exact HEAD.
-5. Prove REAL AS21 mode and record process IDs/start timestamps so the later cold restart is independently verifiable.
-6. Identify the exact production persistent-learning implementation and policy-store location/API used by the running runtime. Do not create an alternative test-only learning path.
+3. Record `git status --short`; production files must be clean.
+4. Record PO Agent and task-api PID/start timestamps before the test.
+5. Record exact production policy-store path/backend used by the runtime.
+6. Record policy-store baseline.
 
-## Phase 1 — establish policy-store baseline
+Assignment 072E rolled back policy v2, so active policies may currently be zero. That is expected.
 
-Before triggering learning, capture the active learned-policy state for the selected production skill:
-- policy count;
-- active policy IDs/versions;
-- policy type/behaviour;
+## Phase 1 — create one fresh promoted policy
+
+Create exactly one fresh persistent learned policy using the already-proven production Learning Loop for an applicable skill and allow-listed behaviour `authoritative_recheck_on_negative`.
+
+You may reuse the same safe 072E test pattern if valid against REAL AS21.
+
+Capture only the minimum evidence needed to identify the policy that must survive restart:
+- policy ID;
+- version;
 - skill_id;
-- audit/provenance fields;
-- persistence location/backend.
+- behaviour;
+- state = promoted/active;
+- persistence store entry;
+- REAL AS21 authoritative read evidence;
+- `AS21 writes = 0`.
 
-Do not expose secrets. Entity/source facts may be redacted, but structural fields must remain visible.
+Do not stop here. The purpose of this phase is only to create a known active persisted policy for restart verification.
 
-If a policy for the exact intended test behaviour already exists, either safely roll it back through the supported production mechanism before the test or choose another applicable skill/session so that a newly promoted policy can be distinguished from pre-existing state. Record what was done.
+## Phase 2 — pre-restart application proof
 
-## Phase 2 — trigger real bounded learning
+Run one **different qualifying query** and prove that the freshly promoted policy is selected/applied before restart.
 
-Use an applicable production skill and the allow-listed generalized behaviour `authoritative_recheck_on_negative`.
+Capture:
+- query;
+- policy application trace/metadata;
+- exact policy ID/version;
+- REAL AS21 read evidence.
 
-Prove with exact runtime evidence:
+This establishes the before-restart control.
 
-`initial execution`
-`-> explicit negative feedback/correction`
-`-> fresh authoritative REAL AS21 recheck`
-`-> source-grounded validation`
-`-> generalized policy candidate/promotion`
-`-> persistent active policy record`
+## Phase 3 — genuine cold restart
 
-Mandatory evidence:
-- request/response or trace showing the negative feedback event;
-- `source_recheck_performed == true` (or exact equivalent production evidence);
-- successful REAL AS21 read used by the authoritative recheck;
-- exact promotion event/decision;
-- policy store state BEFORE and AFTER promotion;
-- newly created/activated policy ID + version + skill_id + generalized policy type;
-- persisted policy payload/schema sufficient to prove it does not contain a task ID, member login, sprint ID, stored answer, correction prose or entity truth.
+This phase is mandatory and must be performed autonomously if ordinary process management permissions allow it.
 
-**Critical rule:** if the production response says `persistent_behavior_learning=false`, do not call the phase GREEN unless you separately prove that a persistent policy was actually promoted by the same event through another production surface. If no persistent policy appears, verdict is RED and identify the first failing boundary.
+1. Record old PID(s) and start timestamps for the PO Agent/runtime process that owns the learned-policy state.
+2. Gracefully stop that process. If graceful stop fails, use the normal local process termination mechanism. Do not modify code/configuration.
+3. Prove the old PID is no longer running/listening.
+4. Start a **new process from the exact same tested HEAD and normal production command/configuration**.
+5. Record the new PID and start timestamp.
+6. Prove `NEW_PID != OLD_PID`.
+7. Do not inject/reconstruct/re-promote the policy manually after restart.
+8. Read the production policy store and prove the same policy ID/version from Phase 1 still exists as active/promoted.
+9. Prove the new runtime has loaded/resolved that existing persisted policy through the normal production mechanism.
 
-If a safe initial negative requires an existing QA fault-injection mechanism, it may be used only to create the initial negative condition. The authoritative recheck and validation must still hit REAL read-only AS21. Do not modify fixtures or source facts.
+Reusing an old Python object, session, in-memory singleton, hot reload, thread, worker or child object without a genuinely new owning runtime process is RED.
 
-## Phase 3 — prove generalization
+### If restart cannot be executed
 
-After promotion, execute a **different query/entity/input** that is eligible for the same learned behaviour.
+Do not write "manual intervention needed" and do not infer success.
 
-Prove:
-- the learned policy is selected/applied;
-- the second request is not the original memorized query;
-- no entity-specific stored truth is required;
-- REAL AS21 remains authoritative for business facts;
-- behavior differs in the expected generalized way because of the policy.
+Instead identify the exact blocker:
+- permission denied;
+- unknown production launch command;
+- process supervisor constraint;
+- port/process ownership conflict;
+- another concrete environment limitation.
 
-Capture policy-selection/application evidence tied to the policy ID/version from Phase 2.
+Capture exact command/error and verdict `BLOCKED_BY_ENVIRONMENT` or `RED` as appropriate. Do not fix product code.
 
-## Phase 4 — genuine cold restart
+## Phase 4 — post-restart policy reuse
 
-1. Record current PO Agent/task-api process IDs.
-2. Stop the relevant runtime process(es).
-3. Start genuinely new process(es) from the same tested HEAD without reconstructing the learned policy manually.
-4. Record new process IDs/start timestamps.
-5. Prove the persisted policy is loaded from the production policy store after restart.
-6. Re-run a qualifying different query and prove the same policy ID/version is applied after restart.
-
-Reusing the same Python object, interpreter session, in-memory singleton or cached runtime is NOT a cold restart.
-
-## Phase 5 — rollback and negative proof
-
-Use the supported production learning-policy rollback/deactivation mechanism for the policy created in Phase 2.
+Using a **new session** after the new process is running, execute another qualifying query different from the original learning query.
 
 Prove:
-- rollback/deactivation command/API/event;
-- policy-store state after rollback;
-- policy is no longer active/selectable;
-- another qualifying request after rollback does **not** apply that policy;
-- REAL AS21 behavior remains correct and read-only.
+- same persisted policy ID/version is applied by the NEW runtime;
+- no new promotion was required;
+- policy was loaded from persistence, not recreated in memory;
+- REAL AS21 is still authoritative for task/business facts;
+- AS21 writes remain 0.
 
-Do not delete/edit the policy-store file manually unless manual file editing is itself the documented production rollback mechanism. If no supported rollback exists, report RED.
+Required evidence must tie together:
 
-## Phase 6 — idempotency and safety
+`OLD_PID + policy Vn active`
+`-> process stopped`
+`-> NEW_PID`
+`-> same policy Vn loaded`
+`-> same policy Vn applied to post-restart query`.
 
-Where possible without recreating the rolled-back policy incorrectly, prove from the captured trace/store history that:
-- repeated identical feedback does not create unbounded duplicate active policies;
-- promotion/audit history is versioned or otherwise traceable;
-- learned payload contains generalized behavior only;
-- AS21 write calls = 0;
-- fake/mock/frozen authoritative calls = 0.
+## Phase 5 — cleanup rollback
 
-Record HTTP 500 and HTTP 502 counts observed during this narrow test. Any 502 must be mapped to the exact endpoint/time and state whether it affected the learning chain. Do not dismiss 502 as external without evidence.
+After successful post-restart proof, rollback/deactivate the test policy using the supported production mechanism so the repository/runtime is not left with QA learning state active.
 
-## Acceptance matrix — every row needs concrete evidence
+Prove:
+- rollback result;
+- active policy count after cleanup;
+- policy state = rolled_back/inactive;
+- AS21 write calls = 0.
 
-| Contract step | Required evidence | PASS condition |
-|---|---|---|
-| Negative feedback | request/trace | event reached production correction/feedback path |
-| Authoritative recheck | runtime trace + REAL AS21 read | fresh source validation occurred |
-| Promotion | promotion event/decision | generalized allow-listed policy promoted |
-| Persistence | store BEFORE/AFTER | new active policy ID/version persisted |
-| Safety | persisted payload | no entity/answer memorization |
-| Generalization | different query + policy application trace | same policy applies beyond original query |
-| Cold restart | old/new PID + reload evidence | persisted policy reloads in new runtime |
-| Post-restart reuse | query + application trace | same policy works after restart |
-| Rollback | supported rollback + store state | policy becomes inactive |
-| Post-rollback negative | qualifying query trace | rolled-back policy no longer applies |
-| Source integrity | counters + REAL reads | writes=0, fake authoritative calls=0 |
+Do not manually delete the policy-store file.
 
-A checkbox or statement such as "mechanism exists", "verified from code review", "rollback mechanism in place" or "cold restart supported" is **not evidence**.
+## Phase 6 — source/environment counters
+
+Record for this narrow run:
+- HTTP 500 count;
+- HTTP 502 count;
+- endpoint/time mapping for any 502;
+- fake/mock/frozen authoritative-call count;
+- AS21 write-call count;
+- successful REAL AS21 read evidence.
+
+A 502 affecting the policy promotion or post-restart verification path is not PASS.
+
+## Acceptance matrix
+
+| Contract step | PASS condition |
+|---|---|
+| Fresh policy | one identifiable active persistent policy created |
+| Pre-restart application | same policy ID/version demonstrably applied |
+| Old process proof | old PID/start timestamp recorded and process terminated |
+| New process proof | different new PID/start timestamp from same HEAD |
+| Persistence | same policy ID/version remains in production store |
+| Runtime reload | new runtime resolves existing policy without re-promotion |
+| Post-restart reuse | same policy ID/version applied to new qualifying query |
+| REAL source | business facts remain REAL AS21 grounded |
+| Cleanup | test policy rolled back after proof |
+| Integrity | AS21 writes=0, fake authoritative calls=0 |
+
+Every row requires concrete evidence. Statements like "restart should work" or "store is persistent" are not acceptance evidence.
 
 ## Output
 
 Create only:
 
-`po-agent-platform-v2/qa_reports/CORE8_PERSISTENT_LEARNING_PROOF_072E.md`
+`po-agent-platform-v2/qa_reports/CORE8_PERSISTENT_LEARNING_COLD_RESTART_072F.md`
 
 The report must include:
 - exact commands;
 - tested HEAD SHA;
 - clean-worktree proof;
-- runtime/process provenance;
-- exact policy-store backend/location;
-- policy state BEFORE learning;
-- full learning trace;
-- policy state AFTER promotion;
-- policy ID/version/skill_id/type and safe payload excerpt;
-- different-query generalization trace;
-- old/new PID cold-restart evidence;
-- post-restart policy reload/application evidence;
-- rollback evidence;
-- post-rollback negative evidence;
-- idempotency/safety evidence;
-- REAL AS21 reads;
+- old PID/start timestamp;
+- new PID/start timestamp;
+- proof old PID terminated;
+- production restart command;
+- fresh policy ID/version/store entry;
+- pre-restart policy application trace;
+- post-restart policy-store state;
+- new-runtime policy reload evidence;
+- post-restart different-query application trace tied to same policy ID/version;
+- REAL AS21 evidence;
+- cleanup rollback evidence;
 - HTTP 500/502 counts and endpoint mapping;
 - fake/mock/frozen authoritative-call count;
 - AS21 write-call count;
-- the completed acceptance matrix above;
+- completed acceptance matrix;
 - remaining known failures.
 
 ### Final verdict
 
-`GREEN` only if **every acceptance-matrix row is concretely proven**.
+`GREEN` only if genuine process replacement and post-restart reuse of the **same persisted policy ID/version** are concretely proven and every acceptance row passes.
 
-If any step is absent, inferred, unsupported, or reports `persistent_behavior_learning=false` without separate proof of actual promotion/persistence from the same production event, verdict must be `RED` and the report must identify `FIRST_FAILING_BOUNDARY`.
+If the product fails to reload/apply the policy after a genuine restart: `RED` and identify `FIRST_FAILING_BOUNDARY`.
 
-Do not fix the failure.
+If the restart cannot be executed because of a proven external/environment constraint: `BLOCKED_BY_ENVIRONMENT` with exact evidence.
 
-Commit and push ONLY the QA report. Verify that the report exists in remote HEAD after push. Report final SHA and STOP.
+Do not fix anything.
+
+Commit and push ONLY the QA report. Verify the report exists in remote HEAD after push. Report final SHA and STOP.
 
 Do not start Assignment 073 or 095.
