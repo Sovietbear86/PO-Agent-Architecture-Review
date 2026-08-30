@@ -1,0 +1,75 @@
+[
+  {
+    "desc": "scope-change with hyphen",
+    "query": "Покажи scope-change спринта DMS-SPRNT-2",
+    "status": "FAILED",
+    "intent": null,
+    "skill": null,
+    "warnings": [
+      "source_capability_unavailable"
+    ],
+    "data": {
+      "missing_source_fact": "sprint_snapshots"
+    },
+    "answer": "Источник AS21 не предоставляет обязательные данные для этого запроса: sprint_snapshots.",
+    "elapsed_ms": 8.36
+  },
+  {
+    "desc": "scope change with space",
+    "query": "Покажи scope change спринта DMS-SPRNT-2",
+    "status": "FAILED",
+    "intent": null,
+    "skill": null,
+    "warnings": [
+      "source_capability_unavailable"
+    ],
+    "data": {
+      "missing_source_fact": "sprint_snapshots"
+    },
+    "answer": "Источник AS21 не предоставляет обязательные данные для этого запроса: sprint_snapshots.",
+    "elapsed_ms": 2.28
+  },
+  {
+    "desc": "изменение состава (Russian)",
+    "query": "Покажи изменение состава спринта DMS-SPRNT-2",
+    "status": "FAILED",
+    "intent": null,
+    "skill": null,
+    "warnings": [
+      "source_capability_unavailable"
+    ],
+    "data": {
+      "missing_source_fact": "sprint_snapshots"
+    },
+    "answer": "Источник AS21 не предоставляет обязательные данные для этого запроса: sprint_snapshots.",
+    "elapsed_ms": 2.2
+  },
+  {
+    "desc": "carryover",
+    "query": "Покажи carryover спринта DMS-SPRNT-2",
+    "status": "FAILED",
+    "intent": null,
+    "skill": null,
+    "warnings": [
+      "source_capability_unavailable"
+    ],
+    "data": {
+      "missing_source_fact": "sprint_snapshots"
+    },
+    "answer": "Источник AS21 не предоставляет обязательные данные для этого запроса: sprint_snapshots.",
+    "elapsed_ms": 2.19
+  },
+  {
+    "desc": "scope control",
+    "query": "Покажи scope спринта DMS-SPRNT-2",
+    "status": "FAILED",
+    "intent": null,
+    "skill": null,
+    "warnings": [
+      "source_unavailable"
+    ],
+    "data": null,
+    "answer": "Источник AS21 временно недоступен. Нельзя подтвердить сущности запроса.",
+    "elapsed_ms": 7310.55
+  }
+]
