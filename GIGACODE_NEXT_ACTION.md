@@ -1,81 +1,90 @@
 # GigaCode — Current Action
 
 ## Status
-`ACTIVE_QA_ASSIGNMENT_095_BACKGROUND`
+`ACTIVE_QA_ASSIGNMENT_095B_PREFLIGHT_AND_MARATHON`
 
 ## Role boundary
 You are QA/tester only. Do not modify production code, prompts, tests, fixtures, learning implementation, runtime behavior, credentials, AS21/SWTR data, roadmap files, or this file. If a defect is found, prove FIRST_FAILING_BOUNDARY and report it; do not fix it.
 
-## Assignment 095 — long background full-backend certification
+## Goal
+Do not launch another multi-hour run until the exact background environment proves end-to-end REAL SWTR access first.
 
-The previous 095 run classified 53/54 skills as environment-blocked too early. Treat REAL SWTR as a slow dependency: **one skill invocation may normally require 40–60 seconds or more**.
+Production mode: `task-api` + REAL read-only AS21(SWTR). One SWTR-backed invocation may normally take 40–60 seconds or more.
 
-### Mandatory execution model
-- Run the complete 54-skill certification as a **long-lived background process**, not as a short interactive run.
-- Sequential execution is preferred; concurrency must be `1`, maximum `2` only when safe.
-- Per individual SWTR-backed request timeout: **at least 120 seconds**.
-- Heavy sprint/release/team/history requests: allow **up to 180 seconds**.
-- On timeout, retry the same request up to **2 additional times** before marking that individual row BLOCKED.
-- Pause briefly between retries.
-- A 40–60 second response is normal latency, not failure.
-- Do not infer broad SWTR outage from one `/swtr-read/versions` timeout if other source paths still work.
-- Do not convert one timeout into 53 blocked skills without independent evidence.
-- The full run may take **several hours**. Completion is more important than speed.
+# Gate A — Production background preflight
 
-### Background resilience
-Start the runner detached/backgrounded with stdout/stderr written to durable QA logs under:
-`po-agent-platform-v2/qa_reports/`
-using prefix:
-`TOTAL_BACKEND_CERTIFICATION_095_`
+1. Pull current branch and record HEAD, branch, `git status --short`.
+2. Derive the exact production launch environment used by the working PO Agent/task-api: interpreter/venv, working directory, package root, `PO_AGENT_AS21_MODE=task-api`, task-api base URL, SWTR transport/config, model/runtime config and other required non-secret environment.
+3. Confirm fake/mock/frozen authoritative modes are OFF and AS21 write authority is OFF.
+4. Using that exact same environment intended for the marathon, execute three sequential end-to-end requests:
+   - valid exact task lookup;
+   - valid sprint-backed request;
+   - valid team/release or another independent SWTR-backed capability.
+5. Each request must use timeout >=120 sec, capture start/end/elapsed, reach PO Agent -> task-api -> REAL source, complete successfully, and record authoritative evidence.
+6. If a request times out/502s, retry up to 2 times with 20–30 sec backoff and probe an independent capability before declaring broad outage.
+7. Health endpoint alone is not enough.
 
-Record exact command, PID and start time. The runner must checkpoint after every completed skill so it can resume from the last completed row if IDE/chat context closes or the runner is interrupted.
+**Do not start the 54-skill marathon unless all three preflight requests succeed in the exact same environment.**
 
-Do not require the GigaCode conversation to remain open for the test to continue.
+If Gate A fails, produce narrow `BLOCKED_BY_ENVIRONMENT` evidence and STOP without launching the marathon.
 
-## Scope
-Dynamically enumerate the callable production skill catalog from the running registry. Runtime discovery is authoritative; reconcile it with the historical 48 original + 6 reconciled inventory.
+# Gate B — Resumable background marathon
 
-For **every discovered callable skill** run at minimum:
+Start only after Gate A GREEN.
+
+## Background execution
+- Run detached/backgrounded so it survives IDE/chat closure.
+- Durable stdout/stderr log under `po-agent-platform-v2/qa_reports/` with prefix `TOTAL_BACKEND_CERTIFICATION_095_`.
+- Record PID, start timestamp, tested HEAD and non-secret environment fingerprint.
+- Checkpoint after every completed skill.
+- Checkpoint must store completed and pending skill IDs so the run can resume without restarting from zero.
+- The marathon must use the SAME verified environment from Gate A.
+
+## Timing
+- Sequential execution preferred, concurrency=1.
+- Maximum concurrency=2 only if source stability is proven.
+- Normal SWTR latency: 40–60+ sec.
+- Per request timeout >=120 sec.
+- Heavy sprint/release/team/history requests may use up to 180 sec.
+- Retry timeout/502 up to 2 additional attempts with 20–30 sec backoff.
+- One slow skill must not terminate the run.
+- Full run may take several hours.
+
+## Full catalog scope
+Dynamically enumerate the callable production skill catalog. Runtime discovery is authoritative; reconcile with historical 48 original + 6 reconciled.
+
+For every discovered callable skill run:
 1. canonical Russian query;
 2. meaning-preserving paraphrase;
 3. relevant edge/negative/clarification case where applicable;
 4. REAL AS21/SWTR verification where source-backed.
 
-For every request record start/end time, elapsed seconds, attempt number, timeout/retry count, resolved skill, semantic slots/arguments, capability/source evidence, expected vs actual and PASS/FAIL/BLOCKED.
+For every request record start/end, elapsed, attempt, retries, resolved skill, semantic slots/args, capability/source evidence, expected vs actual and PASS/FAIL/BLOCKED.
 
-For source-backed skills, HTTP 200 or plausible prose is not sufficient. Validate against an independent REAL AS21 oracle/read path wherever possible.
+For source-backed skills, plausible prose/HTTP200 is insufficient: use independent REAL source/oracle evidence where possible.
 
-Checkpoint results after every skill.
-
-## Mandatory historical regression pack
+## Historical high-risk pack
 Also rerun:
-- exact task-key lookup: at least two valid IDs + one nonexistent ID;
+- exact task key: 2 valid + 1 nonexistent;
 - sprint ID only;
 - sprint + person;
 - sprint + status;
 - sprint + product/project where supported;
-- person-only;
-- status-only;
+- person only;
+- status only;
 - person + product + status;
 - second independent member;
-- correction: new status replaces old and unaffected previous slots survive;
-- history/changelog/attachments source paths where applicable;
-- Sprint Intelligence deterministic key-set/metric checks;
-- Team Workload deterministic key-set/metric checks.
-
-Apply the same long timeout/retry policy.
+- correction replaces old status and preserves unaffected slots;
+- history/changelog/attachments where applicable;
+- Sprint Intelligence exact key-set/metric checks;
+- Team Workload exact key-set/metric checks.
 
 ## Source integrity
-Track:
-- HTTP 500 count;
-- HTTP 502 count with endpoint/time mapping;
-- timeout count;
-- successful retry-after-timeout count;
-- fake/mock/frozen authoritative calls = 0;
-- AS21 writes = 0;
-- successful REAL AS21 reads.
+Track HTTP500, HTTP502 with endpoint/time mapping, timeout count, successful retries, fake/mock/frozen authoritative calls, AS21 writes and successful REAL reads.
 
-Classify each timeout/502 as isolated, endpoint-specific, capability-specific, or confirmed broad outage. `BLOCKED_BY_ENVIRONMENT` for the whole assignment is allowed only after repeated independent evidence that the environment prevents meaningful completion despite the long timeout/retry policy.
+Classify every timeout/502 as isolated, endpoint-specific, capability-specific or broad outage. One `/swtr-read/versions` timeout must never automatically block unrelated skills.
+
+Whole-assignment `BLOCKED_BY_ENVIRONMENT` is allowed only after repeated independent evidence that meaningful completion is impossible despite retries/timeouts, while preserving all completed rows.
 
 ## Learning Loop matrix
 For every discovered skill classify one:
@@ -84,39 +93,34 @@ For every discovered skill classify one:
 - `BLOCKED`
 - `FAILED`
 
-`NOT_APPLICABLE_BY_POLICY` requires concrete production-policy/catalog evidence.
+For each applicable skill prove existing production loop:
+negative/correction -> authoritative recheck -> generalized policy promotion -> persistent ID/version -> different query/entity -> genuine restart -> same policy reused -> rollback -> policy no longer applies.
 
-For each applicable skill prove the existing production Learning Loop:
-negative/correction -> authoritative recheck -> generalized policy promotion -> persistent policy ID/version -> different query/entity -> genuine process restart -> same policy reused -> rollback -> policy no longer applies.
-
-Batch policies before a shared restart where safely supported. Each policy ID/version must still have individual post-restart application evidence. Never persist entity facts, task IDs, member logins, sprint IDs, stored answers or correction prose.
+Batch policies for shared restart when safe. Each policy still needs individual post-restart application evidence. Do not persist entity facts, task IDs, member logins, sprint IDs, stored answers or correction prose.
 
 ## Automated regression
-Run the complete relevant backend automated test suite. Report exact command and reconciled totals: collected/passed/failed/skipped/xfailed and exact failures.
+Run complete relevant backend automated tests and report exact command plus reconciled totals: collected/passed/failed/skipped/xfailed and exact failures.
 
 ## Final matrix
-Produce one row for EVERY discovered callable skill with at least:
+One row for every discovered callable skill:
 `Skill | Version | Canonical | Paraphrase | Edge | REAL source/oracle | Avg/Max latency | Retries | Evidence | Learning applicability | Learning proof | Restart | Rollback | Final`
 
-Do not omit blocked rows.
-
-## Verdict rules
-Allowed final verdicts only:
+## Verdicts
+Allowed only:
 - `FULLY_CERTIFIED`
 - `REGRESSION_DETECTED`
 - `BLOCKED_BY_ENVIRONMENT`
 
-`FULLY_CERTIFIED` requires 100% required rows GREEN, zero unresolved source/oracle mismatch, all applicable Learning Loop rows GREEN, no unresolved production-relevant automated-test failures, HTTP500=0, fake authoritative calls=0, AS21 writes=0.
+`FULLY_CERTIFIED` requires 100% required rows GREEN, zero unresolved source/oracle mismatch, all applicable Learning Loop rows GREEN, no unresolved production-relevant automated-test failures, HTTP500=0, fake authoritative calls=0 and AS21 writes=0.
 
-If product defects appear, continue safe non-destructive testing and group them by FIRST_FAILING_BOUNDARY. Do not modify production code.
+If product defects appear, continue safe non-destructive testing and group by FIRST_FAILING_BOUNDARY. Do not modify production code.
 
 ## Output
 Primary report:
 `po-agent-platform-v2/qa_reports/TOTAL_BACKEND_CERTIFICATION_095.md`
 
-Additional logs/checkpoints may be created only under the same `qa_reports/` directory with prefix:
-`TOTAL_BACKEND_CERTIFICATION_095_`
+Additional logs/checkpoints may be created only in the same directory with prefix `TOTAL_BACKEND_CERTIFICATION_095_`.
 
-Report must include exact background command/PID, tested HEAD, discovered catalog, complete per-skill matrix, latency/retry statistics, historical regression pack, REAL AS21 evidence, source integrity, Learning Loop matrix, restart/rollback evidence, automated-test arithmetic, FIRST_FAILING_BOUNDARY items and final verdict.
+Primary report must include preflight evidence, exact background launch/PID, environment fingerprint, tested HEAD, discovered catalog, complete skill matrix, latency/retry statistics, checkpoint/resume behavior, historical regression pack, REAL AS21 evidence, source integrity classification, Learning Loop matrix, restart/rollback evidence, automated-test arithmetic, FIRST_FAILING_BOUNDARY items and final verdict.
 
-After the long background run completes, commit and push only allowed QA artifacts, verify the primary report exists in remote HEAD, report final SHA and STOP. Do not start any later assignment.
+After completion, commit/push only allowed QA artifacts, verify primary report exists in remote HEAD, report final SHA and STOP. Do not start later assignments.
