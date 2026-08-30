@@ -1,135 +1,191 @@
 # GigaCode — Current Action
 
 ## Status
-`ACTIVE_QA_ASSIGNMENT_095D_CONSISTENCY_DEFECT_PROOF`
+`ACTIVE_QA_ASSIGNMENT_096A_EXACT_SPRINT_BASELINE_PROOF`
 
 ## Role boundary — mandatory
 You are QA/tester only. **Do not modify production code, prompts, tests, fixtures, learning implementation, runtime behavior, credentials, AS21/SWTR data, roadmap files, testing rules, or this file.**
 
-Do not start Assignment 096. Assignment 096 is paused until 095D is complete.
+Do not fix anything. Do not start another broad marathon.
 
-## Why 095D exists
+## Why 096A exists
 
-Assignment 095C produced an internally contradictory certification result:
-- `sprint-carryover` and `sprint-scope-change` were reported `FAILED (PRODUCT_DEFECT_PROVEN)`;
-- `release-forecast` was reported `FAILED (PRODUCT_DEFECT_PROVEN)`;
-- FIRST_FAILING_BOUNDARY was reported as `DETERMINISTIC_METRIC_CALCULATION` for these failures;
-- but the final verdict was `NO_PRODUCT_DEFECTS_AFTER_VALID_RETEST`.
+Owner code review after Assignment 096 found a material contradiction that must be resolved before any production fix:
 
-Those statements cannot all be true simultaneously. 095D is a small evidence-only consistency gate. Its purpose is to determine whether these three rows are genuinely proven product defects or whether 095C misclassified them.
+1. `skill_catalog.py` marks both `sprint-carryover` and `sprint-scope-change` as `implemented`.
+2. `SprintIntelligenceCapabilities` currently has no `carryover()` or `scope_change()` implementation.
+3. The executable `HarnessRuntime` capability registry does not register `sprint.carryover` or `sprint.scope_change`.
+4. The authoritative comprehensive test plan explicitly says carryover/scope-change require an authoritative sprint commitment/scope snapshot and that missing sprint snapshot must result in unavailable behavior, not an invented metric.
+5. Assignment 096 nevertheless classified both as `DETERMINISTIC_CALCULATION` defects and asserted that current task data was sufficient, but the report did not provide the exact committed-scope baseline, source route/fields, independent formula, or expected numeric value.
 
-Do not rerun the full 54-skill marathon. Do not repair anything.
+Therefore **do not assume the fix is a metric formula change**. First prove the exact source/input contract.
 
-## Scope — exactly three skills
-1. `sprint-carryover`
-2. `sprint-scope-change`
-3. `release-forecast`
+## Scope — only two skills
+- `sprint-carryover`
+- `sprint-scope-change`
 
 ## Phase 0 — provenance
 1. Pull current branch and record exact HEAD.
 2. Record `git status --short`; production files must remain clean.
-3. Use production `task-api` + REAL AS21(SWTR).
+3. Confirm production `task-api` + REAL AS21(SWTR).
 4. fake/mock/frozen authoritative calls = 0.
 5. AS21 writes = 0.
-6. Revalidate every sprint/release/entity used against REAL AS21.
+6. Use a known-valid REAL sprint, preferably `DMS-SPRNT-2` if still valid.
 
-## Phase 1 — audit the 095C claims
+## Phase 1 — prove executable implementation state
 
-For each of the three skills, quote/capture from the 095C raw evidence and report:
-- exact natural-language query;
-- resolved skill;
-- grounded slots;
-- capability arguments;
-- source evidence IDs/requests;
-- source response summary;
-- Agent result/status;
-- why 095C labelled it `PRODUCT_DEFECT_PROVEN`;
-- why 095C nevertheless emitted `NO_PRODUCT_DEFECTS_AFTER_VALID_RETEST`.
+From the exact tested HEAD, capture concrete code evidence for each skill:
+- catalog entry and status;
+- capability ID;
+- whether an executable handler exists;
+- whether the handler is registered in the production runtime;
+- whether deterministic routing/semantic dispatch can reach that handler;
+- exact runtime behavior when invoked.
 
-Identify the exact report/classification logic or reasoning step responsible for the contradictory final verdict. Do not modify it.
+Explicitly reconcile:
+`catalog status = implemented`
+vs
+`handler/registry availability`.
 
-## Phase 2 — independent A/B defect proof
+If a catalog skill is marked implemented but has no executable registered handler, classify this separately as:
+`IMPLEMENTATION_CONTRACT_MISMATCH`.
 
-For each of the three skills run one clean contract-valid A/B test.
+Do not call that `DETERMINISTIC_CALCULATION` unless an actual calculation function is reached and returns an incorrect result.
 
-### A — Agent under test
-Use a realistic Russian query with a currently valid REAL sprint/release and capture:
-- query/session_id;
-- semantic frame and grounded slots;
-- resolved skill/version;
-- capability arguments;
-- source calls/evidence IDs;
-- final status/value/business facts.
+## Phase 2 — recover authoritative metric semantics
 
-### B — independent Oracle
-Query REAL AS21 independently of the Harness answer and independently derive the expected source facts/calculation inputs. Do not use the same Harness deterministic metric implementation as the Oracle.
+For each metric, state the exact business definition and required inputs.
 
-For each row explicitly answer:
-1. Are all source facts required by the metric available?
-2. If yes, what is the independently expected value/result and how was it calculated?
-3. If no, which exact source field/history/snapshot is unavailable?
-4. Does Agent A match Oracle B?
+### sprint-carryover
+At minimum determine whether the intended metric is based on:
+- committed scope at sprint start;
+- tasks carried from previous sprint;
+- unfinished committed tasks at sprint end/current time;
+- another explicitly documented definition.
 
-Allowed row dispositions:
-- `PRODUCT_DEFECT_PROVEN`
-- `SOURCE_DATA_OR_CAPABILITY_UNAVAILABLE`
-- `EXPECTED_UNAVAILABLE_OR_CLARIFICATION`
+### sprint-scope-change
+At minimum determine whether the intended metric is based on:
+- committed scope at sprint start;
+- tasks added after sprint start;
+- tasks removed after sprint start;
+- effort-weighted or task-count semantics;
+- another explicitly documented definition.
+
+Use repository product/test contracts as the definition source. Do not invent a formula from current task list alone.
+
+For each required input, mark `REQUIRED / OPTIONAL / NOT_REQUIRED`.
+
+## Phase 3 — independent REAL source inventory
+
+Independently query REAL AS21/SWTR/task-api and prove whether the following authoritative facts are actually available for the selected sprint:
+- current sprint scope exact task-key set;
+- sprint start timestamp;
+- sprint end timestamp/status where applicable;
+- committed scope exact task-key set at sprint start;
+- membership/change history or equivalent event stream;
+- tasks added after sprint start;
+- tasks removed after sprint start;
+- previous-sprint membership/carryover evidence;
+- effort/story-point baseline if the contract is effort-weighted.
+
+For every fact, provide:
+- exact endpoint/tool/read path;
+- source field(s);
+- example value/count/key set summary;
+- authoritative vs derived status.
+
+A current task list is NOT proof of a historical commitment baseline.
+
+## Phase 4 — exact Oracle calculation proof
+
+Only if all required authoritative inputs exist, independently calculate both metrics without using Harness metric code.
+
+Report exact reproducible formulas and values.
+
+For carryover include at minimum:
+- committed baseline key set/count;
+- carryover/unfinished/carried key set according to the proven definition;
+- numerator/denominator;
+- expected exact value.
+
+For scope-change include at minimum:
+- committed baseline key set/count;
+- added key set/count;
+- removed key set/count;
+- numerator/denominator or exact count semantics;
+- expected exact value.
+
+If required authoritative inputs do NOT exist, do not fabricate expected values. Classify:
+`SOURCE_CAPABILITY_UNAVAILABLE`.
+
+## Phase 5 — reclassify FIRST_FAILING_BOUNDARY
+
+For each skill choose exactly one evidence-backed classification:
+
+- `DETERMINISTIC_CALCULATION_DEFECT_PROVEN`
+  - handler exists and is reached;
+  - all required authoritative inputs exist;
+  - Oracle independently derives an exact expected value;
+  - product calculation produces a different exact value.
+
+- `IMPLEMENTATION_CONTRACT_MISMATCH`
+  - catalog promises implemented behavior but production handler/registration is absent or unreachable.
+
+- `SOURCE_CAPABILITY_UNAVAILABLE`
+  - authoritative snapshot/history required by the metric is not exposed by current production source contract.
+
+- `MIXED_IMPLEMENTATION_AND_SOURCE_GAP`
+  - executable implementation is missing/incomplete AND the authoritative inputs required for a correct implementation are also unavailable.
+
 - `AB_PASS`
-- `ENVIRONMENT_BLOCKED`
+  - current implementation is executable and matches independently derived authoritative result.
 
-A product defect is proven only if sufficient authoritative source facts exist and the product first diverges from the independently derived expected result, or if the product maps a known source-unavailable condition to an incorrect FAILED behavior contrary to its explicit contract.
+Do not reuse the Assignment 096 boundary label without new evidence.
 
-## Phase 3 — FIRST_FAILING_BOUNDARY proof
+## Phase 6 — desired fail-closed behavior
 
-For every row still classified `PRODUCT_DEFECT_PROVEN`, show the exact earliest divergence through:
-`query -> semantic -> skill -> grounding -> capability args -> REAL source -> source facts -> deterministic calculation -> response/status`.
+If the source baseline is unavailable, determine from current product/test contracts the correct production response contract:
+- typed unavailable/source-capability-unavailable;
+- warning/evidence expectations;
+- whether the skill should remain catalog `implemented`, become source-not-ready/blocked, or be executable but return typed unavailable.
 
-If boundary is `DETERMINISTIC_METRIC_CALCULATION`, provide:
-- exact calculation inputs;
-- independent expected calculation/result;
-- actual calculation/result;
-- exact evidence proving the difference.
-
-Do not merely repeat the label from 095C.
-
-## Phase 4 — certification consistency
-
-Produce a three-row truth table:
-
-| Skill | 095C classification | 095D A/B disposition | FIRST_FAILING_BOUNDARY | Product fix required? |
-
-Then issue a logically consistent final verdict.
-
-Allowed final verdicts only:
-- `PRODUCT_DEFECTS_PROVEN`
-- `NO_PRODUCT_DEFECTS_AFTER_AB_PROOF`
-- `MIXED_PRODUCT_AND_SOURCE_LIMITATIONS`
-- `BLOCKED_BY_ENVIRONMENT`
-
-If at least one row remains `PRODUCT_DEFECT_PROVEN`, final verdict MUST NOT be `NO_PRODUCT_DEFECTS_AFTER_AB_PROOF`.
+Do not change code. Give an owner recommendation only.
 
 ## Source integrity
 Record:
-- HTTP 500 count;
-- HTTP 502 count/endpoints;
-- timeout/retry count;
-- successful REAL AS21 reads;
+- HTTP 500;
+- HTTP 502 + endpoint mapping;
+- timeouts/retries;
+- REAL AS21 reads;
 - fake/mock/frozen authoritative calls = 0;
 - AS21 writes = 0.
 
-Use >=120 s request timeout; 40–60+ s SWTR latency is normal. Retry timeout/502 up to 2 times before environment classification.
+Use >=120 s timeout; 40–60+ s source latency is normal.
 
 ## Output
-Create only QA artifacts under `po-agent-platform-v2/qa_reports/`.
+Create only:
+`po-agent-platform-v2/qa_reports/SPRINT_BASELINE_CONTRACT_PROOF_096A.md`
 
-Primary report:
-`po-agent-platform-v2/qa_reports/CERTIFICATION_CONSISTENCY_DEFECT_PROOF_095D.md`
+The report must include:
+- exact commands and tested HEAD;
+- executable implementation/registration proof;
+- repository contract evidence;
+- REAL source fact inventory;
+- exact key sets/formulas/expected values if calculable;
+- explicit proof when snapshot/history is unavailable;
+- corrected FIRST_FAILING_BOUNDARY classification for each skill;
+- exact minimal owner-fix recommendation, but no code;
+- source-integrity counters;
+- final verdict.
 
-Optional evidence artifacts must use prefix:
-`CERTIFICATION_CONSISTENCY_DEFECT_PROOF_095D_`
+Allowed final verdicts:
+- `DETERMINISTIC_CALCULATION_DEFECTS_PROVEN`
+- `IMPLEMENTATION_CONTRACT_MISMATCH_PROVEN`
+- `SOURCE_CAPABILITY_UNAVAILABLE`
+- `MIXED_IMPLEMENTATION_AND_SOURCE_GAP`
+- `AB_PASS`
+- `BLOCKED_BY_ENVIRONMENT`
 
-Report must include exact commands, tested HEAD, A/B evidence for all three skills, FIRST_FAILING_BOUNDARY evidence, contradiction root cause, source-integrity counters, truth table, exact owner-fix candidates if proven, and final verdict.
+Commit and push only the allowed QA report, verify it exists in remote HEAD, report final SHA and STOP.
 
-Commit and push only allowed QA artifacts. Verify primary report exists in remote HEAD, report final SHA and STOP.
-
-**Do not start Assignment 096 or any later assignment.**
+Do not start any later assignment.
