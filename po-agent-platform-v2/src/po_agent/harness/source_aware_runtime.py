@@ -24,7 +24,24 @@ class SourceAwareHarnessRuntime(HarnessRuntime):
             return "attachments"
         if any(x in text for x in ("истори", "lifecycle", "времени в статус", "time in status", "cycle time", "lead time")):
             return "history"
-        if any(x in text for x in ("carryover", "перенос", "scope change", "изменение scope", "изменение состава", "что добавили", "что убрали")):
+        # Historical sprint metrics require an authoritative sprint-start snapshot.
+        # Normalize the user-facing spelling variants here so a hyphenated
+        # `scope-change` query cannot bypass the source-contract guard and fall
+        # through to a misleading semantic/capability-unavailable response.
+        if any(
+            x in text
+            for x in (
+                "carryover",
+                "перенос",
+                "scope change",
+                "scope-change",
+                "scope_change",
+                "изменение scope",
+                "изменение состава",
+                "что добавили",
+                "что убрали",
+            )
+        ):
             return "sprint_snapshots"
         if any(x in text for x in ("кто подходит для задачи", "подбор по компетенц", "кто может взять задачу", "компетенц", "рекомендуй исполнителя")):
             return "team_competencies"
