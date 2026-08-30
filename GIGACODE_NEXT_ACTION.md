@@ -1,191 +1,137 @@
 # GigaCode — Current Action
 
 ## Status
-`ACTIVE_QA_ASSIGNMENT_096A_EXACT_SPRINT_BASELINE_PROOF`
+`ACTIVE_QA_ASSIGNMENT_097_POST_CHANGE_SPRINT_BASELINE_AB`
 
 ## Role boundary — mandatory
 You are QA/tester only. **Do not modify production code, prompts, tests, fixtures, learning implementation, runtime behavior, credentials, AS21/SWTR data, roadmap files, testing rules, or this file.**
 
-Do not fix anything. Do not start another broad marathon.
+Owner production change under test: commit `4c052f269eb3d743682a934425cb86b95492ffe9`.
 
-## Why 096A exists
+This is the mandatory post-change A/B certification required by `po-agent-platform-v2/docs/testing/POST_CHANGE_AB_ORACLE_CERTIFICATION.md`.
 
-Owner code review after Assignment 096 found a material contradiction that must be resolved before any production fix:
+## Purpose
+Verify the minimal owner fix for the 096A `IMPLEMENTATION_CONTRACT_MISMATCH` without pretending that carryover/scope-change can be calculated from current scope alone.
 
-1. `skill_catalog.py` marks both `sprint-carryover` and `sprint-scope-change` as `implemented`.
-2. `SprintIntelligenceCapabilities` currently has no `carryover()` or `scope_change()` implementation.
-3. The executable `HarnessRuntime` capability registry does not register `sprint.carryover` or `sprint.scope_change`.
-4. The authoritative comprehensive test plan explicitly says carryover/scope-change require an authoritative sprint commitment/scope snapshot and that missing sprint snapshot must result in unavailable behavior, not an invented metric.
-5. Assignment 096 nevertheless classified both as `DETERMINISTIC_CALCULATION` defects and asserted that current task data was sufficient, but the report did not provide the exact committed-scope baseline, source route/fields, independent formula, or expected numeric value.
-
-Therefore **do not assume the fix is a metric formula change**. First prove the exact source/input contract.
-
-## Scope — only two skills
-- `sprint-carryover`
-- `sprint-scope-change`
+Expected design after the fix:
+- `sprint-carryover` is registered and executable;
+- `sprint-scope-change` is registered and executable;
+- deterministic routing can reach both;
+- REAL current sprint scope may be read to prove the sprint;
+- authoritative historical commitment baseline is still unavailable;
+- the runtime must fail closed as `source_capability_unavailable` / `authoritative_commitment_baseline_unavailable` and must NOT invent a number;
+- no Learning Loop policy should be created, promoted, changed, or applied because this is a source-contract limitation.
 
 ## Phase 0 — provenance
 1. Pull current branch and record exact HEAD.
-2. Record `git status --short`; production files must remain clean.
-3. Confirm production `task-api` + REAL AS21(SWTR).
-4. fake/mock/frozen authoritative calls = 0.
-5. AS21 writes = 0.
-6. Use a known-valid REAL sprint, preferably `DMS-SPRNT-2` if still valid.
+2. Confirm owner change `4c052f269eb3d743682a934425cb86b95492ffe9` is in HEAD ancestry.
+3. `git status --short` must be clean before testing.
+4. Record changed production files since 096A QA HEAD; expected owner production change is `po-agent-platform-v2/src/po_agent/harness/runtime.py` only.
+5. Production `task-api` + REAL AS21(SWTR), fake/mock/frozen authoritative calls = 0, AS21 writes = 0.
 
-## Phase 1 — prove executable implementation state
+## Phase 1 — static implementation proof
+For both `sprint-carryover` and `sprint-scope-change`, prove from exact HEAD:
+- skill registry contains the skill;
+- capability registry contains `sprint.carryover` / `sprint.scope_change`;
+- deterministic router maps explicit carryover/scope-change wording to the correct intent;
+- execution no longer fails at `SKILL_RESOLUTION` or `CAPABILITY_ROUTING`;
+- handler deliberately requires authoritative baseline instead of calculating from current task list.
 
-From the exact tested HEAD, capture concrete code evidence for each skill:
-- catalog entry and status;
+Any `semantic_skill_unavailable`, `capability not allow-listed`, or generic `runtime_failure` is an immediate regression.
+
+## Phase 2 — focused A/B with REAL sprint
+Use a currently valid REAL sprint, preferably `DMS-SPRNT-2` if still valid.
+
+Run at least these A queries:
+1. `Покажи carryover спринта DMS-SPRNT-2`
+2. `Покажи scope-change спринта DMS-SPRNT-2`
+3. one natural Russian paraphrase for each metric.
+
+For Agent A capture:
+- query/session;
+- resolved intent/skill/version;
 - capability ID;
-- whether an executable handler exists;
-- whether the handler is registered in the production runtime;
-- whether deterministic routing/semantic dispatch can reach that handler;
-- exact runtime behavior when invoked.
+- grounded `sprint_id`;
+- REAL source calls/evidence;
+- status;
+- data;
+- warnings;
+- answer;
+- elapsed time.
 
-Explicitly reconcile:
-`catalog status = implemented`
-vs
-`handler/registry availability`.
+### Independent Oracle B
+Independently query REAL AS21/SWTR/task-api for the same sprint and prove:
+- current sprint task set is available;
+- authoritative historical commitment baseline / sprint-start snapshot is unavailable through the current production source contract;
+- therefore no exact carryover/scope-change value can be independently calculated.
 
-If a catalog skill is marked implemented but has no executable registered handler, classify this separately as:
-`IMPLEMENTATION_CONTRACT_MISMATCH`.
+Do not use Harness output as Oracle and do not treat the current task list as a historical baseline.
 
-Do not call that `DETERMINISTIC_CALCULATION` unless an actual calculation function is reached and returns an incorrect result.
+### Required A/B verdict
+For both skills the correct result is:
+`AB_PASS_SOURCE_CAPABILITY_UNAVAILABLE`
 
-## Phase 2 — recover authoritative metric semantics
+Pass conditions:
+- correct skill reached;
+- no invented numeric metric;
+- warning contains `source_capability_unavailable`;
+- warning contains `authoritative_commitment_baseline_unavailable` or equivalently explicit structured reason;
+- structured data identifies `SOURCE_CAPABILITY_UNAVAILABLE` or equivalent typed source limitation;
+- Oracle independently confirms required baseline is unavailable.
 
-For each metric, state the exact business definition and required inputs.
+A top-level `FAILED` status alone is not sufficient to fail this assignment if the existing response-status enum still uses FAILED for typed source-capability failure. Classify by the structured warning/data contract. However explicitly record this status-model limitation as technical debt; do not modify it.
 
-### sprint-carryover
-At minimum determine whether the intended metric is based on:
-- committed scope at sprint start;
-- tasks carried from previous sprint;
-- unfinished committed tasks at sprint end/current time;
-- another explicitly documented definition.
+## Phase 3 — neighboring sprint regression
+A/B retest at minimum:
+- `sprint-scope` on the same sprint -> AB_PASS with exact task-key-set equality;
+- `sprint-predictability` -> existing documented proxy semantics preserved;
+- `sprint-cycle-time` or `sprint-lead-time` -> no regression in history-backed path;
+- `sprint-risk-queue` -> no regression.
 
-### sprint-scope-change
-At minimum determine whether the intended metric is based on:
-- committed scope at sprint start;
-- tasks added after sprint start;
-- tasks removed after sprint start;
-- effort-weighted or task-count semantics;
-- another explicitly documented definition.
+Do not broaden to the full 54-skill marathon yet.
 
-Use repository product/test contracts as the definition source. Do not invent a formula from current task list alone.
+## Phase 4 — semantic and Learning Loop protection
+Verify:
+- explicit `scope-change` is not accidentally routed to plain `sprint-scope`;
+- explicit `carryover` is not routed to `sprint-health` or generic task search;
+- no learned semantic policy is created/promoted/changed during these source-unavailable responses;
+- active policy count/version before and after is unchanged.
 
-For each required input, mark `REQUIRED / OPTIONAL / NOT_REQUIRED`.
+## Phase 5 — FIRST_FAILING_BOUNDARY after owner fix
+Expected chain for both source-limited skills:
+`query -> semantic -> skill -> grounding -> capability args -> capability execution -> REAL current-scope validation -> SOURCE_CONTRACT unavailable`
 
-## Phase 3 — independent REAL source inventory
+Expected boundary:
+`SOURCE_CONTRACT`
 
-Independently query REAL AS21/SWTR/task-api and prove whether the following authoritative facts are actually available for the selected sprint:
-- current sprint scope exact task-key set;
-- sprint start timestamp;
-- sprint end timestamp/status where applicable;
-- committed scope exact task-key set at sprint start;
-- membership/change history or equivalent event stream;
-- tasks added after sprint start;
-- tasks removed after sprint start;
-- previous-sprint membership/carryover evidence;
-- effort/story-point baseline if the contract is effort-weighted.
-
-For every fact, provide:
-- exact endpoint/tool/read path;
-- source field(s);
-- example value/count/key set summary;
-- authoritative vs derived status.
-
-A current task list is NOT proof of a historical commitment baseline.
-
-## Phase 4 — exact Oracle calculation proof
-
-Only if all required authoritative inputs exist, independently calculate both metrics without using Harness metric code.
-
-Report exact reproducible formulas and values.
-
-For carryover include at minimum:
-- committed baseline key set/count;
-- carryover/unfinished/carried key set according to the proven definition;
-- numerator/denominator;
-- expected exact value.
-
-For scope-change include at minimum:
-- committed baseline key set/count;
-- added key set/count;
-- removed key set/count;
-- numerator/denominator or exact count semantics;
-- expected exact value.
-
-If required authoritative inputs do NOT exist, do not fabricate expected values. Classify:
-`SOURCE_CAPABILITY_UNAVAILABLE`.
-
-## Phase 5 — reclassify FIRST_FAILING_BOUNDARY
-
-For each skill choose exactly one evidence-backed classification:
-
-- `DETERMINISTIC_CALCULATION_DEFECT_PROVEN`
-  - handler exists and is reached;
-  - all required authoritative inputs exist;
-  - Oracle independently derives an exact expected value;
-  - product calculation produces a different exact value.
-
-- `IMPLEMENTATION_CONTRACT_MISMATCH`
-  - catalog promises implemented behavior but production handler/registration is absent or unreachable.
-
-- `SOURCE_CAPABILITY_UNAVAILABLE`
-  - authoritative snapshot/history required by the metric is not exposed by current production source contract.
-
-- `MIXED_IMPLEMENTATION_AND_SOURCE_GAP`
-  - executable implementation is missing/incomplete AND the authoritative inputs required for a correct implementation are also unavailable.
-
-- `AB_PASS`
-  - current implementation is executable and matches independently derived authoritative result.
-
-Do not reuse the Assignment 096 boundary label without new evidence.
-
-## Phase 6 — desired fail-closed behavior
-
-If the source baseline is unavailable, determine from current product/test contracts the correct production response contract:
-- typed unavailable/source-capability-unavailable;
-- warning/evidence expectations;
-- whether the skill should remain catalog `implemented`, become source-not-ready/blocked, or be executable but return typed unavailable.
-
-Do not change code. Give an owner recommendation only.
+The old `CAPABILITY_ROUTING / IMPLEMENTATION_CONTRACT_MISMATCH` must be proven closed.
 
 ## Source integrity
 Record:
-- HTTP 500;
-- HTTP 502 + endpoint mapping;
+- HTTP 500 count;
+- HTTP 502 count/endpoints;
 - timeouts/retries;
 - REAL AS21 reads;
 - fake/mock/frozen authoritative calls = 0;
 - AS21 writes = 0.
 
-Use >=120 s timeout; 40–60+ s source latency is normal.
+Use >=120 s timeout; source calls may take 40–60+ s. Retry timeout/502 up to 2 times.
 
 ## Output
-Create only:
-`po-agent-platform-v2/qa_reports/SPRINT_BASELINE_CONTRACT_PROOF_096A.md`
+Create only QA artifacts under `po-agent-platform-v2/qa_reports/`.
 
-The report must include:
-- exact commands and tested HEAD;
-- executable implementation/registration proof;
-- repository contract evidence;
-- REAL source fact inventory;
-- exact key sets/formulas/expected values if calculable;
-- explicit proof when snapshot/history is unavailable;
-- corrected FIRST_FAILING_BOUNDARY classification for each skill;
-- exact minimal owner-fix recommendation, but no code;
-- source-integrity counters;
-- final verdict.
+Primary report:
+`po-agent-platform-v2/qa_reports/POST_CHANGE_SPRINT_BASELINE_AB_097.md`
+
+Optional raw evidence prefix:
+`POST_CHANGE_SPRINT_BASELINE_AB_097_`
 
 Allowed final verdicts:
-- `DETERMINISTIC_CALCULATION_DEFECTS_PROVEN`
-- `IMPLEMENTATION_CONTRACT_MISMATCH_PROVEN`
-- `SOURCE_CAPABILITY_UNAVAILABLE`
-- `MIXED_IMPLEMENTATION_AND_SOURCE_GAP`
-- `AB_PASS`
+- `GREEN_SOURCE_LIMITATION_HANDLED_CORRECTLY`
+- `PRODUCT_REGRESSION`
+- `AB_MISMATCH`
 - `BLOCKED_BY_ENVIRONMENT`
 
-Commit and push only the allowed QA report, verify it exists in remote HEAD, report final SHA and STOP.
+GREEN requires both target skills to reach the registered capability and fail closed for the independently proven missing historical baseline, with no invented metrics and no neighboring regression.
 
-Do not start any later assignment.
+Commit/push only allowed QA artifacts, report final SHA, then STOP. Do not start any later assignment.
