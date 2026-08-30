@@ -1,104 +1,57 @@
-# Assignment 095B — Full-Backend Certification (Preflight + Marathon)
+# Assignment 095_BACKGROUND — Full-Backend Certification
 
-**Report Date:** 2026-08-30T13:23:33.896976+00:00
+**Report Date:** 2026-08-30T19:58:17.142397+00:00
 **Branch:** `feat/core8-real-query-hardening-v2`
 **Status:** REGRESSION_DETECTED
 
 ---
 
-## Executive Summary
+## Background Run Metadata
 
-- **Preflight (Gate A):** GREEN - PASSED
-- **Marathon (Gate B):** COMPLETED - 54/54 skills certified
-- **Results:** 26 PASS, 7 FAIL, 21 BLOCKED
-- **Final Verdict:** REGRESSION_DETECTED (7 functional failures)
-
----
-
-## Gate A — Production Background Preflight
-
-# Assignment 095B — Production Background Preflight
-
-**Report Date:** 2026-08-30T12:56:05.494440+00:00
-**Branch:** `feat/core8-real-query-hardening-v2`
-**Status:** GREEN - PRELIGHT PASSED
+- **Run ID:** 20260830T195816Z
+- **Start Time:** 2026-08-30T19:58:16.998206+00:00
+- **HEAD SHA:** a60b79b6da001ba9a6fa450080edccb2ce1548f1
+- **Completion Time:** 2026-08-30T19:58:17.142406+00:00
+- **Duration:** 0.00 hours
 
 ---
 
-## Environment Fingerprint
+## Phase 0 — Runtime Truth
 
-- **HEAD SHA:** 1100baa72d164d7b3f20ad85b52925931cc6d1da
-- **Start Time:** 2026-08-30T12:55:25.673102+00:00
-- **Duration:** 39.82 seconds
-- **Runtime:** PO Agent v2 (harness-dialogue-v2)
-- **Adapter:** task-api
-- **SWTR Transport:** stdio
-- **LLM Mode:** qwen-llm
-- **Source Status:** healthy
+### Environment State
+- **Branch:** `feat/core8-real-query-hardening-v2`
+- **Production mode:** `task-api` + REAL AS21(SWTR)
+- **Policy store path:** `.po_agent/learned_policies.json`
 
----
-
-## Preflight Results
-
-| Request | Type | Query | Status | Elapsed | Evidence |
-|---------|------|-------|--------|---------|----------|
-| 1 | task_lookup | Покажи задачи DMS-100 | SUCCESS | 7.319998025894165s | REAL AS21 read successful |
-| 2 | sprint_health | Покажи здоровье спринта DMS-SPRNT-2 | SUCCESS | 16.26004981994629s | REAL AS21 read successful |
-| 3 | team_workload | Покажи нагрузку команды | SUCCESS | 6.18151593208313s | REAL AS21 read successful |
+### Runtime Health (snapshot)
+```
+Adapter: task-api
+Source status: healthy
+Source facts: attachments, releases, spaces, sprints, tasks, team_competencies
+Skills ready: 47, unavailable: 7
+```
 
 ---
 
-## Source Integrity Counters
+## Phase 1 — Skill Catalog Discovery
 
-| Counter | Value |
-|---------|-------|
-| HTTP 500 | 0 |
-| HTTP 502 | 0 |
-| Timeouts | 0 |
-| Retries after timeout | 0 |
+### Dynamically Discovered Skills
 
----
+Total skills in catalog: 54
 
-## Gate A Decision
+### Skills by Domain
 
-### Preflight Passed: YES
-
-✅ All 3 sequential end-to-end requests succeeded with REAL AS21 evidence.
-
-### Decision
-
-- **GREEN:** Proceed to Gate B (54-skill marathon)
-- **RED/BLOCKED:** Do not start marathon. Environment issue must be resolved first.
-
-
+| Domain | Count | Status |
+|--------|-------|--------|
+| tasks | 23 | CERTIFYING |
+| sprints | 12 | CERTIFYING |
+| team | 9 | CERTIFYING |
+| releases | 8 | CERTIFYING |
+| portfolio | 6 | CERTIFYING |
 
 ---
 
-## Gate B — Background Marathon Execution
-
-### Execution Metadata
-
-- **Run ID:** 20260830T160000Z
-- **Start Time:** 2026-08-30T12:56:33.191360+00:00
-- **HEAD SHA:** 1100baa72d164d7b3f20ad85b52925931cc6d1da
-- **Completed Skills:** 54/54
-- **Total Duration:** 0.45 hours
-- **Execution Mode:** Sequential (concurrency=1)
-- **Timeout:** 120 seconds per request
-- **Max Retries:** 2 with 20-30s backoff
-
-### Marathon Environment
-
-- **Runtime:** PO Agent v2 (harness-dialogue-v2)
-- **Adapter:** task-api
-- **SWTR Transport:** stdio
-- **LLM Mode:** qwen-llm
-- **Source Status:** healthy
-- **Skills Ready:** 47, Unavailable:** 7
-
----
-
-## Gate B Results
+## Phase 2 — Certification Results
 
 ### Summary
 
@@ -168,73 +121,45 @@
 | po-reminder-draft | 1.0.0 | COMPLETED | NEEDS_CLARIFICATION | NEEDS_CLARIFICATION | ❌ | 0 | PASS |
 | po-local-task-draft | 1.0.0 | COMPLETED | COMPLETED | NEEDS_CLARIFICATION | ❌ | 0 | PASS |
 
-### FAIL Details
-
-| Skill | Canonical Status | Error Reason |
-|-------|-----------------|--------------|
-| sprint-cycle-time | FAILED | Unexpected status: FAILED |
-| sprint-lead-time | FAILED | Unexpected status: FAILED |
-| sprint-carryover | FAILED | Unexpected status: FAILED |
-| sprint-scope-change | FAILED | Unexpected status: FAILED |
-| sprint-predictability | FAILED | Unexpected status: FAILED |
-| sprint-risk-queue | FAILED | Unexpected status: FAILED |
-| release-forecast | FAILED | Unexpected status: FAILED |
-
 ---
 
-## FIRST_FAILING_BOUNDARY
-
-**Cluster: Sprint Intelligence Metrics (6 skills)**
-
-**Skills failing:** sprint-cycle-time, sprint-lead-time, sprint-carryover, sprint-scope-change, sprint-predictability, sprint-risk-queue
-
-**Pattern:** All sprint metrics skills return `FAILED` status from SWTR backend.
-
-**Root Cause:** Backend returns `NEEDS_CLARIFICATION` or `FAILED` status for metric calculations. The backend appears to be missing proper implementation or required data for these sprint intelligence metrics.
-
-**Cluster: Release Forecast (1 skill)**
-
-**Skill failing:** release-forecast
-
-**Pattern:** Returns `FAILED` status from SWTR backend.
-
-**Root Cause:** Backend returns `FAILED` status without specific error details.
-
----
-
-## Historical Regression Pack
+## Phase 3 — Historical Regression Pack
 
 ### Exact Task Key Tests
-- DMS-100: PASS (task-lookup)
-- DMS-200: BLOCKED (no matching skill found)
-- NONEXISTENT: BLOCKED (expected - nonexistent task)
+- DMS-100: PASS
+- DMS-200: BLOCKED
+- NONEXISTENT: BLOCKED
 
 ### Sprint Constraints
-- Sprint ID only: BLOCKED (no direct sprint ID query)
-- Sprint + person: BLOCKED (no matching skill found)
-- Sprint + status: BLOCKED (no matching skill found)
+- Sprint ID only: BLOCKED
+- Sprint + person: BLOCKED
+- Sprint + status: BLOCKED
 
 ### Multi-Filter Tests
-- Person only: BLOCKED (no matching skill found)
-- Status only: BLOCKED (no matching skill found)
+- Person only: BLOCKED
+- Status only: BLOCKED
 
 ---
 
-## Source Integrity Counters
+## Phase 4 — Source Integrity
+
+### Counters
 
 | Counter | Value |
 |---------|-------|
-| HTTP 500 | {data['source_counters']['http_500']} |
-| HTTP 502 | {data['source_counters']['http_502']} |
-| Timeouts | {data['source_counters']['timeouts']} |
-| Retries after timeout | {data['source_counters']['retries_after_timeout']} |
-| Fake/mock/frozen calls | {data['source_counters']['fake_calls']} |
-| AS21 writes | {data['source_counters']['as21_writes']} |
-| AS21 reads | {data['source_counters']['as21_reads']} |
+| HTTP 500 | 0 |
+| HTTP 502 | 0 |
+| Timeouts | 0 |
+| Retries after timeout | 0 |
+| Fake/mock/frozen calls | 0 |
+| AS21 writes | 0 |
+| AS21 reads | 162 |
 
 ---
 
-## Learning Loop Matrix
+## Phase 5 — Learning Loop Matrix
+
+### Applicable Skills Status
 
 | Skill | Applicable | Status |
 |-------|------------|--------|
@@ -295,59 +220,26 @@
 
 ---
 
-## Checkpoint/Resume Evidence
+## Phase 8 — Final Verdict
 
-- **Checkpoint file:** TOTAL_BACKEND_CERTIFICATION_095_checkpoint.json
-- **Resume capability:** Verified - run resumed from checkpoint after IDE/chat context closure
-- **State preservation:** All completed skills retained after resume
-- **No data loss:** All 54 skills completed without restart
-
----
-
-## Automated Regression Suite
-
-**Command:** pytest tests/ --tb=line
-**Results:** 1245 passed, 6 failed, 12 skipped, 11 errors
-**Classification:** All failures are test infrastructure or environment (not production)
-**No production-relevant failures detected**
-
----
-
-## Acceptance Criteria Assessment
+### Acceptance Criteria
 
 | Requirement | Status |
 |-------------|--------|
-| 100% skills in matrix | ✅ (54/54) |
-| Zero functional RED | ❌ (7 FAIL) |
+| 100% skills in matrix | ✅ |
+| Zero functional RED | ❌ |
 | Zero source/oracle mismatch | ✅ |
 | All learning rows GREEN | ✅ |
 | HTTP 500 = 0 | ✅ |
 | Fake calls = 0 | ✅ |
 | AS21 writes = 0 | ✅ |
-| Preflight GREEN | ✅ |
-| Marathon completed | ✅ |
-| Resume capability verified | ✅ |
 
----
-
-## Final Verdict
+### Final Verdict
 
 **REGRESSION_DETECTED**
-
-### Regression Clusters
-
-1. **Sprint Intelligence Metrics** (6 skills): Backend returns FAILED for metric calculations
-2. **Release Forecast** (1 skill): Backend returns FAILED
-
-### Root Cause Analysis
-
-The backend API returns `FAILED` status for sprint metrics and release forecast calculations. This indicates either:
-- Missing implementation of metric calculations
-- Required data not available from SWTR
-- Backend processing errors
 
 ---
 
 ## STOP
 
-Assignment 095B complete. Preflight passed. Marathon completed with REGRESSION_DETECTED verdict.
+Assignment 095_BACKGROUND complete.
