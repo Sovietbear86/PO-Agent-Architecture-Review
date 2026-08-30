@@ -1,233 +1,306 @@
 # GigaCode — Current Action
 
 ## Status
-`ACTIVE_QA_ASSIGNMENT_095C_FAILURE_TRIAGE`
+`ACTIVE_QA_ASSIGNMENT_096_AB_FORENSIC_TRIAGE`
 
 ## Role boundary — mandatory
-You are QA/tester only. **Do not modify production code, prompts, tests, fixtures, learning implementation, runtime behavior, credentials, AS21/SWTR data, roadmap files, or this file.**
+You are QA/tester only. **Do not modify production code, prompts, tests, fixtures, learning implementation, runtime behavior, credentials, AS21/SWTR data, roadmap files, testing rules, or this file.**
 
 If a defect is found, prove `FIRST_FAILING_BOUNDARY` and report it. Do not repair it.
 
-## Why 095C exists
+This assignment is the first mandatory execution of the post-change A/B Oracle rules defined in:
+`po-agent-platform-v2/docs/testing/POST_CHANGE_AB_ORACLE_CERTIFICATION.md`
 
-The latest 095 background run finally reached REAL AS21 successfully:
-- 54 skills represented;
-- 162 REAL AS21 reads;
-- HTTP 500 = 0;
-- HTTP 502 = 0;
-- fake/mock/frozen = 0;
-- AS21 writes = 0;
-- result: 25 PASS / 9 FAIL / 20 BLOCKED.
+## Why Assignment 096 exists
 
-This is useful evidence, but the reported root cause for the 9 FAIL rows was not proven. Statements such as "backend metrics not implemented" or "additional data missing" are hypotheses, not a `FIRST_FAILING_BOUNDARY`.
+The latest 095B marathon successfully exercised 54/54 skills in REAL task-api/AS21 mode and produced:
+- 26 PASS;
+- 7 FAIL;
+- 21 BLOCKED;
+- HTTP/source environment healthy enough for the full run.
 
-Assignment 095C is therefore a **targeted failure/blocker triage only**. Do not rerun the whole 54-skill marathon unless a specific trace requires comparison with a known-green skill.
+However, the reported root causes were not proven and some historical semantic regression rows were marked BLOCKED with `no matching skill found`. The report also contained QA-report-generation defects such as unresolved `{data[...]}` placeholders.
+
+Assignment 096 is a **forensic A/B triage only**. Do not rerun the whole 54-skill marathon. Do not fix anything.
 
 ## Scope
 
-Investigate exactly:
+### A. Seven current FAIL rows
+1. `sprint-cycle-time`
+2. `sprint-lead-time`
+3. `sprint-carryover`
+4. `sprint-scope-change`
+5. `sprint-predictability`
+6. `sprint-risk-queue`
+7. `release-forecast`
 
-### A. 9 FAIL rows
-1. `sprint-throughput`
-2. `sprint-wip`
-3. `sprint-cycle-time`
-4. `sprint-lead-time`
-5. `sprint-carryover`
-6. `sprint-scope-change`
-7. `sprint-predictability`
-8. `sprint-risk-queue`
-9. `release-forecast`
+### B. Historical semantic regression cases that were incorrectly/ambiguously BLOCKED
+At minimum retest:
+- exact task lookup for a second valid real task ID;
+- nonexistent exact task ID;
+- sprint ID only;
+- sprint + person;
+- sprint + status;
+- sprint + product/project where supported;
+- person only;
+- status only;
+- person + product + status;
+- independent second team member;
+- correction: new status replaces old status and unaffected slots survive.
 
-### B. 20 BLOCKED rows from the latest report
-Triage each blocked row and classify it as exactly one of:
-- `BAD_QA_QUERY_OR_MISSING_REQUIRED_SLOT`
-- `EXPECTED_CLARIFICATION`
-- `SOURCE_CAPABILITY_UNAVAILABLE_BY_DESIGN`
-- `ENVIRONMENT_BLOCKED`
-- `PRODUCT_DEFECT_PROVEN`
-- `NOT_BLOCKED_AFTER_VALID_RETEST`
+### C. Suspicious team-workload anomaly
+The latest preflight showed a `team-workload` response equivalent to `0 active tasks / 0 assignees`. This must be independently A/B verified against REAL AS21.
 
-Do not automatically treat `NEEDS_CLARIFICATION` as failure. First compare it with the skill contract and required slots.
+Do NOT assume zero is wrong. If Oracle B confirms genuine zero source facts, record `AB_PASS`. If Oracle B proves non-zero REAL facts, record `AB_MISMATCH` and trace the first failing boundary.
 
 ## Phase 0 — clean provenance
 
 1. Pull current branch and record exact HEAD.
 2. Record `git status --short`; production files must remain clean.
-3. Restart/verify the same production runtime used by successful 095 background testing.
-4. Confirm `task-api` + REAL AS21 mode.
-5. Confirm fake/mock/frozen authoritative calls = 0 and AS21 writes = 0.
-6. Reuse valid REAL entities discovered in previous successful runs, but revalidate them against current REAL AS21 before using them.
+3. Start/reuse the same proven production environment as 095B.
+4. Confirm `task-api` + REAL AS21(SWTR).
+5. Confirm fake/mock/frozen authoritative calls = 0.
+6. Confirm AS21 writes = 0.
+7. Record runtime PID/start time, source health and non-secret environment fingerprint.
+8. Revalidate every task/sprint/release/member entity used below against REAL AS21 before testing.
 
-## Phase 1 — recover the real contract for every suspect skill
+## Phase 1 — recover exact skill contracts
 
-For each of the 29 suspect rows (9 FAIL + 20 BLOCKED), inspect the production catalog/skill definition and record:
-- `skill_id`;
+For every suspect FAIL and historical blocked case inspect the production skill/catalog contract and record:
+- skill_id/version;
 - required slots;
 - optional slots;
-- expected source facts/capabilities;
-- whether a sprint/release/task/member identifier is mandatory;
-- expected clarification behavior when a required value is absent;
-- expected deterministic output/metric;
-- whether history/changelog or another currently unavailable source is required.
+- required source facts;
+- expected clarification/unavailable behavior;
+- deterministic calculation/output contract;
+- whether history/snapshot/timeline/team profile is mandatory.
 
-Then compare the query used in the previous 095 report with the actual skill contract.
+Do not use synthetic queries that simply name a skill such as `Покажи данные по sprint-cycle-time` unless that is explicitly a supported user phrase.
 
-If the previous query was synthetic/invalid (for example query text that merely names the skill rather than a realistic user intent), do not call the product defective. Build a valid natural-language query using REAL source entities and retest.
+Build realistic Russian user queries with valid REAL entities.
 
-## Phase 2 — targeted real-user retest
+## Phase 2 — A/B Oracle execution model
 
-For each suspect skill construct:
-1. one realistic canonical Russian user query that satisfies required slots;
-2. one natural paraphrase;
-3. only where relevant, one missing-slot query to verify expected clarification.
+For every source-backed test run both paths independently.
 
-Use REAL valid entities from AS21:
-- real sprint IDs for sprint skills;
-- real release identifier/name for release skills;
-- real task IDs for task analysis skills;
-- real member identity where required.
+### A — Agent under test
+Send the natural-language query through production PO Agent and capture:
+- query/session_id;
+- resolved skill/version;
+- semantic frame;
+- grounded slots;
+- capability arguments;
+- source/evidence IDs;
+- final status;
+- normalized business facts;
+- elapsed time.
 
-Per request timeout >=120 sec; heavy metric/history/release requests may use up to 180 sec. Retry timeout/502 up to 2 times. 40–60+ sec is normal latency.
+### B — Independent GigaCode Oracle
+Independently query REAL AS21/SWTR/task-api read paths without using the Harness answer or reusing the same Harness capability/calculation implementation as the oracle.
 
-For every retest record exact query, session_id, elapsed time, resolved skill, semantic frame/slots, capability arguments, source calls, source response summary, final status and evidence IDs.
+Capture:
+- exact source request(s);
+- source entity IDs;
+- raw/source fact summary sufficient for reproduction;
+- independent filtering/calculation method;
+- normalized expected business facts;
+- elapsed time.
 
-## Phase 3 — boundary trace for every remaining FAIL
+Compare deterministic facts, not wording.
 
-For each skill that still fails with a contract-valid query and valid REAL entity, trace the production path:
+Allowed A/B row verdicts:
+- `AB_PASS`
+- `EXPECTED_CLARIFICATION`
+- `SOURCE_CAPABILITY_UNAVAILABLE_BY_DESIGN`
+- `ENVIRONMENT_BLOCKED`
+- `AB_MISMATCH`
 
+HTTP 200 or `COMPLETED` cannot override `AB_MISMATCH`.
+
+## Phase 3 — Sprint Intelligence forensic A/B
+
+Use the same known-valid REAL sprint wherever the contracts permit.
+
+For each of the six failing sprint skills:
+1. run a contract-valid Agent A query;
+2. independently obtain the sprint task key set and all required source fields through Oracle B;
+3. calculate whether the requested metric is actually computable from current source facts;
+4. if computable, independently calculate the expected metric/value/state;
+5. compare A vs B;
+6. trace the full production path for every mismatch/failure.
+
+Explicitly distinguish:
+- metric can be calculated and Agent calculates it incorrectly;
+- required source history/snapshot fields do not exist in current source contract;
+- skill should return typed `UNAVAILABLE` rather than `FAILED`;
+- semantic/grounding/argument loss;
+- QA query invalid;
+- genuine deterministic implementation defect.
+
+Do not group all six into one cluster until evidence proves the same first boundary.
+
+## Phase 4 — Release Forecast forensic A/B
+
+1. Discover and validate a REAL release.
+2. Recover exact forecast contract and required timeline/history/source inputs.
+3. Run a realistic Agent A query.
+4. Independently obtain release scope and required fields as Oracle B.
+5. Determine whether forecast is computable from actual available source facts.
+6. If computable, independently derive expected bounded forecast inputs/output.
+7. Identify exact first failing boundary if A differs/fails.
+
+Do not label backend missing implementation without evidence.
+
+## Phase 5 — Historical semantic regression A/B
+
+Re-run all cases in Scope B using valid REAL entities.
+
+For each case compare:
+`natural query -> semantic slots/constraints -> Agent task key set`
+against
+`independent Oracle B filtering over REAL AS21`.
+
+For task collections, **exact task-key-set equality** is the primary acceptance criterion when possible. Count-only equality is insufficient.
+
+Mandatory invariants:
+- second valid exact task resolves by authoritative point read;
+- nonexistent exact task returns typed not-found/appropriate non-hallucinated result;
+- person/status/sprint/product constraints survive semantic interpretation and grounding;
+- combined filters are ANDed correctly;
+- correction replaces old status, does not append contradictory status, and preserves unaffected slots;
+- second member proves no Garanin-specific hardcoding.
+
+If any historical GREEN has regressed, report `AB_MISMATCH` and exact `FIRST_FAILING_BOUNDARY`.
+
+## Phase 6 — team-workload anomaly + Learning Loop candidate eligibility
+
+Run:
+A. production query: `Покажи нагрузку команды` (or a more contract-valid natural equivalent if team scope must be specified);
+B. independent REAL AS21 workload oracle using the exact same resolved team/product scope.
+
+Compare at minimum:
+- member/assignee set and count;
+- active task key set and count;
+- per-member task counts where available;
+- blocked/WIP distribution if part of contract.
+
+### If A/B matches zero
+Record `AB_PASS`. Do not attempt to teach the Agent that zero is impossible.
+
+### If Agent A says zero/empty but Oracle B proves non-zero
+Record `AB_MISMATCH` and trace:
+`query -> semantic -> scope grounding -> capability args -> source call -> source facts -> workload calculation -> response`.
+
+Then assess whether this mismatch is **eligible** for Learning Loop testing under the production policy.
+
+Do NOT promote/fix a policy in Assignment 096 unless the current explicit assignment text below says so. This assignment only proves eligibility and the correct generalized candidate shape.
+
+A valid generalized candidate shape may be conceptually equivalent to:
+`when a valid team scope produces an empty workload result, revalidate scope/filter/source grounding against authoritative source before finalizing the empty result`.
+
+Forbidden candidate shapes:
+- `zero is impossible`;
+- hard-coded team/member/task IDs;
+- storing the Oracle counts as universal truth;
+- memorizing the original query/answer.
+
+If team-workload A/B mismatch is proven and Learning Loop is applicable, mark it `LEARNING_CANDIDATE_PROVEN` for the owner to schedule a separate learning certification after any required owner fix.
+
+## Phase 7 — FIRST_FAILING_BOUNDARY
+
+For every genuine product mismatch/failure, trace:
 `user query`
 `-> semantic interpretation`
-`-> resolved skill`
-`-> grounded slots`
-`-> capability arguments`
-`-> REAL source call(s)`
+`-> skill resolution`
+`-> entity grounding`
+`-> capability argument building`
+`-> REAL source call`
 `-> source response/data availability`
-`-> deterministic calculation/skill execution`
-`-> response status`
+`-> deterministic calculation`
+`-> response/status mapping`.
 
-Identify the **first boundary where expected and actual diverge**.
+Identify the earliest divergence.
 
-Allowed `FIRST_FAILING_BOUNDARY` examples include:
+Allowed labels include:
 - `SEMANTIC_INTERPRETATION`
 - `SKILL_RESOLUTION`
 - `ENTITY_GROUNDING`
 - `CAPABILITY_ARGUMENT_BUILDING`
 - `SOURCE_CONTRACT`
 - `SOURCE_DATA_MISSING`
-- `DETERMINISTIC_METRIC_CALCULATION`
+- `DETERMINISTIC_CALCULATION`
 - `RESPONSE_STATUS_MAPPING`
+- `LEARNING_POLICY_APPLICATION`
+- `QA_HARNESS_ORACLE_DEFECT`
 
-Do not use vague labels such as "SWTR backend" unless you show the exact request, response and missing/incorrect field that first proves the failure.
+Do not repair anything.
 
-## Phase 4 — Sprint Intelligence cluster deep dive
+## Phase 8 — QA runner/report methodology audit
 
-The eight sprint metric FAILs may share one boundary, but do not assume that.
+Audit the latest 095B QA artifacts:
+- verify 26 + 7 + 21 = 54;
+- verify reported 0.45 h duration against actual timestamps/logs/checkpoint;
+- verify canonical/paraphrase/edge rows are backed by actual API calls;
+- identify unresolved report template placeholders such as `{data[...]}`;
+- verify source-integrity counters from raw logs/checkpoint rather than rendered placeholders;
+- verify PASS/BLOCKED classification logic did not label expected clarification as failure or hide an A/B mismatch;
+- verify the runner did not use Harness results as Oracle expectations.
 
-For each of the 8 skills:
-- use the same known-valid REAL sprint where the metric contract permits it;
-- capture the exact underlying task key set used by the metric;
-- capture required source fields for the metric;
-- compare source availability vs calculation requirements;
-- if the metric fails, identify the exact first missing/invalid input or calculation branch.
+Classify runner/report defects separately as `QA_HARNESS_ORACLE_DEFECT`; they are not production defects.
 
-Explicitly distinguish:
-- metric mathematically computes wrong value;
-- required historical fields are unavailable from current task-api source contract;
-- correct behavior should be `UNAVAILABLE/NEEDS_CLARIFICATION` rather than `FAILED`;
-- QA used an invalid sprint/query;
-- product implementation genuinely throws/fails despite sufficient source data.
+Do not modify the runner during Assignment 096.
 
-If several skills share one proven boundary, group them into one defect cluster with per-skill evidence.
+## Phase 9 — source integrity
 
-## Phase 5 — Release Forecast deep dive
-
-For `release-forecast`:
-- discover a REAL valid release from source;
-- verify the exact forecast input contract;
-- use a valid natural user query;
-- trace release grounding, release scope/task set, required metric/history inputs and calculation result;
-- identify the first failing boundary if it remains FAIL.
-
-Do not infer a defect solely from a generic "Покажи данные по release-forecast" style request.
-
-## Phase 6 — blocked-row disposition
-
-For all 20 previously BLOCKED skills, produce a disposition table:
-
-| Skill | Previous status | Contract-valid query used now | Current status | Classification | Evidence |
-
-A row that correctly asks for clarification because the user omitted a mandatory entity should be `EXPECTED_CLARIFICATION`, not product RED.
-
-A source requirement genuinely absent from production `task-api` (for example required history capability) should be `SOURCE_CAPABILITY_UNAVAILABLE_BY_DESIGN` unless the product contract explicitly promises it in the current release.
-
-If the skill becomes successful after using a valid query/entity, classify `NOT_BLOCKED_AFTER_VALID_RETEST`.
-
-## Phase 7 — validate previous 095 methodology
-
-Audit the previous 095 report itself:
-- reconcile 25 PASS + 9 FAIL + 20 BLOCKED = 54;
-- explain the suspicious `Duration: 0.00 hours` despite 162 REAL reads;
-- determine whether the background runner wrote synthesized/result rows without actually waiting for every runtime call, or whether only report timing metadata was wrong;
-- verify whether canonical/paraphrase/edge statuses in the report came from actual individual API calls;
-- verify that skill IDs and categories/counts are internally consistent.
-
-If the runner/report generator itself produced misleading certification data, call this a **QA HARNESS DEFECT**, not a production Harness defect, and identify the exact evidence.
-
-Do not modify the QA runner during this assignment; only diagnose it.
-
-## Phase 8 — learning applicability correction
-
-The previous report changed many skills from learning N/A to applicable without per-skill proof.
-
-For each suspect skill in 095C, record whether learning is actually applicable according to production policy/catalog/runtime evidence. Do not run the full persistent learning lifecycle again unless needed to resolve ambiguity.
-
-This phase is classification/evidence only; Assignment 072 already proved the learning mechanism itself.
-
-## Source integrity
-
-For this focused run record:
-- HTTP 500 count;
-- HTTP 502 count + endpoints;
-- timeout/retry count;
-- REAL AS21 successful reads;
+Record exact focused-run counters:
+- HTTP 500;
+- HTTP 502 + endpoint mapping;
+- timeout/retries;
+- successful REAL AS21 reads;
 - fake/mock/frozen authoritative calls = 0;
 - AS21 writes = 0.
 
-## Final outputs
+40–60+ seconds may be normal SWTR latency. Per request timeout >=120 s; heavy metric/release/history calls may use 180 s. Retry timeout/502 up to 2 times before ENV classification.
 
-Create only QA artifacts under `po-agent-platform-v2/qa_reports/`.
+## Output
+
+Create only QA artifacts under:
+`po-agent-platform-v2/qa_reports/`
 
 Primary report:
-`po-agent-platform-v2/qa_reports/TOTAL_BACKEND_FAILURE_TRIAGE_095C.md`
+`po-agent-platform-v2/qa_reports/AB_ORACLE_FORENSIC_TRIAGE_096.md`
 
-Optional raw trace artifact(s), if required:
-`TOTAL_BACKEND_FAILURE_TRIAGE_095C_*`
+Optional raw evidence artifacts must use prefix:
+`AB_ORACLE_FORENSIC_TRIAGE_096_`
 
-The report must include:
-- tested HEAD/runtime provenance;
-- exact commands;
-- suspect-skill contract matrix;
-- previous-query-vs-valid-query comparison;
-- targeted retest results;
-- blocked-row disposition table;
-- exact `FIRST_FAILING_BOUNDARY` for every genuinely remaining product failure;
-- Sprint Intelligence cluster analysis;
-- release-forecast analysis;
-- previous-095 QA methodology audit;
-- learning applicability evidence;
+The primary report must include:
+- exact commands and tested HEAD;
+- clean-worktree/runtime provenance;
+- exact contract matrix;
+- A/B matrix for all seven FAILs;
+- A/B matrix for all historical semantic regression cases;
+- exact task-key-set comparisons where applicable;
+- team-workload A/B anomaly result;
+- Learning Loop candidate eligibility conclusion;
+- Sprint Intelligence forensic evidence;
+- Release Forecast forensic evidence;
+- all exact `FIRST_FAILING_BOUNDARY` findings;
+- QA runner/report methodology defects;
 - source integrity counters;
-- exact product defect clusters, if any;
-- exact QA-harness/reporting defects, if any;
+- clearly separated PRODUCT vs SOURCE/DATA/CONTRACT vs QA defects;
+- recommended owner-fix clusters, without code changes;
 - final verdict.
 
 ## Final verdict
-
-Allowed:
+Allowed only:
 - `PRODUCT_DEFECTS_PROVEN`
-- `NO_PRODUCT_DEFECTS_AFTER_VALID_RETEST`
+- `AB_MISMATCHES_PROVEN`
 - `MIXED_PRODUCT_AND_QA_DEFECTS`
+- `NO_PRODUCT_DEFECTS_AFTER_AB_RETEST`
 - `BLOCKED_BY_ENVIRONMENT`
 
 Do not fix anything.
 
-Commit and push only allowed QA report/trace artifacts, verify the primary report exists in remote HEAD, report final SHA and STOP. Do not start Assignment 096 or any later assignment.
+Commit and push only the allowed QA report/evidence artifacts. Verify the primary report exists in remote HEAD. Report final SHA and STOP.
+
+Do not start any later assignment.
