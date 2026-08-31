@@ -10,6 +10,11 @@ from .hardened_production_task_api import HardenedProductionTaskApiAS21Adapter
 
 
 class EvidenceValidatedProductionTaskApiAS21Adapter(HardenedProductionTaskApiAS21Adapter):
+    # Production runtime uses this concrete adapter. REAL AS21 QA proved the
+    # task-history read path, so history must be advertised here even though the
+    # hardened parent currently overrides its own fact set.
+    source_facts = frozenset(set(HardenedProductionTaskApiAS21Adapter.source_facts) | {"history"})
+
     async def sprint_exists(self, sprint_id: str) -> bool:
         normalized = (sprint_id or "").strip()
         if not normalized:
