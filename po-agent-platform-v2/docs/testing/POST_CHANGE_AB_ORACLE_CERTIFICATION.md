@@ -30,6 +30,20 @@ A changed HEAD is NOT certified merely because unit tests, pytest, HTTP health, 
 6. Verify AS21 writes = 0.
 7. Record environment/source health and any timeout/502 counters.
 
+### Gate 0A — transient AS21/SWTR availability rule
+AS21/SWTR can be temporarily slow or unavailable during a valid test window. A single timeout, 502, 503, transport error, or failed read MUST NOT be used to conclude that a skill/source capability is unavailable or that a product defect exists.
+
+Mandatory retry/retest behavior:
+- concurrency = 1 for source-heavy tests;
+- normal source request timeout >=120 s;
+- history/sprint/release-heavy calls may use 180 s;
+- on timeout/502/503, retry the same authoritative read up to 2 times with 20–30 s backoff;
+- if the whole source preflight is unstable, restart/revalidate task-api + Harness and repeat the focused test once more in a fresh runtime before final classification;
+- where one known entity fails due to source instability, try another valid REAL entity from the approved test surface rather than immediately declaring the capability unavailable;
+- only after retries/retest fail consistently may the row be classified `ENVIRONMENT_BLOCKED` / final verdict `BLOCKED_BY_ENVIRONMENT`.
+
+Do not transform transient environment instability into `SOURCE_CAPABILITY_UNAVAILABLE_BY_DESIGN`, `SOURCE_DATA_MISSING`, `EXPECTED_INSUFFICIENT_HISTORY`, or `PRODUCT_DEFECT_PROVEN` without independent source evidence.
+
 ## Gate 1 — deterministic automated regression
 Run the complete automated regression suite required by the current branch. Any regression is RED and stops certification unless explicitly classified as an external environment/source block with evidence.
 
@@ -42,6 +56,19 @@ For every source-backed skill affected directly or transitively by the change, r
 - one REAL source-backed business-fact comparison.
 
 For broad/shared changes (semantic interpreter, dialogue runtime, grounding, source adapter, common capability layer, learning runtime), execute the full source-ready skill matrix, not only one skill.
+
+### 2.1A Approved sprint test surface
+For sprint-related analysis, regression, Oracle comparisons, source discovery, and metric certification, use this approved REAL sprint set before selecting arbitrary alternatives:
+1. `OLP-SPRNT-5`
+2. `DMS-SPRNT-1`
+3. `DMS-SPRNT-2` — preferred primary sprint because it is currently the most representative/filled DMS sprint for testing.
+
+Rules:
+- validate each sprint live before using it; the identifiers are approved test targets, not hardcoded expected answers;
+- prefer `DMS-SPRNT-2` for canonical positive sprint-skill tests when REAL data is available;
+- use `DMS-SPRNT-1` and `OLP-SPRNT-5` as independent cross-sprint controls/generalization cases;
+- if one sprint is temporarily unavailable because of AS21/SWTR instability, retry/retest per Gate 0A and then use another approved sprint before declaring environment/source failure;
+- never infer a historical snapshot, expected metric, task count, or task-key set merely from the approved sprint ID. All expected facts must still come from REAL Oracle B reads in the current run.
 
 ### 2.2 A path — Agent
 Send the normal natural-language query through the production PO Agent endpoint. Record:
@@ -84,7 +111,7 @@ Allowed row verdicts:
 - `AB_PASS` — normalized A facts equal independent B facts within the explicit deterministic contract.
 - `EXPECTED_CLARIFICATION` — required slot genuinely absent.
 - `SOURCE_CAPABILITY_UNAVAILABLE_BY_DESIGN` — required fact is not exposed by the current source contract.
-- `ENVIRONMENT_BLOCKED` — external source/runtime condition proven.
+- `ENVIRONMENT_BLOCKED` — external source/runtime condition proven after Gate 0A retries/retest.
 - `AB_MISMATCH` — Agent and Oracle differ on source-backed facts.
 
 HTTP 200/`COMPLETED` alone can never override `AB_MISMATCH`.
@@ -184,6 +211,8 @@ Create a QA report under `po-agent-platform-v2/qa_reports/` named with the teste
 - anomaly/zero-result checks;
 - Learning Loop baseline, candidate, evaluation/promotion evidence, same-case correction, generalization, negative control, cold restart and rollback evidence where applicable;
 - source integrity: HTTP 500, HTTP 502, timeout/retry, REAL AS21 reads, fake/mock/frozen calls, AS21 writes;
+- retry/retest evidence when AS21/SWTR instability was observed;
+- sprint IDs actually used from the approved sprint test surface for sprint-related testing;
 - remaining blockers/defects;
 - final verdict.
 
