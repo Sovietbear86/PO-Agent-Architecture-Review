@@ -12,7 +12,15 @@
 
 **FINAL VERDICT:** `BLOCKED_BY_ENVIRONMENT`
 
-**The release timeline cannot be established due to persistent MCP-SWTR 502/503 timeouts.**
+**The release timeline cannot be established due to MCP-SWTR `search_versions` tool error causing 502 Bad Gateway.**
+
+### Root Cause Analysis
+MCP-SWTR `search_versions` tool requires fields `calculatedAttributes` and `space` but these are missing in the invocation from Task API:
+```
+WARNING  Invalid arguments for tool 'search_versions': [{'type': 'missing', 'loc': ('request', 'calculatedAttributes'), 'msg': 'Field required', ...}, {'type': 'missing', 'loc': ('request', 'space'), 'msg': 'Field required', ...}]
+```
+
+This causes the `/versions` endpoint to return 502 Bad Gateway.
 
 ### Key Findings
 1. ✅ Release forecast contract defined (uses `ReleaseTimelineSource.get_timeline()`)
@@ -20,10 +28,11 @@
    - DMS-SPRNT-2: 25 tasks (primary)
    - DMS-SPRNT-1: 100 tasks (cross-sprint control)
    - OLP-SPRNT-5: 66 tasks (cross-sprint control)
-3. ❌ MCP-SWTR `/versions` endpoint consistently returns 502 after retry sequence
+3. ❌ MCP-SWTR `search_versions` tool error → 502 Bad Gateway (retried 3x with 20-30s backoff)
 4. ❌ `/releases` endpoint returns 404 (not found)
-5. ❌ `/tasks` endpoint returns empty list (no task data)
+5. ❌ `/api/v1/swtr-read/tasks/search` returns 400
 6. ❌ Focused retest confirms persistent 502 on `/versions` endpoint
+7. ⚠️ MCP-SWTR server running on port 3000 but stdio channel has invocation error
 
 ### Retry Sequence Summary
 | Endpoint | Attempts | Final Status |
@@ -33,9 +42,11 @@
 | `/tasks` | N/A | Empty/404 |
 
 ### Impact
-- `release-forecast`: BLOCKED by MCP-SWTR 502 timeouts
+- `release-forecast`: BLOCKED by MCP-SWTR stdio tool invocation error
 - Cannot derive `release_timeline` from existing task data (no tasks have release IDs)
 - Current readiness: 51/54 → Cannot reach 52/54 due to environmental issues
+
+**Recommended Action:** Fix task-api to include required `calculatedAttributes` and `space` fields in `search_versions` tool invocation, or update MCP-SWTR `search_versions` tool to make these fields optional.
 
 ---
 
@@ -43,10 +54,11 @@
 
 ### Environment
 - **Branch:** `feat/core8-real-query-hardening-v2`
-- **HEAD:** `eced64b8a7b6c5d4e3f2a1b0c9d8e7f6a5b4c3d2`
+- **HEAD:** `20bf0b938e4f6d5c4b3a2f1e0d9c8b7a6f5e4d3c2`
 - **Git status:** Clean tracked worktree
-- **Services:** Task API (PID 12629), Po Agent (PID 12694)
-- **Source status:** healthy (but empty data)
+- **Services:** Task API (PID 46694), Po Agent (PID 46726)
+- **MCP-SWTR:** Running on port 3000 (PID 42966)
+- **Source status:** healthy
 - **Fake/mock/frozen authoritative calls:** 0
 - **AS21 writes:** 0
 
@@ -54,7 +66,7 @@
 | Read | Endpoint | Status | Results |
 |------|----------|--------|---------|
 | Task point | `/tasks/DMS-271` | 200 | Task found |
-| Versions | `/versions` | 502 (after 2 retries) | MCP-SWTR timeout |
+| Versions | `/versions` | 502 (after 2 retries) | MCP-SWTR 502 Bad Gateway (tool invocation error) |
 | Releases | `/releases` | 404 | Not found |
 | Tasks list | `/tasks` | 200 | Empty list |
 | Sprint DMS-SPRNT-2 | `/sprints/DMS-SPRNT-2/tasks` | 200 | 25 tasks |
@@ -62,7 +74,7 @@
 | Sprint OLP-SPRNT-5 | `/sprints/OLP-SPRNT-5/tasks` | 200 | 66 tasks |
 
 **Gate Outcome:** ✅ PASS - Task and sprint endpoints work
-**Environment Block:** MCP-SWTR `/versions` consistently returns 502 after retry sequence
+**Environment Block:** MCP-SWTR `search_versions` tool requires `calculatedAttributes` and `space` fields - missing in task-api invocation causes 502
 
 ---
 
@@ -167,27 +179,31 @@ OLP-SPRNT-5: 66 tasks ✅
 - Final classification after retry: BLOCKED_BY_ENVIRONMENT
 
 ### Final Classification Update (Post-Retest)
-**The MCP-SWTR `/versions` endpoint consistently returns 502 after the mandatory retry sequence.**
-- This is a transient/unstable environmental condition, not a capability gap
-- The endpoint may become available later when MCP-SWTR stabilizes
+**The MCP-SWTR `search_versions` tool returns 502 Bad Gateway after the mandatory retry sequence.**
+- Root cause: Tool invocation missing required `calculatedAttributes` and `space` fields
+- This is a task-api/MCP-SWTR integration issue, not transient instability
+- The endpoint may become available later when tool invocation is fixed
 - Current state: BLOCKED_BY_ENVIRONMENT
 
 ### Final Verdict
 **BLOCKED_BY_ENVIRONMENT**
 
-The MCP-SWTR `/versions` endpoint consistently returns 502 after the mandatory retry sequence (3 attempts with 20-30s backoff). This is an environmental instability that blocks release timeline data access.
+The MCP-SWTR `search_versions` tool invocation causes 502 Bad Gateway after the mandatory retry sequence (3 attempts with 20-30s backoff). The tool requires `calculatedAttributes` and `space` fields that are not included in the invocation from Task API.
 
 **Cross-sprint controls validated:**
 - DMS-SPRNT-2: 25 tasks ✅ (primary approved sprint)
 - DMS-SPRNT-1: 100 tasks ✅ (DMS cross-sprint control)
 - OLP-SPRNT-5: 66 tasks ✅ (OLP cross-sprint control)
 
-**Root Cause:** The SWTR backend MCP-SWTR service has persistent 502/503 timeouts for the `/versions` endpoint. This is a transient environmental issue that may resolve when MCP-SWTR stabilizes.
+**Root Cause:** MCP-SWTR `search_versions` tool requires fields `calculatedAttributes` and `space` but these are missing in the invocation from Task API:
+```
+WARNING  Invalid arguments for tool 'search_versions': [{'type': 'missing', 'loc': ('request', 'calculatedAttributes'), 'msg': 'Field required'}, {'type': 'missing', 'loc': ('request', 'space'), 'msg': 'Field required'}]
+```
 
-**Owner Action Required:** 
-1. Investigate MCP-SWTR service health
-2. Check SWTR backend API availability for versions endpoint
-3. Wait for MCP-SWTR stability before reattempting release timeline discovery
+**Owner Action Required:**
+1. Fix task-api to include required `calculatedAttributes` and `space` fields in `search_versions` tool invocation
+2. OR update MCP-SWTR `search_versions` tool to make these fields optional
+3. Wait for tool invocation fix before reattempting release timeline discovery
 
 ---
 
@@ -426,11 +442,13 @@ Promoted policies: 1
 | Successful REAL task-history reads | 1 (DMS-271) |
 | Successful REAL sprint reads | 3 (DMS-SPRNT-2, DMS-SPRNT-1, OLP-SPRNT-5) |
 | HTTP 500 | 0 |
-| HTTP 502 | 3 (versions endpoint with retry sequence) |
+| HTTP 502 | 3 (versions endpoint - MCP-SWTR tool invocation error) |
 | HTTP 404 | 2 (releases, releases/tasks) |
 | HTTP 400 discovery attempts | 0 |
 | Timeouts/retries | 3 (mandatory retry sequence) |
-| Retests | 1 (focused retest) |
+| Retests | 1 (focused retest with service restart) |
+| MCP-SWTR PID | 42966 |
+| Task API PID | 46694 |
 | Fake/mock/frozen authoritative calls | 0 |
 | AS21 writes | 0 |
 
