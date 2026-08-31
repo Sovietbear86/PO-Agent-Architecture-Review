@@ -1,5 +1,5 @@
 """Main entry point for FastAPI application."""
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -28,6 +28,24 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.middleware("http")
+async def require_space_for_version_search(request: Request, call_next):
+    """Fail locally when the live MCP search_versions contract lacks required space.
+
+    The current MCP-SWTR VersionSearchRequest requires `space`; letting an empty
+    request reach MCP turns a caller contract error into a misleading 502. Keep
+    the facade explicit and fail closed with HTTP 400 before any upstream call.
+    """
+    if request.method == "GET" and request.url.path == "/api/v1/swtr-read/versions":
+        space = request.query_params.get("space")
+        if not space or not space.strip():
+            return JSONResponse(
+                status_code=400,
+                content={"detail": "space is required for search_versions"},
+            )
+    return await call_next(request)
 
 
 @app.exception_handler(RequestValidationError)
