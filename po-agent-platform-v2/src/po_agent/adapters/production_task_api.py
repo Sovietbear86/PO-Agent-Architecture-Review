@@ -15,7 +15,7 @@ from .task_api import (
 
 
 class ProductionTaskApiAS21Adapter(TaskApiAS21Adapter):
-    """Task API adapter with proven sprint/release source facts.
+    """Task API adapter with proven sprint/release/history source facts.
 
     Core task mapping remains in TaskApiAS21Adapter. This subclass adds live
     swtr-read calls needed by production sprint/release grounding. If the MCP
@@ -24,7 +24,7 @@ class ProductionTaskApiAS21Adapter(TaskApiAS21Adapter):
     source; the fallback is explicit in each returned record.
     """
 
-    source_facts = frozenset({"tasks", "attachments", "sprints", "releases"})
+    source_facts = frozenset({"tasks", "attachments", "history", "sprints", "releases"})
 
     @staticmethod
     def _find_identifier(value: Any) -> str | None:
@@ -157,9 +157,6 @@ class ProductionTaskApiAS21Adapter(TaskApiAS21Adapter):
             response = await self._client.get("/api/v1/swtr-read/versions", params=params)
             response.raise_for_status()
         except httpx.HTTPError:
-            # MCP search_versions is currently known to return ToolError even
-            # though real AS21 tasks expose fix_version_s. Preserve release
-            # grounding from that already canonical, source-backed attribute.
             return await self._task_backed_versions(query=query, space=space)
         try:
             payload = response.json()
