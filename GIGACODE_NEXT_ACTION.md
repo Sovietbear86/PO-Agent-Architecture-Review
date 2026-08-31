@@ -1,104 +1,137 @@
 # GigaCode — Current Action
 
 ## Status
-`ACTIVE_QA_ASSIGNMENT_105A_SEARCH_VERSIONS_CONTRACT_PROOF`
+`ACTIVE_QA_ASSIGNMENT_105B_SEARCH_VERSIONS_POST_FIX_AND_RELEASE_DISCOVERY`
 
 ## Role boundary
 You are QA/research executor only. **Do not modify production code, prompts, tests, fixtures, learning implementation, runtime behavior, credentials, AS21/SWTR data, roadmap files, testing rules, or this file.**
 
-Mandatory rules in `po-agent-platform-v2/docs/testing/POST_CHANGE_AB_ORACLE_CERTIFICATION.md` apply. AS21/SWTR may be transiently unavailable: timeout/502/503 requires retries (up to 2, 20–30 s backoff) and focused retest after runtime/source revalidation before environment classification. Concurrency=1. Heavy calls timeout up to 180 s.
+Mandatory rules in `po-agent-platform-v2/docs/testing/POST_CHANGE_AB_ORACLE_CERTIFICATION.md` apply. AS21/SWTR can be transiently unavailable: timeout/502/503 requires retries up to 2 times with 20–30 s backoff and a focused retest after runtime/source revalidation before environment classification. Concurrency=1. Heavy calls may use 180 s.
 
-Assignment 105 was repeated after an AS21 restart. Ordinary REAL AS21 reads and all three approved sprint controls succeeded, while `/api/v1/swtr-read/versions` reproducibly failed because MCP `search_versions` rejected the request: required `request.calculatedAttributes` and `request.space` were absent. This is now treated as a reproducible Task API ↔ MCP-SWTR integration-contract defect, not generic AS21 downtime.
+Assignment 105A proved the live MCP `search_versions` contract:
+- `space` is REQUIRED;
+- `calculatedAttributes` is optional with default `None`;
+- all other request fields have defaults;
+- the previous Task API behavior incorrectly allowed `/versions` without `space`, which reached MCP and surfaced as misleading HTTP 502.
 
-Before the owner changes production code, prove the exact **live MCP input contract** so the fix is schema-correct and does not guess values/types.
+Owner fix under test:
+- commit `f77088ae83950ea71a0eb3f8e50a956fd5febd97`
+- Task API now fails locally with typed HTTP 400 when `/api/v1/swtr-read/versions` is called without `space`.
+
+The schema-aware builder already forwards caller-provided `space` into the live nested request; do not invent calculated attribute names or hardcode DMS/OLP into production behavior.
 
 ## Goal
-Capture the authoritative live `search_versions` tool schema and prove the smallest valid read-only invocation for DMS (and, if practical, OLP). Determine exactly what Task API must send for required fields, especially `space` and `calculatedAttributes`.
+Certify the owner fix against REAL AS21/MCP-SWTR and immediately continue the release/version discovery that Assignment 105 could not complete.
 
-## Phase 0 — provenance and live source
+Primary success condition: `/versions?space=DMS` must reach the REAL MCP `search_versions` path successfully and return authoritative version/release data or an authoritative empty result. Missing-space must return local HTTP 400, never upstream 502.
+
+## Phase 0 — provenance and fresh runtime
 1. Pull current branch; record exact HEAD and clean tracked worktree.
-2. Use fresh/revalidated task-api + MCP-SWTR after the AS21 restart.
-3. Prove ordinary REAL reads still work: task point read plus `DMS-SPRNT-2`; optionally cross-check `DMS-SPRNT-1` and `OLP-SPRNT-5`.
-4. fake/mock/frozen=0; AS21 writes=0.
+2. Verify owner fix commit is in ancestry.
+3. Fully restart/revalidate Task API and PO Agent from the tested HEAD; record PIDs/start times.
+4. Establish ordinary REAL AS21 reads in this run: task point-read plus approved sprint controls.
+5. Approved sprint control order:
+   - `DMS-SPRNT-2` primary;
+   - `DMS-SPRNT-1` cross-check;
+   - `OLP-SPRNT-5` independent-product cross-check.
+6. Validate sprint facts live; never hardcode expected task counts or key sets from prior reports.
+7. fake/mock/frozen authoritative calls=0; AS21 writes=0.
 
-## Phase 1 — capture exact live tool descriptor
-Using the same MCP-SWTR connection used by task-api, call/read the tool descriptor/schema for `search_versions` without modifying source data.
+## Phase 1 — missing-space contract regression
+Call exactly:
+`GET /api/v1/swtr-read/versions`
 
-Record verbatim structural facts (not secrets):
-- top-level input schema type/properties/required;
-- whether input is nested under `request`;
-- nested `request.properties`;
-- nested `request.required`;
-- type/schema/default/enum for `space`;
-- type/items/default/enum for `calculatedAttributes`;
-- query/search/name fields;
-- paging fields;
-- any additional required fields.
+Expected:
+- HTTP 400;
+- typed local detail containing `space is required`;
+- no MCP `search_versions` invocation for this request;
+- no HTTP 502.
 
-Do not infer requiredness from the previous validation error alone. The live descriptor is Oracle for the input contract.
+If this fails, verdict `OWNER_CHANGE_REGRESSION` and trace FIRST_FAILING_BOUNDARY.
 
-## Phase 2 — minimal direct Oracle calls
-Construct direct **read-only** MCP calls to `search_versions` from the live schema. Do not go through Harness and do not modify task-api code.
+## Phase 2 — REAL DMS versions read
+Call:
+`GET /api/v1/swtr-read/versions?space=DMS`
 
-Try the smallest schema-valid invocation for:
-1. `space = DMS`;
-2. `space = OLP` if DMS succeeds or if needed as an independent control.
+Requirements:
+1. This must use the REAL MCP-SWTR `search_versions` capability.
+2. Capture actual request shape / facade evidence sufficient to prove `space=DMS` reached the nested MCP request.
+3. Record HTTP status, version count, pagination metadata, and normalized version identifiers/names/date/status fields returned.
+4. An authoritative HTTP 200 empty version set is allowed if Oracle independently confirms DMS has no versions matching the request; do not fabricate releases.
+5. A validation error saying `space` or `calculatedAttributes` is missing is a product/integration regression, not environment downtime.
+6. A timeout/502/503 unrelated to validation must follow mandatory retry/retest before environment classification.
 
-For `calculatedAttributes`, use only a value justified by its live schema/default/description. If an empty array/list is schema-valid and semantically means “no extra calculated attributes”, prove that from descriptor or successful call. Do not invent attribute names.
+## Phase 3 — independent Oracle B
+Use an independent read-only path against the same live MCP `search_versions` contract, without using the Task API response as expected truth.
 
-Capture:
-- exact non-secret argument shape;
-- HTTP/MCP result status;
-- number of versions returned;
-- a small normalized sample of release/version identifiers/names and dates/status fields where available;
-- pagination metadata.
+Because MCP transport may be owned by Task API, an independent Oracle may use a separate direct MCP client/process or another schema-valid read route. If direct transport cannot be opened independently, prove equivalence through raw MCP call evidence/logs and do not claim a stronger Oracle than the evidence supports.
 
-If the call fails, capture the exact validation/backend error and FIRST_FAILING_BOUNDARY.
+Compare normalized version/release identifiers and metadata. Allowed row outcomes:
+- `AB_PASS`
+- `AUTHORITATIVE_EMPTY_SOURCE`
+- `PRODUCT_DEFECT_PROVEN`
+- `ENVIRONMENT_BLOCKED`
 
-## Phase 3 — compare with current Task API builder
-Inspect current `task-api/app/routers/swtr_read.py::_schema_aware_search_versions_arguments` read-only.
+## Phase 4 — OLP cross-space control
+Call:
+`GET /api/v1/swtr-read/versions?space=OLP`
 
-Produce exact diff in behavior between:
-- arguments currently generated by Task API for `/versions`;
-- minimal valid direct Oracle invocation from Phase 2.
+Use the same retry/retest rules. Compare space isolation: DMS and OLP results must not be silently cross-contaminated. Empty OLP result is valid if authoritative.
 
-Answer explicitly:
-- Must `/versions` require a `space` query parameter, or can MCP validly search globally?
-- What exact value should be supplied for required `calculatedAttributes` when caller requests no calculated fields?
-- Are there any other required request fields the current schema-aware builder misses?
-- Should missing required caller-owned fields fail locally as typed HTTP 400 instead of reaching MCP and becoming 502?
+## Phase 5 — resume release discovery
+Using only REAL versions actually returned by Phase 2/4:
+1. Select at least one valid release/version candidate represented in the authoritative source.
+2. Capture exact version identifier/name and available metadata.
+3. Determine whether tasks expose membership via `fix_version_s` / release identifier.
+4. Recover the exact release-forecast contract from repository code if not already captured.
+5. Determine whether current source data can supply at least two historical timeline points required by forecast.
 
-## Phase 4 — owner fix contract
-Do not modify code. Give the smallest safe owner change, including exact function/lines and tests needed.
+Do not guess release IDs. Do not equate a current version record with a historical release timeline.
 
-Preferred principles:
-- derive request shape from live MCP schema;
-- never hardcode DMS/OLP into production behavior;
-- caller-owned `space` must come from request/context;
-- schema-required neutral collection fields may be populated only when their semantics are proven;
-- fail closed locally for required values that cannot be derived;
-- no fake fallback and no release fabrication.
+## Phase 6 — release timeline source classification
+Classify `release_timeline` as exactly one of:
+- `AVAILABLE_ALREADY_NOT_WIRED`
+- `DERIVABLE_FROM_EXISTING_TASK_HISTORY`
+- `DERIVABLE_WITH_SMALL_ADAPTER_EXTENSION`
+- `NEW_TASK_API_FACADE_ONLY`
+- `UPSTREAM_SWTR_CAPABILITY_MISSING`
+- `NO_VALID_REAL_RELEASE_AVAILABLE_FOR_PROOF`
 
-## Phase 5 — 105B retest plan
-Define focused post-fix QA:
-1. `/versions?space=DMS` REAL read must succeed and match direct Oracle B normalized version set/sample;
-2. repeat after transient failure according to retry rule if needed;
-3. `/versions?space=OLP` cross-space control if supported;
-4. missing-space behavior must match proven contract (typed 400 if space is required);
-5. then resume Assignment 105 release discovery/timeline proof from the returned REAL versions.
+A 404 on a guessed endpoint is not enough to prove upstream absence. Search equivalent release/version/task-history paths.
+
+If exact authoritative timeline facts exist, independently calculate the expected release forecast and compare Agent A to Oracle B. If only current release metadata exists and no historical timeline can be recovered, keep `release-forecast` unavailable and state the exact missing fact/event.
+
+## Phase 7 — source and regression integrity
+Report exact counts from this run:
+- successful task reads;
+- successful sprint reads, listing all sprint IDs;
+- successful DMS version reads;
+- successful OLP version reads;
+- successful release task/history reads;
+- HTTP 400 expected contract checks;
+- HTTP 500;
+- HTTP 502/503;
+- retries/retests;
+- fake/mock/frozen=0;
+- AS21 writes=0.
+
+Verify no new Learning Loop policy is created/promoted/changed by this source-contract fix.
 
 ## Output
 Create only QA/research artifacts under `po-agent-platform-v2/qa_reports/`.
 
 Primary report:
-`po-agent-platform-v2/qa_reports/SEARCH_VERSIONS_CONTRACT_PROOF_105A.md`
+`po-agent-platform-v2/qa_reports/SEARCH_VERSIONS_POST_FIX_RELEASE_DISCOVERY_105B.md`
 
 Allowed final verdicts:
-- `SEARCH_VERSIONS_FIX_CONTRACT_PROVEN`
-- `MCP_SCHEMA_DIFFERS_FROM_REPORTED_ERROR`
-- `UPSTREAM_SEARCH_VERSIONS_DEFECT_PROVEN`
+- `SEARCH_VERSIONS_FIX_CERTIFIED_RELEASE_PATH_PROVEN`
+- `SEARCH_VERSIONS_FIX_CERTIFIED_RELEASE_TIMELINE_GAP_PROVEN`
+- `SEARCH_VERSIONS_FIX_CERTIFIED_NO_REAL_RELEASES`
+- `PRODUCT_DEFECTS_PROVEN`
+- `OWNER_CHANGE_REGRESSION`
+- `AB_MISMATCH`
 - `BLOCKED_BY_ENVIRONMENT`
 
-GREEN/proven requires the live tool schema plus at least one direct schema-valid `search_versions` attempt. A static code guess is not enough.
+A GREEN-like verdict requires missing-space HTTP 400 plus successful REAL `/versions?space=DMS` (or authoritative empty DMS source) after the mandatory retry/retest rules, with no fake data and no AS21 writes.
 
 Commit/push only allowed QA/research artifacts, report final SHA, then STOP.
