@@ -1,0 +1,62 @@
+[
+  {
+    "behaviour": "authoritative_recheck_on_negative",
+    "correction_trace_id": "1a62c3d6-b8fd-4602-896e-ba66cc71baf7",
+    "created_at": "2026-08-28T08:31:25.232734+00:00",
+    "evidence_count": 3,
+    "policy_id": "task-lookup:authoritative_recheck_on_negative:v1",
+    "rollback_reason": "assignment_072e_test_fresh_start",
+    "skill_id": "task-lookup",
+    "state": "rolled_back",
+    "validation_trace_id": "ebf68b4b-aaa8-4539-ad1c-66027694e0c7",
+    "version": 1
+  },
+  {
+    "behaviour": "authoritative_recheck_on_negative",
+    "correction_trace_id": "0c015f26-fc2b-4cb6-b4f5-423ff6cf386f",
+    "created_at": "2026-08-30T11:23:21.783733+00:00",
+    "evidence_count": 3,
+    "policy_id": "task-lookup:authoritative_recheck_on_negative:v2",
+    "rollback_reason": "assignment_072e_test_rollback",
+    "skill_id": "task-lookup",
+    "state": "rolled_back",
+    "validation_trace_id": "138f815f-9e5d-4be4-9350-7e9747ef2064",
+    "version": 2
+  },
+  {
+    "behaviour": "authoritative_recheck_on_negative",
+    "correction_trace_id": "07601b65-a75d-43a1-a037-51c13184aab6",
+    "created_at": "2026-08-30T11:32:15.400445+00:00",
+    "evidence_count": 3,
+    "policy_id": "task-lookup:authoritative_recheck_on_negative:v3",
+    "rollback_reason": "072F_cleanup",
+    "skill_id": "task-lookup",
+    "state": "rolled_back",
+    "validation_trace_id": "3e69d282-9c32-43fc-a729-c43d7a041911",
+    "version": 3
+  },
+  {
+    "behaviour": "authoritative_recheck_on_negative",
+    "correction_trace_id": "cc092a51-4e8a-457f-afec-66d92122a21c",
+    "created_at": "2026-08-30T11:40:50.081756+00:00",
+    "evidence_count": 3,
+    "policy_id": "task-lookup:authoritative_recheck_on_negative:v4",
+    "rollback_reason": "072F_cleanup",
+    "skill_id": "task-lookup",
+    "state": "rolled_back",
+    "validation_trace_id": "4fd763e2-8e44-4733-9928-32d6a5d5761b",
+    "version": 4
+  },
+  {
+    "behaviour": "authoritative_recheck_on_negative",
+    "correction_trace_id": "394a19fe-2eb3-4ec8-8829-b943b42c8bee",
+    "created_at": "2026-08-30T20:06:22.691354+00:00",
+    "evidence_count": 25,
+    "policy_id": "sprint-lead-time:authoritative_recheck_on_negative:v1",
+    "rollback_reason": null,
+    "skill_id": "sprint-lead-time",
+    "state": "promoted",
+    "validation_trace_id": "c789356c-8a63-4f49-a570-8e24bd09071a",
+    "version": 1
+  }
+]

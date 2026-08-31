@@ -1,0 +1,14 @@
+[
+  {
+    "behaviour": "authoritative_recheck_on_negative",
+    "correction_trace_id": "1a62c3d6-b8fd-4602-896e-ba66cc71baf7",
+    "created_at": "2026-08-28T08:31:25.232734+00:00",
+    "evidence_count": 3,
+    "policy_id": "task-lookup:authoritative_recheck_on_negative:v1",
+    "rollback_reason": null,
+    "skill_id": "task-lookup",
+    "state": "promoted",
+    "validation_trace_id": "ebf68b4b-aaa8-4539-ad1c-66027694e0c7",
+    "version": 1
+  }
+]
