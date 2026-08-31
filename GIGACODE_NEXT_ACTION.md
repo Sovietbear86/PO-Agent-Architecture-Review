@@ -6,6 +6,12 @@
 ## Role boundary
 You are QA/research executor only. **Do not modify production code, prompts, tests, fixtures, learning implementation, runtime behavior, credentials, AS21/SWTR data, roadmap files, testing rules, or this file.**
 
+Mandatory QA rules in `po-agent-platform-v2/docs/testing/POST_CHANGE_AB_ORACLE_CERTIFICATION.md` apply. In particular:
+- AS21/SWTR may be transiently unavailable; a single timeout/502/503 is never enough to classify a source capability or product behavior.
+- Retry source failures up to 2 times with 20–30 s backoff, use concurrency=1 and up to 180 s for heavy calls.
+- If instability persists, revalidate/restart the fresh runtime and perform one focused retest before final environment classification.
+- For any sprint-related control/source check use the approved REAL sprint surface: primary `DMS-SPRNT-2`, plus `DMS-SPRNT-1` and `OLP-SPRNT-5` as cross-sprint controls. Validate them live; never hardcode expected facts.
+
 Assignment 104 proved an upstream source gap for historical sprint commitment: current scope and current-sprint timing are available, but authoritative sprint-start membership history/snapshots are not. Therefore `sprint-carryover` and `sprint-scope-change` must remain unavailable for now; do not invent a snapshot from current scope.
 
 We now target the last independent unavailable capability: `release-forecast`, currently blocked by missing `release_timeline`.
@@ -21,8 +27,10 @@ If proof succeeds, owner should be able to move readiness from `51/54` to `52/54
 3. Establish at least 3 successful REAL reads in this run, including one task point-read and one release-related read.
 4. fake/mock/frozen authoritative calls = 0; AS21 writes = 0.
 5. concurrency = 1; timeout >=180 s for history-heavy calls; retry timeout/502/503 up to 2 times with 20–30 s backoff.
+6. If a timeout/502/503 occurs, do not immediately classify the capability. Complete the mandatory retry sequence. If the live-source gate remains unstable, restart/revalidate task-api + Harness and perform one focused retest in the fresh runtime.
+7. Only after the above retry/retest sequence fails consistently may the run end `BLOCKED_BY_ENVIRONMENT`.
 
-If REAL source cannot be established, stop `BLOCKED_BY_ENVIRONMENT`.
+If REAL source cannot be established after the mandatory retest sequence, stop `BLOCKED_BY_ENVIRONMENT`.
 
 ## Phase 1 — recover exact release-forecast contract
 Recover from repository code/contracts/tests the exact business definition and formula for `release-forecast`.
@@ -52,7 +60,7 @@ Prove:
 - target/end date if available;
 - status/name/project/space where available.
 
-If no valid release can be discovered, classify `NO_VALID_REAL_RELEASE_AVAILABLE_FOR_PROOF`; do not fabricate one.
+If no valid release can be discovered after the mandatory AS21 retry/retest sequence, classify `NO_VALID_REAL_RELEASE_AVAILABLE_FOR_PROOF`; do not fabricate one.
 
 ## Phase 3 — inventory release read surface
 Trace current local task-api implementation/config/OpenAPI/routes and underlying SWTR/MCP read methods for release/version data.
@@ -79,6 +87,8 @@ For the validated release:
 
 If history is sufficient, independently derive the historical completion series required by the repository formula.
 
+Any timeout/502/503 during this phase must follow the mandatory retry/retest rule before it can be treated as an environment block.
+
 ## Phase 5 — independently calculate forecast if possible
 Only if all contract-required authoritative inputs exist:
 - independently calculate the exact expected forecast without using Harness implementation as Oracle;
@@ -94,7 +104,7 @@ Allowed row outcomes:
 - `EXPECTED_INSUFFICIENT_HISTORY`
 - `ENVIRONMENT_BLOCKED`
 
-HTTP 200/COMPLETED is not sufficient if facts differ.
+HTTP 200/COMPLETED is not sufficient if facts differ. A transient source timeout is not `EXPECTED_INSUFFICIENT_HISTORY` or `SOURCE_DATA_OR_CAPABILITY_UNAVAILABLE`.
 
 ## Phase 6 — release_timeline classification
 Classify the missing `release_timeline` fact as exactly one of:
@@ -133,21 +143,29 @@ Specify:
 
 If upstream gap is proven, state exactly which missing upstream field/event blocks the forecast and do not propose current-state proxies as authoritative forecast inputs unless the repository contract explicitly allows them.
 
-## Phase 8 — protect prior conclusions
+## Phase 8 — protect prior conclusions and sprint controls
 Verify:
 - `sprint-carryover` and `sprint-scope-change` remain unavailable due to Assignment 104 upstream sprint-history gap;
 - no new Learning Loop policy is created/promoted/changed;
 - no task/release IDs or expected outputs are proposed for production hardcoding.
+
+If you perform any sprint-related control or revisit the Assignment 104 conclusion, use only live-validated approved sprint targets in this order:
+1. `DMS-SPRNT-2` — primary canonical sprint;
+2. `DMS-SPRNT-1` — DMS cross-sprint control;
+3. `OLP-SPRNT-5` — independent product cross-sprint control.
+
+Do not generalize an upstream sprint-source conclusion from one temporarily failing sprint. Retry/retest and, where relevant, cross-check another approved sprint before final classification.
 
 ## Source integrity
 Report exact numeric counts from this run only:
 - successful REAL release reads;
 - successful REAL release-task reads;
 - successful REAL task-history reads;
+- successful REAL sprint reads if sprint controls are executed, with sprint IDs listed;
 - HTTP 500;
 - HTTP 502/503;
 - HTTP 404 discovery attempts;
-- timeouts/retries;
+- timeouts/retries/retests;
 - fake/mock/frozen = 0;
 - AS21 writes = 0.
 
