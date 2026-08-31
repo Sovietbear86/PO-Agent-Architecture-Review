@@ -1,165 +1,172 @@
 # GigaCode — Current Action
 
 ## Status
-`ACTIVE_QA_ASSIGNMENT_103B_STRICT_REAL_HISTORY_RECERTIFICATION`
+`ACTIVE_QA_ASSIGNMENT_104_SPRINT_SNAPSHOT_SOURCE_PROOF`
 
 ## Role boundary
-You are QA/tester only. **Do not modify production code, prompts, tests, fixtures, learning implementation, runtime behavior, credentials, AS21/SWTR data, roadmap files, testing rules, or this file.**
+You are QA/research executor only. **Do not modify production code, prompts, tests, fixtures, learning implementation, runtime behavior, credentials, AS21/SWTR data, roadmap files, testing rules, or this file.**
 
-Assignment 103 reported `HISTORY_4_SKILLS_CERTIFIED_51_OF_54`, but its own evidence showed **0 successful REAL history reads** in that run. Therefore 103 is NOT accepted as GREEN. Static inspection that `datetime.now(timezone.utc)` is present is not sufficient A/B certification.
+The history block is structurally at 51/54. We now target the next two unavailable skills:
+1. `sprint-carryover`
+2. `sprint-scope-change`
 
-Owner fix under test remains:
-- `2cdd806a1c9b8525eba4fe3ffbc323099f6bbadd`
+Both currently require the missing source fact `sprint_snapshots`. Assignment 101 suggested that the authoritative sprint-start baseline may be reconstructable from existing REAL task-history events, but that claim is not yet proven strongly enough for owner implementation.
 
-Do not start sprint-snapshot or release-timeline implementation.
+Do not accept a guessed `/snapshot` endpoint and do not accept current sprint membership as a historical baseline.
 
 ## Goal
-Strictly re-certify the four history-backed skills with live REAL AS21 history evidence:
-1. `task-history`
-2. `task-time-in-status`
-3. `sprint-cycle-time`
-4. `sprint-lead-time`
+Prove, using REAL AS21/SWTR data, whether a deterministic authoritative sprint-start membership snapshot can be reconstructed for at least one validated sprint. The output must be implementation-grade evidence for the owner.
 
-A GREEN verdict is forbidden unless at least one full `task-time-in-status` Agent A ↔ Oracle B comparison executes successfully against live history in this run, and REAL history reads are numerically > 0.
+Target if proof succeeds: owner can implement `sprint_snapshots` and move readiness from `51/54` to `53/54`.
 
-## Phase 0 — fresh runtime and provenance
-1. Pull current branch, record exact HEAD, require clean tracked worktree.
-2. Verify owner fix commit is in ancestry.
-3. Fully restart production task-api and Harness; record old/new PIDs and start times.
-4. Confirm production `task-api` + REAL AS21/SWTR, fake/mock/frozen authoritative calls = 0, AS21 writes = 0.
-5. Do not reuse 102/103 history payloads, checkpoint results, cached Oracle facts, or static-code evidence as a substitute for live reads.
+## Phase 0 — provenance and live-source gate
+1. Pull current branch; record exact HEAD and clean tracked worktree.
+2. Fresh production task-api + REAL AS21/SWTR.
+3. Establish at least 3 successful REAL reads in this run, including one sprint scope and one task history read.
+4. fake/mock/frozen authoritative calls = 0; AS21 writes = 0.
+5. concurrency = 1; timeout >=180 s for history-heavy calls; retry timeout/502/503 up to 2 times with 20–30 s backoff.
 
-## Phase 1 — mandatory REAL history gate
-Before Agent testing, independently establish live history access.
+If live source cannot be established, stop `BLOCKED_BY_ENVIRONMENT`.
 
-Use >=180 s timeout for history-heavy calls. For timeout/HTTP 502/503:
-- retry up to 2 times;
-- wait 20–30 seconds between retries;
-- concurrency = 1.
+## Phase 1 — recover exact business definitions
+Recover from repository code/contracts/tests the exact definitions of:
+- `sprint-carryover`;
+- `sprint-scope-change`.
 
-Find at least one valid REAL task with non-empty workflow history. Prefer DMS-271 only if it succeeds live now; otherwise discover another valid task rather than stopping after one known task fails.
+For each, state exact required sets and formula. Do not infer from skill name alone.
 
-Capture for each successful history read:
-- exact endpoint/request;
-- HTTP status;
+At minimum determine whether the metric requires:
+- committed task set at sprint start;
+- current task set;
+- tasks added after start;
+- tasks removed after start;
+- previous sprint membership;
+- completion state at a particular boundary.
+
+## Phase 2 — prove authoritative sprint timing
+Select at least one REAL sprint with live scope. Prefer a sprint for which start/end timestamps can be independently obtained now.
+
+Trace the actual task-api/MCP-SWTR path that provides sprint metadata. Capture raw payload and prove:
+- sprint ID;
+- start timestamp;
+- end timestamp if available;
+- space/project;
+- status if available.
+
+If only current-sprint metadata is exposed, say so explicitly. Do not use metadata from a different sprint as proof for the target sprint.
+
+Classification for sprint timing:
+- `TIMING_AVAILABLE_FOR_TARGET_SPRINT`
+- `TIMING_ONLY_FOR_CURRENT_SPRINT`
+- `TIMING_NOT_AVAILABLE`
+
+## Phase 3 — prove raw sprint-membership history events
+The existing PO Agent `get_task_history()` normalizes only workflow status transitions, so it is insufficient by itself for sprint-membership reconstruction.
+
+Inspect and independently call the underlying REAL history endpoint/tool in a way that preserves raw events. For valid tasks, search specifically for sprint-assignment field changes such as `scrum_board_plugin_sprint` or equivalent.
+
+Capture at least one real membership event if one exists:
 - task key;
-- ordered workflow-status events;
-- raw timestamps;
-- elapsed time.
+- changed_at;
+- field code;
+- old sprint value;
+- new sprint value;
+- actor if present.
 
-**Gate requirement for GREEN:** successful REAL history reads >= 1, with at least one non-empty workflow history.
+Do not fabricate or infer an event from current task attributes.
 
-If no live history read succeeds after retries and reasonable alternate valid-task discovery, final verdict MUST be `BLOCKED_BY_ENVIRONMENT`. Do not issue GREEN.
+Classify raw membership history:
+- `MEMBERSHIP_EVENTS_PROVEN`
+- `HISTORY_EXISTS_NO_MEMBERSHIP_EVENTS_IN_SAMPLE`
+- `RAW_HISTORY_NOT_EXPOSED`
+- `BLOCKED_BY_ENVIRONMENT`
 
-## Phase 2 — task-history A/B
-For the live task from Phase 1:
-- Agent A: natural Russian history query.
-- Oracle B: independent live REAL history response from this run.
-- Compare task identity, ordered from/to sequence, count, timestamps and fabricated-event absence.
+## Phase 4 — reconstruct one sprint baseline if possible
+Only if Phase 2 provides authoritative target sprint start time and Phase 3 provides sufficient membership events, reconstruct the target sprint state at start.
 
-Required for GREEN: `AB_PASS`.
+Use the event stream and current membership to derive exact sets:
+- `current_task_keys`;
+- `committed_at_start_task_keys`;
+- `added_after_start_task_keys`;
+- `removed_after_start_task_keys`.
 
-## Phase 3 — task-time-in-status primary certification
-This is the mandatory proof of the owner fix.
+Show the deterministic reverse/forward reconstruction algorithm and apply it to REAL task keys. Exact sets are required, not just counts.
 
-Using live history from this run:
-1. Capture a single Oracle reference time `oracle_now_utc` as offset-aware UTC immediately before/after Agent execution as appropriate to minimize drift.
-2. Independently calculate intervals from raw transition timestamps without using Harness calculation code.
-3. For closed intervals compare exact boundaries and rounded hours.
-4. For the final open interval, account for unavoidable execution-time drift: compare boundaries and duration within an explicitly documented small tolerance derived from actual Agent-vs-Oracle timestamps; do not silently ignore differences.
-5. Run Agent A natural Russian `time-in-status` query.
-6. Verify former timezone `TypeError` is absent.
-7. Compare status labels, interval sequence, boundaries and numeric hours.
+Independently validate internal consistency:
+`committed_at_start + additions - removals == current_scope` (set algebra, with direction documented).
 
-Required for GREEN: a real completed Agent A execution and `AB_PASS` against Oracle B. Static reasoning is forbidden as certification evidence.
+If full reconstruction cannot be proven, do not invent a baseline. State the exact missing raw input.
 
-## Phase 4 — sprint-cycle-time A/B
-Use one validated REAL sprint. Obtain its exact task-key set live.
+## Phase 5 — carryover source proof
+Recover the repository definition of carryover and determine whether the proven data is enough.
 
-Recover the exact repository calculation contract. Independently read enough task histories to test the metric.
+If previous sprint membership is required, prove how it is obtained for the same tasks/sprints. If unavailable, classify the exact gap.
 
-Allowed outcomes:
-- `AB_PASS` if sufficient real history exists and Agent agrees with Oracle;
-- `EXPECTED_INSUFFICIENT_HISTORY` only if raw events prove the contract cannot be computed from the selected real corpus and Agent returns the contract-valid typed outcome.
+Allowed classification:
+- `CARRYOVER_DERIVABLE_NOW`
+- `CARRYOVER_NEEDS_PREVIOUS_SPRINT_MEMBERSHIP`
+- `CARRYOVER_NEEDS_MISSING_TIMING`
+- `CARRYOVER_SOURCE_GAP`
 
-A timeout is NOT `EXPECTED_INSUFFICIENT_HISTORY`; it is environment failure. A fabricated zero/number is FAIL.
+## Phase 6 — scope-change source proof
+Determine whether the reconstructed start baseline + event stream is enough to compute scope-change exactly.
 
-## Phase 5 — sprint-lead-time A/B
-Same rules as Phase 4. Existing Learning Loop policy must not be used as Oracle and must not change authoritative numeric facts.
+If yes, independently calculate the expected metric and exact added/removed sets for the target sprint.
 
-Allowed outcomes:
-- `AB_PASS`
-- `EXPECTED_INSUFFICIENT_HISTORY`
-- otherwise identify exact failure boundary.
+Allowed classification:
+- `SCOPE_CHANGE_DERIVABLE_NOW`
+- `SCOPE_CHANGE_NEEDS_MISSING_TIMING`
+- `SCOPE_CHANGE_NEEDS_RAW_MEMBERSHIP_EVENTS`
+- `SCOPE_CHANGE_SOURCE_GAP`
 
-## Phase 6 — readiness proof
-Record live runtime source facts and readiness counts.
+## Phase 7 — owner implementation contract
+Do not change code. Produce the smallest owner implementation plan with exact modules and normalized schema.
 
-Expected structural state:
-- history available;
-- ready = 51;
-- unavailable = 3;
-- exactly `sprint-carryover`, `sprint-scope-change`, `release-forecast` remain unavailable due to `sprint_snapshots` / `release_timeline`.
+Preferred contract shape if evidence supports it:
+```text
+get_sprint_membership_snapshot(sprint_id, space?) -> {
+  sprint_id,
+  started_at,
+  current_task_keys,
+  committed_at_start_task_keys,
+  added_after_start_task_keys,
+  removed_after_start_task_keys,
+  evidence
+}
+```
 
-Structural readiness alone is not functional certification.
+Specify:
+- which existing REAL endpoint/tool supplies each field;
+- whether a new task-api facade endpoint is actually needed;
+- pagination/retry behavior;
+- fail-closed behavior when timing or raw events are unavailable;
+- whether `SourceFact.SPRINT_SNAPSHOTS` can honestly be advertised after implementation;
+- projected readiness (`51/54 -> 52/54` or `53/54`) based only on proven contracts.
 
-## Phase 7 — controls
-On the same fresh runtime verify at minimum:
-- one exact task lookup against live Oracle facts;
-- sprint-scope exact task-key-set equality;
-- typed unavailability for one sprint-snapshot skill;
-- typed unavailability for release-forecast;
-- no universal source-unavailable shortcut while ordinary REAL AS21 reads succeed.
-
-## Phase 8 — Learning Loop exact protection
-Capture exact policy store before and after:
-- total count;
-- active/promoted count;
-- exact active IDs/versions;
-- immutable hash or equivalent.
-
-No new/promoted/changed policy is allowed because of this deterministic fix or environmental timeout.
+## Phase 8 — no hardcoding / no learning
+Verify no production IDs/answers are proposed for hardcoding and no Learning Loop policy is created/promoted/changed.
 
 ## Source integrity
 Report exact numeric counts from this run only:
-- successful REAL task point reads;
-- successful REAL history reads;
 - successful REAL sprint reads;
+- successful REAL task/history reads;
+- successful raw membership-event reads;
 - HTTP 500;
 - HTTP 502/503;
-- timeouts;
-- retries;
-- fake/mock/frozen authoritative calls = 0;
+- timeouts/retries;
+- fake/mock/frozen = 0;
 - AS21 writes = 0.
 
-Do not use `N/A` for successful history reads.
-
-## Acceptance logic
-`HISTORY_4_SKILLS_CERTIFIED_51_OF_54` is allowed only if ALL are true:
-- successful REAL history reads >= 1 and at least one is non-empty;
-- task-history live A/B = PASS;
-- task-time-in-status live A/B = PASS;
-- former timezone TypeError absent in real execution;
-- cycle-time and lead-time each are either live `AB_PASS` or evidence-backed `EXPECTED_INSUFFICIENT_HISTORY` (not timeout);
-- readiness = 51/54 with exactly three expected source gaps;
-- controls pass;
-- Learning Loop unchanged;
-- fake/mock/frozen = 0 and AS21 writes = 0.
-
-If history access cannot be established live, verdict MUST be `BLOCKED_BY_ENVIRONMENT`.
-
 ## Output
-Create only QA artifacts under `po-agent-platform-v2/qa_reports/`.
+Create only QA/research artifacts under `po-agent-platform-v2/qa_reports/`.
 
 Primary report:
-`po-agent-platform-v2/qa_reports/STRICT_REAL_HISTORY_RECERTIFICATION_103B.md`
+`po-agent-platform-v2/qa_reports/SPRINT_SNAPSHOT_SOURCE_PROOF_104.md`
 
 Allowed final verdicts:
-- `HISTORY_4_SKILLS_CERTIFIED_51_OF_54`
-- `PARTIAL_HISTORY_UNLOCK`
-- `PRODUCT_DEFECTS_PROVEN`
-- `AB_MISMATCH`
+- `SPRINT_SNAPSHOT_DERIVATION_PROVEN_READY_FOR_OWNER`
+- `PARTIAL_SPRINT_SNAPSHOT_PATH_PROVEN`
+- `UPSTREAM_SPRINT_HISTORY_GAP_PROVEN`
 - `BLOCKED_BY_ENVIRONMENT`
-- `QA_HARNESS_ORACLE_DEFECT`
 
-Commit/push only allowed QA artifacts, report final SHA, then STOP. Do not modify production code and do not start Assignment 104 or later.
+GREEN-like proof is allowed only when target-sprint timing + raw membership events + deterministic baseline reconstruction are all demonstrated on REAL data. Commit/push only allowed QA/research artifacts, report SHA, then STOP.
