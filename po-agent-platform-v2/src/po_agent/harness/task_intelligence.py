@@ -7,7 +7,7 @@ not invent source facts or change deterministic quality/metric values.
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from po_agent.adapters.as21 import AS21Adapter
 from po_agent.analysis.task_quality import TaskQualityAnalysis
@@ -93,7 +93,7 @@ class TaskIntelligenceCapabilities:
         if task is None:
             return self._not_found(key)
         transitions = await self.adapter.get_task_history(key)
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
         durations: list[dict[str, object]] = []
         if transitions:
             ordered = sorted(transitions, key=lambda item: item.timestamp)
