@@ -1,153 +1,122 @@
 # GigaCode — Current Action
 
 ## Status
-`ACTIVE_QA_ASSIGNMENT_116_GARANIN_DIRECT_AS21_RETEST`
+`ACTIVE_QA_ASSIGNMENT_117_LIVE_MEMBER_ROUTE_CONTRACT_PROOF`
 
-## Context
-The branch has been rolled back to the last commit before 18:00 Moscow time on 2026-09-01: `0b3b3dc1f00618e0943360d8ec2c5454dad17a4a` (17:56:21 MSK). Do not reintroduce later product changes.
+## Why this assignment exists
+Owner review of Assignment 116 found that its proposed fix is not yet sufficient for the original defect `Задачи Гаранина`.
 
-Assignment 116 is intentionally narrow. Reproduce the owner-observed mismatch for the canonical query `Задачи Гаранина` using REAL AS21 directly, with NO task synchronization and NO local task DB population.
+The current Harness `TaskApiAS21Adapter.search_tasks()` calls Task API `/api/v1/tasks`, i.e. the cached/local task-list facade. Adding `source_data` only to `/api/v1/swtr-read/tasks/{task_code}` would repair a point-read contract but would NOT by itself prove that member search uses REAL AS21.
 
-The previous 110C report is not accepted as Agent A certification because its own counters show `Agent A requests = 0` despite a GREEN verdict.
+Before the owner changes production routing, we need the exact live MCP-SWTR contract that already works when GigaCode queries AS21 directly.
 
 ## Role boundary
-QA/test executor only. Do not modify production/backend/frontend code, prompts, skills, semantic logic, learning loop, Task API, MCP-SWTR, schemas, AS21 data, testing rules, or this file. Commit/push only QA artifacts under `po-agent-platform-v2/qa_reports/`.
+QA / forensic executor only. DO NOT modify production/backend/frontend code, prompts, skills, semantic logic, adapters, Task API, MCP-SWTR, schemas, testing rules, AS21 data, or this file. Commit/push only QA evidence under `po-agent-platform-v2/qa_reports/`.
 
 ## Absolute prohibitions
-DO NOT:
-- run `sync_all_tasks.py`, `sync_sprint_tasks.py`, `sse_sync.py`, `swtr_sync.py` or any synchronization/population utility;
-- create a synchronization script;
-- populate or refresh a local task database;
-- use local DB/cache as Oracle or authoritative task truth;
-- change assignee extraction or source parsing;
-- use fake/mock/frozen data;
-- write to AS21.
+- NO task synchronization/population utilities.
+- NO local DB refresh/population.
+- NO local DB/cache as Oracle.
+- NO fake/mock/frozen data.
+- NO AS21 writes.
+- NO assignee extraction changes.
+- NO speculative fix.
 
-If the normal production path itself routes to a local DB, prove that as a product routing defect. Do NOT populate that DB to make the test pass.
+## Goal
+For the exact natural-language request `Задачи Гаранина`, prove the two real routing contracts side by side:
 
-## Required paths
-Agent A:
-`actual Russian natural-language request -> exact Harness endpoint used by Browser UI -> normal Task API/source adapter -> MCP-SWTR -> REAL AS21`
+A. Current product path from Browser/Harness.
+B. Direct GigaCode/MCP-SWTR path that successfully reaches REAL AS21.
 
-Oracle B:
-`independent direct MCP-SWTR read -> REAL AS21`
+The output must give the owner enough exact request/response contract information to implement a minimal live-read fix without synchronization.
 
-Browser UI control:
-`Browser UI -> actual frontend route/proxy -> same Harness runtime`
+## Phase 0 — provenance and health
+1. Fetch/pull branch `feat/core8-real-query-hardening-v2` and record HEAD.
+2. Clean worktree.
+3. Restart only normal Frontend/Harness/Task API services if needed. Do not sync/populate anything.
+4. Record PIDs/ports.
+5. Call Task API `/api/v1/swtr-read/health` and prove MCP-SWTR -> REAL AS21 is connected.
+6. Directly read one known REAL task and prove `unit.attributes` contains source attributes.
 
-## Phase 0 — rollback and runtime provenance
-1. Fetch remote and align local branch with remote `feat/core8-real-query-hardening-v2`.
-2. Record exact HEAD. Prove `0b3b3dc1f00618e0943360d8ec2c5454dad17a4a` is the rollback baseline; the only later commit should be this QA instruction.
-3. Clean worktree before execution.
-4. Restart only the services required for normal product query flow. Do not run any sync/population process.
-5. Record PID, port, command and start time for Frontend, Harness, Task API and MCP-SWTR.
-6. Prove direct MCP-SWTR -> REAL AS21 connectivity with a live read. If temporarily unavailable: timeout >=120 s, max 2 retries, 20–30 s backoff.
+## Phase 1 — prove current Agent A route
+Run exactly `Задачи Гаранина` through Browser UI and through the same Harness endpoint used by Browser UI.
 
-## Phase 1 — independent Oracle truth for Garanin
-Using only direct MCP-SWTR/REAL AS21 reads, establish the current authoritative result for Rodion Garanin / `Garanin.R.V`:
-- identity representation(s) used by source;
-- exact current task-key set assigned to him;
-- space/status for each task where available;
-- exact count.
+Trace the downstream calls and prove whether member search invokes:
+- `/api/v1/tasks`,
+- `/api/v1/swtr-read/...`,
+- another endpoint.
 
-No local DB and no Harness output may be used to derive Oracle B.
+Record exact URL, method, params/body and call order. If `/api/v1/tasks` is used, explicitly classify it as `LOCAL_TASK_LIST_ROUTE` and prove that no live MCP-SWTR member-search call occurs for that request.
 
-## Phase 2 — exact three-way same-query test
-Use the exact text:
-`Задачи Гаранина`
+Do NOT populate the local task list.
 
-Execute three paths:
-A1. Browser UI with a fresh UI session.
-A2. Direct request to the exact Harness endpoint that Browser UI calls, with a fresh session ID.
-B. Independent Oracle B direct REAL AS21 request.
-
-For A1/A2 record:
-- browser page URL;
-- actual network request URL/method/body;
-- frontend proxy target if present;
-- Harness endpoint and PID;
-- session ID;
-- downstream Task API endpoint/PID actually contacted;
-- MCP-SWTR path actually contacted;
-- response status;
-- skill/version;
-- semantic member/frame/slots;
-- capability arguments;
-- evidence/trace;
-- exact returned task-key set;
+## Phase 2 — prove working Oracle B live route
+Using the exact direct mechanism by which GigaCode can successfully query REAL AS21 for Rodion Garanin / `Garanin.R.V`, capture:
+- MCP tool name (`find_units`, `find_units_by_filter`, or other — do not guess);
+- live tool input schema;
+- exact request JSON actually sent;
+- pagination semantics and page size;
+- whether server-side filtering by `assigned_to` is supported;
+- exact response shape;
+- where `assigned_to` is represented (top-level vs `attributes[]`);
+- exact task-key set returned for Garanin;
+- count;
 - elapsed time.
 
-For B record exact source request evidence and exact task-key set.
+If more than one page is required, read all pages needed for a complete authoritative task-key set. Timeout >=120 s; heavy reads may use 180 s; max 2 retries with 20–30 s backoff.
 
-Primary assertion:
-`Browser keys == Direct Harness keys == Oracle B keys`
+## Phase 3 — one independent member control
+Select exactly one other REAL team member with a non-empty Oracle result and repeat only the Oracle B live query contract. This is to prove the contract is generalized and not Garanin-specific.
 
-Counts alone are insufficient.
+## Phase 4 — point-read contract separately
+Verify `/api/v1/swtr-read/tasks/{task_code}` for one Garanin task:
+- `unit.attributes` contains `assigned_to` and `workflow_status` when present in REAL AS21;
+- current response does or does not expose `source_data.swtr_attributes`.
 
-## Phase 3 — repeatability and contamination check
-Repeat the same exact `Задачи Гаранина` query:
-1. fresh UI session with the PO Agent UI session/localStorage cleared;
-2. another fresh session;
-3. same persistent UI session after one unrelated harmless query.
+Important: classify this as a separate `POINT_READ_MAPPING_GAP`. Do NOT claim it is the root cause of member search unless the traced Agent A route actually uses this endpoint for member search.
 
-Repeat corresponding direct-Harness controls with fresh session IDs.
+## Phase 5 — required final boundary
+Report two independent findings if both are true:
+1. `MEMBER_SEARCH_SOURCE_ROUTING`: current Harness member search uses local `/api/v1/tasks` instead of a live MCP-SWTR search path.
+2. `POINT_READ_MAPPING_GAP`: live point-read returns `unit.attributes` but not the canonical `source_data` mapping expected by some Harness mapping code.
 
-The query contains no sprint. The Agent must not invent `SPRNT-2`, `DMS-SPRNT-2` or any other sprint.
-All user-facing prose must be Russian.
+The report must state which finding is the FIRST failing boundary for the original UI request `Задачи Гаранина`.
 
-## Phase 4 — one narrow member control
-Select exactly one additional REAL team member for whom Oracle B independently proves a non-empty task set. Run the same Browser / Direct Harness / Oracle comparison.
+## Required owner implementation contract
+Without changing code, propose the smallest production contract for the owner:
+- which Task API live read endpoint should expose member/task search;
+- which MCP tool and exact schema it should call;
+- how pagination/completeness must work;
+- canonical task-row shape required by Harness;
+- how `attributes[]` must be normalized exactly once;
+- no local DB dependency for authoritative member search.
 
-Do not expand into a member matrix or full regression.
+Do not write implementation code; provide contract/evidence only.
 
-## Phase 5 — forensic only if mismatch exists
-If Browser/Direct Harness differs from Oracle B, identify the earliest boundary without changing code.
-
-Allowed classifications:
-- `UI_PROXY_ROUTE_MISMATCH`
-- `HARNESS_ENDPOINT_MISMATCH`
-- `STALE_RUNTIME_PROCESS`
-- `SESSION_CONTEXT_CONTAMINATION`
-- `SEMANTIC_MEMBER_GROUNDING`
-- `CAPABILITY_ARGUMENT_BUILDING`
-- `TASK_API_SOURCE_ROUTING`
-- `LOCAL_DB_ROUTE_USED_IN_PRODUCTION_PATH`
-- `MCP_SWTR_SOURCE_CONTRACT`
-- `RESPONSE_MAPPING`
-
-If you discover local DB use in the normal Agent path, STOP the root-cause chain there after proving it. Do not synchronize/populate it.
-
-## Mandatory execution counters
-Report actual counts for:
-- Browser UI natural-language requests;
-- Direct Harness natural-language requests;
-- Oracle B REAL AS21 reads;
-- retries/timeouts;
-- local DB authoritative reads;
-- sync/population runs;
-- fake/mock/frozen reads;
-- AS21 writes.
-
-A GREEN verdict is invalid if Browser requests = 0, Direct Harness requests = 0, or Oracle B reads = 0.
-Required: sync/population runs = 0, fake/mock/frozen = 0, AS21 writes = 0.
+## Mandatory counters
+- Browser natural-language requests >= 1
+- Direct Harness natural-language requests >= 1
+- Oracle B REAL AS21 reads >= 1
+- sync/population runs = 0
+- local DB authoritative reads = 0
+- fake/mock/frozen reads = 0
+- AS21 writes = 0
 
 ## Output
 Primary report:
-`po-agent-platform-v2/qa_reports/GARANIN_DIRECT_AS21_RETEST_116.md`
+`po-agent-platform-v2/qa_reports/LIVE_MEMBER_ROUTE_CONTRACT_PROOF_117.md`
 
 Optional evidence prefix:
-`GARANIN_DIRECT_AS21_RETEST_116_`
+`LIVE_MEMBER_ROUTE_CONTRACT_PROOF_117_`
 
 Allowed verdicts:
-- `GARANIN_THREE_WAY_PARITY_GREEN`
-- `UI_HARNESS_ROUTE_MISMATCH_PROVEN`
-- `SOURCE_ROUTING_DEFECT_PROVEN`
-- `MEMBER_GROUNDING_DEFECT_PROVEN`
-- `SESSION_CONTAMINATION_DEFECT_PROVEN`
-- `MIXED_ROUTING_AND_MEMBER_DEFECTS`
+- `LIVE_MEMBER_ROUTE_DEFECT_PROVEN`
+- `POINT_READ_MAPPING_GAP_ONLY`
+- `MIXED_ROUTE_AND_MAPPING_DEFECTS`
+- `NO_ROUTE_DEFECT_PROVEN`
 - `BLOCKED_BY_ENVIRONMENT`
 
 Commit/push only QA artifacts, report full SHA, then STOP.
 
 ## Start now
-Execute Assignment 116 autonomously. Do not ask for permission between phases. Under no circumstances run synchronization or local task DB population.
+Execute Assignment 117 autonomously. Do not ask for permission between phases. Do not modify production code and do not synchronize tasks.
