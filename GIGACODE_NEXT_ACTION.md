@@ -15,6 +15,40 @@ You are QA/test executor only. Do not modify production code, frontend code, pro
 
 Frontend remains frozen and OUT OF SCOPE.
 
+## HARD SOURCE-PATH RULE — REAL AS21 ONLY
+For Assignment 110B, local databases/caches are NOT authoritative and MUST NOT be populated or used as a test source.
+
+Forbidden:
+- do not run `sse_sync.py` to populate a local task database;
+- do not create `swtr_sync.py` or any alternate sync utility;
+- do not populate `swtr_tasks.db`, `data/app.db`, or any other local DB/cache with AS21 tasks for the test;
+- do not use any local DB/cache as Agent truth, Oracle truth, fallback truth, or intermediate test oracle;
+- do not prefetch an arbitrary subset such as `100 tasks per space` and treat it as complete source truth;
+- do not invent a new source-routing mechanism because a current path is inconvenient.
+
+Mandatory paths:
+
+**Agent A:**
+`natural user query -> PO Agent Harness -> Task API -> MCP-SWTR -> REAL AS21`
+
+**Oracle B:**
+`independent GigaCode direct read -> MCP-SWTR -> REAL AS21`
+
+Oracle B must be independent from Agent/Harness logic.
+
+If the production Harness unexpectedly requires a local sync before ordinary source-backed queries can work, do NOT repair or bypass that behavior. Prove the existing architecture/path and classify the exact source-routing defect with FIRST_FAILING_BOUNDARY.
+
+## AUTONOMOUS EXECUTION RULE
+Start Phase 1 immediately after reading this file and continue autonomously through every phase.
+
+Do NOT ask:
+- `Shall I continue?`
+- `Would you like me to start Phase X?`
+- `Which option should I choose?`
+- or any equivalent progress confirmation.
+
+Do not pause between phases. Finding one or several product defects does NOT permit early STOP. Continue the entire requested matrix unless the whole REAL AS21 source environment is genuinely unavailable after the retry/restart protocol.
+
 ## Core acceptance rule
 A final report is invalid unless it contains direct execution evidence for every mandatory row below. Static code inspection, endpoint existence, HTTP 200, skill catalog enumeration, or historical reports do not substitute for execution.
 
@@ -38,8 +72,8 @@ A run claiming exhaustive certification with implausibly low executed-case/sourc
 Mandatory spaces: `WMB`, `STS`, `OLP`, `DMS`, `CRPV`.
 
 For EACH space independently:
-1. Perform direct Oracle B discovery/read using available MCP-SWTR/task-api paths.
-2. If first path fails, inspect available read tools/contracts and try the correct source route for that space.
+1. Perform direct Oracle B discovery/read using MCP-SWTR/REAL AS21.
+2. If first path fails, inspect existing available read tools/contracts and try the correct existing source route for that space.
 3. On timeout/502/503: up to 2 retries with 20–30 s backoff, then revalidate/restart source chain and retest once.
 4. Do NOT conclude `source unavailable` merely because one chosen endpoint did not support the space.
 5. If after contract discovery and retries the space is truly unavailable, provide raw tool/endpoint evidence and classify only that surface as `SOURCE_CAPABILITY_UNAVAILABLE_BY_DESIGN` or `ENVIRONMENT_BLOCKED` as appropriate.
@@ -129,6 +163,42 @@ Run real multi-turn cases across at least DMS and OLP:
 
 All Russian turns must receive Russian user-facing prose. No invented source IDs.
 
+### Mandatory owner-observed clarification-resume regression
+Reproduce this exact behavioral class from a fresh session using a REAL source-present OLP member. Prefer Гончаров if grounded in current AS21; otherwise use another live OLP member and preserve the same dialogue structure.
+
+Initial natural query form:
+`Покажи открытые задачи Гончарова в спринте OLP-SPRNT-5`
+
+A harmless user typo/noise such as duplicated/preposition text (`с в`, extra whitespace, minor Russian typo) must not corrupt the semantic frame if member+sprint intent remains recoverable.
+
+If Agent legitimately asks what `открытые` means and presents source-grounded choices such as `Open`, `Reopened`, `Both`, select `Open`.
+
+After selecting `Open`, the Agent MUST:
+1. apply the clarification to the pending semantic frame;
+2. retain grounded member and `sprint_id=OLP-SPRNT-5`;
+3. add/replace the selected status constraint;
+4. execute the pending task search;
+5. return the exact Oracle B set for `member ∩ sprint ∩ Open`.
+
+Forbidden after the user selects `Open`:
+- switching into generic correction mode;
+- replying `Я заново перепроверил данные источника. Что именно нужно исправить...`;
+- asking the user again what to fix;
+- losing member or sprint slots;
+- returning to satisfaction/feedback state before executing the pending query;
+- treating clarification-option selection as negative feedback/correction.
+
+Trace the state transition:
+`pending clarification -> option selection -> clarification state application -> semantic frame -> grounded slots -> skill -> capability args -> source result -> answer`.
+
+If the selected clarification is misclassified as feedback/correction or pending state is lost, classify precisely using the earliest proven boundary, e.g.:
+- `CLARIFICATION_STATE_APPLICATION`
+- `CORRECTION_STATE_CLASSIFICATION`
+- `SESSION_CONTEXT`
+- `SLOT_RETENTION`
+
+This regression is mandatory even if other dialogue tests already cover `открытые`.
+
 ## Phase 8 — deep Learning Loop, not just endpoint probing
 Do NOT classify learning merely by whether GET endpoints exist.
 
@@ -197,7 +267,7 @@ The final 110B report must include:
 - explicit one-row-per-skill matrix for every implemented skill;
 - sprint/NONE matrix;
 - combinatorial filter matrix;
-- dialogue matrix;
+- dialogue matrix, including the mandatory clarification-resume regression above;
 - Learning Loop lifecycle evidence;
 - Harness capability reachability matrix;
 - real latency repetitions and p50/p95/max;
