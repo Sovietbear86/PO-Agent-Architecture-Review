@@ -1,162 +1,170 @@
 # GigaCode — Current Action
 
 ## Status
-`ACTIVE_QA_ASSIGNMENT_117R_LIVE_MEMBER_ROUTE_EXECUTION`
+`ACTIVE_QA_ASSIGNMENT_118_SCOPED_SEMANTIC_INTERPRETER_RECOVERY`
 
-## Important
-The previous Assignment 117 execution is NOT accepted. It produced `TASK_API_RESPONSE_PARSING_FIX_RETEST_117.md` with `BLOCKED_ON_OWNER_FIX`, but that is not the assignment currently required by the owner.
+## Why 117R is not sufficient
+Assignment 117R proved a real Browser/Harness failure at semantic interpretation for the exact query `Задачи Гаранина`, but its Oracle/control-member evidence is NOT accepted as authoritative correctness evidence:
+- it used `Антонов`, who is outside the owner-approved PO team scope;
+- Oracle `get_my_tasks(assignee="Гаранин")` and `get_my_tasks(assignee="Антонов")` returned the same 50 CORESUP tasks, which strongly suggests the tool/filter semantics were misunderstood or the assignee filter was not actually applied;
+- CORESUP is outside the owner-approved product spaces for this project.
 
-Do NOT wait for an owner fix. Do NOT propose a Task API parsing fix as the answer. First execute the live routing proof below.
+The first task is therefore to recover the semantic interpreter and establish a scoped, valid Oracle. Do NOT investigate assignee extraction, synchronization, local DB population, frontend widgets, or unrelated spaces/users in this assignment.
 
-The original user-visible defect is the natural-language query:
-`Задачи Гаранина`
+## Owner-approved scope — absolute
+Only these AS21 spaces may be used for task evidence or Oracle results:
+- `WMB`
+- `STS`
+- `OLP`
+- `DMS`
+- `CRPV`
 
-The key question is NOT whether `/api/v1/swtr-read/tasks/{code}` can map one point-read task. The key question is why the Browser/Harness path fails while direct GigaCode -> MCP-SWTR -> REAL AS21 reads work.
+Only team members defined in the repository/project team data files are allowed as member-query subjects or controls. Before testing, read the authoritative team data files and write the resulting allowed member/login list into the QA report. Do NOT invent or discover arbitrary AS21 users. `Антонов` and any other user not present in those team files are forbidden test subjects.
+
+If a tool returns tasks from any other space (for example `CORESUP`), those rows MUST be excluded from owner-scope truth and MUST trigger `ORACLE_SCOPE_VIOLATION` until the correct server-side or deterministic scoped filtering is proven.
 
 ## Role boundary
 You are QA / forensic executor only.
-Do NOT modify production/backend/frontend code, prompts, skills, semantic logic, adapters, Task API, MCP-SWTR, schemas, testing rules, AS21 data, or this file.
-Commit/push only QA evidence under `po-agent-platform-v2/qa_reports/`.
+DO NOT modify production/backend/frontend code, prompts, skills, semantic implementation, Task API, MCP-SWTR, team data, AS21 data, testing rules, or this file.
+Commit/push only QA artifacts under `po-agent-platform-v2/qa_reports/`.
 
 ## Absolute prohibitions
 - NO task synchronization/population utilities.
 - NO local DB refresh/population.
-- NO local DB/cache as Oracle.
+- NO local DB/cache as authoritative source or Oracle.
 - NO fake/mock/frozen data.
 - NO AS21 writes.
-- NO assignee extraction changes.
+- NO arbitrary users outside repository team data.
+- NO spaces outside WMB/STS/OLP/DMS/CRPV.
+- NO `Антонов` control.
 - NO speculative production fix.
-- DO NOT stop merely because a possible parsing defect was found.
-- DO NOT create a verification plan instead of executing tests.
+- Do not declare Oracle success from counts alone.
 
-## Phase 0 — exact provenance
-1. `git fetch` and align with remote `feat/core8-real-query-hardening-v2` without discarding owner instruction.
-2. Record exact HEAD and clean worktree.
-3. Record PID/port/command/start time for Frontend, Harness and Task API.
-4. Prove Task API `/api/v1/swtr-read/health` is connected to MCP-SWTR.
-5. Prove a direct MCP-SWTR `read_unit` reaches REAL AS21.
-6. Counters for sync/population must remain zero.
+## Goal
+Recover the exact reason why the previously working natural-language query `Задачи Гаранина` now fails at semantic interpretation, prove whether this is runtime/model/configuration drift or a code regression, and then re-run a correctly scoped Browser/Harness/REAL-AS21 comparison.
 
-## Phase 1 — EXECUTE Browser + Harness request
-Use the exact natural-language text:
-`Задачи Гаранина`
+## Phase 0 — exact provenance and allowed scope
+1. Fetch/pull `feat/core8-real-query-hardening-v2`; record exact HEAD and clean worktree.
+2. Record PID, port, command line, start time and relevant non-secret environment/config identity for Frontend, Harness and Task API.
+3. Locate/read the repository/project team data used by the application. Record the exact allowed team member names/logins. Use only this list for member tests.
+4. Hard-limit all Oracle/task evidence to WMB/STS/OLP/DMS/CRPV.
+5. Verify MCP-SWTR health and one REAL read in DMS or OLP.
+6. Sync/population counters must stay zero.
 
-Execute it, do not merely inspect code.
+## Phase 1 — semantic interpreter health forensic
+Reproduce exactly through Direct Harness with fresh session IDs:
+- `Задачи Гаранина`
+- one exact task lookup such as a known DMS task key
+- `Задачи спринта DMS-SPRNT-2`
+- one simple non-member query that previously worked
 
-A1 Browser UI:
-- use a fresh UI session;
-- capture actual browser Network request URL, method, body, headers relevant to session;
-- capture response;
-- capture returned task keys/count/status/error;
-- capture elapsed time.
-
-A2 Direct Harness:
-- send exactly the same natural-language request to the exact Harness endpoint used by the Browser;
-- use a fresh session id;
-- capture response, trace/evidence, task keys/count/status/error and elapsed time.
-
-Mandatory: Browser natural-language requests >= 1 AND Direct Harness natural-language requests >= 1.
-If either counter is zero, this assignment is incomplete.
-
-## Phase 2 — trace the actual downstream product route
-For the exact `Задачи Гаранина` request, prove the real call chain after Harness interpretation.
-
-Determine exactly which Task API route is called:
-- `/api/v1/tasks`, OR
-- `/api/v1/swtr-read/...`, OR
-- another route.
-
-Capture exact URL/method/params and call order.
-
-If the request uses `/api/v1/tasks`, classify it as `LOCAL_TASK_LIST_ROUTE` and prove whether any live MCP-SWTR search is made for the member query. Do NOT populate that local task list.
-
-This phase must distinguish routing from point-read response mapping.
-
-## Phase 3 — EXECUTE Oracle B live member search
-Using the same mechanism that works when you query AS21 directly, execute an independent REAL AS21 search for Rodion Garanin / `Garanin.R.V`.
-
-Capture:
-- exact MCP tool name actually used (`find_units`, `find_units_by_filter`, or other);
-- live input schema;
-- exact request JSON;
-- whether `assigned_to` filtering is server-side;
-- response shape;
-- where assignee lives in the response;
-- pagination fields;
-- every page required for a complete result;
-- exact authoritative task-key set;
-- exact count;
+For each capture:
+- HTTP status;
+- Harness result/warnings;
+- semantic model/provider identifier if exposed;
+- raw exception class/message from Harness logs (redact secrets);
+- model response body or parse fragment when safe and available;
+- whether failure is MODEL_CALL, TIMEOUT, HTTP/provider error, empty output, malformed JSON, schema validation, or post-parse semantic validation;
 - elapsed time.
 
-Timeout >=120s. Heavy reads may use 180s. Max 2 retries with 20–30s backoff.
+Do not stop at the generic warning `semantic_interpretation_failure`. Find the exact FIRST_FAILING_BOUNDARY.
 
-Oracle B must not use Harness output or local DB.
+Allowed semantic boundaries:
+- `SEMANTIC_MODEL_PROCESS_NOT_RUNNING`
+- `SEMANTIC_MODEL_ENDPOINT_UNREACHABLE`
+- `SEMANTIC_MODEL_AUTH_OR_CONFIG`
+- `SEMANTIC_MODEL_TIMEOUT`
+- `SEMANTIC_MODEL_HTTP_ERROR`
+- `SEMANTIC_MODEL_EMPTY_RESPONSE`
+- `SEMANTIC_MODEL_MALFORMED_JSON`
+- `SEMANTIC_SCHEMA_VALIDATION`
+- `SEMANTIC_POST_PARSE_LOGIC`
+- `SEMANTIC_CODE_REGRESSION`
 
-## Phase 4 — exact A/B/C parity table
-Create one explicit table for `Задачи Гаранина`:
+`SEMANTIC_MODEL_UNAVAILABLE / LLM_JSON_PARSE_FAILURE` without exact evidence is not a sufficient final boundary.
 
-| Path | Endpoint/tool | Source reached | Task keys | Count | Elapsed | Verdict |
-|---|---|---|---|---:|---:|---|
-| Browser A1 | ... | ... | ... | ... | ... | ... |
-| Harness A2 | ... | ... | ... | ... | ... | ... |
-| Oracle B | ... | REAL AS21 | ... | ... | ... | ... |
+## Phase 2 — compare with last known working state without modifying current code
+Use git history/read-only inspection to identify the last known commit/report where `Задачи Гаранина` was actually executed successfully through Agent/Harness (not merely Oracle/direct AS21).
+Compare only the semantic-interpreter-related files/config/startup contract between that known-working state and current HEAD.
 
-Primary assertion is exact task-key-set equality, not counts.
+Report:
+- changed files/commits relevant to semantic interpretation;
+- runtime/provider/config drift even if git code did not change;
+- whether rollback baseline itself contains the failure;
+- most likely exact regression boundary.
 
-## Phase 5 — generalized control member
-Choose exactly one other REAL team member for whom Oracle B proves a non-empty task set.
-Execute Direct Harness + Oracle B for the equivalent Russian query and compare exact task-key sets.
-No full member matrix in this assignment.
+Do NOT checkout/reset/cherry-pick or change production code during this QA assignment.
 
-## Phase 6 — point-read mapping as separate finding
-Only after Phases 1–5, verify one REAL task through `/api/v1/swtr-read/tasks/{task_code}`.
-If `unit.attributes` exists but `source_data.swtr_attributes` does not, record:
-`POINT_READ_MAPPING_GAP`.
+## Phase 3 — establish a VALID scoped Oracle for Garanin
+The Oracle must prove tasks for `Garanin.R.V` only within WMB/STS/OLP/DMS/CRPV.
 
-Do NOT call this the root cause of `Задачи Гаранина` unless the actual traced member-search route uses that point-read endpoint.
+Do not assume `get_my_tasks(assignee="Гаранин")` filters correctly. First validate tool semantics.
 
-## Required first-failing-boundary decision
-For the original Browser query choose the earliest proven boundary from:
-- `UI_PROXY_ROUTE_MISMATCH`
-- `HARNESS_ENDPOINT_MISMATCH`
-- `SEMANTIC_MEMBER_GROUNDING`
-- `CAPABILITY_ARGUMENT_BUILDING`
-- `MEMBER_SEARCH_SOURCE_ROUTING`
-- `LOCAL_TASK_LIST_ROUTE`
-- `MCP_SWTR_SOURCE_CONTRACT`
-- `RESPONSE_MAPPING`
-- `POINT_READ_MAPPING_GAP` (only if actually on the member-search call path)
+Requirements:
+1. Inspect the live MCP tool schema/documentation for the candidate member-search tool(s).
+2. Use exact identity/login supported by the tool, preferring repository team login such as `Garanin.R.V` when supported.
+3. Prove assignee filtering by inspecting returned `assigned_to` source attributes for sample rows.
+4. Prove every returned row belongs to WMB/STS/OLP/DMS/CRPV.
+5. If server-side filtering cannot enforce both member and space, deterministically filter the complete REAL AS21 result in QA memory only; do not persist/sync anything.
+6. Read all pages required for completeness.
+7. Record exact task-key set, not only count.
 
-If member search goes to `/api/v1/tasks` while Oracle B uses a live MCP search, then the first failing boundary must be reported as routing/local-task-list related, not the unrelated point-read mapping gap.
+If the candidate tool returns the same unrelated rows for two different users or returns out-of-scope spaces, classify `ORACLE_TOOL_FILTER_NOT_PROVEN` and choose another valid MCP mechanism before using Oracle results.
+
+## Phase 4 — allowed control member
+Choose exactly one additional member ONLY from the authoritative team data file and only if Oracle independently proves a non-empty scoped task set for that member.
+Do not use arbitrary AS21 people.
+
+## Phase 5 — three-way retest only after semantic path is understood
+Run exact `Задачи Гаранина`:
+A1. Browser UI, fresh session.
+A2. Direct Harness, fresh session.
+B. Valid scoped REAL AS21 Oracle from Phase 3.
+
+Capture exact task-key sets and path/elapsed/status.
+
+If semantic interpretation still fails, A1/A2 may have no task keys; report the semantic boundary and do NOT invent a downstream routing conclusion that was never reached.
+
+If semantic interpretation succeeds, continue tracing actual downstream route and compare:
+`Browser keys == Direct Harness keys == scoped Oracle keys`.
+
+## Phase 6 — guardrail regression
+Verify these explicit behavioral guardrails:
+- Query `Задачи Гаранина` must never invent a sprint.
+- User-facing text must be Russian.
+- No team member outside authoritative team data may appear as an automatically chosen control/entity.
+- No tasks outside WMB/STS/OLP/DMS/CRPV may be used as positive evidence for PO-team task queries.
+- No local DB/sync may be used to make results pass.
 
 ## Mandatory counters
-Report actual numeric values:
+Report actual values:
 - Browser natural-language requests >= 1
-- Direct Harness natural-language requests >= 2 (Garanin + control member)
-- Oracle B REAL AS21 reads >= 2
+- Direct Harness natural-language requests >= 4
+- valid scoped Oracle REAL AS21 reads >= 1
+- out-of-scope Oracle rows observed (count)
+- arbitrary/non-team member test subjects = 0
 - sync/population runs = 0
-- local DB authoritative Oracle reads = 0
+- local DB authoritative reads = 0
 - fake/mock/frozen reads = 0
 - AS21 writes = 0
 
 ## Output
 Primary report:
-`po-agent-platform-v2/qa_reports/LIVE_MEMBER_ROUTE_EXECUTION_117R.md`
+`po-agent-platform-v2/qa_reports/SCOPED_SEMANTIC_INTERPRETER_RECOVERY_118.md`
 
-Optional raw evidence prefix:
-`LIVE_MEMBER_ROUTE_EXECUTION_117R_`
+Optional evidence prefix:
+`SCOPED_SEMANTIC_INTERPRETER_RECOVERY_118_`
 
 Allowed final verdicts:
-- `LIVE_MEMBER_ROUTE_DEFECT_PROVEN`
-- `MIXED_ROUTE_AND_POINT_MAPPING_DEFECTS`
-- `MEMBER_GROUNDING_DEFECT_PROVEN`
-- `NO_ROUTE_DEFECT_PROVEN`
+- `SEMANTIC_RUNTIME_OR_CONFIG_DEFECT_PROVEN`
+- `SEMANTIC_CODE_REGRESSION_PROVEN`
+- `SEMANTIC_INTERPRETER_RECOVERED_OR_HEALTHY`
+- `SEMANTIC_AND_ORACLE_DEFECTS_PROVEN`
+- `ORACLE_TOOL_FILTER_NOT_PROVEN`
 - `BLOCKED_BY_ENVIRONMENT`
 
-A verdict `BLOCKED_ON_OWNER_FIX` is NOT allowed in 117R because no owner fix is prerequisite for this forensic execution.
-
 ## Finish
-Commit/push only QA report/evidence, provide full SHA and STOP.
+Commit/push only QA report/evidence, provide full SHA, then STOP.
 
 ## Start now
-Execute Assignment 117R autonomously. Do not ask for confirmation between phases. Do not synchronize or populate any task database.
+Execute Assignment 118 autonomously. Do not ask for confirmation between phases. Do not change production code. Do not synchronize/populate local task data.
