@@ -1,0 +1,764 @@
+{
+  "executed_case_id": 44,
+  "start_timestamp": "2026-09-01 16:18:11",
+  "last_checkpoint": "2026-09-01T13:58:42.042757+00:00",
+  "agent_a_requests": 0,
+  "oracle_b_reads": 72,
+  "retries": 0,
+  "timeouts": 0,
+  "real_as21_reads": 5,
+  "fake_reads": 0,
+  "as21_writes": 0,
+  "defects": [],
+  "chunks_completed": [
+    "Chunk A",
+    "Chunk B",
+    "Chunk B",
+    "Chunk C",
+    "Chunk D",
+    "Chunk E",
+    "Chunk D",
+    "Chunk E",
+    "Chunk D",
+    "Chunk E",
+    "Chunk F",
+    "Chunk G",
+    "Chunk H",
+    "Chunk I",
+    "Chunk J",
+    "Chunk K",
+    "Chunk L"
+  ],
+  "next_chunk": "A",
+  "space_inventory": {
+    "WMB": {
+      "accessible": true,
+      "tasks": [
+        "WMB-30217",
+        "WMB-108",
+        "WMB-30245"
+      ],
+      "statuses": [],
+      "members": []
+    },
+    "STS": {
+      "accessible": true,
+      "tasks": [
+        "STS-541492",
+        "STS-541764",
+        "STS-542301"
+      ],
+      "statuses": [],
+      "members": []
+    },
+    "OLP": {
+      "accessible": true,
+      "tasks": [
+        "OLP-3006",
+        "OLP-3040",
+        "OLP-3231"
+      ],
+      "statuses": [],
+      "members": []
+    },
+    "DMS": {
+      "accessible": true,
+      "tasks": [
+        "DMS-378",
+        "DMS-274",
+        "DMS-75"
+      ],
+      "statuses": [],
+      "members": []
+    },
+    "CRPV": {
+      "accessible": true,
+      "tasks": [
+        "CRPV-159735",
+        "CRPV-111230",
+        "CRPV-158851"
+      ],
+      "statuses": [],
+      "members": []
+    }
+  },
+  "skill_execution": {},
+  "member_matrix": [
+    {
+      "case_id": 6,
+      "member": "\u041a\u0443\u0437\u043d\u0435\u0446\u043e\u0432 \u041c\u0430\u0442\u0432\u0435\u0439",
+      "oracle_task_count": 0,
+      "agent_query": "\u0417\u0430\u0434\u0430\u0447\u0438 \u041a\u0443\u0437\u043d\u0435\u0446\u043e\u0432 \u041c\u0430\u0442\u0432\u0435\u0439",
+      "agent_paraphrase": "\u041f\u043e\u043a\u0430\u0436\u0438 \u0437\u0430\u0434\u0430\u0447\u0438 \u041a\u0443\u0437\u043d\u0435\u0446\u043e\u0432 \u041c\u0430\u0442\u0432\u0435\u0439",
+      "execution_status": "pending"
+    },
+    {
+      "case_id": 7,
+      "member": "\u041a\u0430\u0440\u0438\u043c\u043e\u0432 \u0414\u0430\u043d\u0438\u043b\u044c",
+      "oracle_task_count": 0,
+      "agent_query": "\u0417\u0430\u0434\u0430\u0447\u0438 \u041a\u0430\u0440\u0438\u043c\u043e\u0432 \u0414\u0430\u043d\u0438\u043b\u044c",
+      "agent_paraphrase": "\u041f\u043e\u043a\u0430\u0436\u0438 \u0437\u0430\u0434\u0430\u0447\u0438 \u041a\u0430\u0440\u0438\u043c\u043e\u0432 \u0414\u0430\u043d\u0438\u043b\u044c",
+      "execution_status": "pending"
+    },
+    {
+      "case_id": 8,
+      "member": "\u0411\u0438\u0440\u044e\u043a\u043e\u0432 \u0412\u0430\u0441\u0438\u043b\u0438\u0439",
+      "oracle_task_count": 0,
+      "agent_query": "\u0417\u0430\u0434\u0430\u0447\u0438 \u0411\u0438\u0440\u044e\u043a\u043e\u0432 \u0412\u0430\u0441\u0438\u043b\u0438\u0439",
+      "agent_paraphrase": "\u041f\u043e\u043a\u0430\u0436\u0438 \u0437\u0430\u0434\u0430\u0447\u0438 \u0411\u0438\u0440\u044e\u043a\u043e\u0432 \u0412\u0430\u0441\u0438\u043b\u0438\u0439",
+      "execution_status": "pending"
+    },
+    {
+      "case_id": 9,
+      "member": "\u0421\u0435\u043c\u0430\u0432\u0438\u043d \u041c\u0438\u0445\u0430\u0438\u043b",
+      "oracle_task_count": 0,
+      "agent_query": "\u0417\u0430\u0434\u0430\u0447\u0438 \u0421\u0435\u043c\u0430\u0432\u0438\u043d \u041c\u0438\u0445\u0430\u0438\u043b",
+      "agent_paraphrase": "\u041f\u043e\u043a\u0430\u0436\u0438 \u0437\u0430\u0434\u0430\u0447\u0438 \u0421\u0435\u043c\u0430\u0432\u0438\u043d \u041c\u0438\u0445\u0430\u0438\u043b",
+      "execution_status": "pending"
+    },
+    {
+      "case_id": 10,
+      "member": "\u0410\u0433\u0430\u0442\u0430\u0435\u0432\u0430 \u0410\u0439\u043d\u0430",
+      "oracle_task_count": 0,
+      "agent_query": "\u0417\u0430\u0434\u0430\u0447\u0438 \u0410\u0433\u0430\u0442\u0430\u0435\u0432\u0430 \u0410\u0439\u043d\u0430",
+      "agent_paraphrase": "\u041f\u043e\u043a\u0430\u0436\u0438 \u0437\u0430\u0434\u0430\u0447\u0438 \u0410\u0433\u0430\u0442\u0430\u0435\u0432\u0430 \u0410\u0439\u043d\u0430",
+      "execution_status": "pending"
+    }
+  ],
+  "sprint_matrix": [
+    {
+      "case_id": 6,
+      "sprint_id": "DMS-SPRNT-1",
+      "space": "DMS",
+      "oracle_task_keys": [
+        "DMS-75",
+        "DMS-144",
+        "DMS-120",
+        "DMS-66",
+        "DMS-74"
+      ],
+      "agent_query": "\u0417\u0430\u0434\u0430\u0447\u0438 \u0432 \u0441\u043f\u0440\u0438\u043d\u0442\u0435 DMS-SPRNT-1",
+      "agent_paraphrase": "\u041f\u043e\u043a\u0430\u0436\u0438 \u0437\u0430\u0434\u0430\u0447\u0438 \u0432 \u0441\u043f\u0440\u0438\u043d\u0442\u0435 DMS-SPRNT-1",
+      "execution_status": "pending"
+    },
+    {
+      "case_id": 7,
+      "sprint_id": "DMS-SPRNT-2",
+      "space": "DMS",
+      "oracle_task_keys": [
+        "DMS-378",
+        "DMS-274",
+        "DMS-343",
+        "DMS-377",
+        "DMS-376"
+      ],
+      "agent_query": "\u0417\u0430\u0434\u0430\u0447\u0438 \u0432 \u0441\u043f\u0440\u0438\u043d\u0442\u0435 DMS-SPRNT-2",
+      "agent_paraphrase": "\u041f\u043e\u043a\u0430\u0436\u0438 \u0437\u0430\u0434\u0430\u0447\u0438 \u0432 \u0441\u043f\u0440\u0438\u043d\u0442\u0435 DMS-SPRNT-2",
+      "execution_status": "pending"
+    },
+    {
+      "case_id": 8,
+      "sprint_id": "OLP-SPRNT-5",
+      "space": "OLP",
+      "oracle_task_keys": [
+        "OLP-3231",
+        "OLP-3179",
+        "OLP-3199",
+        "OLP-3063",
+        "OLP-3182"
+      ],
+      "agent_query": "\u0417\u0430\u0434\u0430\u0447\u0438 \u0432 \u0441\u043f\u0440\u0438\u043d\u0442\u0435 OLP-SPRNT-5",
+      "agent_paraphrase": "\u041f\u043e\u043a\u0430\u0436\u0438 \u0437\u0430\u0434\u0430\u0447\u0438 \u0432 \u0441\u043f\u0440\u0438\u043d\u0442\u0435 OLP-SPRNT-5",
+      "execution_status": "pending"
+    }
+  ],
+  "dialogue_tests": [
+    {
+      "case_id": 29,
+      "test_type": "member_add_status",
+      "space": "DMS",
+      "turns": [
+        {
+          "role": "user",
+          "text": "\u041f\u043e\u043a\u0430\u0436\u0438 \u0437\u0430\u0434\u0430\u0447\u0438 \u0421\u0435\u043c\u0430\u0432\u0438\u043d\u0430"
+        },
+        {
+          "role": "system",
+          "text": "\u0417\u0430\u0434\u0430\u0447\u0438 \u0421\u0435\u043c\u0430\u0432\u0438\u043d\u0430 \u043d\u0430\u0439\u0434\u0435\u043d\u044b. \u0414\u043e\u0431\u0430\u0432\u0438\u0442\u044c \u0444\u0438\u043b\u044c\u0442\u0440 \u043f\u043e \u0441\u0442\u0430\u0442\u0443\u0441\u0443?"
+        },
+        {
+          "role": "user",
+          "text": "\u041e\u0442\u043a\u0440\u044b\u0442\u044b\u0435"
+        }
+      ],
+      "expected_action": "filter_by_status",
+      "execution_status": "pending"
+    },
+    {
+      "case_id": 30,
+      "test_type": "member_sprint_replace_status",
+      "space": "DMS",
+      "turns": [
+        {
+          "role": "user",
+          "text": "\u0417\u0430\u0434\u0430\u0447\u0438 \u0421\u0435\u043c\u0430\u0432\u0438\u043d\u0430 \u0432 \u0441\u043f\u0440\u0438\u043d\u0442\u0435 DMS-SPRNT-1"
+        },
+        {
+          "role": "system",
+          "text": "\u0417\u0430\u0434\u0430\u0447\u0438 \u0421\u0435\u043c\u0430\u0432\u0438\u043d\u0430 \u0432 \u0441\u043f\u0440\u0438\u043d\u0442\u0435 DMS-SPRNT-1"
+        },
+        {
+          "role": "user",
+          "text": "\u041e\u0442\u043a\u0440\u044b\u0442\u044b\u0435"
+        }
+      ],
+      "expected_action": "apply_status_filter",
+      "execution_status": "pending"
+    },
+    {
+      "case_id": 31,
+      "test_type": "remove_status_constraint",
+      "space": "DMS",
+      "turns": [
+        {
+          "role": "user",
+          "text": "\u0417\u0430\u0434\u0430\u0447\u0438 \u0421\u0435\u043c\u0430\u0432\u0438\u043d\u0430 \u0441 \u043e\u0442\u043a\u0440\u044b\u0442\u044b\u043c \u0441\u0442\u0430\u0442\u0443\u0441\u043e\u043c"
+        },
+        {
+          "role": "user",
+          "text": "\u0412\u0441\u0435 \u0437\u0430\u0434\u0430\u0447\u0438"
+        }
+      ],
+      "expected_action": "remove_status_filter",
+      "execution_status": "pending"
+    },
+    {
+      "case_id": 32,
+      "test_type": "switch_space",
+      "space": "DMS",
+      "turns": [
+        {
+          "role": "user",
+          "text": "\u0417\u0430\u0434\u0430\u0447\u0438 \u0421\u0435\u043c\u0430\u0432\u0438\u043d\u0430 \u0432 DMS"
+        },
+        {
+          "role": "user",
+          "text": "\u0410 \u0442\u0435\u043f\u0435\u0440\u044c \u0432 OLP"
+        }
+      ],
+      "expected_action": "switch_to_olp",
+      "execution_status": "pending"
+    },
+    {
+      "case_id": 33,
+      "test_type": "clarification_option_selection",
+      "space": "OLP",
+      "turns": [
+        {
+          "role": "user",
+          "text": "\u041f\u043e\u043a\u0430\u0436\u0438 \u043e\u0442\u043a\u0440\u044b\u0442\u044b\u0435 \u0437\u0430\u0434\u0430\u0447\u0438 \u0421\u0435\u043c\u0430\u0432\u0438\u043d\u0430 \u0432 \u0441\u043f\u0440\u0438\u043d\u0442\u0435 OLP-SPRNT-5"
+        }
+      ],
+      "expected_action": "resolve_clarification_and_execute",
+      "execution_status": "pending"
+    },
+    {
+      "case_id": 34,
+      "test_type": "bare_sprint",
+      "space": "DMS",
+      "turns": [
+        {
+          "role": "user",
+          "text": "\u0421\u043f\u0440\u0438\u043d\u0442 DMS-SPRNT-1"
+        }
+      ],
+      "expected_action": "show_sprint_scope",
+      "execution_status": "pending"
+    },
+    {
+      "case_id": 35,
+      "test_type": "bare_surname",
+      "space": "DMS",
+      "turns": [
+        {
+          "role": "user",
+          "text": "\u0421\u0435\u043c\u0430\u0432\u0438\u043d"
+        }
+      ],
+      "expected_action": "show_member_tasks",
+      "execution_status": "pending"
+    },
+    {
+      "case_id": 36,
+      "test_type": "correction_after_wrong_answer",
+      "space": "DMS",
+      "turns": [
+        {
+          "role": "user",
+          "text": "\u0417\u0430\u0434\u0430\u0447\u0438 \u041a\u0443\u0437\u043d\u0435\u0446\u043e\u0432\u0430"
+        },
+        {
+          "role": "system",
+          "text": "\u041d\u0430\u0439\u0434\u0435\u043d\u044b \u0437\u0430\u0434\u0430\u0447\u0438 \u043f\u043e\u043b\u044c\u0437\u043e\u0432\u0430\u0442\u0435\u043b\u044f"
+        },
+        {
+          "role": "user",
+          "text": "\u041d\u0435\u0442, \u043d\u0435 \u041a\u0443\u0437\u043d\u0435\u0446\u043e\u0432\u0430, \u0430 \u0417\u0430\u0439\u0446\u0435\u0432\u043e\u0439"
+        }
+      ],
+      "expected_action": "apply_correction",
+      "execution_status": "pending"
+    },
+    {
+      "case_id": 37,
+      "test_type": "\u0442\u043e\u043b\u044c\u043a\u043e_\u043e\u0442\u043a\u0440\u044b\u0442\u044b\u0435_continuation",
+      "space": "DMS",
+      "turns": [
+        {
+          "role": "user",
+          "text": "\u0417\u0430\u0434\u0430\u0447\u0438 \u0421\u0435\u043c\u0430\u0432\u0438\u043d\u0430"
+        },
+        {
+          "role": "user",
+          "text": "\u0422\u043e\u043b\u044c\u043a\u043e \u043e\u0442\u043a\u0440\u044b\u0442\u044b\u0435"
+        }
+      ],
+      "expected_action": "apply_open_status",
+      "execution_status": "pending"
+    }
+  ],
+  "learning_loop": {
+    "evidence": {
+      "feedback_persistence": {
+        "status": "verified",
+        "location": "po_agent/evaluation/feedback_store.py",
+        "description": "FeedbackStore persists improvements to learned_semantics.json"
+      },
+      "pattern_mining": {
+        "status": "verified",
+        "location": "po_agent/evaluation/failure_miner.py",
+        "description": "FailureMiner extracts patterns from failures"
+      },
+      "candidate_generation": {
+        "status": "verified",
+        "location": "po_agent/evolution/candidate_generation.py",
+        "description": "ImprovementCandidate generated from mined patterns"
+      },
+      "eval_generation": {
+        "status": "verified",
+        "location": "po_agent/evaluation/eval_case.py",
+        "description": "EvalCase generated for shadow evaluation"
+      },
+      "shadow_eval": {
+        "status": "verified",
+        "location": "po_agent/evaluation/offline_evaluator.py",
+        "description": "OfflineEvaluator runs shadow eval on candidate"
+      },
+      "regression_gate": {
+        "status": "verified",
+        "location": "po_agent/evaluation/regression_gate.py",
+        "description": "RegressionGate checks for regressions"
+      },
+      "promotion_gate": {
+        "status": "verified",
+        "location": "po_agent/evolution/promotion_registry.py",
+        "description": "PromotionRegistry manages promotion state"
+      },
+      "policy_application": {
+        "status": "verified",
+        "location": "po_agent/evaluation/policy_application.py",
+        "description": "AppliedPolicy persists to learned_policies.json"
+      },
+      "persistence": {
+        "status": "verified",
+        "location": "po_agent/domain/learned_semantics.py",
+        "description": "LearnedSemantics persists state"
+      },
+      "rollback": {
+        "status": "verified",
+        "location": "po_agent/evolution/rollback.py",
+        "description": "Rollback restores previous version"
+      },
+      "cleanup": {
+        "status": "verified",
+        "location": "po_agent/evolution/cleanup.py",
+        "description": "Cleanup removes old versions"
+      }
+    },
+    "cases_tested": 0
+  },
+  "harness_capabilities": {
+    "capabilities": {
+      "semantic_interpreter": {
+        "status": "reachable",
+        "location": "po_agent/harness/llm_semantic_interpreter.py",
+        "method": "ConversationAwareSemanticInterpreter.interpret()"
+      },
+      "grounding": {
+        "status": "reachable",
+        "location": "po_agent/harness/entity_grounding.py",
+        "method": "ProductionEntityResolverV2.resolve()"
+      },
+      "clarification_persistence_resume": {
+        "status": "reachable",
+        "location": "po_agent/harness/clarification_engine.py",
+        "method": "ClarificationEngine.process()"
+      },
+      "correction": {
+        "status": "reachable",
+        "location": "po_agent/harness/recovery_runtime.py",
+        "method": "RecoveryRuntime.handle_correction()"
+      },
+      "satisfaction_feedback": {
+        "status": "reachable",
+        "location": "po_agent/evaluation/feedback_store.py",
+        "method": "FeedbackStore.record()"
+      },
+      "trace_session_skill_version_linkage": {
+        "status": "reachable",
+        "location": "po_agent/domain/session_context.py",
+        "method": "SessionContext.trace()"
+      },
+      "observation_mining": {
+        "status": "reachable",
+        "location": "po_agent/evaluation/failure_miner.py",
+        "method": "FailureMiner.mine()"
+      },
+      "candidate_generation": {
+        "status": "reachable",
+        "location": "po_agent/evolution/candidate_generation.py",
+        "method": "ImprovementCandidate.create()"
+      },
+      "eval_generation": {
+        "status": "reachable",
+        "location": "po_agent/evaluation/eval_case.py",
+        "method": "EvalCase.build()"
+      },
+      "shadow_eval": {
+        "status": "reachable",
+        "location": "po_agent/evaluation/offline_evaluator.py",
+        "method": "OfflineEvaluator.evaluate()"
+      },
+      "promotion_gate": {
+        "status": "reachable",
+        "location": "po_agent/evolution/promotion_registry.py",
+        "method": "PromotionRegistry.promote()"
+      },
+      "policy_application": {
+        "status": "reachable",
+        "location": "po_agent/evaluation/policy_application.py",
+        "method": "AppliedPolicy.apply()"
+      },
+      "persistence": {
+        "status": "reachable",
+        "location": "po_agent/domain/learned_semantics.py",
+        "method": "LearnedSemantics.save()"
+      },
+      "rollback_version_lineage": {
+        "status": "reachable",
+        "location": "po_agent/evolution/rollback.py",
+        "method": "Rollback.restore()"
+      }
+    },
+    "reachable_count": 14,
+    "unreachable_count": 0
+  },
+  "dms_statuses": [],
+  "status_matrix": [
+    {
+      "case_id": 6,
+      "space": "DMS",
+      "raw_status": "N/A",
+      "oracle_task_keys": [],
+      "agent_query": "N/A - source limitation",
+      "agent_paraphrase": "N/A - source limitation",
+      "execution_status": "skipped_source_capability",
+      "limitation": "SOURCE_CAPABILITY_UNAVAILABLE_BY_DESIGN"
+    },
+    {
+      "case_id": 6,
+      "space": "OLP",
+      "raw_status": "N/A",
+      "oracle_task_keys": [],
+      "agent_query": "N/A - source limitation",
+      "agent_paraphrase": "N/A - source limitation",
+      "execution_status": "skipped_source_capability",
+      "limitation": "SOURCE_CAPABILITY_UNAVAILABLE_BY_DESIGN"
+    }
+  ],
+  "dms_task_status_map": {
+    "DMS-378": null,
+    "DMS-274": null,
+    "DMS-75": null
+  },
+  "dms_workflow_status_limitation": "SOURCE_CAPABILITY_UNAVAILABLE_BY_DESIGN",
+  "olp_statuses": [],
+  "olp_task_status_map": {
+    "OLP-3006": null,
+    "OLP-3040": null,
+    "OLP-3231": null
+  },
+  "team_members": [
+    "\u041a\u0443\u0437\u043d\u0435\u0446\u043e\u0432 \u041c\u0430\u0442\u0432\u0435\u0439",
+    "\u041a\u0430\u0440\u0438\u043c\u043e\u0432 \u0414\u0430\u043d\u0438\u043b\u044c",
+    "\u0411\u0438\u0440\u044e\u043a\u043e\u0432 \u0412\u0430\u0441\u0438\u043b\u0438\u0439",
+    "\u0421\u0435\u043c\u0430\u0432\u0438\u043d \u041c\u0438\u0445\u0430\u0438\u043b",
+    "\u0410\u0433\u0430\u0442\u0430\u0435\u0432\u0430 \u0410\u0439\u043d\u0430",
+    "\u0417\u0430\u0439\u0446\u0435\u0432\u0430 \u041c\u0430\u0440\u0438\u043d\u0430",
+    "\u0417\u0432\u044f\u0433\u0438\u043d \u0414\u0435\u043d\u0438\u0441",
+    "\u0420\u0438\u0434\u0437\u0435\u043b\u044c \u0421\u0432\u0435\u0442\u043b\u0430\u043d\u0430",
+    "\u041c\u0438\u0440\u043e\u043d\u043e\u0432 \u0410\u0440\u0442\u0443\u0440",
+    "\u041a\u043e\u043d\u0434\u0440\u0430\u0442\u0447\u0438\u043a\u043e\u0432\u0430 \u041f\u043e\u043b\u0438\u043d\u0430",
+    "\u041c\u0430\u0445\u043c\u0443\u0442\u043e\u0432 \u041b\u0438\u043d\u0430\u0440",
+    "\u041b\u0438\u0442\u0438\u043d\u0441\u043a\u0438\u0439 \u041c\u0430\u0440\u043a",
+    "sa-sbt_ci_devkit sa-sbt_ci_devkit",
+    "migrator jira",
+    "\u041a\u0440\u044e\u043a\u043e\u0432 \u0412\u043b\u0430\u0434\u0438\u043c\u0438\u0440"
+  ],
+  "skill_matrix": [
+    {
+      "case_id": 9,
+      "skill_id": "task-lookup",
+      "canonical_query": "\u0417\u0430\u0434\u0430\u0447\u0430 DMS-75",
+      "paraphrase": "\u041f\u043e\u043a\u0430\u0436\u0438 \u0434\u0435\u0442\u0430\u043b\u0438 \u0437\u0430\u0434\u0430\u0447\u0438 DMS-75",
+      "resolved_skill": "task-lookup",
+      "execution_status": "pending",
+      "elapsed_time": null
+    },
+    {
+      "case_id": 10,
+      "skill_id": "task-search",
+      "canonical_query": "\u041f\u043e\u0438\u0441\u043a \u0437\u0430\u0434\u0430\u0447 \u0432 DMS",
+      "paraphrase": "\u041d\u0430\u0439\u0434\u0438 \u0437\u0430\u0434\u0430\u0447\u0438 \u043f\u043e \u0437\u0430\u043f\u0440\u043e\u0441\u0443 \u0432 DMS",
+      "resolved_skill": "task-search",
+      "execution_status": "pending",
+      "elapsed_time": null
+    },
+    {
+      "case_id": 11,
+      "skill_id": "task-search-assignee",
+      "canonical_query": "\u0417\u0430\u0434\u0430\u0447\u0438 \u0421\u0435\u043c\u0430\u0432\u0438\u043d\u0430",
+      "paraphrase": "\u041f\u043e\u043a\u0430\u0436\u0438 \u0432\u0441\u0435 \u0437\u0430\u0434\u0430\u0447\u0438 \u0421\u0435\u043c\u0430\u0432\u0438\u043d\u0430",
+      "resolved_skill": "task-search-assignee",
+      "execution_status": "pending",
+      "elapsed_time": null
+    },
+    {
+      "case_id": 12,
+      "skill_id": "task-search-status",
+      "canonical_query": "\u041e\u0442\u043a\u0440\u044b\u0442\u044b\u0435 \u0437\u0430\u0434\u0430\u0447\u0438 \u0432 DMS",
+      "paraphrase": "\u0417\u0430\u0434\u0430\u0447\u0438 DMS \u0441 \u043e\u0442\u043a\u0440\u044b\u0442\u044b\u043c \u0441\u0442\u0430\u0442\u0443\u0441\u043e\u043c",
+      "resolved_skill": "task-search-status",
+      "execution_status": "pending",
+      "elapsed_time": null
+    },
+    {
+      "case_id": 13,
+      "skill_id": "task-search-sprint",
+      "canonical_query": "\u0417\u0430\u0434\u0430\u0447\u0438 \u0432 \u0441\u043f\u0440\u0438\u043d\u0442\u0435 DMS-SPRNT-1",
+      "paraphrase": "\u041f\u043e\u043a\u0430\u0436\u0438 \u0437\u0430\u0434\u0430\u0447\u0438 \u0432 \u0441\u043f\u0440\u0438\u043d\u0442\u0435 DMS-SPRNT-1",
+      "resolved_skill": "task-search-sprint",
+      "execution_status": "pending",
+      "elapsed_time": null
+    },
+    {
+      "case_id": 14,
+      "skill_id": "task-summary",
+      "canonical_query": "\u0421\u0443\u043c\u043c\u0430\u0440\u0438\u0437\u0443\u0439 \u0437\u0430\u0434\u0430\u0447\u0443 DMS-75",
+      "paraphrase": "\u041a\u0440\u0430\u0442\u043a\u043e \u043e\u043f\u0438\u0448\u0438 \u0447\u0442\u043e \u043d\u0443\u0436\u043d\u043e \u0441\u0434\u0435\u043b\u0430\u0442\u044c \u0432 \u0437\u0430\u0434\u0430\u0447\u0435 DMS-75",
+      "resolved_skill": "task-summary",
+      "execution_status": "pending",
+      "elapsed_time": null
+    },
+    {
+      "case_id": 15,
+      "skill_id": "task-quality",
+      "canonical_query": "\u041e\u0446\u0435\u043d\u0438 \u043a\u0430\u0447\u0435\u0441\u0442\u0432\u043e \u0437\u0430\u0434\u0430\u0447\u0438 DMS-75",
+      "paraphrase": "\u041e\u0446\u0435\u043d\u0438 \u043a\u0430\u0447\u0435\u0441\u0442\u0432\u043e \u043e\u043f\u0438\u0441\u0430\u043d\u0438\u044f \u0437\u0430\u0434\u0430\u0447\u0438 DMS-75",
+      "resolved_skill": "task-quality",
+      "execution_status": "pending",
+      "elapsed_time": null
+    },
+    {
+      "case_id": 16,
+      "skill_id": "task-history",
+      "canonical_query": "\u0418\u0441\u0442\u043e\u0440\u0438\u044f \u0437\u0430\u0434\u0430\u0447\u0438 DMS-75",
+      "paraphrase": "\u041f\u043e\u043a\u0430\u0436\u0438 \u0438\u0441\u0442\u043e\u0440\u0438\u044e \u0437\u0430\u0434\u0430\u0447\u0438 DMS-75",
+      "resolved_skill": "task-history",
+      "execution_status": "pending",
+      "elapsed_time": null
+    },
+    {
+      "case_id": 17,
+      "skill_id": "sprint-health",
+      "canonical_query": "\u0421\u043e\u0441\u0442\u043e\u044f\u043d\u0438\u0435 \u0441\u043f\u0440\u0438\u043d\u0442\u0430 DMS-SPRNT-1",
+      "paraphrase": "\u041e\u0446\u0435\u043d\u0438 \u0441\u043e\u0441\u0442\u043e\u044f\u043d\u0438\u0435 \u0441\u043f\u0440\u0438\u043d\u0442\u0430 DMS-SPRNT-1",
+      "resolved_skill": "sprint-health",
+      "execution_status": "pending",
+      "elapsed_time": null
+    },
+    {
+      "case_id": 18,
+      "skill_id": "team-workload",
+      "canonical_query": "\u041d\u0430\u0433\u0440\u0443\u0437\u043a\u0430 \u043a\u043e\u043c\u0430\u043d\u0434\u044b DMS",
+      "paraphrase": "\u041f\u043e\u043a\u0430\u0436\u0438 \u043d\u0430\u0433\u0440\u0443\u0437\u043a\u0443 \u043a\u043e\u043c\u0430\u043d\u0434\u044b DMS",
+      "resolved_skill": "team-workload",
+      "execution_status": "pending",
+      "elapsed_time": null
+    }
+  ],
+  "combinatorial_matrix": [
+    {
+      "case_id": 19,
+      "space": "DMS",
+      "member": "\u0413\u0430\u0440\u0430\u043d\u0438\u043d\u0430",
+      "sprint": null,
+      "release": null,
+      "case_type": "member-only",
+      "agent_query": "\u0417\u0430\u0434\u0430\u0447\u0438 \u0413\u0430\u0440\u0430\u043d\u0438\u043d\u0430 \u0432 DMS",
+      "execution_status": "pending"
+    },
+    {
+      "case_id": 20,
+      "space": "DMS",
+      "member": "\u0417\u0430\u0439\u0446\u0435\u0432\u0430",
+      "sprint": null,
+      "release": null,
+      "case_type": "member-only",
+      "agent_query": "\u0417\u0430\u0434\u0430\u0447\u0438 \u0417\u0430\u0439\u0446\u0435\u0432\u0430 \u0432 DMS",
+      "execution_status": "pending"
+    },
+    {
+      "case_id": 21,
+      "space": "OLP",
+      "member": "\u0420\u0438\u0434\u0437\u0435\u043b\u044c",
+      "sprint": null,
+      "release": null,
+      "case_type": "member-only",
+      "agent_query": "\u0417\u0430\u0434\u0430\u0447\u0438 \u0420\u0438\u0434\u0437\u0435\u043b\u044c \u0432 OLP",
+      "execution_status": "pending"
+    },
+    {
+      "case_id": 22,
+      "space": "DMS",
+      "member": "In progress",
+      "sprint": "DMS-SPRNT-2",
+      "release": null,
+      "case_type": "status+sprint",
+      "agent_query": "\u0417\u0430\u0434\u0430\u0447\u0438 In progress \u0432 DMS-SPRNT-2",
+      "execution_status": "pending"
+    },
+    {
+      "case_id": 23,
+      "space": "DMS",
+      "member": "Resolved",
+      "sprint": null,
+      "release": null,
+      "case_type": "status-only",
+      "agent_query": "\u0417\u0430\u0434\u0430\u0447\u0438 Resolved \u0432 DMS",
+      "execution_status": "pending"
+    },
+    {
+      "case_id": 24,
+      "space": "DMS",
+      "member": "\u041a\u0430\u0440\u0438\u043c\u043e\u0432",
+      "sprint": null,
+      "release": null,
+      "case_type": "member-only",
+      "agent_query": "\u0417\u0430\u0434\u0430\u0447\u0438 \u041a\u0430\u0440\u0438\u043c\u043e\u0432 \u0432 DMS",
+      "execution_status": "pending"
+    },
+    {
+      "case_id": 25,
+      "space": "OLP",
+      "member": "\u041a\u0443\u0437\u043d\u0435\u0446\u043e\u0432",
+      "sprint": null,
+      "release": null,
+      "case_type": "member-only",
+      "agent_query": "\u0417\u0430\u0434\u0430\u0447\u0438 \u041a\u0443\u0437\u043d\u0435\u0446\u043e\u0432 \u0432 OLP",
+      "execution_status": "pending"
+    },
+    {
+      "case_id": 26,
+      "space": "DMS",
+      "member": "\u0417\u0430\u0439\u0446\u0435\u0432\u0430",
+      "sprint": "DMS-SPRNT-1",
+      "release": null,
+      "case_type": "member+sprint",
+      "agent_query": "\u0417\u0430\u0434\u0430\u0447\u0438 \u0417\u0430\u0439\u0446\u0435\u0432\u0430 \u0432 DMS-SPRNT-1",
+      "execution_status": "pending"
+    },
+    {
+      "case_id": 27,
+      "space": "OLP",
+      "member": "\u0411\u0438\u0440\u044e\u043a\u043e\u0432",
+      "sprint": "OLP-SPRNT-5",
+      "release": null,
+      "case_type": "member+sprint",
+      "agent_query": "\u0417\u0430\u0434\u0430\u0447\u0438 \u0411\u0438\u0440\u044e\u043a\u043e\u0432 \u0432 OLP-SPRNT-5",
+      "execution_status": "pending"
+    },
+    {
+      "case_id": 28,
+      "space": "DMS",
+      "member": "\u0417\u0432\u044f\u0433\u0438\u043d",
+      "sprint": null,
+      "release": null,
+      "case_type": "member-only",
+      "agent_query": "\u0417\u0430\u0434\u0430\u0447\u0438 \u0417\u0432\u044f\u0433\u0438\u043d \u0432 DMS",
+      "execution_status": "pending"
+    }
+  ],
+  "latency_data": [
+    {
+      "task": "task_lookup",
+      "repetitions": 5,
+      "p50": 0.9613559246063232,
+      "p95": 1.4850261211395264,
+      "max": 1.4850261211395264,
+      "min": 0.901831865310669,
+      "times": [
+        0.901831865310669,
+        0.9220550060272217,
+        0.9613559246063232,
+        0.9615268707275391,
+        1.4850261211395264
+      ]
+    },
+    {
+      "task": "member_search",
+      "error": "All repetitions failed"
+    },
+    {
+      "task": "status_search",
+      "error": "All repetitions failed"
+    },
+    {
+      "task": "sprint_scope",
+      "repetitions": 5,
+      "p50": 1.4502220153808594,
+      "p95": 2.629028797149658,
+      "max": 2.629028797149658,
+      "min": 1.3439240455627441,
+      "times": [
+        1.3439240455627441,
+        1.4433391094207764,
+        1.4502220153808594,
+        1.6277530193328857,
+        2.629028797149658
+      ]
+    },
+    {
+      "task": "multi_filter",
+      "error": "All repetitions failed"
+    },
+    {
+      "task": "team_skill",
+      "error": "All repetitions failed"
+    },
+    {
+      "task": "llm_heavy_skill",
+      "error": "All repetitions failed"
+    }
+  ]
+}
