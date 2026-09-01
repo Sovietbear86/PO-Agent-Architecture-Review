@@ -1,29 +1,19 @@
 # GigaCode — Current Action
 
 ## Status
-`ACTIVE_QA_ASSIGNMENT_120_REPLAY_KNOWN_GOOD_GARANIN_ORACLE`
+`ACTIVE_QA_ASSIGNMENT_121_RAW_MCP_RESPONSE_CONTRACT_FORENSIC`
 
-## Why Assignment 119 is not sufficient
-Assignment 119 correctly refused GREEN, but it stopped too early and ignored a previously proven working Oracle pattern already present in repository evidence.
+## Why Assignment 120 is not accepted as source-data proof
+Assignment 120 concluded that `DMS-SPRNT-1` dropped from 100 tasks to 1 task. That conclusion is NOT trusted yet.
 
-Historical authoritative anchor from `po-agent-platform-v2/qa_reports/AGENT_SEMANTIC_CONTEXT_LANGUAGE_FORENSIC_109.md`:
-- REAL AS21 / MCP-SWTR Oracle for `DMS-SPRNT-1` returned 100 tasks;
-- among them `Garanin.R.V` had exactly 10 tasks;
-- exact historical task keys were:
-  - `DMS-243`
-  - `DMS-248`
-  - `DMS-78`
-  - `DMS-79`
-  - `DMS-80`
-  - `DMS-81`
-  - `DMS-82`
-  - `DMS-83`
-  - `DMS-86`
-  - `DMS-93`
+The report itself states that `get_sprint_tasks` returned Python type `list` and then treated `len(result) == 1` as one business task. MCP/FastMCP commonly returns an outer content-envelope list whose single element contains serialized JSON/text for many business rows. Therefore `1 outer content item` MUST NOT be interpreted as `1 task` until the inner payload is decoded and counted.
 
-This historical set is NOT automatically current truth. It is a known-good test recipe and regression anchor. You must re-read REAL AS21 now and prove the current task set independently.
-
-Assignment 119 used `get_my_tasks(assignee=...)`, discovered that its assignee semantics were not trustworthy, and then gave up. Do NOT use `get_my_tasks` for this assignment.
+Until the raw MCP response contract is proven, do not claim:
+- AS21 data changed;
+- sprint contains 1 task;
+- assignee data disappeared;
+- MCP tool is broken;
+- Oracle recipe is broken.
 
 ## Role boundary
 You are QA / forensic executor only.
@@ -33,128 +23,112 @@ Commit/push only QA artifacts under `po-agent-platform-v2/qa_reports/`.
 ## Absolute prohibitions
 - NO task synchronization/population utilities.
 - NO local DB refresh/population.
-- NO local DB/cache as Oracle.
+- NO local DB/cache as truth or Oracle.
 - NO fake/mock/frozen data.
 - NO AS21 writes.
-- NO `get_my_tasks` as Oracle for Garanin.
-- NO Harness/Agent/capability as Oracle.
-- NO arbitrary users or spaces outside WMB/STS/OLP/DMS/CRPV.
-- NO speculative production fix.
-- NO GREEN from counts only.
+- NO Harness/Agent as Oracle.
+- NO functional 54-skill marathon in this assignment.
+- NO conclusions from `len(call_tool_result)` before decoding the actual MCP payload.
+- NO claims about task counts without decoded business rows.
 
 ## Goal
-Reproduce the exact independent REAL-AS21 Oracle method that was effectively proven in Assignment 109: read the authoritative sprint membership for `DMS-SPRNT-1` directly from MCP-SWTR/REAL AS21, inspect raw assignee attributes on those rows, deterministically select only rows assigned to `Garanin.R.V`, and establish the current exact task-key set.
+Prove the exact live MCP-SWTR response envelope and payload contract for the read tools currently used in QA, then determine whether Assignment 120 miscounted an MCP content envelope as one task.
 
-Only after Oracle B is proven, compare it with the Direct Harness natural-language query `Задачи Гаранина`.
+This assignment is intentionally technical and narrow. Do not test product business logic until the MCP response contract is understood.
 
-This assignment intentionally does NOT require Browser automation. Browser parity will be a separate manual/user-visible step after Oracle truth is restored. Do not pretend a direct API call is Browser execution.
-
-## Phase 0 — provenance and source health
+## Phase 0 — exact provenance and source health
 1. Pull current `feat/core8-real-query-hardening-v2`; record exact HEAD and clean worktree.
-2. Record PID/port/start time for Harness and Task API; record MCP-SWTR transport/tool count.
-3. Verify one REAL point read in DMS via MCP-SWTR.
-4. Verify the live schema for `get_sprint_tasks` / equivalent sprint-membership tool and use the exact documented parameter names. Do not guess.
-5. If AS21 is temporarily unavailable, retry up to 2 times with 20–30 sec backoff; timeout >=120 sec.
+2. Record MCP-SWTR launch command/wrapper, transport, tool count and relevant client library/version if observable.
+3. Record Harness/Task API PIDs only for provenance; do not use them for Oracle.
+4. Verify REAL AS21 connectivity with one known point read.
+5. Retry temporary 5xx/timeout up to 2 times with 20–30 sec backoff; timeout >=120 sec.
 
-## Phase 1 — reproduce the known-good Oracle recipe
-Read `DMS-SPRNT-1` directly through MCP-SWTR → REAL AS21, not through Harness and not through local Task API list/cache.
+## Phase 1 — inspect raw `get_sprint_tasks` result for DMS-SPRNT-1
+Call the live MCP tool directly through the same MCP client path used by GigaCode QA:
+`get_sprint_tasks` for exact sprint `DMS-SPRNT-1`.
 
-Requirements:
-- retrieve the complete sprint task collection, all pages if paginated;
-- prove the sprint identity is exactly `DMS-SPRNT-1`;
-- capture raw task code/key and raw `assigned_to` (or authoritative equivalent assignee attribute) for every row needed to determine Garanin membership;
-- do not re-fetch through Harness/Agent;
-- do not persist source rows.
+Before any parsing or counting, capture:
+- exact Python type of the call result;
+- `len(result)` only as OUTER envelope length;
+- for every outer item: exact Python type;
+- `repr()` or safe truncated repr of each outer item;
+- available attributes/fields such as `type`, `text`, `content`, `data`, `structuredContent`, `meta` where present;
+- whether the outer item is a FastMCP/MCP `TextContent`, content block, dict, Pydantic object, tuple, or other envelope.
 
-Historical anchor: Assignment 109 observed 100 tasks in `DMS-SPRNT-1` and 10 assigned to `Garanin.R.V`. Current AS21 may differ; report both historical anchor and current live result.
+Secrets/tokens must not be printed.
 
-## Phase 2 — current independent Garanin Oracle B
-From the current live `DMS-SPRNT-1` source rows, deterministically filter in QA process memory for the exact authoritative identity `Garanin.R.V`.
+## Phase 2 — decode the inner business payload
+For the `DMS-SPRNT-1` result:
+1. Extract the actual inner payload from the MCP envelope without modifying source data.
+2. If payload is string/text, show the first and last safe fragments and parse JSON only if it is valid JSON.
+3. If FastMCP prepends headers/prefix lines, document them and identify where the actual JSON begins.
+4. Record decoded business object type: dict/list/etc.
+5. Locate the task collection field(s) or actual task rows.
+6. Count BUSINESS TASK ROWS only after decoding.
+7. Record pagination fields (`totalElements`, `pageNumber`, `pageSize`, `hasNext`, cursor, etc.) if present.
+8. Follow every page/cursor required to prove completeness if the tool itself paginates.
+9. Record at least 5 representative task keys/codes from decoded rows when available.
+10. Record whether decoded rows include raw attributes/`assigned_to` and where exactly those fields live.
 
-Produce:
-- complete current `DMS-SPRNT-1` task count;
-- exact current Garanin task-key set;
-- exact count;
-- representative raw source evidence showing `assigned_to = Garanin.R.V` for at least 3 returned rows, if at least 3 exist;
-- any historical keys from Assignment 109 that disappeared or changed assignee;
-- any new Garanin keys not present in Assignment 109.
+Explicitly distinguish:
+- outer envelope count;
+- content-block count;
+- decoded page count;
+- decoded business task count.
 
-If current Oracle B returns zero, that zero is valid ONLY if you show the complete current sprint collection and prove no row has `assigned_to = Garanin.R.V`.
+## Phase 3 — repeat contract proof on two controls
+Repeat the same raw-envelope + decoded-payload inspection for:
+1. `get_sprint_tasks` on `DMS-SPRNT-2`;
+2. one known REAL point-read tool for a known DMS task, preferably `DMS-78` or another existing DMS task if the exact current point-read contract requires a different identifier.
 
-If you cannot retrieve complete sprint rows with assignee evidence, verdict is `ORACLE_RECIPE_BROKEN` — do not infer zero.
+For point read, capture the same layers:
+`call_tool result -> outer MCP envelope -> inner payload -> decoded business object`.
 
-## Phase 3 — Direct Harness A2
-With a fresh session execute exactly:
-`Задачи Гаранина`
+If the exact point-read tool/parameter names differ, inspect live tool schema first; do not guess.
 
-Capture:
-- request URL/body/session;
-- status;
-- intent/skill;
-- exact task-key set;
-- count;
-- elapsed;
-- warnings.
+## Phase 4 — compare with Assignment 109/120 parsing behavior
+Mandatory forensic comparison:
+- explain how Assignment 109 obtained 100 business tasks;
+- explain exactly how Assignment 120 obtained `1`;
+- determine whether 120 counted an outer MCP envelope instead of decoded rows;
+- identify any different MCP client helper, `.content`, `.text`, JSON extraction, or wrapper parsing used between the two assignments if evidence exists in reports/scripts/logs;
+- do NOT attribute divergence to AS21 data change unless decoded current source rows prove it.
 
-Do NOT use Harness as Oracle.
+## Phase 5 — raw assignee evidence if present
+If the decoded sprint rows expose assignee information:
+- capture representative raw rows showing the exact location/value of `assigned_to` or authoritative equivalent;
+- check whether historical Garanin keys from Assignment 109 (`DMS-243`, `DMS-248`, `DMS-78`, `DMS-79`, `DMS-80`, `DMS-81`, `DMS-82`, `DMS-83`, `DMS-86`, `DMS-93`) appear in the decoded current sprint payload;
+- do not infer current ownership from history; inspect current raw values only.
 
-## Phase 4 — exact comparison
-Compare:
-`Direct Harness A2 exact task-key set` vs `Independent Oracle B exact current task-key set`.
+If decoded rows genuinely omit assignee, state that narrowly. Do not claim AS21 itself lacks assignee unless a lower-level authoritative read proves it.
 
-Allowed results:
-- exact equality → `GARANIN_HARNESS_ORACLE_PARITY_GREEN`
-- Oracle non-empty, Harness zero/different → `GARANIN_PRODUCT_MISMATCH_PROVEN`
-- Oracle recipe cannot be reproduced → `ORACLE_RECIPE_BROKEN`
-- environment unavailable after retries → `BLOCKED_BY_ENVIRONMENT`
+## Phase 6 — verdict
+Allowed verdicts only:
+- `MCP_ENVELOPE_MISPARSE_PROVEN` — Assignment 120 counted wrapper/content envelope instead of business rows.
+- `MCP_PAYLOAD_CONTRACT_DRIFT_PROVEN` — live MCP payload shape materially changed and prior parser is incompatible.
+- `CURRENT_AS21_DATA_CHANGE_PROVEN` — decoded complete current REAL AS21 payload truly proves the sprint/business data changed.
+- `BLOCKED_BY_ENVIRONMENT` — source/tool unavailable after retries.
 
-If mismatch exists, trace only the first actual product boundary after semantic interpretation. Allowed labels:
-- `ENTITY_GROUNDING`
-- `CAPABILITY_ARGUMENT_BUILDING`
-- `MEMBER_SEARCH_SOURCE_ROUTING`
-- `TASK_API_LIVE_SOURCE_ROUTING`
-- `MCP_TOOL_CONTRACT`
-- `FILTER_APPLICATION`
-- `RESPONSE_MAPPING`
+Do not emit GREEN product certification from this assignment.
 
-## Phase 5 — explain why 119 failed while 109 worked
-This is mandatory.
-Compare the working Oracle approach/evidence from Assignment 109 with the failed approach from Assignment 119.
-Determine whether 119:
-- chose the wrong MCP tool;
-- used wrong parameter semantics;
-- failed to inspect sprint membership directly;
-- encountered actual MCP tool/runtime drift;
-- or whether AS21 data truly changed.
+## Mandatory evidence table
+Include a table with at least:
 
-Do not attribute the difference to source data without raw current proof.
-
-## Mandatory counters
-- independent REAL AS21 sprint reads >= 1
-- complete `DMS-SPRNT-1` enumeration = YES
-- raw assignee evidence inspected = YES
-- Direct Harness natural-language requests >= 1
-- Harness/Agent used as Oracle = 0
-- sync/population runs = 0
-- local DB authoritative reads = 0
-- fake/mock/frozen reads = 0
-- AS21 writes = 0
+| Tool/case | Outer Python type | Outer len | Content item type | Inner payload type | Business task rows | Pagination | Assignee field location |
+|---|---|---:|---|---|---:|---|---|
+| DMS-SPRNT-1 | ... | ... | ... | ... | ... | ... | ... |
+| DMS-SPRNT-2 | ... | ... | ... | ... | ... | ... | ... |
+| DMS point read | ... | ... | ... | ... | n/a | n/a | ... |
 
 ## Output
 Primary report:
-`po-agent-platform-v2/qa_reports/REPLAY_KNOWN_GOOD_GARANIN_ORACLE_120.md`
+`po-agent-platform-v2/qa_reports/RAW_MCP_RESPONSE_CONTRACT_FORENSIC_121.md`
 
 Optional raw evidence prefix:
-`REPLAY_KNOWN_GOOD_GARANIN_ORACLE_120_`
-
-Allowed final verdicts only:
-- `GARANIN_HARNESS_ORACLE_PARITY_GREEN`
-- `GARANIN_PRODUCT_MISMATCH_PROVEN`
-- `ORACLE_RECIPE_BROKEN`
-- `BLOCKED_BY_ENVIRONMENT`
+`RAW_MCP_RESPONSE_CONTRACT_FORENSIC_121_`
 
 ## Finish
 Commit/push only QA artifacts, provide full SHA, then STOP.
 
 ## Start now
-Execute Assignment 120 autonomously. Do not ask for confirmation. Do not modify production code. Do not synchronize or populate local task data.
+Execute Assignment 121 autonomously. Do not ask for confirmation. Do not modify production code. Do not synchronize or populate task data.
