@@ -1,168 +1,173 @@
 # GigaCode — Current Action
 
 ## Status
-`ACTIVE_QA_ASSIGNMENT_107_FRONTEND_PO_WORKSPACE_DISCOVERY`
+`ACTIVE_QA_ASSIGNMENT_107B_FRONTEND_LIVE_SMOKE_AND_GATE_F_RECERTIFICATION`
 
 ## Role boundary
 You are QA/research executor only. **Do not modify production code, frontend code, prompts, tests, fixtures, learning implementation, runtime behavior, credentials, AS21/SWTR data, roadmap files, testing rules, or this file.**
 
-Assignment 106 is treated as the completed backend regression baseline pending owner audit of its QA artifacts and any non-owner production changes. Do not rerun the 54-skill marathon unless explicitly instructed.
+Assignment 107 static discovery is useful but its final Gate F classification is not accepted yet because live smoke was not performed and the report contains an internal contradiction: it correctly shows the Vite dev server on port 5174 proxying `/api` to Harness on port 8004, but later describes that same configuration as a proxy mismatch/startup blocker. Starting the frontend with the documented `npm run dev` command does not itself require a source/configuration change.
 
-The authoritative roadmap is `PO_AGENT_HARNESS_EVOLUTION_PLAN.md`. After backend Gate E closure, the next planned phase is **Gate F — Frontend / PO Workspace acceptance**, followed later by full browser E2E Gate G.
-
-This assignment is discovery and gap analysis only. The owner will decide and implement frontend changes after your evidence is reviewed.
+Assignment 106 remains the backend baseline. Do not rerun the full 54-skill marathon.
 
 ## Goal
-Recover the intended original PO Agent / PO Workspace frontend scope, compare it with the current frontend implementation screen-by-screen and workflow-by-workflow, and produce an evidence-backed implementation plan for the owner.
+Run the current frontend **as-is**, with no code/config changes, and produce real end-to-end smoke evidence through the current PO Workspace against the certified Harness on REAL AS21 where applicable. Resolve the contradictory conclusions from Assignment 107 and make the Gate F readiness decision from live evidence rather than file presence.
 
-Do not beautify or redesign anything yet. First prove what exists, what is missing, what is stale, what is disconnected from the certified backend, and what must be implemented before browser E2E.
+## Phase 0 — provenance and clean runtime
+1. Pull current branch and record exact remote HEAD and clean tracked worktree.
+2. Confirm no production/frontend code changes since Assignment 107 except QA artifacts.
+3. Revalidate/start:
+   - Task API on its documented port;
+   - PO Agent Harness on port 8004 in REAL task-api/AS21 mode;
+   - frontend from `po-agent-platform-v2/frontend` using the documented command only: `npm run dev`.
+4. Do not edit `vite.config`, environment files, package scripts or source.
+5. Record frontend URL/port actually printed by Vite and verify `/api` proxy reaches `http://localhost:8004`.
+6. If startup fails, capture the exact error and FIRST_FAILING_BOUNDARY. Do not infer a blocker from static config alone.
 
-## Phase 0 — provenance and baseline integrity
-1. Pull current branch and record exact remote HEAD.
-2. Record clean tracked worktree before starting.
-3. Confirm Assignment 106 remains the latest backend certification baseline; do not alter its conclusions.
-4. Identify all frontend applications/packages in the repository, their start commands, ports, frameworks and entry points.
-5. Identify the backend API endpoint(s) used by the frontend and verify the current runtime target is the certified Harness/API path rather than a legacy/fake endpoint.
-6. Do not modify any code.
+## Phase 1 — browser/manual live shell proof
+Open the running frontend and prove the actual routed shell loads.
 
-## Phase 1 — recover authoritative frontend requirements
-Use repository evidence only: roadmap, historical frontend docs, README files, original UI implementation, screenshots/assets/specs, archived app code and integration documents.
+Capture evidence for:
+- `/`;
+- `/tasks`;
+- `/sprint`;
+- `/team`;
+- `/releases`;
+- `/quality`.
 
-Recover the expected user-facing areas at minimum:
-- conversational PO workspace;
-- clarification UX / resume after clarification;
-- task search, task results and task detail;
-- sprint / flow analytics;
-- team workload, capacity and competency;
-- release / product analytics;
-- evidence / trace visibility;
-- feedback / correction / learning controls;
-- loading, empty, partial, source-unavailable and error states;
-- AI-PDLC / lifecycle surfaces if present in the original scope.
+For each route record:
+- HTTP/page load success;
+- visible page title/major widgets;
+- whether the route renders the expected component rather than blank/error/legacy UI;
+- console/network errors if any.
 
-For every recovered requirement record the exact repository source/path and whether it is authoritative, historical-only or ambiguous.
+If browser automation is unavailable, use the strongest available live method (browser/manual evidence, dev-server/network logs, route HTTP responses) and state the limitation. Do not claim visual proof from static code.
 
-## Phase 2 — inventory the current frontend
-Inspect the current frontend implementation read-only.
+## Phase 2 — core conversational workflow smoke
+Through the actual UI, not direct API only:
+1. Submit one natural Russian task query for a REAL existing task.
+2. Verify loading state is visible.
+3. Verify answer renders.
+4. Verify evidence/trace affordance renders and exposes trace/skill/source evidence.
+5. Verify session persists across at least two consecutive queries in the same UI session.
 
-Produce a screen/component/workflow inventory including:
-- routes/pages/views;
-- major components;
-- API clients and endpoints called;
-- state/session handling;
-- clarification handling;
-- evidence rendering;
-- feedback controls;
-- error/empty/loading states;
-- skill-specific or domain-specific views;
-- any hardcoded/fake/demo data;
-- legacy API calls or disconnected components.
+Use direct API only as Oracle/supporting evidence, not as a substitute for the UI action.
 
-Do not infer that a component is functional merely because a file exists. Trace actual route -> component -> API call -> response handling.
+## Phase 3 — clarification/resume UX
+Choose a query that genuinely requires clarification under the current backend contract.
 
-## Phase 3 — live frontend smoke, if runnable without changes
-If the current frontend can be started from the repository without modifying source/configuration:
-1. Start it using documented commands only.
-2. Start/revalidate the certified backend in task-api/REAL AS21 mode if required.
-3. Capture the actual accessible routes/screens.
-4. Execute a small non-destructive smoke set through the UI where practical:
-   - normal task query;
-   - clarification case;
-   - sprint query using `DMS-SPRNT-2`;
-   - source unavailable/error rendering if safely reproducible without source mutation;
-   - feedback UI presence only, unless submission is explicitly safe and part of existing test contract.
-5. Do not use browser automation to mutate AS21 or any production source.
+Prove through the UI:
+- clarification question/options render;
+- selecting an option/resuming sends the correct follow-up semantics;
+- the flow completes without losing session/context;
+- no duplicate or contradictory assistant state is shown.
 
-If the frontend cannot start without a code/config change, classify the exact startup/integration blocker and continue static discovery. Do not fix it.
+If backend returns no clarification for the chosen query, use another realistic ambiguous query; do not fabricate clarification state.
 
-## Phase 4 — screen-by-screen gap matrix
-Create one row per required frontend area/workflow with these fields:
-- Requirement / workflow
-- Evidence source
-- Current route/component
-- Current API/backend dependency
-- Status: `PRESENT_AND_CONNECTED`, `PRESENT_BUT_DISCONNECTED`, `PARTIAL`, `MISSING`, `LEGACY_ONLY`, `BLOCKED_BY_STARTUP`
-- Functional evidence
-- UX/state gaps
-- Owner change required
-- E2E criticality: `BLOCKER`, `HIGH`, `MEDIUM`, `LOW`
+## Phase 4 — sprint live smoke on approved REAL surface
+Use sprint skills/screens with the approved live targets:
+1. `DMS-SPRNT-2` primary;
+2. `DMS-SPRNT-1` cross-check if needed;
+3. `OLP-SPRNT-5` independent cross-check if needed.
 
-A visually present screen is not `PRESENT_AND_CONNECTED` unless the current certified backend path is proven.
+Through the UI prove at least one sprint workflow reaches REAL backend facts. Compare key normalized facts with an independent direct AS21/Task API Oracle where practical.
 
-## Phase 5 — backend/frontend contract reconciliation
-Using the current certified backend contract, compare frontend assumptions with actual API response shapes.
+AS21 transient failure rule applies: timeout/502/503 -> up to 2 retries with 20–30 s backoff and focused revalidation/retest before environment classification.
 
-At minimum verify:
-- query request/response contract;
-- session_id handling;
-- clarification question/options/clarification_id semantics;
-- skill/intent fields used by UI;
-- data payload rendering assumptions;
-- evidence objects;
-- warnings and source capability unavailable states;
-- trace/correlation IDs;
-- feedback endpoint contract;
-- learning-related controls/status where exposed.
+## Phase 5 — source limitation/error rendering
+Without mutating AS21 and without inventing failures, exercise at least one currently known typed source limitation if naturally reachable, for example a capability that requires unavailable historical sprint/release timeline facts.
 
-List every mismatch as `FRONTEND_BACKEND_CONTRACT_GAP` with exact first failing boundary.
+Prove the frontend does **not** display a fabricated metric or generic success. Record exactly how warnings/source-unavailable state is rendered.
 
-Do not propose backend changes merely to preserve stale frontend assumptions when frontend can be aligned to the certified backend contract.
+If no safe typed limitation can be reached through current UI, record `NOT_SAFELY_REPRODUCIBLE` rather than forcing an artificial failure.
 
-## Phase 6 — preserve backend certification and source rules
-Do not reclassify a frontend gap as a backend defect without independent evidence.
+## Phase 6 — feedback controls smoke
+Verify the feedback UI on a real response:
+- positive/negative controls are present;
+- comment/correction UX appears where designed;
+- request contract matches backend.
 
-If AS21/SWTR is temporarily unavailable during live smoke:
-- follow mandatory retry/retest rules from `po-agent-platform-v2/docs/testing/POST_CHANGE_AB_ORACLE_CERTIFICATION.md`;
-- do not change frontend/backend code;
-- use `DMS-SPRNT-2` as primary sprint smoke, with `DMS-SPRNT-1` and `OLP-SPRNT-5` only where a cross-sprint check is relevant.
+Do not submit a negative correction that would create/promote learning policy unless the current accepted test contract explicitly requires it. UI presence and safe request validation are enough for this Gate F smoke.
 
-Known source-data limitations must be rendered correctly by the frontend rather than disguised as generic success or generic failure.
+## Phase 7 — duplicate AssistantView and route reality
+Resolve the P2 conclusion from Assignment 107 with live routing evidence.
 
-## Phase 7 — owner implementation plan
-Produce the smallest ordered frontend implementation plan for the owner.
+Determine whether `views/AssistantView.tsx` is:
+- unreachable dead code;
+- reachable by any route/navigation path;
+- capable of causing an actual user-visible duplicate chat experience.
 
-Separate work into:
-- **P0 — E2E blockers:** frontend cannot run, wrong API base/path, broken request/response contract, clarification unusable, certified backend unreachable from UI;
-- **P1 — core PO Workspace acceptance:** task/sprint/team/release views, evidence, source states, feedback controls;
-- **P2 — UX completeness:** loading/empty/partial/error polish, traceability, session UX, navigation consistency;
-- **P3 — optional/legacy reconciliation:** historical surfaces not required for current acceptance.
+If unreachable and harmless, classify as cleanup debt, not a Gate F owner change requirement. Do not delete it.
 
-For each owner change identify exact files/components likely affected and the acceptance test that should follow it.
+## Phase 8 — AI-PDLC scope classification
+Re-read the authoritative roadmap/master spec and classify `/aidpdlc` exactly as:
+- `CURRENT_GATE_F_REQUIRED`, or
+- `OPTIONAL_LEGACY_FUTURE_SCOPE`.
 
-Do not implement any of these changes yourself.
+Do not set `FRONTEND_OWNER_CHANGES_REQUIRED` merely because an optional historical route is absent.
 
-## Phase 8 — Gate F readiness decision
-Choose exactly one final classification:
-- `FRONTEND_READY_FOR_BROWSER_E2E_AS_IS`
+## Phase 9 — contract/network audit from live run
+From browser/network/dev-server evidence verify the actual live request/response path for at least:
+- query;
+- clarification/resume if exercised;
+- one domain page data request;
+- feedback endpoint contract/presence.
+
+Check for:
+- 404/405;
+- CORS/proxy failures;
+- stale legacy endpoints;
+- response-shape rendering errors;
+- JS exceptions.
+
+Any true mismatch must identify FIRST_FAILING_BOUNDARY and exact route/component/request.
+
+## Phase 10 — Gate F recertification
+Choose exactly one verdict:
+- `FRONTEND_GATE_F_GREEN_READY_FOR_BROWSER_E2E`
 - `FRONTEND_OWNER_CHANGES_REQUIRED`
 - `FRONTEND_MAJOR_SCOPE_GAP`
 - `FRONTEND_BLOCKED_BY_STARTUP_OR_ENVIRONMENT`
 
-`FRONTEND_READY_FOR_BROWSER_E2E_AS_IS` is allowed only if all Gate F required areas are present, connected to the certified backend and smoke evidence shows no blocker/high gap.
+`FRONTEND_GATE_F_GREEN_READY_FOR_BROWSER_E2E` requires:
+- frontend starts as-is with documented command;
+- required routes load;
+- real conversational UI works against Harness;
+- clarification/resume works where applicable;
+- at least one REAL sprint workflow works;
+- evidence/trace works;
+- source limitations are not fabricated as success;
+- no P0/P1 gaps;
+- no live frontend/backend contract mismatch;
+- optional/dead-code cleanup does not count as blocker;
+- production/frontend code changes = 0;
+- AS21 writes = 0.
 
 ## QA artifact location
-All artifacts must be written under:
+Write only under:
 `po-agent-platform-v2/qa_reports/`
 
-Do **not** create root-level `qa_reports/` artifacts. Assignment 106 path drift is not to be repeated.
-
 Primary report:
-`po-agent-platform-v2/qa_reports/FRONTEND_PO_WORKSPACE_DISCOVERY_107.md`
+`po-agent-platform-v2/qa_reports/FRONTEND_LIVE_SMOKE_GATE_F_107B.md`
 
-Optional supporting artifacts must use prefix:
-`FRONTEND_PO_WORKSPACE_DISCOVERY_107_`
+Optional supporting artifacts prefix:
+`FRONTEND_LIVE_SMOKE_GATE_F_107B_`
 
-## Required final report summary
+## Required final summary
 Include:
 - exact HEAD;
-- frontend package(s) and startup state;
-- recovered requirement count;
-- current screen/workflow count;
-- gap counts by status and criticality;
-- all frontend/backend contract mismatches;
-- live smoke results, if runnable;
-- P0/P1/P2/P3 owner plan;
-- final Gate F classification;
-- confirmation: production/frontend code changes = 0, AS21 writes = 0.
+- frontend start command and actual URL;
+- routes live-tested;
+- UI workflows live-tested;
+- REAL AS21-backed UI workflow evidence;
+- clarification evidence;
+- network/console error counts;
+- P0/P1/P2/P3 gaps after live evidence;
+- resolution of Assignment 107 proxy contradiction;
+- duplicate AssistantView classification;
+- AI-PDLC current-scope classification;
+- final Gate F verdict;
+- production/frontend code changes = 0;
+- AS21 writes = 0.
 
-Commit/push only allowed QA/research artifacts, report final SHA, then STOP. Do not start Assignment 108 or browser E2E on your own.
+Commit/push only allowed QA/research artifacts, report final SHA, then STOP. Do not start Gate G/Assignment 108 on your own.
