@@ -38,6 +38,55 @@ Oracle B must be independent from Agent/Harness logic.
 
 If the production Harness unexpectedly requires a local sync before ordinary source-backed queries can work, do NOT repair or bypass that behavior. Prove the existing architecture/path and classify the exact source-routing defect with FIRST_FAILING_BOUNDARY.
 
+## EXECUTION STRATEGY — CHUNKED BACKGROUND MARATHON (MANDATORY)
+Do NOT attempt Assignment 110B as one giant agent/subagent prompt. The previous monolithic subagent attempt timed out at ~483 seconds and is not an acceptable execution strategy.
+
+Run the assignment as a resumable, chunked marathon using direct shell/Python execution and checkpoint files. The conversational GigaCode agent orchestrates; the actual test workload must be executed in bounded chunks so a single model/streaming timeout cannot kill the whole run.
+
+Required execution pattern:
+1. Create/maintain a QA-only runner or command sequence under `po-agent-platform-v2/qa_reports/` or use existing QA tooling. Do NOT modify production code/tests.
+2. Split the matrix into small deterministic chunks, preferably 5–10 Agent cases per chunk, never more than 15 before checkpoint.
+3. Each Agent A business request gets its own HTTP/request timeout. Use 120 s default and up to 180 s for heavy history/sprint/release calls.
+4. Each Oracle B REAL AS21 read gets the same per-call timeout discipline.
+5. On timeout/502/503: retry up to 2 times with 20–30 s backoff. A single timeout must NOT abort the marathon.
+6. Persist checkpoint after every chunk: completed `executed_case_id`s, normalized Agent facts, Oracle facts, exact task-key sets/diffs, timings, retry counters and next case pointer.
+7. If GigaCode/session/subagent itself times out or restarts, resume from checkpoint instead of regenerating the matrix or starting over.
+8. It is acceptable and preferred for the full run to take >1 hour. Do not shorten scope merely because execution is slow.
+9. Do not create the final report until all mandatory chunks have either executed or have an evidence-backed source/environment classification.
+10. Never replace unexecuted rows with static analysis, historical evidence, inferred PASS, or a summary of previously known defects.
+
+### Recommended chunk order
+Execute sequentially with concurrency=1:
+- Chunk A: source accessibility + inventory WMB/STS/OLP/DMS/CRPV.
+- Chunk B: DMS statuses.
+- Chunk C: OLP statuses.
+- Chunk D: remaining accessible-space statuses + NONE populations.
+- Chunk E+: team members, 5–10 members per chunk.
+- Sprint chunks: DMS-SPRNT-1, DMS-SPRNT-2, OLP-SPRNT-5 separately.
+- Skill chunks: 54-skill matrix in groups of 5–10 skills.
+- Filter chunks: pairwise/3-way combinations in groups of 10.
+- Dialogue chunk(s).
+- Learning Loop lifecycle chunk(s).
+- Harness capability reachability chunk.
+- Latency chunk: repetitions executed separately so one slow call cannot block other coverage.
+
+### Mandatory progress evidence during the run
+After every chunk update a checkpoint artifact such as:
+`po-agent-platform-v2/qa_reports/BACKEND_FULL_MATRIX_STRICT_EXECUTION_110B_CHECKPOINT.md`
+
+It must show at least:
+- current timestamp;
+- elapsed wall time;
+- last completed executed_case_id;
+- Agent A request count;
+- Oracle B read count;
+- retries/timeouts;
+- completed chunks;
+- next chunk;
+- defects found so far (informational only; do not stop).
+
+A background process is acceptable if it writes visible logs/checkpoints and can be safely resumed. Do not rely on one streaming subagent call lasting the whole marathon.
+
 ## AUTONOMOUS EXECUTION RULE
 Start Phase 1 immediately after reading this file and continue autonomously through every phase.
 
@@ -64,7 +113,7 @@ A final report is invalid unless it contains direct execution evidence for every
    - REAL AS21 reads
    - fake/mock/frozen reads
    - AS21 writes
-6. Checkpoint every 10–15 executed rows.
+6. Checkpoint every 5–10 Agent cases (never more than 15).
 
 A run claiming exhaustive certification with implausibly low executed-case/source-read counts must be classified `QA_EXECUTION_INCOMPLETE`, not GREEN.
 
