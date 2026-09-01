@@ -1,357 +1,225 @@
 # GigaCode — Current Action
 
 ## Status
-`ACTIVE_QA_ASSIGNMENT_110_BACKEND_FULL_MATRIX_AND_LEARNING_RECERTIFICATION`
+`ACTIVE_QA_ASSIGNMENT_110B_STRICT_FULL_MATRIX_EXECUTION`
+
+## Why Assignment 110 is NOT accepted
+Assignment 110 finished far too quickly for the requested exhaustive matrix and its report does not contain the mandatory evidence required by Assignment 110. The owner explicitly rejects 110 as a full certification.
+
+The 110 report proves useful defects, but it is a forensic sample, not a complete marathon. It reports only a handful of live Agent rows, only DMS/OLP source coverage, only four latency observations, and no explicit 54-skill execution matrix, no every-member matrix, no full per-space status matrix, no WMB/STS/CRPV retest/retry proof, no full NONE-sprint matrix, and no complete Learning Loop lifecycle execution.
+
+This assignment is a strict re-run and execution audit. Do not reinterpret or summarize away required rows.
 
 ## Role boundary
-You are QA/forensic executor only. **Do not modify production code, frontend code, prompts, tests, fixtures, learning implementation, runtime behavior, credentials, AS21/SWTR data, roadmap files, testing rules, or this file.** You may exercise supported Harness feedback/learning APIs and lifecycle operations strictly as product behavior under test, with complete audit evidence and mandatory rollback/cleanup. AS21 writes remain forbidden.
+You are QA/test executor only. Do not modify production code, frontend code, prompts, tests, fixtures, learning implementation, runtime behavior, credentials, AS21/SWTR data, roadmap, QA rules, or this file. You may use supported feedback/learning operations only as product behavior under test. AS21 writes = 0.
 
-Assignment 109 proved that the Agent is not currently reliable on basic task filters: member-only, status-only and multi-filter requests can return empty sets while independent REAL AS21 Oracle data are non-empty. Previous A/B coverage is therefore not sufficient as product certification.
+Frontend remains frozen and OUT OF SCOPE.
 
-The owner also reports that the Learning Loop appears inert after the Agent asks variants of `Что бы вы хотели улучшить?`: the user provides feedback, but there is no visible evidence that the Harness mines the failure, creates a governed learning artifact, evaluates it, applies an approved improvement, generalizes it, persists it or can roll it back.
+## Core acceptance rule
+A final report is invalid unless it contains direct execution evidence for every mandatory row below. Static code inspection, endpoint existence, HTTP 200, skill catalog enumeration, or historical reports do not substitute for execution.
 
-**Do not test or change frontend in Assignment 110. Frontend Gate F is frozen until backend + Harness + Learning Loop are GREEN.**
+## Phase 0 — provenance + execution clock
+1. Pull branch, record exact HEAD and clean worktree.
+2. Restart MCP-SWTR, Task API, Harness from exact HEAD.
+3. Record test start timestamp and final end timestamp.
+4. Maintain a monotonically increasing `executed_case_id` for every Agent A request and every independent Oracle B read.
+5. Maintain counters:
+   - Agent A requests total
+   - Oracle B source reads total
+   - retries/timeouts/502/503
+   - REAL AS21 reads
+   - fake/mock/frozen reads
+   - AS21 writes
+6. Checkpoint every 10–15 executed rows.
 
-## Goal
-Build one exhaustive, reproducible backend/Harness truth matrix across:
-1. every implemented Skill in the canonical catalog;
-2. every required AS21 space: `WMB`, `STS`, `OLP`, `DMS`, `CRPV`;
-3. every workflow status actually observed in each space, including custom/space-specific statuses;
-4. sprint and non-sprint data, including OLP/DMS sprints and genuine `NONE`/null sprint populations in WMB/CRPV where present;
-5. every configured team member and declared competency/profile available to the Agent;
-6. response latency and exact bottleneck decomposition;
-7. the complete Harness conversational capability surface: semantic interpretation, grounding, clarification, session continuation, correction, satisfaction feedback, learning candidate generation, evaluation, governed promotion, generalization, persistence, rollback and negative controls.
+A run claiming exhaustive certification with implausibly low executed-case/source-read counts must be classified `QA_EXECUTION_INCOMPLETE`, not GREEN.
 
-This is not a smoke test. The output must tell the owner exactly what works, what fails, and the earliest failing boundary for every defect class.
+## Phase 1 — REAL source accessibility for all required spaces
+Mandatory spaces: `WMB`, `STS`, `OLP`, `DMS`, `CRPV`.
 
-## Non-negotiable A/B rules
-- A = production PO Agent Harness under test.
-- B = independent GigaCode Oracle from REAL AS21/SWTR/task-api/MCP-SWTR.
-- Oracle B must not obtain expected values from the Harness capability/calculation path being tested.
-- Compare exact business facts; for task collections compare exact task-key sets, not counts only.
-- HTTP 200 / `COMPLETED` does not count as PASS if business facts differ.
-- Suspicious zero/empty results require Oracle proof.
-- REAL authoritative source only; fake/mock/frozen authoritative calls = 0; AS21 writes = 0.
-- concurrency = 1 for source-heavy work. timeout >=120 s; heavy history/sprint/release calls may use 180 s. Retry timeout/502/503 up to 2 times with 20–30 s backoff, then revalidate/restart and focused retest before environment classification.
-- All Russian user queries must receive Russian user-facing prose. Source IDs/logins/status labels may retain native values.
-- Checkpoint frequently; the marathon must be resumable.
-- A GREEN verdict is forbidden if a learning flow claims success without a versioned artifact + evaluation evidence + governed state transition.
+For EACH space independently:
+1. Perform direct Oracle B discovery/read using available MCP-SWTR/task-api paths.
+2. If first path fails, inspect available read tools/contracts and try the correct source route for that space.
+3. On timeout/502/503: up to 2 retries with 20–30 s backoff, then revalidate/restart source chain and retest once.
+4. Do NOT conclude `source unavailable` merely because one chosen endpoint did not support the space.
+5. If after contract discovery and retries the space is truly unavailable, provide raw tool/endpoint evidence and classify only that surface as `SOURCE_CAPABILITY_UNAVAILABLE_BY_DESIGN` or `ENVIRONMENT_BLOCKED` as appropriate.
 
-## Phase 0 — provenance and clean backend runtime
-1. Pull current branch; record remote/local HEAD and clean worktree.
-2. Stop/restart MCP-SWTR/AS21 bridge, Task API and PO Agent Harness from current HEAD.
-3. Record PID/start time/port/config/model/provider/timeouts/retries.
-4. Confirm REAL task-api/AS21 adapter, fake/mock/frozen=0, AS21 writes=0.
-5. Capture exact Learning Loop state before testing: persistent policy store, aliases/rules/candidates/eval artifacts, active/promoted versions, pending feedback state and any Harness learning endpoints/capabilities.
-6. Run independent Oracle health checks in WMB, STS, OLP, DMS, CRPV.
+For every accessible space capture fresh task corpus, statuses, assignees, sprints including NONE/null, releases, attachments and representative rich tasks.
 
-## Phase 1 — authoritative five-space source inventory
-Before asking the Agent questions, build a fresh REAL AS21 inventory for `WMB`, `STS`, `OLP`, `DMS`, `CRPV`.
+## Phase 2 — all real statuses in every accessible space
+For every distinct `(space, raw_status)` discovered live:
+- Oracle B exact task-key set;
+- Agent A canonical Russian query;
+- Agent A paraphrase;
+- exact set comparison;
+- first encounter/fresh session/cold restart behavior for at least every custom or previously unknown status.
 
-For each space capture:
-- task count and exact/checkpointed key corpus;
-- all distinct raw workflow statuses + counts;
-- adapter normalized status/category and every mapping to `Unknown/UNKNOWN`;
-- all assignee identities/logins + counts;
-- all sprint IDs + counts;
-- exact key set/count for sprint `NONE`/null/empty;
-- releases where present;
-- attachment types;
-- representative tasks with description/acceptance/dependencies/history/attachments where available.
+Source-valid status must never be falsely exposed as UNKNOWN. If the runtime discovers/learns a status, prove whether this is persisted or rediscovered after restart.
 
-For OLP/DMS validate approved sprint surface: `OLP-SPRNT-5`, `DMS-SPRNT-1`, `DMS-SPRNT-2` when source-valid. For WMB/CRPV prove non-sprint populations if present. Never reuse old report counts as truth.
+## Phase 3 — all team members + competencies
+Discover the actual runtime team data source, not an example file.
 
-## Phase 2 — team/competency inventory
-Discover the **actual** team/config data consumed by the running Harness; do not assume `team.example.yaml` is authoritative.
-
-Build every configured member with login, name, spaces/products, role, capacity, professional profile, competencies/skills, affiliation and every field consumed by team skills. Separately ground each member against REAL AS21 workload where applicable.
-
-Configuration truth and AS21 workload truth are separate. A member with zero tasks may still have valid competency/profile knowledge.
-
-## Phase 3 — status vocabulary, discovery and memory
-For every `(space, raw_status)` discovered in Phase 1:
-1. Oracle B derives the exact key set.
-2. Agent A receives a natural Russian query for that status in that space.
-3. Compare exact sets and inspect semantic slots, grounding, capability args, `status`, `status_raw`, output text.
-
-For any source-valid status not previously known to the Harness, test:
-- first encounter;
-- immediate repeated query;
-- fresh session;
-- cold Harness restart.
-
-A source-valid status must remain usable by its real label and must not be falsely exposed as `UNKNOWN`. It may be persisted or rediscovered from source, but the user must not have to reteach it after every turn/restart. Arbitrary user-invented statuses absent from source must not be learned.
-
-Classify separately: `STATUS_ENUM_LOSS`, `STATUS_RAW_LOSS`, `STATUS_GROUNDING_FAILURE`, `STATUS_FILTER_MISMATCH`, `STATUS_MEMORY_PERSISTENCE_FAILURE`.
-
-## Phase 4 — five-space natural-query matrix
-For each of WMB/STS/OLP/DMS/CRPV run canonical + paraphrased Russian requests for:
-- all tasks in the space;
-- exact task lookup;
-- member-only;
-- status-only;
-- member + status;
-- sprint where applicable;
-- member + sprint;
-- status + sprint;
-- member + status + sprint;
-- release where real data exist;
-- attachment queries where real data exist;
-- explicit non-sprint/NONE task search where applicable.
-
-Compare exact task-key sets. The Agent must not invent a sprint or broaden/narrow scope silently.
-
-## Phase 5 — sprint and NONE coverage
-At minimum validate `OLP-SPRNT-5`, `DMS-SPRNT-1`, `DMS-SPRNT-2` when live, one additional OLP/DMS sprint if available, and genuine NONE/null populations in WMB/CRPV.
-
-For each real sprint run sprint scope, health, current resolution, velocity, throughput, WIP, cycle time, lead time, carryover, scope change, predictability and risk queue. Missing historical source capability must produce truthful typed limitation, not fabricated zero and not an invented metric.
-
-## Phase 6 — all implemented Skills
-Read current `SKILL_CATALOG`, verify implemented count (expected 54 but do not assume), and create one explicit row per implemented Skill.
-
-For every Skill run:
-- canonical natural Russian query;
-- natural paraphrase;
-- negative/missing-slot or source-unavailable case where meaningful;
-- REAL Oracle comparison for deterministic/source-backed facts;
-- resolved skill/version, evidence/trace, elapsed time.
-
-For LLM-heavy analytical/drafting skills, Oracle validates grounded inputs, evidence and invariants, not prose equality. Hallucinated source facts = FAIL.
-
-## Phase 7 — every configured team member + competencies
-For every configured member run:
-- `Покажи задачи <member>` vs REAL Oracle;
+For EVERY configured member:
+- member-only task query vs Oracle;
 - member + valid status;
-- member + sprint if applicable;
+- member + sprint when applicable;
 - workload/WIP/blocked where applicable;
-- role/profile/competency retrieval and use;
-- competency match on representative task;
-- assignee recommendation, proving both competencies and current workload are in grounded inputs.
+- role/profile/competency retrieval;
+- competency match;
+- assignee recommendation using both competencies and workload.
 
-Test surname, full/canonical login and at least one natural Russian grammatical form where data permit. No Garanin-specific hardcoding.
+Report one explicit member row group per configured person. No sampling three members and calling the matrix complete.
 
-## Phase 8 — bounded combinatorial filter integrity
-Generate live-data pairwise/3-way combinations over space × member × status × sprint/NONE × release. Include genuine non-empty and genuine empty cases. Compare exact A/B task-key sets.
+## Phase 4 — sprint + NONE matrix
+Use live approved sprints where valid:
+- `DMS-SPRNT-1`
+- `DMS-SPRNT-2`
+- `OLP-SPRNT-5`
+- at least one additional live OLP/DMS sprint if available.
 
-Trace every mismatch through:
-`query -> semantic frame -> grounding -> skill -> capability args -> candidate corpus -> mapped fields -> deterministic filters -> result`.
+Also explicitly test tasks with `sprint = NONE/null/empty` in WMB/CRPV or any other live space where Oracle proves such data.
 
-Do not call a defect `CAPABILITY_ARGUMENT_BUILDING` if the arguments are correct. Find the first real divergence: source routing, hydration, canonical mapping, deterministic filtering, etc.
+For each sprint execute all applicable sprint skills and compare deterministic facts to Oracle. Missing historical source capability must return a typed truthful limitation.
 
-## Phase 9 — dialogue/session/correction capabilities
-Run multi-turn conversations using live values from multiple spaces:
+## Phase 5 — mandatory 54-skill execution matrix
+Read current `SKILL_CATALOG` and enumerate every implemented skill.
+
+For EVERY implemented skill, execute and record at least:
+1. canonical natural Russian request;
+2. natural Russian paraphrase;
+3. negative/missing-slot/unavailable case where meaningful;
+4. Oracle B comparison for deterministic/source-backed facts;
+5. resolved skill/version;
+6. trace/evidence IDs;
+7. elapsed time;
+8. final verdict.
+
+The final report MUST contain one explicit row per skill. A summary saying `51/54 ready` is not sufficient.
+
+For LLM-heavy skills, compare grounded inputs/evidence/invariants rather than prose.
+
+## Phase 6 — combinatorial filtering
+Build a bounded live matrix across:
+`space × member × status × sprint/NONE × release`.
+
+Include both real non-empty and real empty combinations per applicable dimension. Compare exact task-key sets. Mandatory defect retests include:
+- `Задачи Гаранина`
+- one second DMS member
+- one OLP member
+- `In progress` in `DMS-SPRNT-2`
+- another real DMS status
+- member + status
+- member + sprint
+- member + status + sprint
+- NONE-sprint query where source supports it.
+
+Trace FIRST_FAILING_BOUNDARY beyond capability arguments when args are correct.
+
+## Phase 7 — dialogue/context/language
+Run real multi-turn cases across at least DMS and OLP:
 - member -> add status;
 - member+sprint -> replace status;
-- switch DMS -> OLP and prove stale slots disappear;
-- explicitly remove a constraint;
-- correction after clarification;
-- bare sprint ID;
+- remove status constraint;
+- switch DMS -> OLP;
+- clarification option selection;
+- bare sprint;
 - bare surname;
-- `только открытые` after grounded prior request;
-- user rejects an answer and gives a corrected executable request.
+- correction after a wrong answer;
+- `только открытые` continuation.
 
-Required: correct slot retention/replacement/removal, no invented IDs, Russian prose, no clarification/correction loops.
+All Russian turns must receive Russian user-facing prose. No invented source IDs.
 
-## Phase 10 — latency forensic
-Instrument end-to-end timings for representative fast/heavy requests. Record total, semantic LLM, ranking/planning, grounding/source context, AS21 calls/count, hydration, deterministic capability, response LLM, retries, cold/warm/cache.
+## Phase 8 — deep Learning Loop, not just endpoint probing
+Do NOT classify learning merely by whether GET endpoints exist.
 
-Report p50/p95/max for exact lookup, member-only, status-only, sprint scope, multi-filter, team skill and one LLM-heavy analytical skill. Flag every normal user request >10 s and identify dominant boundary.
+First inspect the executable runtime integration and actual persistence/state artifacts. Then use the normal product feedback flow on at least two proven wrong-answer cases.
 
-Specifically test for repeated full-corpus scans, repeated `semantic_context()` source discovery, pairwise LLM tournament explosion, repeated hydration, duplicate source calls and unnecessary second LLM generation.
+For each case prove whether the chain actually occurs:
+`feedback -> persisted improvement text -> pattern mining -> candidate -> eval case -> shadow/offline eval -> regression gate -> approval/promotion state -> applied policy -> same-case retest -> generalization -> fresh session -> cold restart -> rollback -> cleanup`.
 
-## Phase 11 — deep Harness capability inventory
-Before testing learning behavior, recover the actual executable Harness capability graph from current HEAD and runtime, not only documentation.
+If there is no public API for a lifecycle step, use supported runtime/product state/artifact evidence if that is how the implementation is designed. Missing GET endpoints alone are not enough to conclude that learning is broken.
 
-Inventory and prove reachability of:
-- semantic interpreter;
-- entity grounding/resolvers;
-- clarification state persistence + resume;
-- correction classification/application;
-- satisfaction/feedback endpoints or runtime handlers;
-- negative feedback reason capture;
-- trace/session/skill/version linkage;
-- learning observation/mining step;
-- candidate generation;
-- eval/regression case generation;
-- shadow/offline evaluation;
-- approval/promotion gate;
-- active-policy application;
-- persistence/load-on-cold-start;
-- rollback/version history;
-- cleanup/test isolation.
+If the Agent asks `Что бы вы хотели улучшить?` and after the user's concrete response there is no persisted artifact or lifecycle transition, classify `LEARNING_FEEDBACK_NOOP` with first failing boundary.
 
-For each capability record code path, API/runtime entry point, state/artifact produced, expected lifecycle transition and whether it is actually exercised in production Harness mode.
+If promotion legally requires owner approval, stop at the real approval gate and prove the candidate/eval/state exist. Do not bypass governance.
 
-The architecture contract says that negative feedback must produce an improvement/eval candidate and that the Agent must not claim to have learned without a versioned artifact + evaluation evidence. Treat this as an acceptance contract.
+## Phase 9 — Harness capability reachability
+For each capability from the dialogue/learning architecture contract, prove actual production reachability or prove a real wiring gap:
+- semantic interpreter
+- grounding
+- clarification persistence/resume
+- correction
+- satisfaction feedback
+- trace/session/skill/version linkage
+- observation/mining
+- candidate generation
+- eval generation
+- shadow eval
+- promotion gate
+- policy application
+- persistence
+- rollback/version lineage.
 
-## Phase 12 — reproduce the owner's `Что бы вы хотели улучшить?` suspicion
-Create at least two **proven A/B mismatches** suitable for learning, preferably one task-filter failure and one semantic/dialogue failure. Do not manufacture a failure if current owner fixes make the case pass; choose another reproducible mismatch from the matrix.
+Code existence is not PASS. Runtime reachability/evidence is required.
 
-For each case:
-1. Agent gives the wrong source-backed answer.
-2. User supplies negative feedback through the normal Harness satisfaction/feedback path.
-3. If Agent asks `Что бы вы хотели улучшить?` or equivalent, answer with a concrete natural Russian correction that describes desired behavior but **does not provide the expected task IDs/counts as a memorized answer**.
-4. Capture every state change after the feedback turn.
+## Phase 10 — latency marathon
+The prior 110 report had only one timing sample per a few skills, so p50/p95 were not actually measured.
 
-Mandatory questions to answer with evidence:
-- Was the feedback linked to original session/trace/skill/version/frame/source evidence?
-- Was the user's improvement text persisted anywhere?
-- Was a failure pattern mined?
-- Was an eval/regression case created?
-- Was a learning candidate created and versioned?
-- Was any evaluation run?
-- Did state transition beyond a conversational acknowledgement?
-- If nothing happened after the phrase, identify the exact first failing boundary.
+For each of these request classes run at least 5 repetitions (cold/warm as appropriate):
+- task lookup
+- member-only
+- status-only
+- sprint scope
+- multi-filter
+- team skill
+- one LLM-heavy skill.
 
-If the Agent merely says/asks an improvement phrase and no artifact/lifecycle action occurs, classify `LEARNING_FEEDBACK_NOOP` and RED.
+Report real p50/p95/max and decompose total into semantic LLM, planning/ranking, grounding, AS21 I/O, hydration, deterministic execution, response LLM, retry/backoff.
 
-## Phase 13 — full governed Learning Loop lifecycle certification
-For at least one safe, generalizable, reproducible learning-applicable defect, exercise the complete product lifecycle **through supported Harness/learning operations only**. Do not edit code/config manually to simulate learning.
+Flag >10 s normal queries and identify dominant cause. Record source call count per request.
 
-Required sequence:
-1. `BASELINE_AB_MISMATCH` — Agent A differs from REAL Oracle B.
-2. `AUTHORITATIVE_RECHECK` — learning path independently rechecks source where appropriate; never learn from plausibility alone.
-3. `FEEDBACK_CAPTURED` — negative/improvement feedback tied to trace/session/skill/version/frame.
-4. `PATTERN_MINED` — generalized failure class identified.
-5. `CANDIDATE_CREATED` — versioned artifact produced.
-6. `EVAL_CASE_CREATED` — original failure converted into regression/eval case without leaking Oracle answer as production truth.
-7. `SHADOW_OFFLINE_EVAL` — baseline vs candidate evidence captured.
-8. `REGRESSION_GATE` — unrelated known-green cases included.
-9. `APPROVAL_PROMOTION_GATE` — exercise configured governance. If manual approval is required and QA cannot approve, stop at `AWAITING_APPROVAL` and prove the gate works; do not bypass it. If the test environment supports governed test promotion, use it and record exact version.
-10. `SAME_CASE_RETEST` — after legitimate promotion, original A must match B.
-11. `GENERALIZATION` — materially different entity/space/wording with same failure class must improve without memorizing original facts.
-12. `NEGATIVE_CONTROL` — legitimate empty/different case must remain correct; learned policy must not over-trigger.
-13. `FRESH_SESSION` — behavior persists outside original conversation.
-14. `COLD_RESTART` — promoted policy/artifact reloads and behavior persists.
-15. `ROLLBACK` — revert through supported lifecycle and prove prior state restored.
-16. `CLEANUP` — no test-specific active policy remains unless explicitly part of pre-existing baseline.
+## Phase 11 — QA methodology self-audit
+Explicitly compare Assignment 110 instructions vs what Assignment 110 actually executed. List every skipped/under-executed requirement and explain why the previous report finished quickly.
 
-Forbidden learning artifacts:
-- hard-coded task IDs/member IDs/counts;
-- `zero is impossible`-type universal rules;
-- copying Oracle expected set into policy;
-- bypassing source grounding/security/write boundaries;
-- mutating deterministic metric definitions/source contracts through online learning.
+Mandatory classification if coverage was incomplete:
+`PREVIOUS_110_QA_EXECUTION_INCOMPLETE`.
 
-## Phase 14 — learning generalization matrix
-If a candidate can legitimately be promoted in the QA environment, validate it across at least:
-- a different member;
-- a different space;
-- a paraphrased Russian request;
-- a real positive case;
-- a real empty/negative case.
+Do not defend the earlier report by treating discovered defects as permission to skip the rest of the requested matrix. This assignment exists specifically because the owner requested a full inventory before fixes.
 
-For status-learning behavior additionally test a source-valid custom status from another space. A learned rule must generalize by behavior/semantic class, not entity identity.
+## Minimum completion evidence
+The final 110B report must include:
+- start/end timestamps + wall-clock duration;
+- total Agent A request count;
+- total Oracle B read count;
+- all five space discovery outcomes;
+- full per-status matrix;
+- full per-member matrix;
+- explicit one-row-per-skill matrix for every implemented skill;
+- sprint/NONE matrix;
+- combinatorial filter matrix;
+- dialogue matrix;
+- Learning Loop lifecycle evidence;
+- Harness capability reachability matrix;
+- real latency repetitions and p50/p95/max;
+- retries/source integrity counters;
+- complete skipped/not-executable rows with evidence.
 
-If promotion cannot legally occur without owner/manual approval, report pre-promotion evaluation and exact blocked governance state; do not falsely mark post-promotion steps PASS.
+A fast stop after finding the first two defects is forbidden. Continue the full inventory unless the entire source environment becomes genuinely unavailable after the retry/restart protocol.
 
-## Phase 15 — Learning Loop/Harness latency and observability
-Measure feedback/learning operations separately:
-- feedback submission latency;
-- candidate-generation latency;
-- eval latency;
-- promotion/application latency where exercised;
-- cold-start policy load time.
-
-Verify observability exists for every lifecycle transition: artifact/version IDs, before/after state, timestamps, originating trace/session, evaluation outcome and rollback lineage. Missing observability that makes it impossible to prove learning is functioning is a defect (`LEARNING_OBSERVABILITY_GAP`).
-
-## Phase 16 — QA methodology audit
-Explain why previous A/B/learning reports allowed basic regressions and potentially inert learning behavior to survive.
-
-Audit:
-- narrow entity/space coverage;
-- clarification marked PASS without completing resumed execution;
-- counts instead of exact sets;
-- direct capability calls substituted for normal Harness semantic routing;
-- hard-coded status test vocabulary;
-- HTTP 200/COMPLETED treated as correctness;
-- Oracle path reusing Harness logic;
-- full-skill runs checking executability rather than real business correctness;
-- feedback UI/endpoint returning 200 without verifying downstream learning artifacts;
-- `policy count unchanged` interpreted as learning safety when the test actually expected learning to occur;
-- candidate creation/evaluation/persistence/rollback not proven in one continuous lifecycle.
-
-Recommend concrete testing-rule changes in the report, but do not modify rules in Assignment 110.
-
-## FIRST_FAILING_BOUNDARY labels
-Use the earliest proven boundary, including:
-- SEMANTIC_INTERPRETATION
-- SKILL_RESOLUTION
-- SESSION_CONTEXT
-- CLARIFICATION_STATE_APPLICATION
-- CORRECTION_STATE_APPLICATION
-- ENTITY_GROUNDING
-- STATUS_VOCABULARY
-- CAPABILITY_ARGUMENT_BUILDING
-- SOURCE_ROUTING
-- SOURCE_CONTRACT
-- SOURCE_DATA
-- TASK_SOURCE_HYDRATION
-- CANONICAL_MAPPING
-- DETERMINISTIC_FILTERING
-- DETERMINISTIC_CALCULATION
-- RESPONSE_MAPPING
-- RESPONSE_LANGUAGE
-- FEEDBACK_CAPTURE
-- FEEDBACK_TRACE_LINKAGE
-- LEARNING_PATTERN_MINING
-- LEARNING_CANDIDATE_GENERATION
-- LEARNING_EVAL_CASE_GENERATION
-- LEARNING_SHADOW_EVAL
-- LEARNING_REGRESSION_GATE
-- LEARNING_APPROVAL_GATE
-- LEARNING_POLICY_APPLICATION
-- LEARNING_PERSISTENCE
-- LEARNING_GENERALIZATION
-- LEARNING_ROLLBACK
-- LEARNING_OBSERVABILITY
-- PERFORMANCE_SEMANTIC_LLM
-- PERFORMANCE_GROUNDING
-- PERFORMANCE_SOURCE_IO
-- PERFORMANCE_HYDRATION
-- PERFORMANCE_RESPONSE_LLM
-- PERFORMANCE_LEARNING
-- QA_METHODOLOGY
-
-## Checkpoint/resume protocol
-This is expected to be a long marathon. Maintain checkpoint artifacts after each major phase and every 10–15 Skill rows. Continue from checkpoints only when source freshness remains valid; refresh Oracle facts if they may have changed. Never increase AS21 parallelism to make the run faster.
-
-## Required outputs
+## Output
 Primary report:
-`po-agent-platform-v2/qa_reports/BACKEND_FULL_MATRIX_RECERTIFICATION_110.md`
+`po-agent-platform-v2/qa_reports/BACKEND_FULL_MATRIX_STRICT_EXECUTION_110B.md`
 
-Supporting artifacts prefix:
-`BACKEND_FULL_MATRIX_RECERTIFICATION_110_`
-
-Required report sections:
-- exact HEAD/runtime provenance;
-- five-space Oracle inventory;
-- per-space status dictionaries + UNKNOWN audit;
-- sprint/NONE inventory;
-- actual runtime team/competency inventory;
-- all implemented Skill rows;
-- every-member matrix;
-- combinatorial A/B exact-set matrix;
-- dialogue/context matrix;
-- latency p50/p95/max + decomposition;
-- Harness capability graph/inventory;
-- owner feedback-flow reproduction (`Что бы вы хотели улучшить?`);
-- Learning Loop lifecycle state machine with before/after artifacts;
-- baseline mismatch -> candidate -> eval -> governance -> correction/generalization -> persistence -> rollback evidence where legally exercisable;
-- learning negative controls;
-- learning observability + latency;
-- QA methodology audit;
-- source integrity/retry counters;
-- fake/mock/frozen=0 and AS21 writes=0;
-- complete defect list with FIRST_FAILING_BOUNDARY.
+Supporting/checkpoint prefix:
+`BACKEND_FULL_MATRIX_STRICT_EXECUTION_110B_`
 
 Allowed final verdicts:
+- `BACKEND_PRODUCT_DEFECTS_PROVEN_FULL_MATRIX_COMPLETE`
+- `MIXED_PRODUCT_SOURCE_LEARNING_DEFECTS_FULL_MATRIX_COMPLETE`
 - `BACKEND_AND_LEARNING_GREEN_FULL_MATRIX_CERTIFIED`
-- `BACKEND_PRODUCT_DEFECTS_PROVEN`
-- `LEARNING_LOOP_DEFECTS_PROVEN`
-- `MIXED_BACKEND_LEARNING_SOURCE_AND_QA_DEFECTS`
 - `BLOCKED_BY_ENVIRONMENT`
+- `QA_EXECUTION_INCOMPLETE`
 
-`BACKEND_AND_LEARNING_GREEN_FULL_MATRIX_CERTIFIED` is forbidden while any basic member/status/space/sprint/NONE query differs from Oracle, any implemented Skill lacks a row, any source-valid status is falsely exposed as UNKNOWN, any team competency is silently lost, any unexplained normal request >10 s lacks a localized cause, or the feedback/Learning Loop cannot prove a governed versioned lifecycle beyond conversational acknowledgement.
+No GREEN and no `FULL_MATRIX_COMPLETE` verdict unless all mandatory coverage evidence exists.
 
-Commit/push only QA artifacts under `po-agent-platform-v2/qa_reports/`, report final SHA, then STOP. Do not change production code and do not begin frontend work.
+Commit/push only QA artifacts under `po-agent-platform-v2/qa_reports/`, report final SHA, executed-case counts and wall-clock duration, then STOP.
