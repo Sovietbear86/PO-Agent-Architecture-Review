@@ -1,173 +1,210 @@
 # GigaCode — Current Action
 
 ## Status
-`ACTIVE_QA_ASSIGNMENT_107B_FRONTEND_LIVE_SMOKE_AND_GATE_F_RECERTIFICATION`
+`ACTIVE_QA_ASSIGNMENT_108_UI_TO_AS21_END_TO_END_FORENSIC`
 
 ## Role boundary
-You are QA/research executor only. **Do not modify production code, frontend code, prompts, tests, fixtures, learning implementation, runtime behavior, credentials, AS21/SWTR data, roadmap files, testing rules, or this file.**
+You are QA/forensic executor only. **Do not modify production code, frontend code, prompts, tests, fixtures, learning implementation, runtime behavior, credentials, AS21/SWTR data, roadmap files, testing rules, or this file.**
 
-Assignment 107 static discovery is useful but its final Gate F classification is not accepted yet because live smoke was not performed and the report contains an internal contradiction: it correctly shows the Vite dev server on port 5174 proxying `/api` to Harness on port 8004, but later describes that same configuration as a proxy mismatch/startup blocker. Starting the frontend with the documented `npm run dev` command does not itself require a source/configuration change.
+Assignment 107B reported `FRONTEND_GATE_F_GREEN_READY_FOR_BROWSER_E2E`, but an immediate owner/manual run produced a counterexample: the frontend appeared not to load expected AS21-backed data, and the Agent did not return results for normal/typical task-search queries. Per project rules, a later source-backed counterexample reopens historical GREEN.
 
-Assignment 106 remains the backend baseline. Do not rerun the full 54-skill marathon.
+Therefore Gate F is **REOPENED** until the actual browser/UI -> Harness -> Task API -> REAL AS21 path is proven on representative business queries, not just route 200s and direct API smoke.
+
+Assignment 106 remains the backend regression baseline, but its conclusions do not override a browser-layer counterexample.
 
 ## Goal
-Run the current frontend **as-is**, with no code/config changes, and produce real end-to-end smoke evidence through the current PO Workspace against the certified Harness on REAL AS21 where applicable. Resolve the contradictory conclusions from Assignment 107 and make the Gate F readiness decision from live evidence rather than file presence.
+Localize the first failing boundary for the owner's manual symptom:
 
-## Phase 0 — provenance and clean runtime
-1. Pull current branch and record exact remote HEAD and clean tracked worktree.
-2. Confirm no production/frontend code changes since Assignment 107 except QA artifacts.
-3. Revalidate/start:
-   - Task API on its documented port;
-   - PO Agent Harness on port 8004 in REAL task-api/AS21 mode;
-   - frontend from `po-agent-platform-v2/frontend` using the documented command only: `npm run dev`.
-4. Do not edit `vite.config`, environment files, package scripts or source.
-5. Record frontend URL/port actually printed by Vite and verify `/api` proxy reaches `http://localhost:8004`.
-6. If startup fails, capture the exact error and FIRST_FAILING_BOUNDARY. Do not infer a blocker from static config alone.
+`browser UI request -> frontend request payload -> Vite proxy -> Harness /query -> semantic frame/skill resolution -> capability args -> Task API -> REAL AS21/SWTR -> response payload -> frontend rendering`
 
-## Phase 1 — browser/manual live shell proof
-Open the running frontend and prove the actual routed shell loads.
+The assignment must determine whether the observed failure is:
+- frontend request/wiring/rendering defect;
+- stale/wrong runtime or wrong API target;
+- session/context contamination;
+- semantic/skill-resolution regression in the running Agent;
+- Task API/AS21 source failure;
+- transient AS21 availability issue;
+- test-data/query issue;
+- or QA methodology error in 107B.
 
-Capture evidence for:
-- `/`;
-- `/tasks`;
-- `/sprint`;
-- `/team`;
-- `/releases`;
-- `/quality`.
+Do not close GREEN merely because `/api/v1/query` returns HTTP 200.
 
-For each route record:
-- HTTP/page load success;
-- visible page title/major widgets;
-- whether the route renders the expected component rather than blank/error/legacy UI;
-- console/network errors if any.
+## Phase 0 — fresh end-to-end provenance
+1. Pull current branch; record exact remote HEAD and clean tracked worktree.
+2. Fully stop and restart all test-chain processes from current HEAD:
+   - MCP-SWTR / required AS21 bridge;
+   - Task API;
+   - PO Agent Harness;
+   - Vite frontend.
+3. Record PID/start time/port for each process.
+4. Record actual frontend URL and exact Vite proxy target.
+5. Confirm Harness is in REAL task-api/AS21 mode; fake/mock/frozen authoritative calls=0; AS21 writes=0.
+6. Before UI testing, prove REAL AS21 health with independent Oracle reads.
+7. AS21 transient failure rule is mandatory: timeout/502/503 -> up to 2 retries with 20–30s backoff; if still unstable, revalidate/restart the affected runtime and perform one focused retest before classifying environment failure.
 
-If browser automation is unavailable, use the strongest available live method (browser/manual evidence, dev-server/network logs, route HTTP responses) and state the limitation. Do not claim visual proof from static code.
+## Phase 1 — independent REAL AS21 truth set
+Build a fresh Oracle truth set for representative entities before asking the Agent.
 
-## Phase 2 — core conversational workflow smoke
-Through the actual UI, not direct API only:
-1. Submit one natural Russian task query for a REAL existing task.
-2. Verify loading state is visible.
-3. Verify answer renders.
-4. Verify evidence/trace affordance renders and exposes trace/skill/source evidence.
-5. Verify session persists across at least two consecutive queries in the same UI session.
+Mandatory source controls:
+- exact point-read for at least two existing tasks, including `DMS-271` if still present;
+- exact sprint scope for `DMS-SPRNT-2`;
+- cross-check sprint scopes for `DMS-SPRNT-1` and `OLP-SPRNT-5`;
+- obtain at least one real member/login and at least one real status represented in DMS tasks from source data rather than assumptions.
 
-Use direct API only as Oracle/supporting evidence, not as a substitute for the UI action.
+Capture exact task-key sets/counts and member/status facts from the live source. Do not reuse expected answers from historical reports.
 
-## Phase 3 — clarification/resume UX
-Choose a query that genuinely requires clarification under the current backend contract.
+## Phase 2 — mandatory typical-query matrix
+Execute each query through THREE paths in the same fresh runtime/session window:
 
-Prove through the UI:
-- clarification question/options render;
-- selecting an option/resuming sends the correct follow-up semantics;
-- the flow completes without losing session/context;
-- no duplicate or contradictory assistant state is shown.
+A. **Browser/UI Agent** — submit from the actual Agent drawer/input and capture what is visibly rendered.
+B. **Direct Harness** — send the exact same text to `POST /api/v1/query` with a fresh controlled session ID.
+C. **Oracle B** — independently query/filter REAL Task API/AS21 without using the Harness answer as truth.
 
-If backend returns no clarification for the chosen query, use another realistic ambiguous query; do not fabricate clarification state.
+Mandatory queries:
+1. `Покажи задачу DMS-271` (or another live exact key only if DMS-271 is proven absent).
+2. `Покажи задачи в DMS-SPRNT-2`.
+3. `Покажи задачи <REAL_MEMBER> в DMS-SPRNT-2` using a member actually present in the Oracle source set.
+4. `Покажи задачи <REAL_MEMBER> в DMS со статусом <REAL_STATUS>` using source-proven member/status values.
+5. `Покажи задачи в DMS со статусом <REAL_STATUS>`.
+6. One paraphrase of query 3 or 4 in natural Russian.
 
-## Phase 4 — sprint live smoke on approved REAL surface
-Use sprint skills/screens with the approved live targets:
-1. `DMS-SPRNT-2` primary;
-2. `DMS-SPRNT-1` cross-check if needed;
-3. `OLP-SPRNT-5` independent cross-check if needed.
+If historical Garanin/Гаранин data is currently present, add the historical regression query for him. If he is not present in the live source, do not use his absence as a product failure; use the source-proven member for the mandatory verdict and record the historical case separately.
 
-Through the UI prove at least one sprint workflow reaches REAL backend facts. Compare key normalized facts with an independent direct AS21/Task API Oracle where practical.
+## Phase 3 — compare exact business facts
+For each query capture:
+- browser-visible text/status/result rows;
+- browser network request body and response body;
+- session_id and clarification_id if any;
+- Direct Harness status, skill/version, semantic frame/slots, filters/capability arguments, warnings/evidence;
+- Oracle exact expected task-key set or exact task record;
+- exact equality/difference of task-key sets;
+- elapsed time and retries.
 
-AS21 transient failure rule applies: timeout/502/503 -> up to 2 retries with 20–30 s backoff and focused revalidation/retest before environment classification.
+Verdict per row:
+- `UI_AGENT_ORACLE_PASS`
+- `UI_RENDER_MISMATCH`
+- `FRONTEND_REQUEST_MISMATCH`
+- `HARNESS_ORACLE_MISMATCH`
+- `EXPECTED_CLARIFICATION`
+- `AUTHORITATIVE_EMPTY_SOURCE`
+- `ENVIRONMENT_BLOCKED`
 
-## Phase 5 — source limitation/error rendering
-Without mutating AS21 and without inventing failures, exercise at least one currently known typed source limitation if naturally reachable, for example a capability that requires unavailable historical sprint/release timeline facts.
+HTTP 200 or `COMPLETED` cannot override wrong business facts.
 
-Prove the frontend does **not** display a fabricated metric or generic success. Record exactly how warnings/source-unavailable state is rendered.
+## Phase 4 — UI source-data pages forensic
+The owner's symptom also concerns frontend data pages. Test actual browser pages, not route HTTP only:
 
-If no safe typed limitation can be reached through current UI, record `NOT_SAFELY_REPRODUCIBLE` rather than forcing an artificial failure.
+### `/tasks`
+- prove whether rows are loaded from current API;
+- capture network call(s), response count and at least several source IDs;
+- compare displayed IDs/count with API response;
+- determine whether data are REAL AS21-backed, cached local-only, or empty.
 
-## Phase 6 — feedback controls smoke
-Verify the feedback UI on a real response:
-- positive/negative controls are present;
-- comment/correction UX appears where designed;
-- request contract matches backend.
+### `/sprint`
+Use `DMS-SPRNT-2` as primary and validate a displayed source-backed fact against Oracle B. If the screen does not allow sprint selection, trace what scope it actually uses.
 
-Do not submit a negative correction that would create/promote learning policy unless the current accepted test contract explicitly requires it. UI presence and safe request validation are enough for this Gate F smoke.
+### `/team`
+Determine whether member/workload facts come from live backend/AS21 or static/local data. Compare at least one member with Oracle/source response.
 
-## Phase 7 — duplicate AssistantView and route reality
-Resolve the P2 conclusion from Assignment 107 with live routing evidence.
+### `/releases`
+Do not fail the UI because DMS has no fix versions. Use a space/entity with real release data if available (OLP may be used if still source-valid), otherwise require a truthful empty/source-limited state.
 
-Determine whether `views/AssistantView.tsx` is:
-- unreachable dead code;
-- reachable by any route/navigation path;
-- capable of causing an actual user-visible duplicate chat experience.
+For each page identify exact route -> API call -> response -> rendered state.
 
-If unreachable and harmless, classify as cleanup debt, not a Gate F owner change requirement. Do not delete it.
+## Phase 5 — stale runtime / wrong-target checks
+Explicitly rule out common causes of "frontend looks alive but has no AS21 data":
+- frontend proxy pointing at wrong/stale Harness process;
+- multiple Harness processes on different ports;
+- Harness process started before latest branch changes;
+- Task API pointing at fake/cache/local mode;
+- stale browser session/localStorage causing semantic context contamination;
+- frontend localStorage task data shadowing live task data;
+- service worker/browser cache if applicable;
+- a dev server on a different port than the one the owner opened.
 
-## Phase 8 — AI-PDLC scope classification
-Re-read the authoritative roadmap/master spec and classify `/aidpdlc` exactly as:
-- `CURRENT_GATE_F_REQUIRED`, or
-- `OPTIONAL_LEGACY_FUTURE_SCOPE`.
+Use a unique runtime marker/health evidence if available. Do not modify code to create one.
 
-Do not set `FRONTEND_OWNER_CHANGES_REQUIRED` merely because an optional historical route is absent.
+## Phase 6 — session isolation and correction state
+Run the mandatory typical-query matrix twice:
+- once with a brand-new browser session/localStorage session id;
+- once after two unrelated queries in the same session.
 
-## Phase 9 — contract/network audit from live run
-From browser/network/dev-server evidence verify the actual live request/response path for at least:
-- query;
-- clarification/resume if exercised;
-- one domain page data request;
-- feedback endpoint contract/presence.
+If fresh session passes but reused session fails, trace conversation/context state and classify `SESSION_STATE_REGRESSION` with FIRST_FAILING_BOUNDARY.
 
-Check for:
-- 404/405;
-- CORS/proxy failures;
-- stale legacy endpoints;
-- response-shape rendering errors;
-- JS exceptions.
+Do not create or promote Learning Loop policies during this investigation. Record policy store before/after and require no new policy changes.
 
-Any true mismatch must identify FIRST_FAILING_BOUNDARY and exact route/component/request.
+## Phase 7 — FIRST_FAILING_BOUNDARY
+For every mismatch identify the earliest proven boundary among:
+- FRONTEND_INPUT_STATE
+- FRONTEND_REQUEST_BUILDING
+- DEV_PROXY_ROUTING
+- HARNESS_RUNTIME_TARGET
+- SESSION_CONTEXT
+- SEMANTIC_INTERPRETATION
+- SKILL_RESOLUTION
+- ENTITY_GROUNDING
+- CAPABILITY_ARGUMENT_BUILDING
+- TASK_API_ROUTING
+- SOURCE_CONTRACT
+- SOURCE_AVAILABILITY
+- SOURCE_DATA
+- RESPONSE_SERIALIZATION
+- FRONTEND_RENDERING
+- QA_METHODOLOGY
 
-## Phase 10 — Gate F recertification
-Choose exactly one verdict:
-- `FRONTEND_GATE_F_GREEN_READY_FOR_BROWSER_E2E`
-- `FRONTEND_OWNER_CHANGES_REQUIRED`
-- `FRONTEND_MAJOR_SCOPE_GAP`
-- `FRONTEND_BLOCKED_BY_STARTUP_OR_ENVIRONMENT`
+Do not jump directly to AS21/source unavailability unless independent Oracle B also fails after mandatory retest.
 
-`FRONTEND_GATE_F_GREEN_READY_FOR_BROWSER_E2E` requires:
-- frontend starts as-is with documented command;
-- required routes load;
-- real conversational UI works against Harness;
-- clarification/resume works where applicable;
-- at least one REAL sprint workflow works;
-- evidence/trace works;
-- source limitations are not fabricated as success;
-- no P0/P1 gaps;
-- no live frontend/backend contract mismatch;
-- optional/dead-code cleanup does not count as blocker;
-- production/frontend code changes = 0;
-- AS21 writes = 0.
+## Phase 8 — audit Assignment 107B methodology
+Explain how 107B could be GREEN while the owner immediately observed broken typical behavior.
+
+Verify for each 107B claimed UI workflow whether the evidence was:
+- actual browser interaction;
+- direct API substituted for UI;
+- route HTTP response only;
+- static code inspection;
+- or actual visible source-backed result.
+
+Any overstated evidence must be classified `QA_METHODOLOGY_DEFECT` and separated from product defects.
+
+## Gate decision
+Allowed final verdicts:
+- `GATE_F_RECONFIRMED_WITH_OWNER_QUERIES`
+- `PRODUCT_DEFECTS_PROVEN`
+- `FRONTEND_DATA_WIRING_DEFECT_PROVEN`
+- `SESSION_STATE_REGRESSION_PROVEN`
+- `MIXED_PRODUCT_AND_QA_DEFECTS`
+- `BLOCKED_BY_ENVIRONMENT`
+
+`GATE_F_RECONFIRMED_WITH_OWNER_QUERIES` is allowed only if:
+- independent REAL AS21 Oracle is healthy;
+- every mandatory data-backed typical query has UI A = Harness = Oracle business facts (or genuine expected clarification);
+- `/tasks`, `/sprint`, `/team`, and `/releases` render truthful live/empty/source-limited data according to their contracts;
+- fresh and reused sessions do not introduce unexplained regressions;
+- no fake/mock/frozen authoritative data;
+- no AS21 writes;
+- 107B methodology is audited and any previous overstatement is disclosed.
 
 ## QA artifact location
-Write only under:
-`po-agent-platform-v2/qa_reports/`
+Write only under `po-agent-platform-v2/qa_reports/`.
 
 Primary report:
-`po-agent-platform-v2/qa_reports/FRONTEND_LIVE_SMOKE_GATE_F_107B.md`
+`po-agent-platform-v2/qa_reports/UI_TO_AS21_END_TO_END_FORENSIC_108.md`
 
-Optional supporting artifacts prefix:
-`FRONTEND_LIVE_SMOKE_GATE_F_107B_`
+Supporting artifacts prefix:
+`UI_TO_AS21_END_TO_END_FORENSIC_108_`
 
 ## Required final summary
 Include:
-- exact HEAD;
-- frontend start command and actual URL;
-- routes live-tested;
-- UI workflows live-tested;
-- REAL AS21-backed UI workflow evidence;
-- clarification evidence;
-- network/console error counts;
-- P0/P1/P2/P3 gaps after live evidence;
-- resolution of Assignment 107 proxy contradiction;
-- duplicate AssistantView classification;
-- AI-PDLC current-scope classification;
-- final Gate F verdict;
-- production/frontend code changes = 0;
-- AS21 writes = 0.
+- exact HEAD and process PIDs/ports;
+- REAL AS21 preflight counts;
+- typical-query A/UI vs Direct Harness vs Oracle table;
+- exact task-key-set diffs for collection queries;
+- per-page live data provenance matrix;
+- fresh vs reused-session comparison;
+- FIRST_FAILING_BOUNDARY for every mismatch;
+- 107B QA methodology audit;
+- Learning Loop before/after exact state;
+- fake/mock/frozen=0 and AS21 writes=0;
+- final verdict.
 
-Commit/push only allowed QA/research artifacts, report final SHA, then STOP. Do not start Gate G/Assignment 108 on your own.
+Commit/push only allowed QA/forensic artifacts, report final SHA, then STOP. Do not modify production/frontend code and do not start any later assignment.
