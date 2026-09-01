@@ -81,6 +81,28 @@ def _task_code_from_row(row: Any) -> str | None:
     return None
 
 
+def _workflow_status_from_row(row: Any) -> Any:
+    """Preserve authoritative workflow status exposed by sprint-task rows.
+
+    The individual SWTR task point-read is authoritative for identity and
+    relations but the live sprint-task surface currently carries workflow
+    status that the point-read may omit. Keep that source fact while still
+    proving sprint membership from the point-read.
+    """
+    unit = _unit_from_payload(row)
+    if unit is None and isinstance(row, dict):
+        unit = row
+    if not isinstance(unit, dict):
+        return None
+    if unit.get("workflow_status") is not None:
+        return unit.get("workflow_status")
+    attrs = unit.get("attributes") if isinstance(unit.get("attributes"), list) else []
+    for item in attrs:
+        if isinstance(item, dict) and item.get("code") == "workflow_status":
+            return item.get("value")
+    return None
+
+
 def _sprint_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
     complete = payload.get("complete_tasks")
     if isinstance(complete, list) and complete:
@@ -172,7 +194,13 @@ class HardenedProductionTaskApiAS21Adapter(ProductionTaskApiAS21Adapter):
         return bool(await self.get_sprint_tasks(normalized))
 
     @staticmethod
-    def _map_raw_unit(unit: dict[str, Any], *, sprint_id: str | None = None, space: str | None = None) -> Task | None:
+    def _map_raw_unit(
+        unit: dict[str, Any],
+        *,
+        sprint_id: str | None = None,
+        space: str | None = None,
+        workflow_status: Any = None,
+    ) -> Task | None:
         code = _canonical_task_code(unit.get("code")) or _canonical_task_code(unit.get("task_code"))
         if not code:
             return None
@@ -180,12 +208,12 @@ class HardenedProductionTaskApiAS21Adapter(ProductionTaskApiAS21Adapter):
         source_data = {
             "swtr_code": code,
             "swtr_space": _space_code(unit.get("space")) or (space.upper() if space else None),
-            "workflow_status": unit.get("workflow_status"),
+            "workflow_status": workflow_status if workflow_status is not None else unit.get("workflow_status"),
             "swtr_attributes": attrs_list,
             "sprint_id": sprint_id,
         }
         attrs = _attributes(source_data)
-        status_value = attrs.get("workflow_status") or unit.get("workflow_status") or ""
+        status_value = source_data.get("workflow_status") or attrs.get("workflow_status") or unit.get("workflow_status") or ""
         if isinstance(status_value, dict):
             # Prefer 'name' for readability, fall back to 'code' if needed
             status_raw = status_value.get("name") or status_value.get("code") or ""
@@ -211,7 +239,7 @@ class HardenedProductionTaskApiAS21Adapter(ProductionTaskApiAS21Adapter):
             consume_qa_fault(code)
         else:
             status = original_status
-        
+
         display, external_id, login = _user_identity(attrs.get("assigned_to"))
         title = unit.get("summary") or unit.get("title")
         if not isinstance(title, str) or not title.strip():
@@ -220,7 +248,7 @@ class HardenedProductionTaskApiAS21Adapter(ProductionTaskApiAS21Adapter):
         updated = _parse_datetime(unit.get("updatedAt")) or created
         grounded_sprint = sprint_id or _identifier(attrs.get("scrum_board_plugin_sprint"))
         release_id = _identifier(attrs.get("fix_version_s"))
-        
+
         task = Task(
             key=code, id=code, title=title,
             description=unit.get("description") if isinstance(unit.get("description"), str) else None,
@@ -286,10 +314,13 @@ class HardenedProductionTaskApiAS21Adapter(ProductionTaskApiAS21Adapter):
             raise AS21SourceError("task-api sprint task endpoint returned an incomplete corpus")
 
         rows = _sprint_rows(payload)
+        rows_by_code: dict[str, dict[str, Any]] = {}
         codes: list[str] = []
         seen: set[str] = set()
         for row in rows:
             code = _task_code_from_row(row)
+            if code:
+                rows_by_code.setdefault(code, row)
             if code and code not in seen:
                 seen.add(code); codes.append(code)
         if rows and not codes:
@@ -306,7 +337,12 @@ class HardenedProductionTaskApiAS21Adapter(ProductionTaskApiAS21Adapter):
                 return None
             if space and (not real_space or real_space.casefold() != space.strip().casefold()):
                 return None
-            return self._map_raw_unit(unit, sprint_id=real_sprint, space=real_space)
+            return self._map_raw_unit(
+                unit,
+                sprint_id=real_sprint,
+                space=real_space,
+                workflow_status=_workflow_status_from_row(rows_by_code.get(code)),
+            )
 
         proven = await asyncio.gather(*(prove(code) for code in codes)) if codes else []
         return [task for task in proven if task is not None]
