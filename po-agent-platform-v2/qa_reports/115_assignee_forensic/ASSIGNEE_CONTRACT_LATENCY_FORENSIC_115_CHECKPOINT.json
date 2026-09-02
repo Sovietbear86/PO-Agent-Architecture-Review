@@ -1,0 +1,134 @@
+{
+  "phase_0": {
+    "start_timestamp": "2026-09-01 19:51:51",
+    "head": "2ef5e9b5041263e9ada141f74b024a495bfbc9e7",
+    "services": {
+      "frontend": {
+        "port": 5175,
+        "pid": 39884,
+        "command": "node",
+        "status": "running"
+      },
+      "task_api": {
+        "port": 8003,
+        "pid": 40162,
+        "command": "uvicorn",
+        "status": "running"
+      },
+      "harness": {
+        "port": 8004,
+        "pid": 62243,
+        "command": "uvicorn",
+        "status": "running"
+      },
+      "mcp_swtr": {
+        "transport": "stdio",
+        "status": "configured"
+      }
+    },
+    "harness_config": {
+      "AS21_MODE": "task-api",
+      "source_status": "healthy",
+      "source_error": null,
+      "adapter": "task-api"
+    },
+    "path": "Browser UI(5175) -> Vite proxy -> Harness(8004) -> Task API(8003) -> MCP-SWTR stdio -> REAL AS21"
+  },
+  "phase_1": {
+    "assignee_facts": [
+      {
+        "space": "WMB",
+        "code": "WMB-30210",
+        "assignee": {
+          "display_name": "\u0411\u043e\u0431\u043a\u043e\u0432 \u0415\u0432\u0433\u0435\u043d\u0438\u0439 \u0410\u043b\u0435\u043a\u0441\u0430\u043d\u0434\u0440\u043e\u0432\u0438\u0447",
+          "login": "bobkov.e.a",
+          "external_id": "Bobkov.E.A"
+        },
+        "layer_A_MCP-SWTR": "present",
+        "layer_B_TaskAPI": null,
+        "layer_C_bulk_search": null,
+        "layer_D_adapter_map": null,
+        "layer_E_known_assignees": null
+      },
+      {
+        "space": "DMS",
+        "code": "DMS-75",
+        "assignee": {
+          "display_name": "\u0421\u0435\u043c\u0430\u0432\u0438\u043d \u041c\u0438\u0445\u0430\u0438\u043b \u041c\u0438\u0445\u0430\u0439\u043b\u043e\u0432\u0438\u0447",
+          "login": "semavin.m.m",
+          "external_id": "Semavin.M.M"
+        },
+        "layer_A_MCP-SWTR": "present",
+        "layer_B_TaskAPI": null,
+        "layer_C_bulk_search": null,
+        "layer_D_adapter_map": null,
+        "layer_E_known_assignees": null
+      },
+      {
+        "space": "DMS",
+        "code": "DMS-144",
+        "assignee": {
+          "display_name": "\u0421\u0435\u043c\u0430\u0432\u0438\u043d \u041c\u0438\u0445\u0430\u0438\u043b \u041c\u0438\u0445\u0430\u0439\u043b\u043e\u0432\u0438\u0447",
+          "login": "semavin.m.m",
+          "external_id": "Semavin.M.M"
+        },
+        "layer_A_MCP-SWTR": "present",
+        "layer_B_TaskAPI": null,
+        "layer_C_bulk_search": null,
+        "layer_D_adapter_map": null,
+        "layer_E_known_assignees": null
+      },
+      {
+        "space": "OLP",
+        "code": "OLP-3231",
+        "assignee": {
+          "display_name": "\u0413\u0430\u043b\u044c\u0446\u043e\u0432 \u0410\u043b\u0435\u043a\u0441\u0430\u043d\u0434\u0440 \u0410\u043b\u0435\u043a\u0441\u0435\u0435\u0432\u0438\u0447",
+          "login": "galtsov.a.a",
+          "external_id": "Galtsov.A.A"
+        },
+        "layer_A_MCP-SWTR": "present",
+        "layer_B_TaskAPI": null,
+        "layer_C_bulk_search": null,
+        "layer_D_adapter_map": null,
+        "layer_E_known_assignees": null
+      },
+      {
+        "space": "OLP",
+        "code": "OLP-3179",
+        "assignee": {
+          "display_name": "\u0421\u0438\u0434\u043d\u0435\u0432\u0430 \u042e\u043b\u0438\u044f \u0421\u0435\u0440\u0433\u0435\u0435\u0432\u043d\u0430",
+          "login": "sidneva.y.s",
+          "external_id": "Sidneva.Y.S"
+        },
+        "layer_A_MCP-SWTR": "present",
+        "layer_B_TaskAPI": null,
+        "layer_C_bulk_search": null,
+        "layer_D_adapter_map": null,
+        "layer_E_known_assignees": null
+      }
+    ],
+    "summary": "Found 5 tasks with assignees in REAL AS21"
+  },
+  "phase_2": {
+    "bulk_vs_point_contract": null
+  },
+  "phase_3": {
+    "known_members": []
+  },
+  "phase_4": {
+    "agent_a_b_member_forensic": []
+  },
+  "phase_5": {
+    "status_member_sprint_member_controls": []
+  },
+  "phase_6": {
+    "latency_forensic": []
+  },
+  "phase_7": {
+    "semantic_context_cost_audit": null
+  },
+  "phase_8": {
+    "reconcile_114_contradictions": null
+  },
+  "final_verdict": null
+}

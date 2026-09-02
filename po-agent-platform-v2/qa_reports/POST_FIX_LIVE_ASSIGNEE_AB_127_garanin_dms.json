@@ -1,0 +1,523 @@
+{
+  "assignee": "Garanin.R.V",
+  "external_id": "Garanin.R.V",
+  "space": "DMS",
+  "source": "REAL_AS21",
+  "route": "search_users->find_units_by_filter",
+  "count": 8,
+  "tasks": [
+    {
+      "source_id": "DMS-380",
+      "title": "В компоненте Lineager не работает аутентификация в режиме mTLS, TLS, SSL",
+      "status": "ZRGSTR_JEPgizwlJWGww",
+      "source": "swtr",
+      "source_data": {
+        "swtr_space": "DMS",
+        "workflow_status": "ZRGSTR_JEPgizwlJWGww",
+        "swtr_attributes": [
+          {
+            "attribute": {
+              "code": "workflow_status",
+              "name": "Статус",
+              "type": "workflow_status",
+              "description": "Статус"
+            },
+            "value": {
+              "name": "Зарегистрирован",
+              "code": "ZRGSTR_JEPgizwlJWGww",
+              "style": {
+                "backgroundColor": "#E8EEF2",
+                "iconColor": "#13181B8E",
+                "colorByEdsRef": "cool"
+              },
+              "statusType": "pause"
+            },
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "scrum_board_plugin_sprint",
+              "name": "Спринт",
+              "type": "scrum_board_plugin_sprint",
+              "description": "Спринт"
+            },
+            "value": {
+              "code": "DMS-SPRNT-2",
+              "name": "2026_08_1",
+              "description": "",
+              "goal": "",
+              "status": "NEW",
+              "startAt": "2026-08-16T21:00:00Z",
+              "finishAt": "2026-08-30T21:00:00Z"
+            },
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "assigned_to",
+              "name": "Исполнитель",
+              "type": "user",
+              "description": "Исполнитель"
+            },
+            "value": {
+              "externalId": "Garanin.R.V",
+              "firstName": "Родион",
+              "lastName": "Гаранин",
+              "middleName": "Владимирович",
+              "login": "garanin.r.v",
+              "userDetails": []
+            },
+            "valueAsString": null
+          }
+        ],
+        "live_assignee_route": true
+      }
+    },
+    {
+      "source_id": "DMS-248",
+      "title": "Объединить общий конфиг и конфиг аудита",
+      "status": "CLSD_YLquKLRWNLxhnnC",
+      "source": "swtr",
+      "source_data": {
+        "swtr_space": "DMS",
+        "workflow_status": "CLSD_YLquKLRWNLxhnnC",
+        "swtr_attributes": [
+          {
+            "attribute": {
+              "code": "workflow_status",
+              "name": "Статус",
+              "type": "workflow_status",
+              "description": "Статус"
+            },
+            "value": {
+              "name": "Closed",
+              "code": "CLSD_YLquKLRWNLxhnnC",
+              "style": {
+                "backgroundColor": "#E0FFE9",
+                "iconColor": "#45E362",
+                "colorByEdsRef": "green"
+              },
+              "statusType": "done"
+            },
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "scrum_board_plugin_sprint",
+              "name": "Спринт",
+              "type": "scrum_board_plugin_sprint",
+              "description": "Спринт"
+            },
+            "value": {
+              "code": "DMS-SPRNT-1",
+              "name": "Спринт 1",
+              "description": "",
+              "goal": "",
+              "status": "NEW",
+              "startAt": "2026-04-12T21:00:00Z",
+              "finishAt": "2026-04-26T21:00:00Z"
+            },
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "assigned_to",
+              "name": "Исполнитель",
+              "type": "user",
+              "description": "Исполнитель"
+            },
+            "value": {
+              "externalId": "Garanin.R.V",
+              "firstName": "Родион",
+              "lastName": "Гаранин",
+              "middleName": "Владимирович",
+              "login": "garanin.r.v",
+              "userDetails": []
+            },
+            "valueAsString": null
+          }
+        ],
+        "live_assignee_route": true
+      }
+    },
+    {
+      "source_id": "DMS-328",
+      "title": "[ci] Добавление репозитория mcp-server в сборку дистрибутива DataMarts",
+      "status": "PN_wZbmKlgyPwHIFYZAN",
+      "source": "swtr",
+      "source_data": {
+        "swtr_space": "DMS",
+        "workflow_status": "PN_wZbmKlgyPwHIFYZAN",
+        "swtr_attributes": [
+          {
+            "attribute": {
+              "code": "workflow_status",
+              "name": "Статус",
+              "type": "workflow_status",
+              "description": "Статус"
+            },
+            "value": {
+              "name": "Open",
+              "code": "PN_wZbmKlgyPwHIFYZAN",
+              "style": {
+                "backgroundColor": "#E8EEF2",
+                "iconColor": "#13181B8E",
+                "colorByEdsRef": "cool"
+              },
+              "statusType": "pause"
+            },
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "scrum_board_plugin_sprint",
+              "name": "Спринт",
+              "type": "scrum_board_plugin_sprint",
+              "description": "Спринт"
+            },
+            "value": null,
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "assigned_to",
+              "name": "Исполнитель",
+              "type": "user",
+              "description": "Исполнитель"
+            },
+            "value": {
+              "externalId": "Garanin.R.V",
+              "firstName": "Родион",
+              "lastName": "Гаранин",
+              "middleName": "Владимирович",
+              "login": "garanin.r.v",
+              "userDetails": []
+            },
+            "valueAsString": null
+          }
+        ],
+        "live_assignee_route": true
+      }
+    },
+    {
+      "source_id": "DMS-326",
+      "title": "[ci] Добавление репозитория rust-modules в сборку дистрибутива DataMarts",
+      "status": "PN_wZbmKlgyPwHIFYZAN",
+      "source": "swtr",
+      "source_data": {
+        "swtr_space": "DMS",
+        "workflow_status": "PN_wZbmKlgyPwHIFYZAN",
+        "swtr_attributes": [
+          {
+            "attribute": {
+              "code": "workflow_status",
+              "name": "Статус",
+              "type": "workflow_status",
+              "description": "Статус"
+            },
+            "value": {
+              "name": "Open",
+              "code": "PN_wZbmKlgyPwHIFYZAN",
+              "style": {
+                "backgroundColor": "#E8EEF2",
+                "iconColor": "#13181B8E",
+                "colorByEdsRef": "cool"
+              },
+              "statusType": "pause"
+            },
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "scrum_board_plugin_sprint",
+              "name": "Спринт",
+              "type": "scrum_board_plugin_sprint",
+              "description": "Спринт"
+            },
+            "value": null,
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "assigned_to",
+              "name": "Исполнитель",
+              "type": "user",
+              "description": "Исполнитель"
+            },
+            "value": {
+              "externalId": "Garanin.R.V",
+              "firstName": "Родион",
+              "lastName": "Гаранин",
+              "middleName": "Владимирович",
+              "login": "garanin.r.v",
+              "userDetails": []
+            },
+            "valueAsString": null
+          }
+        ],
+        "live_assignee_route": true
+      }
+    },
+    {
+      "source_id": "DMS-262",
+      "title": "Исправление уязвимостей в datamarts-aitools",
+      "status": "closed",
+      "source": "swtr",
+      "source_data": {
+        "swtr_space": "DMS",
+        "workflow_status": "closed",
+        "swtr_attributes": [
+          {
+            "attribute": {
+              "code": "workflow_status",
+              "name": "Статус",
+              "type": "workflow_status",
+              "description": "Статус"
+            },
+            "value": {
+              "name": "Закрыт",
+              "code": "closed",
+              "style": {
+                "backgroundColor": "#E0FFE9",
+                "iconColor": "#45E362",
+                "colorByEdsRef": "green"
+              },
+              "statusType": "done"
+            },
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "scrum_board_plugin_sprint",
+              "name": "Спринт",
+              "type": "scrum_board_plugin_sprint",
+              "description": "Спринт"
+            },
+            "value": null,
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "assigned_to",
+              "name": "Исполнитель",
+              "type": "user",
+              "description": "Исполнитель"
+            },
+            "value": {
+              "externalId": "Garanin.R.V",
+              "firstName": "Родион",
+              "lastName": "Гаранин",
+              "middleName": "Владимирович",
+              "login": "garanin.r.v",
+              "userDetails": []
+            },
+            "valueAsString": null
+          }
+        ],
+        "live_assignee_route": true
+      }
+    },
+    {
+      "source_id": "DMS-243",
+      "title": "Исправление уязвимостей в релизе 2.3.0",
+      "status": "Q_ymlStTGiWDtKMqTySr",
+      "source": "swtr",
+      "source_data": {
+        "swtr_space": "DMS",
+        "workflow_status": "Q_ymlStTGiWDtKMqTySr",
+        "swtr_attributes": [
+          {
+            "attribute": {
+              "code": "workflow_status",
+              "name": "Статус",
+              "type": "workflow_status",
+              "description": "Статус"
+            },
+            "value": {
+              "name": "QA",
+              "code": "Q_ymlStTGiWDtKMqTySr",
+              "style": {
+                "backgroundColor": "#CFECFF",
+                "iconColor": "#85CEFF",
+                "colorByEdsRef": "blue"
+              },
+              "statusType": "progress"
+            },
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "scrum_board_plugin_sprint",
+              "name": "Спринт",
+              "type": "scrum_board_plugin_sprint",
+              "description": "Спринт"
+            },
+            "value": {
+              "code": "DMS-SPRNT-1",
+              "name": "Спринт 1",
+              "description": "",
+              "goal": "",
+              "status": "NEW",
+              "startAt": "2026-04-12T21:00:00Z",
+              "finishAt": "2026-04-26T21:00:00Z"
+            },
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "assigned_to",
+              "name": "Исполнитель",
+              "type": "user",
+              "description": "Исполнитель"
+            },
+            "value": {
+              "externalId": "Garanin.R.V",
+              "firstName": "Родион",
+              "lastName": "Гаранин",
+              "middleName": "Владимирович",
+              "login": "garanin.r.v",
+              "userDetails": []
+            },
+            "valueAsString": null
+          }
+        ],
+        "live_assignee_route": true
+      }
+    },
+    {
+      "source_id": "DMS-93",
+      "title": "Создать прокси для взаимодействия функции ai_text_to_sql с GigaChat",
+      "status": "Q_ymlStTGiWDtKMqTySr",
+      "source": "swtr",
+      "source_data": {
+        "swtr_space": "DMS",
+        "workflow_status": "Q_ymlStTGiWDtKMqTySr",
+        "swtr_attributes": [
+          {
+            "attribute": {
+              "code": "workflow_status",
+              "name": "Статус",
+              "type": "workflow_status",
+              "description": "Статус"
+            },
+            "value": {
+              "name": "QA",
+              "code": "Q_ymlStTGiWDtKMqTySr",
+              "style": {
+                "backgroundColor": "#CFECFF",
+                "iconColor": "#85CEFF",
+                "colorByEdsRef": "blue"
+              },
+              "statusType": "progress"
+            },
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "scrum_board_plugin_sprint",
+              "name": "Спринт",
+              "type": "scrum_board_plugin_sprint",
+              "description": "Спринт"
+            },
+            "value": {
+              "code": "DMS-SPRNT-1",
+              "name": "Спринт 1",
+              "description": "",
+              "goal": "",
+              "status": "NEW",
+              "startAt": "2026-04-12T21:00:00Z",
+              "finishAt": "2026-04-26T21:00:00Z"
+            },
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "assigned_to",
+              "name": "Исполнитель",
+              "type": "user",
+              "description": "Исполнитель"
+            },
+            "value": {
+              "externalId": "Garanin.R.V",
+              "firstName": "Родион",
+              "lastName": "Гаранин",
+              "middleName": "Владимирович",
+              "login": "garanin.r.v",
+              "userDetails": []
+            },
+            "valueAsString": null
+          }
+        ],
+        "live_assignee_route": true
+      }
+    },
+    {
+      "source_id": "DMS-36",
+      "title": "SDP Beholder.stat",
+      "status": "CLSD_YLquKLRWNLxhnnC",
+      "source": "swtr",
+      "source_data": {
+        "swtr_space": "DMS",
+        "workflow_status": "CLSD_YLquKLRWNLxhnnC",
+        "swtr_attributes": [
+          {
+            "attribute": {
+              "code": "workflow_status",
+              "name": "Статус",
+              "type": "workflow_status",
+              "description": "Статус"
+            },
+            "value": {
+              "name": "Closed",
+              "code": "CLSD_YLquKLRWNLxhnnC",
+              "style": {
+                "backgroundColor": "#E0FFE9",
+                "iconColor": "#45E362",
+                "colorByEdsRef": "green"
+              },
+              "statusType": "done"
+            },
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "scrum_board_plugin_sprint",
+              "name": "Спринт",
+              "type": "scrum_board_plugin_sprint",
+              "description": "Спринт"
+            },
+            "value": {
+              "code": "DMS-SPRNT-1",
+              "name": "Спринт 1",
+              "description": "",
+              "goal": "",
+              "status": "NEW",
+              "startAt": "2026-04-12T21:00:00Z",
+              "finishAt": "2026-04-26T21:00:00Z"
+            },
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "assigned_to",
+              "name": "Исполнитель",
+              "type": "user",
+              "description": "Исполнитель"
+            },
+            "value": {
+              "externalId": "Garanin.R.V",
+              "firstName": "Родион",
+              "lastName": "Гаранин",
+              "middleName": "Владимирович",
+              "login": "garanin.r.v",
+              "userDetails": []
+            },
+            "valueAsString": null
+          }
+        ],
+        "live_assignee_route": true
+      }
+    }
+  ],
+  "pages_read": 1
+}

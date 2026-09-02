@@ -1,0 +1,1049 @@
+{
+  "assignee": "Garanin.R.V",
+  "external_id": "Garanin.R.V",
+  "space": null,
+  "source": "REAL_AS21",
+  "route": "search_users->find_units_by_filter",
+  "count": 16,
+  "tasks": [
+    {
+      "source_id": "DMS-380",
+      "title": "В компоненте Lineager не работает аутентификация в режиме mTLS, TLS, SSL",
+      "status": "ZRGSTR_JEPgizwlJWGww",
+      "source": "swtr",
+      "source_data": {
+        "swtr_space": "DMS",
+        "workflow_status": "ZRGSTR_JEPgizwlJWGww",
+        "swtr_attributes": [
+          {
+            "attribute": {
+              "code": "workflow_status",
+              "name": "Статус",
+              "type": "workflow_status",
+              "description": "Статус"
+            },
+            "value": {
+              "name": "Зарегистрирован",
+              "code": "ZRGSTR_JEPgizwlJWGww",
+              "style": {
+                "backgroundColor": "#E8EEF2",
+                "iconColor": "#13181B8E",
+                "colorByEdsRef": "cool"
+              },
+              "statusType": "pause"
+            },
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "scrum_board_plugin_sprint",
+              "name": "Спринт",
+              "type": "scrum_board_plugin_sprint",
+              "description": "Спринт"
+            },
+            "value": {
+              "code": "DMS-SPRNT-2",
+              "name": "2026_08_1",
+              "description": "",
+              "goal": "",
+              "status": "NEW",
+              "startAt": "2026-08-16T21:00:00Z",
+              "finishAt": "2026-08-30T21:00:00Z"
+            },
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "assigned_to",
+              "name": "Исполнитель",
+              "type": "user",
+              "description": "Исполнитель"
+            },
+            "value": {
+              "externalId": "Garanin.R.V",
+              "firstName": "Родион",
+              "lastName": "Гаранин",
+              "middleName": "Владимирович",
+              "login": "garanin.r.v",
+              "userDetails": []
+            },
+            "valueAsString": null
+          }
+        ],
+        "live_assignee_route": true
+      }
+    },
+    {
+      "source_id": "OLP-3040",
+      "title": "Не работают кнопки \"Развернуть/свернуть всё поле\" на ПЧ-иерархии в MDXK",
+      "status": "RDFR_NiewJYNruxzlMLq",
+      "source": "swtr",
+      "source_data": {
+        "swtr_space": "OLP",
+        "workflow_status": "RDFR_NiewJYNruxzlMLq",
+        "swtr_attributes": [
+          {
+            "attribute": {
+              "code": "workflow_status",
+              "name": "Статус",
+              "type": "workflow_status",
+              "description": "Статус"
+            },
+            "value": {
+              "name": "Ready for QA",
+              "code": "RDFR_NiewJYNruxzlMLq",
+              "style": {
+                "backgroundColor": "#E8EEF2",
+                "iconColor": "#13181B8E",
+                "colorByEdsRef": "cool"
+              },
+              "statusType": "pause"
+            },
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "scrum_board_plugin_sprint",
+              "name": "Спринт",
+              "type": "scrum_board_plugin_sprint",
+              "description": "Спринт"
+            },
+            "value": {
+              "code": "OLP-SPRNT-6",
+              "name": "Спринт 2026-09-01",
+              "description": "",
+              "goal": "выпуск хотфикса ",
+              "status": "IN_PROGRESS",
+              "startAt": "2026-08-24T21:00:00Z",
+              "finishAt": "2026-09-07T21:00:00Z"
+            },
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "assigned_to",
+              "name": "Исполнитель",
+              "type": "user",
+              "description": "Исполнитель"
+            },
+            "value": {
+              "externalId": "Garanin.R.V",
+              "firstName": "Родион",
+              "lastName": "Гаранин",
+              "middleName": "Владимирович",
+              "login": "garanin.r.v",
+              "userDetails": []
+            },
+            "valueAsString": null
+          }
+        ],
+        "live_assignee_route": true
+      }
+    },
+    {
+      "source_id": "OLP-3145",
+      "title": "Отказ от XML в ответах на MDX запросы",
+      "status": "PN_wZbmKlgyPwHIFYZAN",
+      "source": "swtr",
+      "source_data": {
+        "swtr_space": "OLP",
+        "workflow_status": "PN_wZbmKlgyPwHIFYZAN",
+        "swtr_attributes": [
+          {
+            "attribute": {
+              "code": "workflow_status",
+              "name": "Статус",
+              "type": "workflow_status",
+              "description": "Статус"
+            },
+            "value": {
+              "name": "Open",
+              "code": "PN_wZbmKlgyPwHIFYZAN",
+              "style": {
+                "backgroundColor": "#E8EEF2",
+                "iconColor": "#13181B8E",
+                "colorByEdsRef": "cool"
+              },
+              "statusType": "pause"
+            },
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "scrum_board_plugin_sprint",
+              "name": "Спринт",
+              "type": "scrum_board_plugin_sprint",
+              "description": "Спринт"
+            },
+            "value": {
+              "code": "OLP-SPRNT-6",
+              "name": "Спринт 2026-09-01",
+              "description": "",
+              "goal": "выпуск хотфикса ",
+              "status": "IN_PROGRESS",
+              "startAt": "2026-08-24T21:00:00Z",
+              "finishAt": "2026-09-07T21:00:00Z"
+            },
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "assigned_to",
+              "name": "Исполнитель",
+              "type": "user",
+              "description": "Исполнитель"
+            },
+            "value": {
+              "externalId": "Garanin.R.V",
+              "firstName": "Родион",
+              "lastName": "Гаранин",
+              "middleName": "Владимирович",
+              "login": "garanin.r.v",
+              "userDetails": []
+            },
+            "valueAsString": null
+          }
+        ],
+        "live_assignee_route": true
+      }
+    },
+    {
+      "source_id": "OLP-3037",
+      "title": "Не открывается уровень высоко кардинальной иерархии",
+      "status": "RSLVD_iDxZrfBaaZfOTL",
+      "source": "swtr",
+      "source_data": {
+        "swtr_space": "OLP",
+        "workflow_status": "RSLVD_iDxZrfBaaZfOTL",
+        "swtr_attributes": [
+          {
+            "attribute": {
+              "code": "workflow_status",
+              "name": "Статус",
+              "type": "workflow_status",
+              "description": "Статус"
+            },
+            "value": {
+              "name": "Resolved",
+              "code": "RSLVD_iDxZrfBaaZfOTL",
+              "style": {
+                "backgroundColor": "#E0FFE9",
+                "iconColor": "#45E362",
+                "colorByEdsRef": "green"
+              },
+              "statusType": "done"
+            },
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "scrum_board_plugin_sprint",
+              "name": "Спринт",
+              "type": "scrum_board_plugin_sprint",
+              "description": "Спринт"
+            },
+            "value": {
+              "code": "OLP-SPRNT-5",
+              "name": "2026_08_1",
+              "description": "",
+              "goal": "Подготовка к выпуску хот-фикса",
+              "status": "FINISH",
+              "startAt": "2026-08-04T21:00:00Z",
+              "finishAt": "2026-08-18T21:00:00Z"
+            },
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "assigned_to",
+              "name": "Исполнитель",
+              "type": "user",
+              "description": "Исполнитель"
+            },
+            "value": {
+              "externalId": "Garanin.R.V",
+              "firstName": "Родион",
+              "lastName": "Гаранин",
+              "middleName": "Владимирович",
+              "login": "garanin.r.v",
+              "userDetails": []
+            },
+            "valueAsString": null
+          }
+        ],
+        "live_assignee_route": true
+      }
+    },
+    {
+      "source_id": "DMS-248",
+      "title": "Объединить общий конфиг и конфиг аудита",
+      "status": "CLSD_YLquKLRWNLxhnnC",
+      "source": "swtr",
+      "source_data": {
+        "swtr_space": "DMS",
+        "workflow_status": "CLSD_YLquKLRWNLxhnnC",
+        "swtr_attributes": [
+          {
+            "attribute": {
+              "code": "workflow_status",
+              "name": "Статус",
+              "type": "workflow_status",
+              "description": "Статус"
+            },
+            "value": {
+              "name": "Closed",
+              "code": "CLSD_YLquKLRWNLxhnnC",
+              "style": {
+                "backgroundColor": "#E0FFE9",
+                "iconColor": "#45E362",
+                "colorByEdsRef": "green"
+              },
+              "statusType": "done"
+            },
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "scrum_board_plugin_sprint",
+              "name": "Спринт",
+              "type": "scrum_board_plugin_sprint",
+              "description": "Спринт"
+            },
+            "value": {
+              "code": "DMS-SPRNT-1",
+              "name": "Спринт 1",
+              "description": "",
+              "goal": "",
+              "status": "NEW",
+              "startAt": "2026-04-12T21:00:00Z",
+              "finishAt": "2026-04-26T21:00:00Z"
+            },
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "assigned_to",
+              "name": "Исполнитель",
+              "type": "user",
+              "description": "Исполнитель"
+            },
+            "value": {
+              "externalId": "Garanin.R.V",
+              "firstName": "Родион",
+              "lastName": "Гаранин",
+              "middleName": "Владимирович",
+              "login": "garanin.r.v",
+              "userDetails": []
+            },
+            "valueAsString": null
+          }
+        ],
+        "live_assignee_route": true
+      }
+    },
+    {
+      "source_id": "DMS-328",
+      "title": "[ci] Добавление репозитория mcp-server в сборку дистрибутива DataMarts",
+      "status": "PN_wZbmKlgyPwHIFYZAN",
+      "source": "swtr",
+      "source_data": {
+        "swtr_space": "DMS",
+        "workflow_status": "PN_wZbmKlgyPwHIFYZAN",
+        "swtr_attributes": [
+          {
+            "attribute": {
+              "code": "workflow_status",
+              "name": "Статус",
+              "type": "workflow_status",
+              "description": "Статус"
+            },
+            "value": {
+              "name": "Open",
+              "code": "PN_wZbmKlgyPwHIFYZAN",
+              "style": {
+                "backgroundColor": "#E8EEF2",
+                "iconColor": "#13181B8E",
+                "colorByEdsRef": "cool"
+              },
+              "statusType": "pause"
+            },
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "scrum_board_plugin_sprint",
+              "name": "Спринт",
+              "type": "scrum_board_plugin_sprint",
+              "description": "Спринт"
+            },
+            "value": null,
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "assigned_to",
+              "name": "Исполнитель",
+              "type": "user",
+              "description": "Исполнитель"
+            },
+            "value": {
+              "externalId": "Garanin.R.V",
+              "firstName": "Родион",
+              "lastName": "Гаранин",
+              "middleName": "Владимирович",
+              "login": "garanin.r.v",
+              "userDetails": []
+            },
+            "valueAsString": null
+          }
+        ],
+        "live_assignee_route": true
+      }
+    },
+    {
+      "source_id": "DMS-326",
+      "title": "[ci] Добавление репозитория rust-modules в сборку дистрибутива DataMarts",
+      "status": "PN_wZbmKlgyPwHIFYZAN",
+      "source": "swtr",
+      "source_data": {
+        "swtr_space": "DMS",
+        "workflow_status": "PN_wZbmKlgyPwHIFYZAN",
+        "swtr_attributes": [
+          {
+            "attribute": {
+              "code": "workflow_status",
+              "name": "Статус",
+              "type": "workflow_status",
+              "description": "Статус"
+            },
+            "value": {
+              "name": "Open",
+              "code": "PN_wZbmKlgyPwHIFYZAN",
+              "style": {
+                "backgroundColor": "#E8EEF2",
+                "iconColor": "#13181B8E",
+                "colorByEdsRef": "cool"
+              },
+              "statusType": "pause"
+            },
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "scrum_board_plugin_sprint",
+              "name": "Спринт",
+              "type": "scrum_board_plugin_sprint",
+              "description": "Спринт"
+            },
+            "value": null,
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "assigned_to",
+              "name": "Исполнитель",
+              "type": "user",
+              "description": "Исполнитель"
+            },
+            "value": {
+              "externalId": "Garanin.R.V",
+              "firstName": "Родион",
+              "lastName": "Гаранин",
+              "middleName": "Владимирович",
+              "login": "garanin.r.v",
+              "userDetails": []
+            },
+            "valueAsString": null
+          }
+        ],
+        "live_assignee_route": true
+      }
+    },
+    {
+      "source_id": "DMS-262",
+      "title": "Исправление уязвимостей в datamarts-aitools",
+      "status": "closed",
+      "source": "swtr",
+      "source_data": {
+        "swtr_space": "DMS",
+        "workflow_status": "closed",
+        "swtr_attributes": [
+          {
+            "attribute": {
+              "code": "workflow_status",
+              "name": "Статус",
+              "type": "workflow_status",
+              "description": "Статус"
+            },
+            "value": {
+              "name": "Закрыт",
+              "code": "closed",
+              "style": {
+                "backgroundColor": "#E0FFE9",
+                "iconColor": "#45E362",
+                "colorByEdsRef": "green"
+              },
+              "statusType": "done"
+            },
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "scrum_board_plugin_sprint",
+              "name": "Спринт",
+              "type": "scrum_board_plugin_sprint",
+              "description": "Спринт"
+            },
+            "value": null,
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "assigned_to",
+              "name": "Исполнитель",
+              "type": "user",
+              "description": "Исполнитель"
+            },
+            "value": {
+              "externalId": "Garanin.R.V",
+              "firstName": "Родион",
+              "lastName": "Гаранин",
+              "middleName": "Владимирович",
+              "login": "garanin.r.v",
+              "userDetails": []
+            },
+            "valueAsString": null
+          }
+        ],
+        "live_assignee_route": true
+      }
+    },
+    {
+      "source_id": "STS-311034",
+      "title": "Новая потенциальная уязвимость в Platform V DataMarts 2.3.0",
+      "status": "CNCLLD_KdSyKcQZDXagZ",
+      "source": "swtr",
+      "source_data": {
+        "swtr_space": "STS",
+        "workflow_status": "CNCLLD_KdSyKcQZDXagZ",
+        "swtr_attributes": [
+          {
+            "attribute": {
+              "code": "workflow_status",
+              "name": "Статус",
+              "type": "workflow_status",
+              "description": "Статус"
+            },
+            "value": {
+              "name": "CANCELLED",
+              "code": "CNCLLD_KdSyKcQZDXagZ",
+              "style": {
+                "backgroundColor": "#E0FFE9",
+                "iconColor": "#45E362",
+                "colorByEdsRef": "green"
+              },
+              "statusType": "done"
+            },
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "fix_version_s",
+              "name": "Fix Version/s",
+              "type": "version",
+              "description": "Fix Version/s"
+            },
+            "value": [
+              {
+                "code": "72a5bf10-39e7-407f-aaee-991e47fca361",
+                "name": "Platform V DataMarts 2.5.0",
+                "status": "ACTIVE"
+              }
+            ],
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "assigned_to",
+              "name": "Исполнитель",
+              "type": "user",
+              "description": "Исполнитель"
+            },
+            "value": {
+              "externalId": "Garanin.R.V",
+              "firstName": "Родион",
+              "lastName": "Гаранин",
+              "middleName": "Владимирович",
+              "login": "garanin.r.v",
+              "userDetails": []
+            },
+            "valueAsString": null
+          }
+        ],
+        "live_assignee_route": true
+      }
+    },
+    {
+      "source_id": "STS-311033",
+      "title": "Новая потенциальная уязвимость в Platform V DataMarts 2.3.0",
+      "status": "CNCLLD_KdSyKcQZDXagZ",
+      "source": "swtr",
+      "source_data": {
+        "swtr_space": "STS",
+        "workflow_status": "CNCLLD_KdSyKcQZDXagZ",
+        "swtr_attributes": [
+          {
+            "attribute": {
+              "code": "workflow_status",
+              "name": "Статус",
+              "type": "workflow_status",
+              "description": "Статус"
+            },
+            "value": {
+              "name": "CANCELLED",
+              "code": "CNCLLD_KdSyKcQZDXagZ",
+              "style": {
+                "backgroundColor": "#E0FFE9",
+                "iconColor": "#45E362",
+                "colorByEdsRef": "green"
+              },
+              "statusType": "done"
+            },
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "fix_version_s",
+              "name": "Fix Version/s",
+              "type": "version",
+              "description": "Fix Version/s"
+            },
+            "value": [
+              {
+                "code": "72a5bf10-39e7-407f-aaee-991e47fca361",
+                "name": "Platform V DataMarts 2.5.0",
+                "status": "ACTIVE"
+              }
+            ],
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "assigned_to",
+              "name": "Исполнитель",
+              "type": "user",
+              "description": "Исполнитель"
+            },
+            "value": {
+              "externalId": "Garanin.R.V",
+              "firstName": "Родион",
+              "lastName": "Гаранин",
+              "middleName": "Владимирович",
+              "login": "garanin.r.v",
+              "userDetails": []
+            },
+            "valueAsString": null
+          }
+        ],
+        "live_assignee_route": true
+      }
+    },
+    {
+      "source_id": "STS-311026",
+      "title": "Новая потенциальная уязвимость в Platform V DataMarts 2.3.0",
+      "status": "CNCLLD_KdSyKcQZDXagZ",
+      "source": "swtr",
+      "source_data": {
+        "swtr_space": "STS",
+        "workflow_status": "CNCLLD_KdSyKcQZDXagZ",
+        "swtr_attributes": [
+          {
+            "attribute": {
+              "code": "workflow_status",
+              "name": "Статус",
+              "type": "workflow_status",
+              "description": "Статус"
+            },
+            "value": {
+              "name": "CANCELLED",
+              "code": "CNCLLD_KdSyKcQZDXagZ",
+              "style": {
+                "backgroundColor": "#E0FFE9",
+                "iconColor": "#45E362",
+                "colorByEdsRef": "green"
+              },
+              "statusType": "done"
+            },
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "fix_version_s",
+              "name": "Fix Version/s",
+              "type": "version",
+              "description": "Fix Version/s"
+            },
+            "value": [
+              {
+                "code": "72a5bf10-39e7-407f-aaee-991e47fca361",
+                "name": "Platform V DataMarts 2.5.0",
+                "status": "ACTIVE"
+              }
+            ],
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "assigned_to",
+              "name": "Исполнитель",
+              "type": "user",
+              "description": "Исполнитель"
+            },
+            "value": {
+              "externalId": "Garanin.R.V",
+              "firstName": "Родион",
+              "lastName": "Гаранин",
+              "middleName": "Владимирович",
+              "login": "garanin.r.v",
+              "userDetails": []
+            },
+            "valueAsString": null
+          }
+        ],
+        "live_assignee_route": true
+      }
+    },
+    {
+      "source_id": "STS-311024",
+      "title": "Новая потенциальная уязвимость в Platform V DataMarts 2.3.0",
+      "status": "CNCLLD_KdSyKcQZDXagZ",
+      "source": "swtr",
+      "source_data": {
+        "swtr_space": "STS",
+        "workflow_status": "CNCLLD_KdSyKcQZDXagZ",
+        "swtr_attributes": [
+          {
+            "attribute": {
+              "code": "workflow_status",
+              "name": "Статус",
+              "type": "workflow_status",
+              "description": "Статус"
+            },
+            "value": {
+              "name": "CANCELLED",
+              "code": "CNCLLD_KdSyKcQZDXagZ",
+              "style": {
+                "backgroundColor": "#E0FFE9",
+                "iconColor": "#45E362",
+                "colorByEdsRef": "green"
+              },
+              "statusType": "done"
+            },
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "fix_version_s",
+              "name": "Fix Version/s",
+              "type": "version",
+              "description": "Fix Version/s"
+            },
+            "value": [
+              {
+                "code": "72a5bf10-39e7-407f-aaee-991e47fca361",
+                "name": "Platform V DataMarts 2.5.0",
+                "status": "ACTIVE"
+              }
+            ],
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "assigned_to",
+              "name": "Исполнитель",
+              "type": "user",
+              "description": "Исполнитель"
+            },
+            "value": {
+              "externalId": "Garanin.R.V",
+              "firstName": "Родион",
+              "lastName": "Гаранин",
+              "middleName": "Владимирович",
+              "login": "garanin.r.v",
+              "userDetails": []
+            },
+            "valueAsString": null
+          }
+        ],
+        "live_assignee_route": true
+      }
+    },
+    {
+      "source_id": "DMS-243",
+      "title": "Исправление уязвимостей в релизе 2.3.0",
+      "status": "Q_ymlStTGiWDtKMqTySr",
+      "source": "swtr",
+      "source_data": {
+        "swtr_space": "DMS",
+        "workflow_status": "Q_ymlStTGiWDtKMqTySr",
+        "swtr_attributes": [
+          {
+            "attribute": {
+              "code": "workflow_status",
+              "name": "Статус",
+              "type": "workflow_status",
+              "description": "Статус"
+            },
+            "value": {
+              "name": "QA",
+              "code": "Q_ymlStTGiWDtKMqTySr",
+              "style": {
+                "backgroundColor": "#CFECFF",
+                "iconColor": "#85CEFF",
+                "colorByEdsRef": "blue"
+              },
+              "statusType": "progress"
+            },
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "scrum_board_plugin_sprint",
+              "name": "Спринт",
+              "type": "scrum_board_plugin_sprint",
+              "description": "Спринт"
+            },
+            "value": {
+              "code": "DMS-SPRNT-1",
+              "name": "Спринт 1",
+              "description": "",
+              "goal": "",
+              "status": "NEW",
+              "startAt": "2026-04-12T21:00:00Z",
+              "finishAt": "2026-04-26T21:00:00Z"
+            },
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "assigned_to",
+              "name": "Исполнитель",
+              "type": "user",
+              "description": "Исполнитель"
+            },
+            "value": {
+              "externalId": "Garanin.R.V",
+              "firstName": "Родион",
+              "lastName": "Гаранин",
+              "middleName": "Владимирович",
+              "login": "garanin.r.v",
+              "userDetails": []
+            },
+            "valueAsString": null
+          }
+        ],
+        "live_assignee_route": true
+      }
+    },
+    {
+      "source_id": "DMS-93",
+      "title": "Создать прокси для взаимодействия функции ai_text_to_sql с GigaChat",
+      "status": "Q_ymlStTGiWDtKMqTySr",
+      "source": "swtr",
+      "source_data": {
+        "swtr_space": "DMS",
+        "workflow_status": "Q_ymlStTGiWDtKMqTySr",
+        "swtr_attributes": [
+          {
+            "attribute": {
+              "code": "workflow_status",
+              "name": "Статус",
+              "type": "workflow_status",
+              "description": "Статус"
+            },
+            "value": {
+              "name": "QA",
+              "code": "Q_ymlStTGiWDtKMqTySr",
+              "style": {
+                "backgroundColor": "#CFECFF",
+                "iconColor": "#85CEFF",
+                "colorByEdsRef": "blue"
+              },
+              "statusType": "progress"
+            },
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "scrum_board_plugin_sprint",
+              "name": "Спринт",
+              "type": "scrum_board_plugin_sprint",
+              "description": "Спринт"
+            },
+            "value": {
+              "code": "DMS-SPRNT-1",
+              "name": "Спринт 1",
+              "description": "",
+              "goal": "",
+              "status": "NEW",
+              "startAt": "2026-04-12T21:00:00Z",
+              "finishAt": "2026-04-26T21:00:00Z"
+            },
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "assigned_to",
+              "name": "Исполнитель",
+              "type": "user",
+              "description": "Исполнитель"
+            },
+            "value": {
+              "externalId": "Garanin.R.V",
+              "firstName": "Родион",
+              "lastName": "Гаранин",
+              "middleName": "Владимирович",
+              "login": "garanin.r.v",
+              "userDetails": []
+            },
+            "valueAsString": null
+          }
+        ],
+        "live_assignee_route": true
+      }
+    },
+    {
+      "source_id": "DMS-36",
+      "title": "SDP Beholder.stat",
+      "status": "CLSD_YLquKLRWNLxhnnC",
+      "source": "swtr",
+      "source_data": {
+        "swtr_space": "DMS",
+        "workflow_status": "CLSD_YLquKLRWNLxhnnC",
+        "swtr_attributes": [
+          {
+            "attribute": {
+              "code": "workflow_status",
+              "name": "Статус",
+              "type": "workflow_status",
+              "description": "Статус"
+            },
+            "value": {
+              "name": "Closed",
+              "code": "CLSD_YLquKLRWNLxhnnC",
+              "style": {
+                "backgroundColor": "#E0FFE9",
+                "iconColor": "#45E362",
+                "colorByEdsRef": "green"
+              },
+              "statusType": "done"
+            },
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "scrum_board_plugin_sprint",
+              "name": "Спринт",
+              "type": "scrum_board_plugin_sprint",
+              "description": "Спринт"
+            },
+            "value": {
+              "code": "DMS-SPRNT-1",
+              "name": "Спринт 1",
+              "description": "",
+              "goal": "",
+              "status": "NEW",
+              "startAt": "2026-04-12T21:00:00Z",
+              "finishAt": "2026-04-26T21:00:00Z"
+            },
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "assigned_to",
+              "name": "Исполнитель",
+              "type": "user",
+              "description": "Исполнитель"
+            },
+            "value": {
+              "externalId": "Garanin.R.V",
+              "firstName": "Родион",
+              "lastName": "Гаранин",
+              "middleName": "Владимирович",
+              "login": "garanin.r.v",
+              "userDetails": []
+            },
+            "valueAsString": null
+          }
+        ],
+        "live_assignee_route": true
+      }
+    },
+    {
+      "source_id": "STS-184686",
+      "title": "Поднятие версий уязвимых библиотек в Platform V OLAP Analytics 1.8.0",
+      "status": "in_progress",
+      "source": "swtr",
+      "source_data": {
+        "swtr_space": "STS",
+        "workflow_status": "in_progress",
+        "swtr_attributes": [
+          {
+            "attribute": {
+              "code": "workflow_status",
+              "name": "Статус",
+              "type": "workflow_status",
+              "description": "Статус"
+            },
+            "value": {
+              "name": "В работе",
+              "code": "in_progress",
+              "style": {
+                "backgroundColor": "#CFECFF",
+                "iconColor": "#85CEFF",
+                "colorByEdsRef": "blue"
+              },
+              "statusType": "progress"
+            },
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "fix_version_s",
+              "name": "Fix Version/s",
+              "type": "version",
+              "description": "Fix Version/s"
+            },
+            "value": [
+              {
+                "code": "880d757d-13d5-4f25-bddb-e68ac24b8645",
+                "name": "Platform V OLAP Analytics 1.8.3",
+                "status": "ACTIVE"
+              }
+            ],
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "assigned_to",
+              "name": "Исполнитель",
+              "type": "user",
+              "description": "Исполнитель"
+            },
+            "value": {
+              "externalId": "Garanin.R.V",
+              "firstName": "Родион",
+              "lastName": "Гаранин",
+              "middleName": "Владимирович",
+              "login": "garanin.r.v",
+              "userDetails": []
+            },
+            "valueAsString": null
+          }
+        ],
+        "live_assignee_route": true
+      }
+    }
+  ],
+  "pages_read": 1
+}

@@ -1,0 +1,212 @@
+{
+  "assignee": "Garanin.R.V",
+  "external_id": "Garanin.R.V",
+  "space": "OLP",
+  "source": "REAL_AS21",
+  "route": "search_users->find_units_by_filter",
+  "count": 3,
+  "tasks": [
+    {
+      "source_id": "OLP-3040",
+      "title": "Не работают кнопки \"Развернуть/свернуть всё поле\" на ПЧ-иерархии в MDXK",
+      "status": "RDFR_NiewJYNruxzlMLq",
+      "source": "swtr",
+      "source_data": {
+        "swtr_space": "OLP",
+        "workflow_status": "RDFR_NiewJYNruxzlMLq",
+        "swtr_attributes": [
+          {
+            "attribute": {
+              "code": "workflow_status",
+              "name": "Статус",
+              "type": "workflow_status",
+              "description": "Статус"
+            },
+            "value": {
+              "name": "Ready for QA",
+              "code": "RDFR_NiewJYNruxzlMLq",
+              "style": {
+                "backgroundColor": "#E8EEF2",
+                "iconColor": "#13181B8E",
+                "colorByEdsRef": "cool"
+              },
+              "statusType": "pause"
+            },
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "scrum_board_plugin_sprint",
+              "name": "Спринт",
+              "type": "scrum_board_plugin_sprint",
+              "description": "Спринт"
+            },
+            "value": {
+              "code": "OLP-SPRNT-6",
+              "name": "Спринт 2026-09-01",
+              "description": "",
+              "goal": "выпуск хотфикса ",
+              "status": "IN_PROGRESS",
+              "startAt": "2026-08-24T21:00:00Z",
+              "finishAt": "2026-09-07T21:00:00Z"
+            },
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "assigned_to",
+              "name": "Исполнитель",
+              "type": "user",
+              "description": "Исполнитель"
+            },
+            "value": {
+              "externalId": "Garanin.R.V",
+              "firstName": "Родион",
+              "lastName": "Гаранин",
+              "middleName": "Владимирович",
+              "login": "garanin.r.v",
+              "userDetails": []
+            },
+            "valueAsString": null
+          }
+        ],
+        "live_assignee_route": true
+      }
+    },
+    {
+      "source_id": "OLP-3145",
+      "title": "Отказ от XML в ответах на MDX запросы",
+      "status": "PN_wZbmKlgyPwHIFYZAN",
+      "source": "swtr",
+      "source_data": {
+        "swtr_space": "OLP",
+        "workflow_status": "PN_wZbmKlgyPwHIFYZAN",
+        "swtr_attributes": [
+          {
+            "attribute": {
+              "code": "workflow_status",
+              "name": "Статус",
+              "type": "workflow_status",
+              "description": "Статус"
+            },
+            "value": {
+              "name": "Open",
+              "code": "PN_wZbmKlgyPwHIFYZAN",
+              "style": {
+                "backgroundColor": "#E8EEF2",
+                "iconColor": "#13181B8E",
+                "colorByEdsRef": "cool"
+              },
+              "statusType": "pause"
+            },
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "scrum_board_plugin_sprint",
+              "name": "Спринт",
+              "type": "scrum_board_plugin_sprint",
+              "description": "Спринт"
+            },
+            "value": {
+              "code": "OLP-SPRNT-6",
+              "name": "Спринт 2026-09-01",
+              "description": "",
+              "goal": "выпуск хотфикса ",
+              "status": "IN_PROGRESS",
+              "startAt": "2026-08-24T21:00:00Z",
+              "finishAt": "2026-09-07T21:00:00Z"
+            },
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "assigned_to",
+              "name": "Исполнитель",
+              "type": "user",
+              "description": "Исполнитель"
+            },
+            "value": {
+              "externalId": "Garanin.R.V",
+              "firstName": "Родион",
+              "lastName": "Гаранин",
+              "middleName": "Владимирович",
+              "login": "garanin.r.v",
+              "userDetails": []
+            },
+            "valueAsString": null
+          }
+        ],
+        "live_assignee_route": true
+      }
+    },
+    {
+      "source_id": "OLP-3037",
+      "title": "Не открывается уровень высоко кардинальной иерархии",
+      "status": "RSLVD_iDxZrfBaaZfOTL",
+      "source": "swtr",
+      "source_data": {
+        "swtr_space": "OLP",
+        "workflow_status": "RSLVD_iDxZrfBaaZfOTL",
+        "swtr_attributes": [
+          {
+            "attribute": {
+              "code": "workflow_status",
+              "name": "Статус",
+              "type": "workflow_status",
+              "description": "Статус"
+            },
+            "value": {
+              "name": "Resolved",
+              "code": "RSLVD_iDxZrfBaaZfOTL",
+              "style": {
+                "backgroundColor": "#E0FFE9",
+                "iconColor": "#45E362",
+                "colorByEdsRef": "green"
+              },
+              "statusType": "done"
+            },
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "scrum_board_plugin_sprint",
+              "name": "Спринт",
+              "type": "scrum_board_plugin_sprint",
+              "description": "Спринт"
+            },
+            "value": {
+              "code": "OLP-SPRNT-5",
+              "name": "2026_08_1",
+              "description": "",
+              "goal": "Подготовка к выпуску хот-фикса",
+              "status": "FINISH",
+              "startAt": "2026-08-04T21:00:00Z",
+              "finishAt": "2026-08-18T21:00:00Z"
+            },
+            "valueAsString": null
+          },
+          {
+            "attribute": {
+              "code": "assigned_to",
+              "name": "Исполнитель",
+              "type": "user",
+              "description": "Исполнитель"
+            },
+            "value": {
+              "externalId": "Garanin.R.V",
+              "firstName": "Родион",
+              "lastName": "Гаранин",
+              "middleName": "Владимирович",
+              "login": "garanin.r.v",
+              "userDetails": []
+            },
+            "valueAsString": null
+          }
+        ],
+        "live_assignee_route": true
+      }
+    }
+  ],
+  "pages_read": 1
+}
