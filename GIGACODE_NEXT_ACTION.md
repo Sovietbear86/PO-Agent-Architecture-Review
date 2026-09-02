@@ -1,211 +1,203 @@
 # GigaCode — Current Action
 
 ## Status
-`ACTIVE_QA_ASSIGNMENT_128_CLEAN_RUNTIME_PRODUCTION_ADAPTER_PROOF`
+`ACTIVE_QA_ASSIGNMENT_129_OWNER_FIX_TRUE_AB_REGRESSION`
 
-## Why this assignment exists
-Assignment 127 proved that the REAL AS21 live assignee boundary is healthy: `/api/v1/swtr-read/assignee-tasks` returned real tasks, while the running Harness returned zero. However, the current Git implementation of `ProductionTaskApiAS21Adapter.search_tasks()` already contains assignee routing to `/api/v1/swtr-read/assignee-tasks`. Therefore do NOT implement that routing again. First prove which adapter implementation the running Harness actually loaded.
+## Owner fix under test
+Owner commit: `54f7f01e967f03bd62b0e6592059c898505ef4b9`
+
+Defect fixed: `HardenedProductionTaskApiAS21Adapter.search_tasks()` previously bypassed the live production assignee route whenever `project_space` was present and called the empty legacy `/api/v1/tasks` facade. The owner fix gives assignee queries precedence (unless a sprint-specific path is required), so generic and `assignee + space` searches must route through `ProductionTaskApiAS21Adapter.search_tasks()` -> `/api/v1/swtr-read/assignee-tasks` -> REAL AS21.
 
 ## Role boundary
-You are QA/test executor only. Do NOT modify production code, prompts, skills, adapters, Task API, MCP-SWTR, team configuration, AS21 data, testing rules, or this file. Commit/push only QA artifacts under `po-agent-platform-v2/qa_reports/`.
+You are QA/test executor only. Do NOT modify production code, prompts, skills, adapters, Task API, MCP-SWTR, tests, fixtures, team configuration, AS21 data, testing rules, or this file. Commit/push only QA reports/evidence under `po-agent-platform-v2/qa_reports/`.
 
-## Absolute prohibitions
-- NO production fixes in Assignment 128.
-- NO merge/cherry-pick/revert of production code.
+## Absolute anti-surrogate rules
 - NO local DB synchronization/population.
-- NO local DB/cache as Agent source or Oracle.
-- NO fake/mock/frozen/historical truth.
-- NO AS21 writes.
+- NO local DB/cache as Agent truth or Oracle truth.
+- NO fake/mock/frozen/historical expected answers.
 - NO Harness/Agent as Oracle B.
-- NO unrelated employees or spaces outside approved scope.
-- NO 54-skill marathon yet.
-- HTTP 200/COMPLETED alone is never PASS.
+- NO copying expected task counts/keys from Assignment 128 as current truth.
+- NO AS21 writes.
+- HTTP 200 / COMPLETED is never sufficient for PASS.
+- Exact business facts must be compared A vs independent B.
+- For task collections, exact task-key-set equality is mandatory.
+- If Oracle B cannot be independently established for a case, mark it `ORACLE_NOT_PROVEN`; never convert that case to PASS.
 
 ## Goal
-Prove whether the current failure is caused by stale/wrong runtime adapter selection or by a later production boundary. Then perform TRUE live A/B equality for the assignee path.
+First certify the owner routing fix with TRUE live A/B. Only if the focused gate is GREEN, run regression. If focused gate fails, STOP and report the first failing boundary; do not waste time on the 54-skill marathon.
 
-A = freshly restarted production Harness from exact current HEAD.
-B = independent REAL AS21 Oracle.
+A = freshly restarted production Harness/Agent.
+B = independently queried REAL AS21/MCP-SWTR source facts.
 
-Globally approved spaces only:
-`WMB, STS, OLP, DMS, CRPV`.
+Approved task spaces: `WMB, STS, OLP, DMS, CRPV`.
 
-## Phase 0 — clean provenance
-1. Pull latest `feat/core8-real-query-hardening-v2`.
-2. Record exact HEAD and `git status`.
-3. Production worktree must be CLEAN.
-4. If any uncommitted production changes exist, STOP with verdict `BLOCKED_BY_DIRTY_PROVENANCE`; list them. Do not delete, stash, commit, or modify them.
-5. Do not reuse old runtime results as current evidence.
+## Phase 0 — provenance and runtime reset
+1. `git switch feat/core8-real-query-hardening-v2`.
+2. `git pull --ff-only origin feat/core8-real-query-hardening-v2`.
+3. Record exact HEAD; it MUST contain owner commit `54f7f01e...`.
+4. Record `git status --porcelain` and full diffs of any pre-existing dirty files. Do not modify/stash/delete them.
+5. Important: Assignment 128 observed pre-existing local changes in `po-agent-platform-v2/src/po_agent/adapters/task_api.py` and `task-api/app/routers/swtr_assignee.py`. Treat them as owner-fix-under-test state only if still present; hash/diff them explicitly. Do not silently normalize them.
+6. Kill all old Task API/Harness processes; prove ports free.
+7. Start Task API and Harness fresh from the current working tree; record PID/start time/CWD/command and loaded Git HEAD.
+8. Verify Task API, Harness and MCP-SWTR health.
+9. Timeout >=120s; heavy source reads may use 180s; retry transient timeout/502 up to 2 times with 20–30s backoff. Concurrency=1 for source-heavy tests.
 
-## Phase 1 — hard runtime restart
-1. Discover all currently running Task API and Harness processes and record old PIDs/start times.
-2. Stop all old Task API/Harness processes.
-3. Prove old PIDs no longer exist and required ports are free.
-4. Start Task API and Harness again from the exact Phase-0 HEAD.
-5. Record new PIDs/start times and working directories/commands.
-6. Verify Task API health, Harness health, MCP-SWTR health and REAL AS21 availability.
-7. If source is temporarily unavailable: retry up to 2 times, 20–30 sec backoff, timeout >=120 sec.
+## Phase 1 — focused independent Oracle B for Garanin
+Build current truth from REAL AS21, independently of Harness:
 
-## Phase 2 — runtime adapter identity proof
-Prove with runtime introspection/evidence, not assumption:
-1. Which `runtime_factory/build_runtime_bundle` the running Harness uses.
-2. Exact concrete adapter instance/class used for task search:
-   - `ProductionTaskApiAS21Adapter`, or
-   - `TaskApiAS21Adapter`, or
-   - another class.
-3. Capture:
-   - class name;
-   - module name;
-   - loaded source file path;
-   - loaded `search_tasks` implementation/source location;
-   - runtime working directory/PYTHONPATH if relevant.
-4. Compare the loaded production adapter file to current Git HEAD.
+`search_users -> exact externalId Garanin.R.V -> find_units_by_filter(assigned_to = "Garanin.R.V") -> complete pagination -> approved-space filter`
 
-Do not edit production code to add diagnostics. Use existing logs, Python introspection, process information, or read-only debug execution.
+Capture exact sets:
+- `B_GARANIN_ALL_KEYS`
+- `B_GARANIN_DMS_KEYS`
+- `B_GARANIN_OLP_KEYS`
+- per-space counts/keys for all approved spaces
+- source request/evidence and pagination proof.
 
-Critical known fact to verify: current Git `ProductionTaskApiAS21Adapter.search_tasks()` is expected to detect an `assignee` filter and call `/api/v1/swtr-read/assignee-tasks` rather than `/api/v1/tasks`.
+Do not assume the previous count of 16 remains current.
 
-## Phase 3 — fresh independent Oracle B
-Rebuild Oracle B from scratch from REAL AS21. Do not copy Assignment 127 counts as expected truth.
+## Phase 2 — direct Task API boundary
+Call fresh:
+1. `/api/v1/swtr-read/assignee-tasks?assignee=Garanin.R.V`
+2. same with `space=DMS`
+3. same with `space=OLP`
 
-For Garanin:
-`search_users -> exact Garanin.R.V externalId -> find_units_by_filter(query='assigned_to = "<externalId>"') -> complete pagination`
+Required exact invariants:
+- TaskApi generic keys == `B_GARANIN_ALL_KEYS`
+- TaskApi DMS keys == `B_GARANIN_DMS_KEYS`
+- TaskApi OLP keys == `B_GARANIN_OLP_KEYS`
 
-Filter results only to approved spaces `WMB, STS, OLP, DMS, CRPV`.
+Capture actual route/source/external_id/pages_read.
 
-Capture exact:
-- `B_GARANIN_ALL_APPROVED_KEYS`;
-- `B_GARANIN_DMS_KEYS`;
-- `B_GARANIN_OLP_KEYS`;
-- all returned spaces/counts;
-- excluded outside-scope keys if any;
-- raw source/evidence references.
+## Phase 3 — focused Harness A certification
+Fresh session for every query:
+1. `Задачи Гаранина`
+2. `Задачи Гаранина в DMS`
+3. `Задачи Гаранина в OLP`
 
-## Phase 4 — direct live Task API boundary
-From the same fresh environment call:
-`GET /api/v1/swtr-read/assignee-tasks?assignee=Garanin.R.V`
-
-Capture source, route, external_id, count, exact keys, spaces, pages_read, elapsed.
-
-Required invariant:
-`TaskApiLiveKeys == B_GARANIN_ALL_APPROVED_KEYS`.
-
-Also test `space=DMS` and `space=OLP` against the corresponding Oracle subsets.
-
-If this boundary mismatches, identify it explicitly; do not blame Harness routing first.
-
-## Phase 5 — actual fresh Harness A
-Fresh session, natural query:
-`Задачи Гаранина`
-
-Capture:
-- status;
-- intent;
-- skill/version;
-- resolved member/externalId;
+For every query capture:
+- status, intent, skill/version;
+- semantic member and space;
 - capability args;
 - concrete adapter class;
-- ACTUAL downstream HTTP endpoint called by adapter;
-- source/evidence;
+- ACTUAL downstream endpoint;
+- evidence/source;
 - exact returned task keys;
-- answer;
 - elapsed.
 
-Critical assert for assignee search:
-actual downstream endpoint MUST be `/api/v1/swtr-read/assignee-tasks`, NOT `/api/v1/tasks`.
+Mandatory routing invariant for 1-3 when no sprint is requested:
+`/api/v1/swtr-read/assignee-tasks` must be used and `/api/v1/tasks` must NOT be used as authoritative source.
 
-Required A/B invariant:
-`A_GENERIC_KEYS == B_GARANIN_ALL_APPROVED_KEYS`.
+Mandatory equality:
+- A generic == B generic
+- A DMS == B DMS
+- A OLP == B OLP
 
-A zero result is FAIL if independent Oracle B is non-zero.
+Repeat all three once in fresh sessions if first pass is GREEN.
 
-## Phase 6 — explicit-space A/B controls
-Fresh sessions:
-1. `Задачи Гаранина в DMS`
-2. `Задачи Гаранина в OLP`
+## Phase 4 — independent second-member control
+Use `Kalachanov.V.V` only as an anti-hardcoding control, not as a zero-task expectation.
 
-For each capture exact A keys, exact B keys, selected skill/args, downstream endpoint and equality.
+Build B independently from REAL AS21 across ALL approved spaces `WMB, STS, OLP, DMS, CRPV`; capture exact keys and per-space distribution. Then run fresh A query `Задачи Калачанова` and compare exact key sets.
 
-Do not ask needless clarification when member and explicit space are already unambiguous.
+Known owner context must NOT be used as Oracle: Kalachanov may have tasks in WMB/CRPV/STS. Current source decides the answer.
 
-## Phase 7 — deterministic repeat
-Only if generic + DMS + OLP pass once, repeat all three once more in fresh sessions.
+## Focused Gate
+Proceed to Phase 5 only if ALL of Phases 1-4 have independently proven Oracle B and exact A/B equality.
 
-Required:
-- same exact key sets;
-- same live source route;
-- no local/cache fallback;
-- no new clarification/regression.
+If any mismatch exists, STOP with `FOCUSED_AB_REGRESSION_FAILED` and identify FIRST_FAILING_BOUNDARY.
 
-## Phase 8 — first failing boundary
-If mismatch remains, identify exactly the earliest incorrect boundary and show last-correct + first-incorrect artifacts.
+## Phase 5 — targeted semantic/source regression
+Run TRUE A/B controls for the historically fragile paths using fresh real entities discovered from current AS21:
+- exact task ID: existing;
+- exact task ID: nonexistent;
+- sprint ID only;
+- sprint + person;
+- sprint + status;
+- person only;
+- person + explicit space/product;
+- person + status where supported;
+- correction turn: new status replaces old while unaffected slots survive.
 
-Preferred classifications:
+For task-returning cases compare exact key sets against independent REAL AS21 filtering. For non-task semantic cases compare grounded identifiers/constraints and independently verifiable source facts.
 
-### `RUNTIME_FACTORY_ADAPTER_SELECTION`
-Running Harness constructs `TaskApiAS21Adapter`/other adapter instead of `ProductionTaskApiAS21Adapter`.
+## Phase 6 — 54-skill regression
+Only after Focused Gate GREEN.
 
-### `LOADED_IMPLEMENTATION_MISMATCH`
-Runtime claims production adapter but loaded module/file/search_tasks differs from current HEAD.
+Run all 54 registered skills sequentially against the fresh production runtime. Use realistic Russian business queries and valid current REAL entities. Do not manufacture PASS from HTTP status.
 
-### `ADAPTER_ROUTING`
-Current production adapter is loaded, but actual assignee execution still calls `/api/v1/tasks` instead of live assignee facade.
+For every skill classify:
+- `AB_PASS` — independently proven business facts equal;
+- `EXPECTED_CLARIFICATION` — clarification is required by contract and input is genuinely ambiguous/incomplete;
+- `SOURCE_CAPABILITY_UNAVAILABLE_BY_DESIGN` — required source fact is genuinely unavailable and product returns the correct typed state;
+- `ENVIRONMENT_BLOCKED` — transient source/environment prevented proof after retries;
+- `AB_MISMATCH` — independently proven business facts differ;
+- `ORACLE_NOT_PROVEN` — independent B could not be established.
 
-### `ADAPTER_MAPPING_OR_FILTERING`
-Live endpoint returns correct tasks and adapter receives them, but mapping/filtering loses or changes them.
+For task collections exact key-set equality is primary. For metrics, independently reconstruct the input task set/source facts and calculation where source contract permits. Never use Harness output as expected value.
 
-### `CAPABILITY_RESULT_PROPAGATION`
-Adapter returns correct exact keys but capability/Harness loses or changes them above the adapter.
+Record total counts; they must sum exactly to 54.
 
-### `SEMANTIC_OR_ARGUMENT_BUILDING`
-Natural query resolves wrong member/space/skill/capability arguments before adapter execution.
+## Phase 7 — learning-loop guardrail regression
+Do NOT teach/promote anything merely because an answer is zero.
 
-### `TASK_API_LIVE_ASSIGNEE_FACADE`
-Direct Task API live result differs from independent REAL AS21 Oracle.
+If A returns zero and independent B is non-zero, classify `AB_MISMATCH`, trace the boundary, and only then assess whether a generalized learning candidate is appropriate. No hardcoded member/task/count facts. No rule such as “zero is impossible”.
 
-Do not infer a code change. Assignment 128 is diagnosis/certification only.
+If both A and B are zero for the same current scope, it is valid zero and no learning event is justified.
 
-## Phase 9 — anti-surrogate gate
-Every item must be YES for any GREEN:
-- exact current HEAD recorded;
-- clean production worktree;
-- old processes killed;
-- new PIDs/start times proven;
-- runtime concrete adapter class proven;
-- loaded module/file proven;
-- independent Oracle B direct to REAL AS21;
-- complete Oracle pagination;
-- exact task-key sets captured;
-- actual downstream endpoint captured;
-- Task API live facade compared independently;
-- Harness compared by exact-key equality;
-- no local DB/sync/cache/fake/mock/frozen truth;
-- approved spaces only;
-- AS21 writes = 0.
+## Phase 8 — FIRST_FAILING_BOUNDARY
+Allowed labels include:
+- `SEMANTIC_INTERPRETATION`
+- `MEMBER_IDENTITY_RESOLUTION`
+- `SPACE_SCOPE_RESOLUTION`
+- `SKILL_RESOLUTION`
+- `CAPABILITY_ARGUMENT_BUILDING`
+- `PRODUCTION_ADAPTER_ROUTING`
+- `TASK_API_LIVE_ASSIGNEE_FACADE`
+- `MCP_USER_RESOLUTION`
+- `MCP_TQL_QUERY`
+- `SOURCE_RESPONSE_DECODING`
+- `GLOBAL_SPACE_FILTERING`
+- `DETERMINISTIC_CALCULATION`
+- `CAPABILITY_RESULT_PROPAGATION`
+- `RESPONSE_STATUS_MAPPING`
+- `RESPONSE_RENDERING`
+- `QA_HARNESS_ORACLE_DEFECT`
 
-## Allowed final verdicts ONLY
-- `STALE_RUNTIME_PROVEN_AND_PARITY_GREEN`
-- `RUNTIME_FACTORY_ADAPTER_SELECTION_DEFECT`
-- `LOADED_IMPLEMENTATION_MISMATCH`
-- `ADAPTER_ROUTING_DEFECT`
-- `ADAPTER_MAPPING_OR_FILTERING_DEFECT`
-- `CAPABILITY_RESULT_PROPAGATION_DEFECT`
-- `SEMANTIC_OR_ARGUMENT_BUILDING_DEFECT`
-- `TASK_API_LIVE_ASSIGNEE_FACADE_DEFECT`
-- `REAL_SOURCE_CHANGED_OR_UNAVAILABLE`
-- `BLOCKED_BY_DIRTY_PROVENANCE`
+Always show last-correct and first-incorrect artifacts.
 
-No other GREEN is allowed.
+## Phase 9 — final anti-surrogate audit
+Report explicitly:
+- exact HEAD and whether owner commit is contained;
+- dirty-file hashes/diffs if any;
+- fresh PIDs/start times;
+- REAL AS21 reads count/evidence;
+- local DB/cache authoritative reads = 0;
+- fake/mock/frozen truth = 0;
+- AS21 writes = 0;
+- Oracle independence method;
+- exact-key comparison method;
+- `/api/v1/tasks` authoritative use for assignee tests = 0;
+- all 54 classification counts sum to 54 if marathon executed.
 
 ## Output
 Primary report:
-`po-agent-platform-v2/qa_reports/CLEAN_RUNTIME_PRODUCTION_ADAPTER_PROOF_128.md`
+`po-agent-platform-v2/qa_reports/OWNER_FIX_TRUE_AB_REGRESSION_129.md`
 
 Optional raw evidence prefix:
-`CLEAN_RUNTIME_PRODUCTION_ADAPTER_PROOF_128_`
+`OWNER_FIX_TRUE_AB_REGRESSION_129_`
+
+## Allowed final verdicts
+- `OWNER_FIX_FOCUSED_AB_GREEN_REGRESSION_GREEN`
+- `OWNER_FIX_FOCUSED_AB_GREEN_REGRESSION_DEFECTS_FOUND`
+- `FOCUSED_AB_REGRESSION_FAILED`
+- `BLOCKED_BY_ENVIRONMENT`
+- `BLOCKED_BY_PROVENANCE`
+
+No other GREEN verdict is allowed.
 
 ## Finish
-Commit/push only QA report/raw QA evidence. Do not change production code. Provide report path, full SHA, verdict, then STOP.
+Commit/push ONLY QA report/evidence. Do not modify production code. Return full SHA, report path, focused A/B result, 54-skill totals if executed, final verdict, then STOP.
 
 ## Start when instructed
-Execute Assignment 128 autonomously and strictly as written.
+Execute Assignment 129 autonomously and strictly as written.
