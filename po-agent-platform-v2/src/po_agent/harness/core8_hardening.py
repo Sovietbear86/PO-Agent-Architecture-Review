@@ -1,9 +1,9 @@
 """Core-8 production hardening hooks.
 
 The original composite handler intersected Pydantic objects and compared only
-`task.assignee`, while silently ignoring the product slot.  That is unsafe for
+`task.assignee`, while silently ignoring the product slot. That is unsafe for
 real AS21 data where relation hydration may return copies and identities are
-represented by login/externalId/display name.  Install this handler on the
+represented by login/externalId/display name. Install this handler on the
 production runtime only.
 """
 from __future__ import annotations
@@ -57,8 +57,18 @@ async def _composite(adapter, args):
     status = (args.get("status") or "").strip()
     phrase = (args.get("phrase") or "").strip().casefold()
 
+    # Assignee is an authoritative source selector, not merely a local
+    # post-filter. Preserve it in the adapter query so ProductionTaskApiAS21Adapter
+    # can use the live `/swtr-read/assignee-tasks` facade. Previously a generic
+    # assignee request fell through to search_tasks("") and therefore read the
+    # empty legacy/local `/api/v1/tasks` facade before filtering to zero.
     if sprint_id:
         tasks = await adapter.get_sprint_tasks(sprint_id, space=product or None)
+    elif assignee:
+        selectors = [f"assignee = {assignee}"]
+        if product:
+            selectors.append(f"project = {product}")
+        tasks = await adapter.search_tasks(" AND ".join(selectors), max_results=10000)
     elif product:
         tasks = await adapter.search_tasks(f"project = {product}", max_results=10000)
     else:
@@ -69,9 +79,10 @@ async def _composite(adapter, args):
         release_keys = {task.key.upper() for task in release_tasks}
         tasks = [task for task in tasks if task.key.upper() in release_keys]
 
-    # Every source selector is re-applied locally after facade reads.  This keeps
+    # Every source selector is re-applied locally after facade reads. This keeps
     # sprint/product/release membership source-backed even if an upstream facade
-    # returns a broad candidate list or echoes an unproven selector.
+    # returns a broad candidate list or echoes an unproven selector. Assignee is
+    # also rechecked defensively after the live source-side filter.
     if sprint_id:
         tasks = [task for task in tasks if (task.sprint_id or "").upper() == sprint_id]
     if release_id:
