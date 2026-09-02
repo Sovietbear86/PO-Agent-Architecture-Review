@@ -1,327 +1,481 @@
 # GigaCode — Current Action
 
 ## Status
-`ACTIVE_QA_ASSIGNMENT_133_FULL_54_SKILL_ABC_BATCHED_CERTIFICATION`
+`ACTIVE_QA_ASSIGNMENT_134_NO_SKIP_FULL_54_SKILL_ABC_MARATHON`
 
-## Goal
-Run one large end-to-end **A/B/C certification of the complete production skill catalog** over several hours, but execute it in small resumable batches so no single agent/subagent/streaming timeout can invalidate the whole run.
+## Why Assignment 133 is rejected as incomplete
+Assignment 133 is NOT accepted as a full A/B/C certification.
+
+It discovered 54 skills but executed only 33. Batches 2–4 timed out and execution advanced past them. The final report was generated with 21 skills missing. It also claimed full A/B/C while the report does not contain complete real browser/UI evidence for every executed skill. This violates the assignment contract.
+
+Assignment 134 exists to remove all ambiguity. This is a **hard no-skip marathon**. You are not being asked to sample, estimate, extrapolate, infer, or summarize. You must execute every discovered production skill and produce explicit A/B/C evidence for every row.
+
+Historical reports 110C/132/133 are diagnostic evidence only. Do not reuse their PASS/FAIL values as current truth.
+
+---
+
+# ABSOLUTE STOP RULES — READ FIRST
+
+1. **DO NOT GENERATE THE FINAL REPORT UNTIL EVERY DISCOVERED SKILL HAS A TERMINAL ROW.**
+2. If runtime discovery returns 54 skills, then the final matrix MUST contain exactly 54 unique skill rows. `33/54`, `53/54`, or `54 cataloged but 33 executed` is forbidden.
+3. **A timeout is NOT a terminal skill result.** A timed-out skill remains `PENDING_RETRY` and must be retried until it receives a real terminal product/source/UI classification.
+4. **DO NOT MOVE TO THE NEXT BATCH while any skill in the current batch is `PENDING`, `RUNNER_TIMEOUT`, or missing A/B/C evidence.**
+5. If a batch times out, split THAT SAME unfinished batch into smaller batches and retry. Do not advance.
+6. If a 3-skill batch still times out, run the unfinished skills ONE BY ONE.
+7. If one skill times out, restart a fresh runner/context and rerun THAT SAME skill. Do not skip it.
+8. Runner/subagent/streaming timeout must never be converted into product FAIL, PASS, CHECK, or omitted row.
+9. Do not stop simply because product defects are found. The purpose is complete defect inventory across the whole catalog.
+10. Do not create or push a final report while `pending_count > 0`.
+11. Before final report generation, run a machine-readable completeness assertion. If it fails, continue execution; do not report.
+12. GigaCode must not modify production/backend/frontend code, prompts, skills, adapters, AS21 data or test rules. QA artifacts only.
+
+The only legitimate early termination is a **proven persistent environment outage** that makes further execution impossible after the recovery procedure below. Even then, do not call the result FULL certification.
+
+---
+
+# TEST MODEL
+
+For EVERY skill:
+
+```text
+A = actual PO Agent / Harness production natural-language path
+B = independent REAL AS21/SWTR Oracle
+C = actual application frontend/browser path
+```
+
+A/B/C are separately observed paths. C is not a second API call masquerading as UI.
+
+Approved spaces: `WMB`, `STS`, `OLP`, `DMS`, `CRPV`.
+Use real configured team members and real validated sprints/releases/entities. Never invent business data to make a query executable.
+
+No local DB/sync/fake/mock/frozen source may be authoritative for A, B or C. No AS21 writes.
+
+---
+
+# EXECUTION ARCHITECTURE — CONTROLLER, NOT ONE LONG SUBAGENT
+
+Do NOT ask one subagent to execute the whole assignment.
+
+The top-level GigaCode process acts only as a **marathon controller**. Actual test work is deterministic and checkpointed.
+
+Create/maintain a persistent machine-readable state file:
+
+`po-agent-platform-v2/qa_reports/FULL_54_SKILL_ABC_134_STATE.json`
+
+Required per-skill state:
+
+```json
+{
+  "skill": "...",
+  "ordinal": 1,
+  "batch": "B01",
+  "state": "PENDING|RUNNING|PENDING_RETRY|COMPLETE",
+  "attempts": 0,
+  "A_complete": false,
+  "B_complete": false,
+  "C_complete": false,
+  "terminal_classification": null,
+  "last_error": null,
+  "evidence_files": []
+}
+```
+
+Write state to disk **after every individual skill**, not merely after a batch.
+
+On runner/context restart, reload this file and continue from the lowest ordinal whose state is not `COMPLETE`.
+
+Never reconstruct progress from memory or chat context.
+
+---
+
+# TIMEOUT / RETRY POLICY — MANDATORY
+
+## Product/source call timeouts
+- normal REAL AS21/Harness call: **180 seconds minimum**;
+- known heavy analytical capability: **300 seconds**;
+- browser/UI wait for backend-driven result: **300 seconds**;
+- concurrency: **1**.
+
+## Retry policy per A/B/C leg
+For timeout, 500, 502, transport reset, streaming failure or transient source error:
+
+1. preserve raw error evidence;
+2. wait 30 seconds;
+3. source health-check with a known-good lightweight REAL AS21 request;
+4. retry same leg;
+5. maximum 3 normal attempts;
+6. if runner/subagent itself timed out, start a fresh execution context and continue SAME skill;
+7. if still unresolved, run SAME skill alone with no other skills in context;
+8. only after the single-skill retry path is exhausted may it receive a terminal `SOURCE_UNAVAILABLE_CONFIRMED` or `ENVIRONMENT_BLOCKED` classification — and only with independent health evidence proving that classification.
+
+A streaming/request timeout of the QA executor is NEVER proof that the product timed out.
+
+---
+
+# PHASE 0 — PROVENANCE AND CLEAN RUNTIME
+
+1. Pull `feat/core8-real-query-hardening-v2`.
+2. Record exact HEAD.
+3. Record `git status --porcelain` and distinguish pre-existing dirt from QA artifacts.
+4. Hard restart Harness and Task API from current HEAD. Record PID, timestamp and start command.
+5. Hard restart actual frontend from current HEAD. Record URL/process/build mode.
+6. Verify actual browser can load UI and reach the same Harness environment as A.
+7. Verify REAL AS21/MCP-SWTR with at least two known-good reads from different approved spaces.
+8. Verify authoritative local DB reads=0, fake/mock/frozen reads=0, AS21 writes=0.
+9. Record test start timestamp and monotonic elapsed time.
+
+Do not start catalog execution if A, B and C base environments are not all usable.
+
+---
+
+# PHASE 1 — DISCOVER CATALOG AND FREEZE MANIFEST
+
+1. Dynamically enumerate callable production skills from the runtime registry.
+2. Write exact ordered list to:
+   `FULL_54_SKILL_ABC_134_MANIFEST.json`
+3. If discovered count is 54, freeze `expected_count=54`.
+4. Create one canonical realistic Russian query for every skill before execution begins.
+5. Map each skill to its C surface:
+   - dedicated screen/widget if one exists;
+   - otherwise actual Assistant UI/chat.
+6. Create initial state file with all skills `PENDING`.
+7. Calculate checksum/hash of ordered skill names and include it in state/report so skills cannot silently disappear later.
+
+Do not derive PASS/FAIL from catalog metadata. Catalog presence proves implementation registration only, not skill execution.
+
+---
+
+# PHASE 2 — CONTROL TRIAD
+
+Before skill 1, execute and preserve complete A/B/C evidence for:
+
+- `Задачи Гаранина`;
+- `Задачи Гаранина в DMS`;
+- `Задачи Калачанова`;
+- one fresh existing exact task;
+- one guaranteed nonexistent exact task while a known-good point-read proves source health.
+
+Do not stop because controls expose product defects. Continue catalog execution. The controls exist to anchor current runtime truth and catch broken QA wiring.
+
+Important consistency rule: the final report may not later claim an assignee regression contradicted by its own current controls without new reproducing evidence. Historical defects are not current defects unless reproduced in Assignment 134.
+
+---
+
+# PHASE 3 — STRICT 54-SKILL MARATHON
+
+## Initial batching
+Start with batches of **3 skills**, not 6.
+
+Heavy skill families (`sprint-*`, `release-*`, competency/quality/history/forecast) should default to **1 or 2 skills per batch**.
+
+After each skill, write its raw evidence + update state.
+
+## Batch barrier
+At the end of each batch execute:
+
+```text
+assert every skill in current_batch has state == COMPLETE
+assert every skill in current_batch has A_complete == true
+assert every skill in current_batch has C_complete == true
+assert B_complete == true OR an evidence-backed typed Oracle limitation exists
+```
+
+If any assertion fails, DO NOT increment batch number.
+
+Retry only unfinished skills.
+
+## Per-skill A execution
+Use production Russian NL query through actual Harness entry point. Capture:
+- exact query;
+- unique session ID `qa:134:A:<ordinal>:<uuid>`;
+- interpreter class and `llm_used` when exposed;
+- raw semantic frame;
+- grounded frame;
+- selected skill/capability;
+- capability args;
+- source route;
+- status;
+- response;
+- evidence IDs;
+- exact task keys or structured facts/metric;
+- elapsed time;
+- raw error/trace if not successful.
+
+A returning `COMPLETED` with zero data is not PASS unless B supports zero.
+
+## Per-skill B execution
+Use independent REAL AS21/SWTR operations, not Harness capability output.
+Capture:
+- direct source operation/query/filter;
+- real entity IDs resolved;
+- raw source evidence;
+- normalized task-key set/source facts;
+- independently calculated metric where possible;
+- source health and elapsed time.
+
+If B genuinely cannot establish a skill's historical/derived fact due to source contract, use a precise typed result: `SOURCE_CAPABILITY_UNAVAILABLE_BY_DESIGN`, `SOURCE_DATA_MISSING`, or `ORACLE_NOT_PROVEN`. This still requires evidence and does not allow skipping A or C.
+
+## Per-skill C execution — REAL UI REQUIRED
+C must go through the actual frontend/browser.
 
 For every skill:
+- open/use the mapped UI surface;
+- use a fresh browser conversation for independent queries unless continuity is part of the test;
+- type/submit the real query through UI when Assistant UI is the surface;
+- wait for terminal UI state, not an arbitrary short sleep;
+- capture visible answer/data/status;
+- capture browser/network request evidence where available;
+- capture screenshot for FAIL/ERROR/EMPTY-with-B-data and at least one PASS per batch;
+- normalize visible task keys/count/metric;
+- capture C latency.
+
+**Calling Harness or frontend API directly is not C.**
+If browser automation is unavailable/broken, repair the QA browser setup only (not product code) or classify environment block after proving it. Do not pretend API output is UI evidence.
+
+## Per-skill comparisons
+Record:
+- `A_vs_B`;
+- `C_vs_B`;
+- `A_vs_C`.
+
+For task collections exact set equality is required whenever exposed:
 
 ```text
-A = PO Agent / Harness production path
-B = independent REAL AS21/SWTR Oracle
-C = actual application UI/browser path
+set(A.keys) == set(B.keys)
+set(C.keys) == set(B.keys)
 ```
 
-The objective is not merely to find defects. The objective is to build a complete 54-skill matrix proving whether the same user intent produces the same business truth through A, B and C, while also exposing semantic/session/UI-wiring defects and first failing boundaries.
+For aggregates, compare source population/set first, metric second.
 
-Assignment 132 is prior evidence only. It proved useful defects but executed only 8/54 skills and therefore is NOT a full certification baseline.
+For narrative skills, independently verify every business fact against B where feasible.
 
-## Role boundary
-You are QA/test executor only. Do NOT modify production/backend/frontend code, prompts, skills, adapters, Task API, MCP-SWTR, team configuration, AS21 data, testing rules, or this file. Commit/push only QA artifacts under `po-agent-platform-v2/qa_reports/`.
+---
 
-## Absolute anti-surrogate rules
-- NO task sync/local DB/cache as Agent truth, Oracle truth, or UI acceptance truth.
-- NO fake/mock/frozen fixtures as authoritative truth.
-- NO historical counts/keys copied as current Oracle.
-- NO Harness/Agent output reused as Oracle B.
-- NO API-only substitution for C when the UI element exists and can be exercised through the real browser/frontend path.
-- NO AS21 writes.
-- A/B/C means three separately observed paths.
-- For task collections, exact task-key-set equality is mandatory wherever B can establish the set.
-- HTTP 200 / COMPLETED / rendered widget alone is never PASS if business facts mismatch.
-- Empty UI / `0` is never PASS unless B proves REAL_EMPTY.
-- If Oracle cannot be independently established, classify `ORACLE_NOT_PROVEN`, not PASS.
+# PHASE 4 — CONTINUOUS COMPLETENESS WATCHDOG
 
-Approved task spaces globally: `WMB, STS, OLP, DMS, CRPV`.
-Use real configured team members and approved real entities. Do not invent external people/sprints/releases to manufacture coverage.
-
-# EXECUTION MODEL — mandatory batching
-
-This is ONE assignment but MUST NOT be run as one giant subagent request.
-
-## Batch rules
-- Dynamically discover the complete production skill catalog first. Current reconciled target is 54; runtime discovery is authoritative.
-- Partition all discovered skills into **small deterministic batches of 6 skills maximum**. If a skill is known/heavy, use 3–4 in that batch.
-- Each batch has its own fresh execution context and checkpoint file.
-- Run batches sequentially, concurrency=1.
-- Do not restart successful earlier batches after a later timeout.
-- After every batch, immediately write/update checkpoint evidence to disk before proceeding.
-- If a runner/streaming/subagent timeout occurs, classify it as QA-runner infrastructure, preserve completed rows, and resume from the first unfinished skill with a fresh context.
-- A single streaming timeout MUST NOT terminate Assignment 133.
-- Never reduce the total catalog sample because of timeout. Resume until all discovered skills are classified or a proven environment outage prevents continuation.
-
-## Timeout rules
-- REAL AS21 normal source timeout: >=120 sec.
-- Heavy source/capability call: up to 180 sec.
-- Transient source timeout/5xx: retry up to 2 times, 20–30 sec backoff.
-- Agent/subagent streaming context: keep each batch small enough to avoid the ~483 sec failure seen in Assignment 132.
-- Prefer a non-streaming/direct scripted runner for deterministic batch orchestration where available.
-- Global assignment wall-clock target: approximately 2–4 hours. Do not stop merely because two hours elapsed if only a small remainder is unfinished.
-
-# PHASE 0 — provenance / clean runtime / UI boot
-1. Pull `feat/core8-real-query-hardening-v2`.
-2. Record exact HEAD and `git status --porcelain`.
-3. Record pre-existing dirty production files separately; QA must not alter them.
-4. Hard restart Task API and Harness from current HEAD; record PIDs/start commands/timestamps.
-5. Start/restart the actual frontend from current HEAD and record URL/process/build mode.
-6. Verify MCP-SWTR and REAL AS21 health.
-7. Verify the UI can reach the same Harness environment being tested by A.
-8. Record fake/mock/frozen/local-sync authoritative reads=0 and AS21 writes=0.
-9. Create a unique assignment namespace for sessions: `qa:133:<batch>:<case>:<uuid>` for A; C/browser uses independent fresh browser conversation IDs and must never reuse A session state.
-
-# PHASE 1 — catalog discovery and test-plan generation
-1. Enumerate ALL callable production skills from the running registry/runtime.
-2. Reconcile against the expected 54 catalog. If count differs, record the exact difference; do not silently force 54.
-3. For each skill derive one realistic canonical Russian business query and, when meaningful, one short paraphrase/correction variant.
-4. Map the intended UI route/screen/widget/action for C. If a skill has no dedicated UI widget, C may use the actual Assistant/chat UI, but it must still be exercised through the frontend/browser rather than calling Harness directly.
-5. Assign each skill to a deterministic batch of <=6 skills.
-6. Write the batch manifest before execution.
-
-Primary manifest/checkpoint prefix:
-`po-agent-platform-v2/qa_reports/FULL_54_SKILL_ABC_CERTIFICATION_133_`
-
-# PHASE 2 — focused controls before broad batches
-Run these controls once before Batch 1, using fresh independent sessions:
-
-1. `Задачи Гаранина`
-2. `Задачи Гаранина в DMS`
-3. `Задачи Калачанова`
-4. one existing exact task ID freshly proven by B
-5. one guaranteed nonexistent task ID with a simultaneous known-good source-health point read
-
-For each capture A, B and C. Do NOT stop the assignment if a product defect is reproduced. Record it, identify a preliminary boundary and continue into the batches unless the environment itself is unusable.
-
-Known Assignment 132 clusters to recheck, not assume:
-- NOT_FOUND vs SOURCE_UNAVAILABLE mapping;
-- approved-space grounding/clarification;
-- `task_quality`, `velocity`, `competency_match` `NoneType.get` errors.
-
-# PHASE 3 — FULL A/B/C skill batches
-
-For EVERY discovered production skill execute A, B and C where the contract permits factual comparison.
-
-## A — Agent / Harness
-Capture:
-- natural-language query;
-- unique A session ID;
-- interpreter class;
-- `llm_used` where exposed;
-- raw semantic intent/slots;
-- grounded frame;
-- resolved skill/capability;
-- capability args;
-- downstream source route;
-- response status/text;
-- evidence IDs/source type;
-- normalized facts/task keys/metrics;
-- elapsed time.
-
-Ordinary Russian NL queries are expected to use the production LLM-first semantic path. If a key case unexpectedly shows heuristic/non-LLM interpretation, classify and trace it.
-
-## B — independent REAL AS21 Oracle
-Construct B independently from A using direct authoritative AS21/SWTR operations. Do not reuse Harness capability output.
-
-Capture:
-- exact source operation/query/filter;
-- authoritative entity resolution;
-- normalized raw facts;
-- exact task keys where applicable;
-- independent metric calculation where applicable;
-- source timestamp/latency;
-- source-health evidence.
-
-If the source contract cannot provide a historical fact required by the skill, classify precisely:
-`SOURCE_CAPABILITY_UNAVAILABLE_BY_DESIGN`, `SOURCE_DATA_MISSING`, or `ORACLE_NOT_PROVEN`.
-Do not fabricate history from current state.
-
-## C — actual UI/browser
-For the same business intent:
-- use a fresh or intentionally controlled browser conversation/session as required;
-- exercise the real frontend component/Assistant UI;
-- capture browser conversation/session identifier when observable;
-- capture actual frontend request/response path where tooling permits;
-- capture visible result/status/count/task keys/metric;
-- capture loading/empty/partial/error state;
-- record screenshot or machine-readable browser evidence where practical;
-- verify the UI does not silently substitute stale local values.
-
-If a dedicated widget exists, use it. If the skill is only exposed through Assistant/chat today, use the actual chat UI and mark `C_SURFACE=ASSISTANT_UI`.
-
-A UI element returning nothing/0 while B has data is a product defect, not an acceptable empty state.
-
-## A/B/C comparison rule
-Classify each skill row with all applicable comparisons:
+After every 5 completed skills, print and persist:
 
 ```text
-A_vs_B = semantic/business truth parity
-C_vs_B = UI/business truth parity
-A_vs_C = application path parity
+DISCOVERED = N
+COMPLETE = X
+PENDING = N-X
+A_COMPLETE = ...
+B_COMPLETE_OR_TYPED = ...
+C_COMPLETE = ...
+NEXT_SKILL = ...
 ```
 
-For task collections:
-`set(A.task_keys) == set(B.task_keys) == set(C.task_keys)` where all three expose task sets.
-
-For aggregates/metrics, compare underlying source sets first, then the derived metric.
-
-For narrative-only synthesis, verify all factual claims against B and compare key structured facts rather than prose wording.
-
-# PHASE 4 — UI data-wiring audit embedded into every batch
-For each C execution, record a compact lineage:
+Required invariant:
 
 ```text
-UI screen/component
- -> frontend request
- -> API endpoint
- -> Harness skill/capability
- -> adapter/source route
- -> REAL AS21 truth
+COMPLETE + PENDING == DISCOVERED
 ```
 
-Classify visible UI state as one of:
-`LOADING`, `SUCCESS_WITH_DATA`, `REAL_EMPTY`, `PARTIAL_DATA`, `SOURCE_UNAVAILABLE`, `NOT_FOUND`, `ERROR`.
+Never report "remaining skills completed" unless the state file proves all earlier timed-out skills are also complete.
 
-Flag:
-- unexplained empty/zero widget;
-- stale data after filter/session change;
-- wrong endpoint/capability;
-- missing filter propagation;
-- UI-specific truncation/mapping defect;
-- browser session contamination;
-- API response correct but rendering incorrect.
+If a batch timeout occurred earlier, the watchdog must list those exact skills as PENDING until actually rerun.
 
-# PHASE 5 — semantic/dialogue/session regression
-Across the batches ensure fresh coverage of:
+---
+
+# PHASE 5 — SEMANTIC / SESSION / DIALOGUE REGRESSION
+
+After all catalog rows are COMPLETE, run dedicated A/B/C scenarios for:
 - exact existing task;
-- nonexistent task;
+- nonexistent task (`NOT_FOUND` vs `SOURCE_UNAVAILABLE`);
 - person only;
-- space only;
-- person + space;
+- approved space only;
+- person + approved space;
 - person + status;
 - person + space + status;
-- valid sprint query where a real sprint exists;
-- correction where changed slot replaces old value and unaffected slots survive;
+- valid sprint;
+- correction replacing status while preserving member/space;
 - second-member control;
 - Russian input -> Russian response;
-- no unauthorized entity substitution;
-- no needless clarification for approved spaces;
-- fresh New Chat does not inherit correction state;
-- A session and C/browser session do not contaminate each other;
-- parallel/background QA activity with a different session ID does not alter C conversation state.
+- New Chat creates fresh dialogue state;
+- A and C sessions never share correction state;
+- background QA session cannot contaminate browser conversation.
 
-# PHASE 6 — Learning Loop A/B/C certification
-This phase is mandatory and MUST be completed even if other skill defects exist.
+Do not infer `SPACE_GROUNDING` from `NEEDS_CLARIFICATION` alone. Capture raw semantic frame and grounded frame, then prove the first failing boundary.
 
-Use at least three representative skills from different domains, including one task-search case and one analytical skill.
+---
 
+# PHASE 6 — LEARNING LOOP A/B/C — MANDATORY
+
+Run only after all catalog skills are complete, but run even if many product defects exist.
+
+Use at least 3 representative scenarios from different domains.
 For each:
-1. Execute initial request through C/browser and A capture.
-2. Give explicit negative feedback/correction through the actual UI.
-3. Observe dialogue/session classification.
-4. Prove whether a fresh REAL AS21 recheck occurs.
-5. Compare post-feedback result with B.
-6. Inspect whether a generalized learning/repair candidate is created via the supported runtime path.
-7. Prove no entity/count/task-ID memorization.
-8. Prove an unsupported complaint does not create a false rule such as `zero is impossible`.
-9. If persistence is currently supported, test cold restart/reload and rollback; otherwise classify the exact unsupported boundary.
-10. Record whether current UX autonomously localizes mismatch or merely asks for clarification.
+1. initial C/browser query;
+2. A trace;
+3. B truth;
+4. explicit negative feedback through actual UI;
+5. dialogue-act/session trace;
+6. fresh REAL AS21 source recheck evidence;
+7. post-feedback result vs B;
+8. generalized repair/policy candidate inspection through supported runtime path;
+9. prove no member/task/count memorization;
+10. unsupported complaint must not promote a false invariant;
+11. persistence/restart/rollback if current implementation claims support.
 
-Do not mark the Learning Loop GREEN merely because a `correction` JSON object exists.
+A mere `correction` JSON object is not Learning Loop certification.
 
-# PHASE 7 — known-defect forensic / FIRST_FAILING_BOUNDARY
-For every mismatch, trace the earliest evidence-backed divergence. At minimum fully localize every reproducible Assignment 132 defect cluster.
+---
 
-Required format per defect:
+# PHASE 7 — FIRST FAILING BOUNDARY
+
+For every reproducible mismatch use this exact evidence structure:
 
 ```text
 USER_INTENT
-A artifacts
-B artifacts
-C artifacts
+A_QUERY_AND_SESSION
+A_RAW_SEMANTIC_FRAME
+A_GROUNDED_FRAME
+A_CAPABILITY_ARGS
+A_SOURCE_ROUTE_AND_RESULT
+B_DIRECT_QUERY_AND_RESULT
+C_BROWSER_REQUEST_AND_VISIBLE_RESULT
 LAST_CORRECT_ARTIFACT
 FIRST_INCORRECT_ARTIFACT
 FIRST_FAILING_BOUNDARY
-affected skills/UI surfaces
-repro count
+REPRO_ATTEMPTS
+AFFECTED_SKILLS
 ```
 
-Allowed labels include:
-`SEMANTIC_INTERPRETATION`, `SESSION_STATE`, `MEMBER_IDENTITY_RESOLUTION`, `SPACE_GROUNDING`, `STATUS_GROUNDING`, `SKILL_RESOLUTION`, `CAPABILITY_ARGUMENT_BUILDING`, `TASK_API_ADAPTER`, `MCP_TOOL_SELECTION`, `SOURCE_QUERY_CONSTRUCTION`, `SOURCE_RESPONSE_DECODING`, `POST_SOURCE_FILTERING`, `CAPABILITY_RESULT_PROPAGATION`, `RESPONSE_STATUS_MAPPING`, `RESPONSE_RENDERING`, `UI_DATA_WIRING`, `UI_STATE_MAPPING`, `UI_SESSION_LIFECYCLE`, `LEARNING_REVIEW`, `LEARNING_POLICY_APPLICATION`, `QA_HARNESS_ORACLE_DEFECT`.
+Do not guess root cause from symptoms. For example, `NEEDS_CLARIFICATION` is a symptom; `SPACE_GROUNDING` may be the boundary only if the raw/grounded trace proves it.
 
-Do NOT propose broad fixes when the boundary is not proven.
+Allowed boundaries:
+`SEMANTIC_INTERPRETATION`, `SESSION_STATE`, `MEMBER_IDENTITY_RESOLUTION`, `SPACE_GROUNDING`, `STATUS_GROUNDING`, `SKILL_RESOLUTION`, `CAPABILITY_ARGUMENT_BUILDING`, `TASK_API_ADAPTER`, `MCP_TOOL_SELECTION`, `SOURCE_QUERY_CONSTRUCTION`, `SOURCE_RESPONSE_DECODING`, `POST_SOURCE_FILTERING`, `CAPABILITY_RESULT_PROPAGATION`, `RESPONSE_STATUS_MAPPING`, `RESPONSE_RENDERING`, `UI_DATA_WIRING`, `UI_STATE_MAPPING`, `UI_SESSION_LIFECYCLE`, `LEARNING_REVIEW`, `LEARNING_POLICY_APPLICATION`, `QA_RUNNER_DEFECT`, `QA_HARNESS_ORACLE_DEFECT`.
 
-# PHASE 8 — source integrity / latency / resiliency
-Across the whole assignment report:
-- REAL AS21 read evidence/call count where auditable;
-- HTTP 500/502/timeouts/retries;
-- runner/streaming timeouts separately from product/source errors;
-- source health before, during representative batches and after completion;
-- fake/mock/frozen/local-sync authoritative reads=0;
-- AS21 writes=0;
-- A latency and C end-user latency distributions;
-- representative fast/heavy p50/p95 samples where enough data exist.
+---
 
-# PHASE 9 — batch completeness and anti-surrogate audit
-Before final verdict prove:
-- exact HEAD tested;
-- runtime/frontend provenance;
-- discovered skill count and exact unique skill list;
-- every skill has a terminal classification row;
-- no duplicated row used to inflate arithmetic;
-- every batch checkpoint exists;
-- all completed batches survived any later timeout/restart;
-- every factual PASS has B evidence;
-- every UI PASS has C evidence;
-- no unresolved placeholders;
-- no historical truth substituted;
-- no production files modified by QA.
+# PHASE 8 — FINAL COMPLETENESS GATE — CODE ASSERTION REQUIRED
 
-If runtime discovery returns 54, arithmetic MUST equal exactly 54.
-If runtime discovery differs, arithmetic MUST equal the discovered count and the catalog discrepancy is separately reported.
+Before writing even one line of the final Markdown report, run a deterministic validator over the state/matrix.
 
-# FINAL MATRIX — mandatory columns
-At minimum:
+If runtime discovered 54, these assertions must pass:
 
-| # | Skill | Query | A status | B status | C status | A_vs_B | C_vs_B | A_vs_C | LLM used | Source route | UI surface | Latency A | Latency C | Verdict | First failing boundary |
+```text
+assert discovered_count == 54
+assert len(unique_skill_names) == 54
+assert complete_count == 54
+assert pending_count == 0
+assert every row has A_complete == true
+assert every row has C_complete == true
+assert every row has B_complete == true OR valid typed B limitation with evidence
+assert no row state in [PENDING, RUNNING, PENDING_RETRY]
+assert no duplicate skill names
+assert every COMPLETE row has an evidence file
+```
 
-Every discovered skill must have exactly one primary row.
+Write validator output to:
+`FULL_54_SKILL_ABC_134_COMPLETENESS.json`
 
-# Final verdict rules
-Use ONE primary assignment verdict:
+**If any assertion fails: DO NOT GENERATE FINAL REPORT. Return to the first unfinished skill and continue.**
 
-- `FULL_ABC_CERTIFICATION_GREEN` — all discovered skills classified; all required A/B/C factual comparisons GREEN; no product defects; Learning Loop/session/UI gates GREEN.
-- `FULL_ABC_PRODUCT_DEFECTS_PROVEN` — complete catalog classified and one or more product defects proven.
-- `FULL_ABC_MIXED_PRODUCT_AND_UI_DEFECTS_PROVEN` — complete catalog classified with both backend/agent and UI-specific defects.
-- `FULL_ABC_PARTIAL_ENVIRONMENT_BLOCK` — all feasible batches completed but a proven environment/source outage blocks specified remainder.
-- `ORACLE_NOT_PROVEN` — required independent truth cannot be established for material portions.
+This is the most important rule in Assignment 134.
 
-Do NOT call the assignment FULL/GREEN if skills were merely skipped because a subagent or streaming request timed out.
+---
 
-# Output
-Primary report:
-`po-agent-platform-v2/qa_reports/FULL_54_SKILL_ABC_CERTIFICATION_133.md`
+# PHASE 9 — FINAL REPORT
 
-Mandatory batch/checkpoint evidence:
-`po-agent-platform-v2/qa_reports/FULL_54_SKILL_ABC_CERTIFICATION_133_BATCH_<NN>.md`
+Only after Phase 8 is GREEN generate:
 
-Recommended raw machine-readable matrix:
-`po-agent-platform-v2/qa_reports/FULL_54_SKILL_ABC_CERTIFICATION_133_MATRIX.json`
+`po-agent-platform-v2/qa_reports/FULL_54_SKILL_ABC_CERTIFICATION_134.md`
 
-# Finish
-Commit/push ONLY QA report/checkpoint/raw evidence under `qa_reports/`.
-Do not modify production code.
-Return:
-- report path;
-- full SHA;
-- discovered skill count;
-- exact PASS/FAIL/BLOCKED arithmetic;
-- number of A/B/C-complete rows;
-- number of backend defects;
-- number of UI-specific defects;
+Mandatory matrix columns:
+
+| # | Skill | Query | A status | B status | C status | A_vs_B | C_vs_B | A_vs_C | Attempts | LLM used | Source route | UI surface | Latency A | Latency B | Latency C | Verdict | First failing boundary |
+
+The report must contain all rows, not a sample.
+
+Also report:
+- discovered / complete / pending arithmetic;
+- total A calls;
+- total independent B reads;
+- total actual C/browser executions;
+- source timeouts/retries;
+- QA-runner timeouts/restarts separately;
+- backend defect clusters;
+- UI-specific defect clusters;
 - Learning Loop verdict;
-- primary verdict;
-- STOP.
+- exact list of typed source limitations;
+- no fake/mock/local-sync truth;
+- AS21 writes=0.
+
+A product defect does not reduce required coverage. `FULL_ABC_PRODUCT_DEFECTS_PROVEN` requires COMPLETE catalog coverage, not partial coverage.
+
+---
+
+# ENVIRONMENT OUTAGE ESCAPE HATCH — VERY STRICT
+
+You may terminate before 54/54 only if ALL are true:
+1. the environment itself prevents execution, not merely one QA runner context;
+2. current skill was retried in a fresh context and alone;
+3. source/UI health checks independently reproduce the outage;
+4. at least 3 attempts with backoff are documented;
+5. restart of the affected QA/service process was attempted where safe;
+6. exact unfinished skill list remains in state file;
+7. final verdict is `BLOCKED_BY_ENVIRONMENT_INCOMPLETE`, never FULL certification.
+
+A 120s or 483s subagent/streaming timeout by itself does NOT satisfy this escape hatch.
+
+---
+
+# FINAL VERDICTS
+
+Allowed:
+- `FULL_ABC_CERTIFICATION_GREEN` — 54/54 complete, required A/B/C gates GREEN, Learning/session gates GREEN.
+- `FULL_ABC_PRODUCT_DEFECTS_PROVEN` — 54/54 complete, backend/product defects proven.
+- `FULL_ABC_MIXED_PRODUCT_AND_UI_DEFECTS_PROVEN` — 54/54 complete, both backend and UI-specific defects proven.
+- `BLOCKED_BY_ENVIRONMENT_INCOMPLETE` — only under strict outage escape hatch.
+
+Forbidden:
+- any verdict beginning `FULL_` when complete_count < discovered_count;
+- "timeout-limited sample" as a completed assignment;
+- extrapolating "30+ affected" from unexecuted skills;
+- PASS for `COMPLETED tasks=0` without Oracle evidence;
+- finalizing after skipping a timed-out batch;
+- catalog presence being counted as skill execution;
+- API response being counted as C/browser evidence.
+
+---
+
+# OUTPUT ARTIFACTS
+
+Mandatory:
+- `FULL_54_SKILL_ABC_134_MANIFEST.json`
+- `FULL_54_SKILL_ABC_134_STATE.json`
+- `FULL_54_SKILL_ABC_134_COMPLETENESS.json`
+- one evidence/checkpoint artifact per batch/skill as needed;
+- `FULL_54_SKILL_ABC_CERTIFICATION_134.md`
+
+Commit/push QA artifacts only after the final report exists, or if a true environment outage requires preserving incomplete state/evidence.
+
+At finish print exactly:
+
+```text
+Assignment 134 complete
+HEAD: ...
+DISCOVERED: ...
+COMPLETE: ...
+PENDING: ...
+A_COMPLETE: ...
+B_COMPLETE_OR_TYPED: ...
+C_COMPLETE: ...
+A_CALLS: ...
+B_READS: ...
+C_BROWSER_EXECUTIONS: ...
+QA_RUNNER_TIMEOUTS: ...
+PRODUCT_DEFECT_CLUSTERS: ...
+UI_DEFECT_CLUSTERS: ...
+LEARNING_LOOP: ...
+VERDICT: ...
+REPORT: ...
+SHA: ...
+STOP
+```
+
+If `PENDING != 0`, `Assignment 134 complete` is forbidden.
 
 ## Start now
-Execute Assignment 133 autonomously as one multi-hour certification job, using resumable batches exactly as specified.
+Execute Assignment 134 autonomously. Expect this to take hours. Correctness and complete 54/54 evidence are more important than speed.
