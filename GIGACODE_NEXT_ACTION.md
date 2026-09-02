@@ -1,163 +1,169 @@
 # GigaCode — Current Action
 
 ## Status
-`ACTIVE_QA_ASSIGNMENT_123_AUTHORITATIVE_ASSIGNEE_ROUTE_DISCOVERY`
+`ACTIVE_QA_ASSIGNMENT_124_ASSIGNEE_FILTER_ROUTE_FORENSIC`
 
-## Why Assignment 122 is NOT accepted as GREEN
-Assignment 122 reported `TRUE_AS21_PARITY_GREEN`, but its own evidence proves Oracle B was incomplete:
-- `get_sprint_tasks(DMS-SPRNT-1)` returned `hasNext=true`, while only page 0 / 100 tasks was inspected;
-- 100 point reads were attempted, but only 98 succeeded;
-- the natural-language question `Задачи Гаранина` was reduced to one sprint although the question itself contains no sprint constraint.
+## Context
+Assignment 123 classified `MCP_ASSIGNEE_CAPABILITY_GAP_PROVEN`, but that conclusion is not yet accepted because two potentially relevant existing MCP-SWTR routes were not fully exercised:
 
-Therefore Assignment 122 must be treated as `ORACLE_INCOMPLETE`, not as certification of the Agent.
+1. `search_tasks(...)` exposes an `assignee` parameter but was left `PENDING`.
+2. `find_units_by_filter(request=...)` was rejected after an invalid request missing required `calculatedAttributes`, rather than being tested with its correct schema.
+
+Therefore Assignment 124 is a narrow forensic exercise. Do not inspect unrelated tools or jump to MCP redesign until these two routes are conclusively proven or rejected.
 
 ## Role boundary
-You are QA / forensic executor only. Do NOT modify production/backend/frontend code, prompts, skills, adapters, Task API, MCP-SWTR, team data, AS21 data, testing rules, or this file. Commit/push only QA artifacts under `po-agent-platform-v2/qa_reports/`.
+You are QA / forensic executor only. Do NOT modify production/backend/frontend code, Task API, MCP-SWTR, Harness, prompts, skills, adapters, team data, AS21 data, testing rules, or this file. Commit/push only QA artifacts under `po-agent-platform-v2/qa_reports/`.
 
 ## Absolute prohibitions
-- NO synchronization/population of tasks into a local DB.
-- NO local DB/cache as source of truth or Oracle.
-- NO fake/mock/frozen/historical data as current truth.
+- NO local DB population/sync/cache as truth.
+- NO `sync_all_tasks.py`, `sync_sprint_tasks.py`, `sse_sync.py`, `swtr_sync.py` or new sync scripts.
+- NO fake/mock/frozen data.
 - NO AS21 writes.
+- NO arbitrary employees/spaces outside configured project scope.
+- NO Agent/Harness answer as Oracle.
+- NO 54-skill regression.
 - NO production fixes.
-- NO 54-skill marathon.
-- NO arbitrary sprint selection as a substitute for the user question.
-- NO unrelated employees or spaces outside the configured project/team scope.
-- Do NOT declare GREEN from a partial page, partial point-read set, counts alone, or absence of evidence.
+- NO new MCP tool design until both target routes are fully tested.
+
+## Approved scope
+Use only authoritative configured project/team scope already present in repository. Expected spaces: WMB, STS, OLP, DMS, CRPV if confirmed by config. Target member: Rodion Garanin / `Garanin.R.V` only if confirmed by authoritative team config.
 
 ## Goal
-Discover and prove the authoritative REAL AS21/MCP-SWTR read route capable of answering the business question:
+Determine whether CURRENT MCP-SWTR already provides a complete REAL AS21 route for:
 
-`Задачи Гаранина`
+`assigned_to == Garanin.R.V`
+AND approved space scope
 
-without silently adding a sprint constraint and without local synchronization.
+using either:
 
-This assignment is SOURCE/CONTRACT DISCOVERY first. Do not test Agent correctness until a complete independent Oracle route is proven.
+A. `search_tasks`
+B. `find_units_by_filter`
+
+If either existing tool can do this correctly and completely, Assignment 123's MCP capability-gap verdict is rejected.
 
 ## Phase 0 — provenance and health
 1. Pull current `feat/core8-real-query-hardening-v2`; record exact HEAD and clean worktree.
-2. Record service PIDs, MCP-SWTR transport/tool count and REAL AS21 health.
-3. Confirm exact Garanin identity from authoritative repository team config; expected `Garanin.R.V` only if confirmed.
-4. Record approved project spaces from authoritative project configuration. Do not invent or broaden scope.
-5. Confirm local DB/sync/cache/fake/mock usage = 0 and AS21 writes = 0.
+2. Record MCP-SWTR tool count/transport and REAL AS21 health.
+3. Confirm exact target login and approved spaces from authoritative repo config.
+4. Confirm local DB/sync/cache/fake/mock usage = 0; AS21 writes = 0.
+5. Decode FastMCP envelopes using the contract proven in Assignment 121 before interpreting row counts/fields.
+6. Retry temporary 5xx/timeouts up to 2 times with 20–30 sec backoff; timeout >=120 sec.
 
-## Phase 1 — inventory the REAL MCP-SWTR read contract
-Inspect the actual currently exposed MCP-SWTR tool schemas, not assumptions from old reports.
+## Phase 1 — exact schema proof for `search_tasks`
+Capture the live MCP tool schema for `search_tasks` verbatim enough to prove:
+- exact argument names/types/defaults;
+- whether `assignee` is supported;
+- whether space/project/product/scope is supported directly;
+- pagination fields/limits;
+- returned fields/content structure.
 
-Find every READ-ONLY tool that can potentially retrieve/filter tasks/units by any of:
-- `assigned_to` / assignee / user login;
-- member/user;
-- space/project/product;
-- query/filter expression;
-- task search;
-- sprint/release only if needed as a bounded fallback.
+Then inspect the implementation only read-only to determine the exact REAL AS21 request it builds. Record:
+- AS21 endpoint used;
+- payload/query/TQL/filter built;
+- whether `assignee` is actually included in source request;
+- whether space restriction can be included;
+- pagination behavior.
 
-For each relevant tool record:
-- exact tool name;
-- exact input schema/arguments;
-- pagination arguments;
-- filters supported server-side;
-- fields returned;
-- whether task key/code is returned;
-- whether `assigned_to` is returned;
-- whether response is complete/paginated;
-- whether the tool is a true REAL AS21 read.
+Do not infer from Python signature alone.
 
-Do not infer capabilities from names. Prove them from schema plus one safe live read where necessary.
+## Phase 2 — live `search_tasks` experiments
+Using only schema-valid arguments, execute controlled live REAL AS21 reads.
 
-## Phase 2 — prove or reject a DIRECT assignee Oracle route
-Priority is a direct authoritative source query equivalent to:
-`assigned_to == Garanin.R.V`
-within the approved project scope.
+Required experiments:
+1. assignee only = `Garanin.R.V`;
+2. assignee + one approved space if tool supports it;
+3. assignee + another approved space if supported;
+4. if no explicit space argument exists, prove whether `search_terms` or another documented filter can safely constrain exact space without becoming fuzzy text search;
+5. one negative control using another AUTHORITATIVE configured team member only, to prove assignee filtering changes the result.
 
-Try only schema-supported READ operations.
+For every experiment record:
+- exact MCP arguments;
+- exact AS21 endpoint/payload sent downstream;
+- decoded task keys;
+- decoded `space` values;
+- decoded `assigned_to` values where available;
+- pagination metadata;
+- whether results actually satisfy requested assignee and scope.
 
-A route is `DIRECT_ASSIGNEE_ROUTE_PROVEN` only if all are true:
-1. REAL AS21 is the source;
-2. assignee constraint is actually applied by the source request, not post-hoc guessed;
-3. all pages can be traversed to completion;
-4. exact task keys are returned or can be authoritatively point-read;
-5. approved scope can be enforced;
-6. no local DB/cache/sync/Harness answer participates.
+A result is invalid if the tool accepts an `assignee` argument but source payload does not enforce it.
 
-Capture exact requests, decoded response contract, pagination evidence and resulting task-key set.
+## Phase 3 — exact schema proof for `find_units_by_filter`
+Capture its real MCP schema. Construct a VALID request including all required fields, especially `calculatedAttributes` if required.
 
-## Phase 3 — if no direct assignee route exists, find a COMPLETE bounded enumeration route
-Only if Phase 2 proves no direct route is available, determine whether current MCP-SWTR exposes a complete authoritative enumeration of all tasks in the approved scope.
+Record exact supported request structure for:
+- `attributes`;
+- `calculatedAttributes`;
+- `query` or TQL/filter;
+- `page` / page number / page size;
+- any space fields.
 
-Requirements:
-- every approved scope segment must be enumerable;
-- pagination must be executable to completion, not merely expose `hasNext=true`;
-- each enumerated task must have an authoritative way to obtain `assigned_to` (for example `read_unit`);
-- failed point reads must be retried; any unresolved point read makes the Oracle incomplete unless the failed key is authoritatively proven irrelevant by another source read;
-- no arbitrary single sprint may stand in for the entire query scope.
+Inspect read-only implementation to determine the exact REAL AS21 endpoint and payload.
 
-If complete enumeration is impossible because the MCP tool contract cannot request page 1+, explicitly prove that contract limitation.
+## Phase 4 — live `find_units_by_filter` experiments
+Test whether source-side filtering can express BOTH:
+- exact assignee `Garanin.R.V`;
+- exact approved space, starting with DMS and OLP.
 
-## Phase 4 — classify the source capability
-Exactly one primary outcome:
+Prefer exact TQL/filter semantics, not fuzzy text search.
 
-### `DIRECT_ASSIGNEE_ROUTE_PROVEN`
-A complete live REAL AS21 assignee-filtered Oracle route exists.
+Required evidence:
+1. exact valid request object;
+2. exact downstream AS21 payload;
+3. decoded returned task keys;
+4. each task's space;
+5. authoritative assignee field if bulk response exposes it;
+6. if bulk response lacks assignee, point-read a sample plus all final candidate keys as necessary to prove the filter is genuinely correct;
+7. pagination page 0 and page 1 if `hasNext=true`, proving whether page number can actually be changed through this tool.
 
-### `BOUNDED_ENUMERATION_ROUTE_PROVEN`
-No direct assignee route exists, but complete live enumeration + authoritative assignee point reads can answer the question.
+Do not stop after a schema error. Fix the TEST REQUEST to conform to live schema; do not modify production code.
 
-### `MCP_ASSIGNEE_CAPABILITY_GAP_PROVEN`
-Current MCP-SWTR contract cannot completely answer the question because required assignee filtering and/or complete pagination/enumeration is unavailable.
+## Phase 5 — capability decision
+Allowed verdicts only:
+
+### `EXISTING_DIRECT_ROUTE_PROVEN`
+At least one target tool provides a complete REAL AS21 route that enforces assignee + approved scope and supports complete pagination.
+
+### `EXISTING_ROUTE_PARTIAL`
+A target tool correctly enforces some required constraints but cannot provide complete scope/pagination/fields.
+
+### `MCP_ASSIGNEE_GAP_RECONFIRMED`
+Both `search_tasks` and correctly-invoked `find_units_by_filter` are conclusively unable to provide a complete assignee + approved-scope route.
 
 ### `BLOCKED_BY_ENVIRONMENT`
-A route appears contractually possible but cannot be exercised due current REAL AS21/environment failure after retries.
+The schema supports a valid route, but live AS21 cannot be exercised after retries.
 
-Do NOT use `GREEN`, `PARITY_GREEN`, or any Agent certification verdict in Assignment 123.
+Do NOT certify Agent/Harness/UI in Assignment 124.
 
-## Phase 5 — only if a complete Oracle route is proven
-If and only if Phase 2 or Phase 3 proves a complete Oracle route, execute that route once for `Garanin.R.V` and record:
-- exact authoritative task-key set;
-- exact count;
-- scope searched;
-- pagination completion proof;
-- number of source reads;
-- failed reads = 0 for a complete Oracle.
+## Critical anti-shortcut rules
+- `search_tasks` cannot be rejected without testing its `assignee` argument live and showing the downstream AS21 request.
+- `find_units_by_filter` cannot be rejected because of a malformed QA request. It must be invoked with the exact required schema.
+- Presence of unapproved spaces in results is not automatically a gap if exact post-source filtering is explicitly part of the tool contract; however, such filtering must remain independent of Harness and must allow COMPLETE pagination. Clearly distinguish source-side vs Oracle-side filtering.
+- Counts alone are insufficient; capture exact task keys and space values.
+- `hasNext=true` without exercising page 1 means completeness is NOT proven.
 
-Do NOT compare to Harness/UI yet. That is the next assignment.
-
-If Oracle cannot be completed, STOP after proving the MCP capability gap. Do not compensate with local synchronization.
-
-## Important correction to Assignment 122
-The following is structurally forbidden:
-`get_sprint_tasks(DMS-SPRNT-1) -> first 100 rows -> 98 successful read_unit -> zero Garanin -> GREEN`
-
-Reasons:
-1. `hasNext=true` means the sprint set was incomplete;
-2. failed point reads mean assignee truth was incomplete;
-3. one sprint is not equivalent to unconstrained `Задачи Гаранина`.
-
-## Mandatory evidence table
-Report must contain:
-- HEAD/worktree;
-- MCP-SWTR health and tool count;
-- confirmed Garanin identity;
-- authoritative approved scope;
-- candidate read tools and exact schemas;
-- direct assignee filter available: YES/NO + proof;
-- executable pagination available: YES/NO + proof;
-- complete approved-scope enumeration available: YES/NO + proof;
-- authoritative assignee field available: YES/NO + where;
-- Oracle completeness: COMPLETE/INCOMPLETE;
-- exact task-key set only if COMPLETE;
-- local DB/sync/cache/fake/mock/historical usage = 0;
-- AS21 writes = 0.
+## Mandatory comparison table
+For both tools include:
+- tool name;
+- exact schema;
+- REAL AS21 endpoint;
+- assignee source-side filter: YES/NO;
+- exact-space source-side filter: YES/NO;
+- returned task key: YES/NO;
+- returned space: YES/NO;
+- returned assigned_to: YES/NO;
+- executable page 1+: YES/NO;
+- complete Oracle usable: YES/NO;
+- reason.
 
 ## Output
 Primary report:
-`po-agent-platform-v2/qa_reports/AUTHORITATIVE_ASSIGNEE_ROUTE_DISCOVERY_123.md`
+`po-agent-platform-v2/qa_reports/ASSIGNEE_FILTER_ROUTE_FORENSIC_124.md`
 
 Optional raw evidence prefix:
-`AUTHORITATIVE_ASSIGNEE_ROUTE_DISCOVERY_123_`
+`ASSIGNEE_FILTER_ROUTE_FORENSIC_124_`
 
 ## Finish
 Commit/push only QA report/evidence, provide full SHA, then STOP.
 
 ## Start when instructed
-Execute Assignment 123 autonomously. Do not modify production code and do not synchronize/populate task data.
+Execute Assignment 124 autonomously and narrowly. Do not modify production code. Do not synchronize/populate task data.
