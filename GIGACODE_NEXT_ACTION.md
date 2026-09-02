@@ -1,155 +1,163 @@
 # GigaCode — Current Action
 
 ## Status
-`ACTIVE_QA_ASSIGNMENT_131_POST_FIX_AB_CONTINUATION`
+`ACTIVE_QA_ASSIGNMENT_132_FULL_54_SKILL_AB_CERTIFICATION`
 
-## Owner fixes under test
-Owner commits:
-- `c1fdf2ff31072661dcfabce9ab7248fee5aa355e` — preserve live REAL AS21 assignee source selector.
-- `786bb079b3dafb3a72c366768aa84418fc0c3f91` — expose normalized `task_keys` in composite capability result.
-- `c2c6135cb691f25a4fc4b1beac45f586b9a8dda6` — approved product spaces are grounded independently of whether the local/general task scan currently contains tasks in those spaces.
+## Context
+Assignment 131 proved the focused post-fix gate GREEN against fresh independent REAL AS21 Oracle B:
+- `Задачи Гаранина`: 16/16 exact match;
+- `Задачи Гаранина в DMS`: 8/8 exact match;
+- `Задачи Гаранина в OLP`: 3/3 exact match;
+- generalized second-member control `Задачи Калачанова`: exact match;
+- live assignee route, `task_keys` propagation and approved-space grounding fixes were verified.
 
-Assignment 130 proved the direct live facade and generic Garanin Agent path are correct: independent Oracle B found 16 tasks, direct live facade returned the same 16, and Agent case `Задачи Гаранина` returned the same 16. It also proved two blockers now fixed by the owner: missing `task_keys` propagation and needless clarification for approved DMS/OLP spaces.
+However Assignment 131 did NOT execute Phase 10, therefore its `FULL_REGRESSION_GREEN` wording is not accepted as proof of a full regression. Assignment 132 must perform the missing full certification and independently investigate two suspicious exact-task semantics from Assignment 131.
 
 ## Role boundary
-You are QA/test executor only. Do NOT modify production/backend/frontend code, prompts, skills, adapters, Task API, MCP-SWTR, team configuration, AS21 data, test rules, or this file. Commit/push only QA artifacts under `po-agent-platform-v2/qa_reports/`.
+You are QA/test executor only. Do NOT modify production/backend/frontend code, prompts, skills, adapters, Task API, MCP-SWTR, team configuration, AS21 data, testing rules, or this file. Commit/push only QA artifacts under `po-agent-platform-v2/qa_reports/`.
 
 ## Absolute anti-surrogate rules
-- NO task sync or local DB population.
-- NO local DB/cache as Agent truth or Oracle truth.
-- NO fake/mock/frozen fixtures as truth.
-- NO copied historical task counts/keys as current Oracle.
-- NO Harness/Agent result as Oracle B.
+- NO task sync/local DB/cache as Agent truth or Oracle truth.
+- NO fake/mock/frozen fixtures as authoritative truth.
+- NO historical counts/keys copied as current Oracle.
+- NO Harness/Agent output reused as Oracle B.
 - NO AS21 writes.
-- Exact business facts must match independent REAL AS21 Oracle B.
-- For task collections exact task-key-set equality is mandatory.
-- If Oracle B cannot be independently proven, verdict is `ORACLE_NOT_PROVEN`, never PASS.
+- A/B means Agent A versus independently obtained REAL AS21 Oracle B.
+- For task collections exact task-key-set equality is mandatory whenever Oracle B is available.
+- HTTP 200 / COMPLETED alone is never PASS if business facts mismatch.
+- If Oracle cannot be independently established, classify `ORACLE_NOT_PROVEN`, not PASS.
 
 Approved task spaces globally: `WMB, STS, OLP, DMS, CRPV`.
 
-## Retry / timing policy
-- timeout >=120 sec per source request;
-- heavy operations may use 180 sec;
-- retry transient timeout/5xx up to 2 times;
-- 20–30 sec backoff;
-- sequential execution / concurrency=1.
+## Timing
+REAL AS21 may be slow. Run sequentially, concurrency=1. Source timeout >=120 sec; heavy calls up to 180 sec; retry transient timeout/5xx up to 2 times with 20–30 sec backoff. Prefer resumable/checkpointed execution for the marathon.
 
-# PHASE 0 — exact provenance and clean runtime
-1. Pull `feat/core8-real-query-hardening-v2`.
-2. Record exact HEAD and prove all three owner commits above are ancestors.
-3. Record `git status --porcelain`; do not alter pre-existing dirty files.
-4. Stop old Harness/Task API processes, prove ports free, start both from current HEAD, record new PIDs/start times/commands.
-5. Verify Harness, Task API, MCP-SWTR and REAL AS21 health.
-6. fake/mock/frozen/local-sync authoritative use = 0; AS21 writes = 0.
+# PHASE 0 — provenance / clean production runtime
+1. Pull branch `feat/core8-real-query-hardening-v2`.
+2. Record exact HEAD and `git status --porcelain`.
+3. Prove owner fixes `c1fdf2f`, `786bb07`, `c2c6135` are ancestors.
+4. Hard restart Task API and Harness from current HEAD; record old/new PIDs, start times and commands.
+5. Verify Task API, Harness, MCP-SWTR and REAL AS21 health.
+6. Record authoritative local DB/sync reads=0, fake/mock/frozen=0, AS21 writes=0.
 
-# PHASE 1 — fresh independent Oracle B
-Rebuild current truth from scratch; do not copy Assignment 130 counts/keys.
+# PHASE 1 — focused sanity gate before marathon
+Do NOT spend time rebuilding all Assignment 131 evidence. Freshly prove only these three gates before the long run:
+1. `Задачи Гаранина` — independent Oracle B and exact-key A/B equality.
+2. `Задачи Гаранина в DMS` — independent Oracle B and exact-key A/B equality.
+3. `Задачи Калачанова` — independent Oracle B and exact-key A/B equality.
 
-For `Garanin.R.V` use independent REAL AS21:
-`search_users -> unique externalId -> find_units_by_filter(assigned_to=externalId) -> complete pagination`.
-Capture exact all/DMS/OLP task-key sets and source evidence.
+If any fails, STOP marathon and identify FIRST_FAILING_BOUNDARY.
 
-# PHASE 2 — direct live facade
-Recheck:
-- assignee=Garanin.R.V
-- assignee=Garanin.R.V + space=DMS
-- assignee=Garanin.R.V + space=OLP
+# PHASE 2 — exact-task semantics forensic
+Assignment 131 contains suspicious wording: exact lookup `DMS-380` reportedly returned the full Garanin collection, and nonexistent `DMS-999999` was rendered as source unavailable. Establish the real contract, do not assume either behavior is correct.
 
-Each exact key set must equal the independent Oracle subset.
+Test at least two fresh existing REAL task IDs from approved spaces plus one guaranteed nonexistent ID.
 
-# PHASE 3 — rerun the previously blocked Agent gate
-Fresh session per query:
-1. `Задачи Гаранина`
-2. `Задачи Гаранина в DMS`
-3. `Задачи Гаранина в OLP`
+For each existing exact ID:
+- Oracle B: independently point-read the exact task from REAL AS21;
+- Agent A: natural Russian exact-task query in a fresh session;
+- expected task collection, if represented as a collection, must contain exactly that requested task key and no unrelated assignee collection;
+- capture semantic frame, selected skill, capability args, downstream route, evidence IDs, `task_keys`, answer/status.
 
-For every case capture status, semantic intent, grounded slots, capability args, downstream route, `data.task_keys`, `data.tasks[].key`, evidence IDs/source, answer, elapsed.
+For nonexistent ID:
+- prove source health separately in the same time window using a known-good point read;
+- prove the requested ID is absent using the authoritative point-read contract;
+- Agent must not hallucinate;
+- distinguish semantic `NOT_FOUND` from actual `SOURCE_UNAVAILABLE` whenever the source contract allows that distinction.
 
-Required:
-- `data.task_keys` exists and exactly equals `data.tasks[].key` as a set;
-- Agent generic == fresh Oracle all;
-- Agent DMS == fresh Oracle DMS;
-- Agent OLP == fresh Oracle OLP;
-- DMS/OLP MUST NOT produce product clarification merely because the general scan lacks those spaces;
-- live REAL AS21 assignee route must remain in use.
+If exact lookup leaks an assignee collection, classify a product defect and identify FIRST_FAILING_BOUNDARY. If nonexistent lookup is incorrectly mapped to source outage despite healthy source and authoritative not-found evidence, classify response/status-mapping defect.
 
-If Phase 3 fails, STOP and identify FIRST_FAILING_BOUNDARY with last-correct/first-incorrect artifacts.
+# PHASE 3 — full 54-skill marathon
+Run ALL 54 implemented skills. No skip is allowed merely because earlier focused phases are green.
 
-# PHASE 4 — generalized second-member control
-Only after Phase 3 GREEN.
-Build a fresh independent Oracle for `Kalachanov.V.V` using the same REAL AS21 method. Report actual current distribution across approved spaces; assume nothing from prior reports.
+For every skill capture at minimum:
+- skill name/version;
+- realistic Russian business query satisfying the skill contract;
+- semantic intent/slots;
+- status;
+- production capability/source route;
+- evidence/source type;
+- normalized result facts;
+- elapsed time;
+- verdict.
 
-Fresh Agent query: `Задачи Калачанова`.
-Require exact key equality.
+Where the skill returns AS21-derived business facts, build independent Oracle B using the authoritative REAL AS21 route and compare the facts. For task collections compare exact task-key sets. For calculated metrics independently calculate from Oracle source inputs where possible.
 
-If the Oracle member has tasks in at least one approved space, additionally query that real space explicitly and require exact subset equality with no needless space clarification.
+Where a skill is legitimately not executable because the current REAL source lacks a required business entity/history/capability, classify precisely as `SOURCE_CAPABILITY_UNAVAILABLE_BY_DESIGN`, `SOURCE_DATA_MISSING`, or `ORACLE_NOT_PROVEN`; do not call it PASS and do not call it product FAIL without evidence.
 
-# PHASE 5 — status and combined filters
-Only after Phases 3–4 GREEN.
-Discover REAL statuses from current source data. Test at least:
-- Garanin + one real non-zero DMS status;
-- Garanin + one real non-zero OLP status;
-- second member + one real status in a real space where tasks exist.
+The final matrix MUST contain exactly 54 unique implemented skills. Arithmetic across PASS/FAIL/BLOCKED-or-typed-unavailable categories MUST equal 54.
 
-Build Oracle by complete independent assignee retrieval and deterministic filtering. Require exact Agent key sets.
+# PHASE 4 — semantic/dialogue regression pack
+As part of the marathon or immediately after it, explicitly certify these historical invariants with fresh sessions:
+- exact existing task ID;
+- nonexistent exact task ID;
+- sprint only when a valid real sprint exists;
+- sprint + person when supported;
+- sprint + status when supported;
+- person only;
+- status only when grounded;
+- person + product/space + status;
+- correction turn: new status replaces old while unaffected person/space slots survive;
+- second-member control proving no Garanin hardcoding;
+- Russian input -> Russian response;
+- no unauthorized entity substitution;
+- no needless DMS/OLP clarification.
 
-# PHASE 6 — sprint/task-search targeted regression
-Revalidate real sprint candidates before use. Test source-backed cases for:
-- sprint only;
-- assignee + sprint;
-- sprint + status;
-- assignee + space;
-- assignee + space + status;
-- correction turn where status changes while member/space survives;
-- at least two exact task lookups;
-- nonexistent task must not hallucinate.
+# PHASE 5 — Learning Loop regression
+Recheck the protected Learning Loop behavior using its actual supported runtime/API path. Do not infer GREEN from dashboard endpoints that are intentionally absent. Verify at minimum:
+- correction can be observed;
+- source recheck is performed where required;
+- generalized policy/repair contains no memorized entity facts;
+- no automatic promotion of a false rule such as `zero is impossible`;
+- if persistent-policy lifecycle is part of the current supported contract, verify it through the supported path or explicitly classify why it cannot be re-certified in this environment.
 
-Exact-key A/B equality for every task collection.
+# PHASE 6 — source integrity / latency
+Report:
+- REAL AS21 read count or auditable call evidence;
+- HTTP 500/502/timeouts/retries;
+- source health before/after marathon;
+- fake/mock/frozen/local-sync authoritative reads=0;
+- AS21 writes=0;
+- latency distribution/sample for representative fast and heavy skills.
 
-# PHASE 7 — dialogue regression guards
-Verify Russian response for Russian input, no invented sprint, no unauthorized member substitution, no unnecessary approved-space clarification, no correction-loop trap, and preservation of unaffected slots across correction.
-
-# PHASE 8 — Learning Loop deep smoke
-Verify observable correction/feedback lifecycle and generalized-policy safety without inventing or promoting entity facts. If an API is intentionally unavailable, classify precisely rather than fabricate evidence.
-
-# PHASE 9 — latency sample
-Measure exact lookup, generic Garanin, Garanin DMS, one sprint, one status, one clarification/correction. Separate Agent overhead from REAL AS21 latency where possible.
-
-# PHASE 10 — 54-skill regression
-ONLY if Phases 1–9 are GREEN enough to make the broad run meaningful.
-Run all 54 implemented skills sequentially against production paths. Use REAL AS21 where contract requires source facts and independent Oracle B wherever factual comparison is possible. No surrogate truth. Counts must sum exactly to 54.
-
-# PHASE 11 — FIRST_FAILING_BOUNDARY
-Use earliest evidence-backed boundary, including:
+# PHASE 7 — FIRST_FAILING_BOUNDARY
+For every product mismatch identify the earliest evidence-backed boundary and show LAST_CORRECT_ARTIFACT + FIRST_INCORRECT_ARTIFACT. Allowed labels include:
 `SEMANTIC_INTERPRETATION`, `MEMBER_IDENTITY_RESOLUTION`, `SPACE_GROUNDING`, `STATUS_GROUNDING`, `SKILL_RESOLUTION`, `CAPABILITY_ARGUMENT_BUILDING`, `TASK_API_ADAPTER`, `MCP_TOOL_SELECTION`, `SOURCE_QUERY_CONSTRUCTION`, `SOURCE_RESPONSE_DECODING`, `POST_SOURCE_FILTERING`, `CAPABILITY_RESULT_PROPAGATION`, `RESPONSE_STATUS_MAPPING`, `RESPONSE_RENDERING`, `LEARNING_POLICY_APPLICATION`, `QA_HARNESS_ORACLE_DEFECT`.
-Always show LAST_CORRECT_ARTIFACT and FIRST_INCORRECT_ARTIFACT.
 
-# PHASE 12 — anti-surrogate audit
-Report exact HEAD, owner commits present, old/new PIDs, source health, Oracle method, exact-key comparisons, REAL AS21 reads, retries/timeouts, local DB/sync authoritative reads=0, fake/mock/frozen authoritative reads=0, AS21 writes=0, and 54-skill arithmetic if Phase 10 runs.
+# PHASE 8 — anti-surrogate / report integrity audit
+Before final verdict verify:
+- exact HEAD tested;
+- clean runtime provenance and PIDs;
+- 54 unique skills really executed;
+- 54-skill arithmetic equals 54;
+- every factual PASS has sufficient REAL-source/Oracle evidence according to its contract;
+- no unresolved report placeholders such as `{data[...]}`;
+- no historical counts treated as current truth;
+- no Harness capability reused as independent Oracle;
+- no production files changed by QA.
 
-## Allowed final verdicts
-- `FOCUSED_GATE_GREEN_FULL_REGRESSION_GREEN`
-- `TASK_KEY_PROPAGATION_DEFECT`
-- `SPACE_GROUNDING_DEFECT`
-- `FOCUSED_ASSIGNEE_GATE_DEFECT`
-- `STATUS_OR_COMBINATION_DEFECT`
-- `DIALOGUE_REGRESSION_PROVEN`
-- `LEARNING_LOOP_REGRESSION_PROVEN`
-- `LATENCY_REGRESSION_PROVEN`
-- `FULL_REGRESSION_PRODUCT_DEFECTS_PROVEN`
-- `MIXED_PRODUCT_SOURCE_AND_QA_DEFECTS`
-- `BLOCKED_BY_ENVIRONMENT`
-- `ORACLE_NOT_PROVEN`
+## Final verdict rules
+Use ONE primary verdict:
+- `FULL_54_SKILL_AB_CERTIFICATION_GREEN` — only if all 54 are actually executed/classified, no product defect is proven, and all required factual A/B comparisons are green;
+- `FULL_REGRESSION_PRODUCT_DEFECTS_PROVEN` — one or more product defects proven;
+- `EXACT_TASK_LOOKUP_REGRESSION_PROVEN`;
+- `NOT_FOUND_STATUS_MAPPING_DEFECT_PROVEN`;
+- `LEARNING_LOOP_REGRESSION_PROVEN`;
+- `MIXED_PRODUCT_SOURCE_AND_QA_DEFECTS`;
+- `BLOCKED_BY_ENVIRONMENT` — environment prevents meaningful completion;
+- `ORACLE_NOT_PROVEN` — independent truth cannot be established for required certification.
+
+Do NOT use `FULL_REGRESSION_GREEN` if the 54-skill marathon was skipped or incomplete.
 
 ## Output
 Primary report:
-`po-agent-platform-v2/qa_reports/POST_FIX_AB_CONTINUATION_131.md`
+`po-agent-platform-v2/qa_reports/FULL_54_SKILL_AB_CERTIFICATION_132.md`
 
-Optional raw evidence prefix:
-`POST_FIX_AB_CONTINUATION_131_`
+Optional raw/checkpoint evidence prefix:
+`FULL_54_SKILL_AB_CERTIFICATION_132_`
 
 ## Finish
-Commit/push ONLY QA report/raw evidence. Production code must remain untouched. Provide report path, full SHA, verdict and STOP.
+Commit/push ONLY QA report and raw/checkpoint evidence under `qa_reports/`. Do not modify production code. Provide report path, full SHA, exact 54-skill arithmetic, verdict and STOP.
 
 ## Start when instructed
-Execute Assignment 131 autonomously and strictly as written.
+Execute Assignment 132 autonomously and strictly as written.
