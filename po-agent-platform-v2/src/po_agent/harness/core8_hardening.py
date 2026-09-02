@@ -59,9 +59,7 @@ async def _composite(adapter, args):
 
     # Assignee is an authoritative source selector, not merely a local
     # post-filter. Preserve it in the adapter query so ProductionTaskApiAS21Adapter
-    # can use the live `/swtr-read/assignee-tasks` facade. Previously a generic
-    # assignee request fell through to search_tasks("") and therefore read the
-    # empty legacy/local `/api/v1/tasks` facade before filtering to zero.
+    # can use the live `/swtr-read/assignee-tasks` facade.
     if sprint_id:
         tasks = await adapter.get_sprint_tasks(sprint_id, space=product or None)
     elif assignee:
@@ -79,10 +77,6 @@ async def _composite(adapter, args):
         release_keys = {task.key.upper() for task in release_tasks}
         tasks = [task for task in tasks if task.key.upper() in release_keys]
 
-    # Every source selector is re-applied locally after facade reads. This keeps
-    # sprint/product/release membership source-backed even if an upstream facade
-    # returns a broad candidate list or echoes an unproven selector. Assignee is
-    # also rechecked defensively after the live source-side filter.
     if sprint_id:
         tasks = [task for task in tasks if (task.sprint_id or "").upper() == sprint_id]
     if release_id:
@@ -114,9 +108,16 @@ async def _composite(adapter, args):
         ]
 
     filters = {key: value for key, value in args.items() if value not in (None, "")}
+    task_rows = [_task_dict(task) for task in tasks]
+    task_keys = [task.key for task in tasks]
     return CapabilityResult(
         answer=f"Составной поиск: найдено задач: {len(tasks)}.",
-        data={"count": len(tasks), "filters": filters, "tasks": [_task_dict(task) for task in tasks]},
+        data={
+            "count": len(tasks),
+            "filters": filters,
+            "tasks": task_rows,
+            "task_keys": task_keys,
+        },
         evidence=[
             Evidence(type="task", source="as21", entity_id=task.key, label=task.title, value=task.status.value)
             for task in tasks
