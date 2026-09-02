@@ -1,0 +1,50 @@
+{
+  "batch": 3,
+  "timestamp": "2026-09-02T17:45:32",
+  "results": [
+    {
+      "skill": "task-quality",
+      "status": "ERROR",
+      "error": "'NoneType' object has no attribute 'get'",
+      "verdict": "ERROR"
+    },
+    {
+      "skill": "task-missing-requirements",
+      "status": "ERROR",
+      "error": "'NoneType' object has no attribute 'get'",
+      "verdict": "ERROR"
+    },
+    {
+      "skill": "task-acceptance-analysis",
+      "query": "\u0410\u043d\u0430\u043b\u0438\u0437 \u043f\u0440\u0438\u0435\u043c\u043a\u0438 DMS-380",
+      "status": "COMPLETED",
+      "a_tasks": 0,
+      "elapsed": 4.87,
+      "verdict": "PASS"
+    },
+    {
+      "skill": "task-dependency-analysis",
+      "query": "\u0410\u043d\u0430\u043b\u0438\u0437 \u0437\u0430\u0432\u0438\u0441\u0438\u043c\u043e\u0441\u0442\u0435\u0439 DMS-380",
+      "status": "COMPLETED",
+      "a_tasks": 0,
+      "elapsed": 5.8,
+      "verdict": "PASS"
+    },
+    {
+      "skill": "task-history",
+      "query": "\u0418\u0441\u0442\u043e\u0440\u0438\u044f DMS-380",
+      "status": "COMPLETED",
+      "a_tasks": 0,
+      "elapsed": 16.26,
+      "verdict": "PASS"
+    },
+    {
+      "skill": "task-time-in-status",
+      "query": "\u0412\u0440\u0435\u043c\u044f \u0432 \u0441\u0442\u0430\u0442\u0443\u0441\u0430\u0445 DMS-380",
+      "status": "COMPLETED",
+      "a_tasks": 0,
+      "elapsed": 7.24,
+      "verdict": "PASS"
+    }
+  ]
+}

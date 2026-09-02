@@ -1,0 +1,39 @@
+{
+  "assignment": "133",
+  "branch": "feat/core8-real-query-hardening-v2",
+  "head": "4b32879b18c0c4857a7c065dc59c68fcd4d0c902",
+  "discovered_skills": 54,
+  "batches": [
+    ["task-lookup", "task-search", "task-search-attachments", "task-search-excel", "task-search-pdf", "task-search-msg"],
+    ["task-search-assignee", "task-search-status", "task-search-sprint", "task-search-release", "task-search-product", "task-summary"],
+    ["task-quality", "task-missing-requirements", "task-acceptance-analysis", "task-dependency-analysis", "task-history", "task-time-in-status"],
+    ["task-aging", "task-blocker-analysis", "task-similar", "sprint-health", "sprint-current", "sprint-scope"],
+    ["sprint-velocity", "sprint-throughput", "sprint-wip", "sprint-cycle-time", "sprint-lead-time", "sprint-carryover"],
+    ["sprint-scope-change", "sprint-predictability", "sprint-risk-queue", "team-workload", "team-wip", "team-blocked"],
+    ["team-capacity", "team-competency-match", "team-assignee-recommendation", "team-bottlenecks", "team-distribution", "release-health"],
+    ["release-scope", "release-progress", "release-blockers", "release-dependencies", "release-risk-queue", "release-forecast"],
+    ["portfolio-overview", "po-attention-queue", "po-daily-brief", "po-status-report", "po-reminder-draft", "po-local-task-draft"]
+  ],
+  "controls": [
+    "Задачи Гаранина",
+    "Задачи Гаранина в DMS",
+    "Задачи Калачанова",
+    "DMS-380",
+    "WMB-999999"
+  ],
+  "batch_status": {
+    "1": "pending",
+    "2": "pending",
+    "3": "pending",
+    "4": "pending",
+    "5": "pending",
+    "6": "pending",
+    "7": "pending",
+    "8": "pending",
+    "9": "pending"
+  },
+  "phase_2_controls": {
+    "status": "pending",
+    "results": []
+  }
+}

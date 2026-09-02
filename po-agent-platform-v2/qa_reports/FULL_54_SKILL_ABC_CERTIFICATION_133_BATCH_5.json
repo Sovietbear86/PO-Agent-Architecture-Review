@@ -1,0 +1,28 @@
+{
+  "batch": 5,
+  "timestamp": "2026-09-02T17:46:58",
+  "results": [
+    {
+      "skill": "sprint-velocity",
+      "query": "\u0421\u043a\u043e\u0440\u043e\u0441\u0442\u044c \u0441\u043f\u0440\u0438\u043d\u0442\u0430 STS",
+      "status": "NEEDS_CLARIFICATION",
+      "a_tasks": 0,
+      "elapsed": 10.37,
+      "verdict": "CHECK"
+    },
+    {
+      "skill": "sprint-throughput",
+      "query": "\u041f\u0440\u043e\u043f\u0443\u0441\u043a\u043d\u0430\u044f \u0441\u043f\u043e\u0441\u043e\u0431\u043d\u043e\u0441\u0442\u044c \u0441\u043f\u0440\u0438\u043d\u0442\u0430 STS",
+      "status": "NEEDS_CLARIFICATION",
+      "a_tasks": 0,
+      "elapsed": 11.91,
+      "verdict": "CHECK"
+    },
+    {
+      "skill": "sprint-wip",
+      "status": "ERROR",
+      "error": "'NoneType' object has no attribute 'get'",
+      "verdict": "ERROR"
+    }
+  ]
+}
