@@ -1,6 +1,7 @@
 """Production AS21 adapter extensions over the proven Task API boundary."""
 from __future__ import annotations
 
+import re
 from typing import Any, Optional
 
 import httpx
@@ -47,6 +48,72 @@ class ProductionTaskApiAS21Adapter(TaskApiAS21Adapter):
                 if candidate:
                     return candidate
         return None
+
+    async def get_task(self, task_key: str) -> Optional[Task]:
+        """Point-read an exact task from REAL SWTR instead of scanning local task cache.
+
+        `/api/v1/swtr-read/tasks/{code}` wraps MCP `read_unit` as
+        `{task_code, unit}`.  The canonical mapper expects the Task API facade
+        shape, so normalize the live unit at this boundary and preserve the raw
+        unit as `source_data`.  A real 404/not-found is returned as ``None``;
+        transport/source failures remain typed source errors.
+        """
+        normalized = (task_key or "").upper().strip()
+        if not re.fullmatch(r"[A-Z][A-Z0-9]*-\d+", normalized):
+            return None
+        try:
+            response = await self._client.get(f"/api/v1/swtr-read/tasks/{normalized}")
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 404:
+                return None
+            if exc.response.status_code in (502, 503):
+                raise AS21SourceUnavailable(
+                    f"task-api exact task read unavailable: HTTP {exc.response.status_code}"
+                ) from exc
+            raise AS21SourceError(
+                f"task-api exact task read failed: HTTP {exc.response.status_code}"
+            ) from exc
+        except httpx.HTTPError as exc:
+            raise AS21SourceUnavailable(
+                f"task-api exact task read failed: {type(exc).__name__}"
+            ) from exc
+
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            raise AS21SourceError("task-api exact task endpoint returned invalid JSON") from exc
+        if not isinstance(payload, dict):
+            raise AS21SourceError("task-api exact task endpoint returned malformed payload")
+
+        unit = payload.get("unit")
+        if not isinstance(unit, dict):
+            raise AS21SourceError("task-api exact task endpoint did not provide a unit object")
+
+        source_id = unit.get("code") or payload.get("task_code")
+        if not isinstance(source_id, str) or source_id.upper().strip() != normalized:
+            raise AS21SourceError("task-api exact task endpoint returned a mismatched task code")
+
+        title = unit.get("summary") or unit.get("title") or unit.get("name")
+        if not isinstance(title, str) or not title.strip():
+            raise AS21SourceError("task-api exact task endpoint returned a task without title")
+
+        row: dict[str, Any] = {
+            "source_id": normalized,
+            "title": title,
+            "description": unit.get("description"),
+            "status": unit.get("workflow_status") or unit.get("status") or "",
+            "created_at": unit.get("created_at") or unit.get("createdAt") or unit.get("created"),
+            "updated_at": unit.get("updated_at") or unit.get("updatedAt") or unit.get("updated"),
+            "deadline": unit.get("deadline") or unit.get("due_date") or unit.get("dueDate"),
+            "source": "swtr",
+            "source_data": unit,
+        }
+        mapped = self._map(row)
+        if mapped is None:
+            raise AS21SourceError("live SWTR task cannot be mapped to canonical Task")
+        attachments = await self.get_attachment_metadata(normalized)
+        return mapped.model_copy(update={"attachments": attachments})
 
     async def get_current_sprint_id(self, space: str) -> str | None:
         normalized = (space or "").upper().strip()
