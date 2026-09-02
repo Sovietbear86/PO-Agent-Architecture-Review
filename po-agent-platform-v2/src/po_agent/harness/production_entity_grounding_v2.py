@@ -15,6 +15,9 @@ from .dialogue_runtime import ClarificationNeed, SemanticFrame
 from .live_entity_grounding import LiveGroundedEntityResolver
 
 
+APPROVED_PRODUCT_SPACES = frozenset({"WMB", "STS", "OLP", "DMS", "CRPV"})
+
+
 def _tokens(value: str) -> tuple[str, ...]:
     return tuple(x.casefold() for x in re.findall(r"[A-Za-zА-Яа-яЁё0-9]+", value) if len(x) > 1)
 
@@ -25,42 +28,18 @@ def _token_match(wanted: tuple[str, ...], candidate: str) -> bool:
 
 
 class ProductionEntityResolverV2(LiveGroundedEntityResolver):
-    _OPEN_STATUS_TERMS = {
-        "open",
-        "opened",
-        "открыт",
-        "открыта",
-    }
+    _OPEN_STATUS_TERMS = {"open", "opened", "открыт", "открыта"}
     _NOT_COMPLETED_TERMS = {
-        "open_tasks",
-        "not_completed",
-        "unresolved",
-        "active",
-        "открытые",
-        "незакрытые",
-        "незавершенные",
-        "незавершённые",
+        "open_tasks", "not_completed", "unresolved", "active", "открытые",
+        "незакрытые", "незавершенные", "незавершённые",
     }
     _COMPLETED_TERMS = {
-        "completed",
-        "closed_tasks",
-        "resolved_or_closed",
-        "done",
-        "закрытые",
-        "завершенные",
-        "завершённые",
-        "closed/resolved",
-        "closed+resolved",
+        "completed", "closed_tasks", "resolved_or_closed", "done", "закрытые",
+        "завершенные", "завершённые", "closed/resolved", "closed+resolved",
     }
     _PERSON_RAW_ALIASES = (
-        "person",
-        "person_name",
-        "member",
-        "member_name",
-        "assignee_raw",
-        "assignee_name",
-        "employee",
-        "user",
+        "person", "person_name", "member", "member_name", "assignee_raw",
+        "assignee_name", "employee", "user",
     )
 
     async def semantic_context(self) -> dict[str, Any]:
@@ -69,7 +48,14 @@ class ProductionEntityResolverV2(LiveGroundedEntityResolver):
         identities: list[dict[str, str]] = []
         seen: set[tuple[str, str, str]] = set()
         known_assignees = {str(value) for value in context.get("known_assignees", []) if value}
-        known_products = {str(task.project_space).upper() for task in tasks if task.project_space}
+
+        # Product-space validity is a configuration/source-contract fact, not a
+        # property of whether the current task scan happens to contain tasks in
+        # that space. Seed globally approved spaces and enrich them with any
+        # additional source-observed spaces.
+        known_products = set(APPROVED_PRODUCT_SPACES)
+        known_products.update(str(task.project_space).upper() for task in tasks if task.project_space)
+
         for task in tasks:
             display = str(task.assignee or "").strip()
             login = str(task.assignee_login or "").strip()
@@ -103,18 +89,10 @@ class ProductionEntityResolverV2(LiveGroundedEntityResolver):
     @staticmethod
     def _query_requests_open_task_set(query: str) -> bool:
         text = query.casefold()
-        return any(
-            marker in text
-            for marker in (
-                "открытые",
-                "открытых",
-                "незакрытые",
-                "незаверш",
-                "open tasks",
-                "unresolved tasks",
-                "not completed",
-            )
-        )
+        return any(marker in text for marker in (
+            "открытые", "открытых", "незакрытые", "незаверш",
+            "open tasks", "unresolved tasks", "not completed",
+        ))
 
     @classmethod
     def _normalize_status_constraint(cls, slots: dict[str, str], original_query: str) -> None:
@@ -122,7 +100,6 @@ class ProductionEntityResolverV2(LiveGroundedEntityResolver):
         status = str(slots.get("status") or "").strip()
         semantic = str(slots.get("status_semantic") or "").strip()
         values = {value.casefold() for value in (raw, status, semantic) if value}
-
         if any(value in cls._COMPLETED_TERMS or "/" in value and {"closed", "resolved"} <= set(re.split(r"[/+\s]+", value)) for value in values):
             slots["status"] = "completed"
             slots.pop("status_semantic", None)
@@ -148,28 +125,16 @@ class ProductionEntityResolverV2(LiveGroundedEntityResolver):
             slots["person_raw"] = assignee
 
     async def _ground_person_login(self, slots: dict[str, str]) -> None:
-        """Canonicalize a model-proposed login from the user's person literal.
-
-        `member_login` is a source identifier, not a semantic free-text field. If a
-        correction/follow-up LLM leaks the full query (or any other prose) into that
-        slot, never trust it merely because it is non-empty. Whenever `person_raw`
-        exists, resolve the login again from configured/live AS21 identities and
-        replace the proposal only with authoritative evidence.
-        """
         person_raw = str(slots.get("person_raw") or "").strip()
         if not person_raw:
             return
-
         configured = self.team.resolve_person(person_raw)
         if len(configured) == 1:
             slots["member_login"] = configured[0].login
             return
         if configured:
-            # Ambiguous configured identity: remove an unproven LLM proposal so the
-            # invariant below produces clarification rather than a wrong assignee.
             slots.pop("member_login", None)
             return
-
         context = await self.semantic_context()
         wanted = _tokens(person_raw)
         matches: list[dict[str, str]] = []
@@ -177,10 +142,7 @@ class ProductionEntityResolverV2(LiveGroundedEntityResolver):
             hay = " ".join(str(identity.get(k) or "") for k in ("display_name", "login", "external_id"))
             if _token_match(wanted, hay):
                 matches.append(identity)
-        unique = {
-            (m.get("display_name", ""), m.get("login", ""), m.get("external_id", ""))
-            for m in matches
-        }
+        unique = {(m.get("display_name", ""), m.get("login", ""), m.get("external_id", "")) for m in matches}
         if len(unique) == 1:
             display, login, external_id = next(iter(unique))
             slots["member_login"] = login or external_id or display
@@ -190,16 +152,10 @@ class ProductionEntityResolverV2(LiveGroundedEntityResolver):
     async def ground(self, frame: SemanticFrame, original_query: str) -> SemanticFrame:
         requested_slots = dict(frame.slots)
         slots = dict(frame.slots)
-
-        # Normalize semantic aliases into the canonical slots consumed downstream.
         if slots.get("status_raw") and not slots.get("status") and not slots.get("status_semantic"):
             slots["status"] = slots["status_raw"]
         self._normalize_person_slots(slots)
         self._normalize_status_constraint(slots, original_query)
-
-        # Always re-ground a source identifier when a user-visible person literal is
-        # available. This prevents stale/corrupted member_login values from a prior
-        # correction turn from surviving into execution.
         await self._ground_person_login(slots)
 
         enriched = SemanticFrame(
@@ -218,8 +174,6 @@ class ProductionEntityResolverV2(LiveGroundedEntityResolver):
         if final_slots.get("member_login"):
             final_slots["assignee"] = final_slots["member_login"]
 
-        # Product/space is a real source constraint too. Never accept arbitrary
-        # uppercase text as a product and never drop a requested scope silently.
         requested_product = requested_slots.get("product")
         if requested_product:
             wanted = requested_product.strip().upper()
@@ -235,17 +189,7 @@ class ProductionEntityResolverV2(LiveGroundedEntityResolver):
                     tuple(products),
                 ))
 
-        # Invariant: an explicitly requested semantic constraint either survives in
-        # canonical grounded form or produces clarification. It may never disappear
-        # and broaden the query to all tasks.
-        requested_person = next(
-            (
-                requested_slots.get(key)
-                for key in ("person_raw", *self._PERSON_RAW_ALIASES, "assignee")
-                if requested_slots.get(key)
-            ),
-            None,
-        )
+        requested_person = next((requested_slots.get(key) for key in ("person_raw", *self._PERSON_RAW_ALIASES, "assignee") if requested_slots.get(key)), None)
         if requested_person and not final_slots.get("member_login"):
             needs.append(ClarificationNeed(
                 "member_login",
