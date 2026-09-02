@@ -2,33 +2,44 @@
 
 **Status:** ACTIVE / consolidated source of truth  
 **Current branch:** `feat/core8-real-query-hardening-v2`  
-**Last reviewed:** 2026-08-29  
-**Current active gate:** Assignment 072 — production semantic-correction boundary localization; owner fix follows only after QA evidence  
-**Next major certification gate:** Assignment 095 — total real-agent regression + per-skill learning-loop certification  
-**Purpose:** preserve the original PO Agent behavior while evolving it into a source-grounded, self-improving Harness with controlled persistent learning.
+**Last reviewed:** 2026-09-02  
+**Current active gate:** Assignment 132 — full 54-skill TRUE A/B certification against REAL AS21 + Learning Loop regression  
+**Next architecture phase:** post-132 Architecture Evolution — Learning Reviewer, Session Isolation, Capability Registry, Progressive Skills  
+**Frontend status:** DEFERRED until backend + learning certification is genuinely GREEN; then mandatory full UI Data Wiring & Acceptance Certification  
+**Purpose:** preserve the original PO Agent behavior while evolving it into a source-grounded, self-improving, auditable agent with controlled persistent learning.
 
-> This document is the execution roadmap. Historical QA reports remain evidence, but the current runtime and current regression results outrank historical GREEN. GigaCode is QA-only. Production code changes are owned by ChatGPT/OpenAI side after a defect boundary is proven.
+> This document is the execution roadmap. Historical QA reports remain evidence, but current runtime behavior and current source-backed regression outrank historical GREEN. GigaCode is QA-only. Production code changes are owned by the ChatGPT/OpenAI side after a defect boundary is proven.
+
+---
 
 ## 0. Non-negotiable principles
 
-1. Preserve the product behavior of the original PO Agent.
-2. The complete production skill catalog must be discovered from the running registry; do not rely on a manually remembered skill count. Historical target remains 48 original requirements plus 6 reconciled additions.
-3. AS21/SWTR business facts must be validated against real read-only source data. Fixtures are allowed only for controlled fault injection, never as acceptance evidence for source facts.
-4. GigaCode is tester/adversarial reviewer only. It must not modify production code, prompts, fixtures or learning implementation. Production fixes are made on the ChatGPT/OpenAI side after QA evidence identifies the first failing boundary.
+1. Preserve the useful product behavior of the original PO Agent.
+2. The complete production skill catalog must be discovered from the running registry; current reconciled target is 54 skills, but runtime discovery is authoritative.
+3. AS21/SWTR business facts must be validated against real read-only source data. Fixtures, local DB snapshots, fake/mock/frozen data and historical counts are never acceptance truth.
+4. GigaCode is tester/adversarial reviewer only. It must not modify production code, prompts, skills, adapters, learning implementation, AS21 data or test rules.
 5. Deterministic retrieval, filtering and calculation stay in code. LLM interprets, clarifies and synthesizes; it must not invent AS21 facts or deterministic metrics.
-6. A successful HTTP response is not proof of semantic correctness. Requested filters must survive semantic interpretation, grounding, capability arguments and final source validation.
-7. Exact task-key-set equality against an independent authoritative oracle outranks answer prose and count-only checks.
-8. Exact task-key lookup must use the authoritative point-read path and must not depend on a bounded `/api/v1/tasks` cache.
-9. Historical GREEN is a baseline, not permanent acceptance. A later source-backed counterexample reopens the affected gate.
-10. Every production skill must pass both functional regression and learning-loop regression before backend acceptance is complete.
-11. Learning must generalize behavior, not memorize entities, task IDs, sprint IDs, answers or user-provided source facts.
-12. Learned behavior may only come from an allow-listed policy type and must be versioned, auditable, restart-safe and rollbackable.
+6. A successful HTTP response is not proof of semantic correctness. Requested constraints must survive semantic interpretation, grounding, capability argument building, source routing and final validation.
+7. Exact task-key-set equality against an independent authoritative Oracle B outranks prose and count-only checks.
+8. Exact task lookup must use authoritative point-read semantics and must never leak an unrelated assignee/task collection.
+9. Historical GREEN is a baseline, not permanent acceptance. Any later REAL-source counterexample reopens the affected gate.
+10. Every production skill must pass functional regression and the applicable learning-loop contract before backend acceptance is complete.
+11. Learning must generalize behavior, not memorize entities, task IDs, sprint IDs, answers, counts or user-provided source facts.
+12. Learned behavior must be versioned, auditable, restart-safe and rollbackable.
 13. A user correction never overrides contradictory authoritative SWTR evidence.
 14. Runtime learning must not rewrite Python, prompts, Skill Catalog definitions or AS21 source data.
-15. Any regression in an already-green skill blocks backend certification.
-16. Any semantic-correction fix must preserve the complete learning loop. A fix that makes correction output correct but breaks authoritative recheck, policy promotion, persistence, generalization, restart survival or rollback is RED.
-17. Frontend finalization and full browser E2E happen only after backend functional + learning certification is GREEN.
+15. Any regression in an already-green critical skill blocks backend certification.
+16. Any semantic/correction fix must preserve the complete learning loop.
+17. Frontend finalization and full browser E2E happen only after backend functional + learning certification is genuinely GREEN.
 18. No AS21 write authority is permitted during acceptance.
+19. **No surrogate tests:** Agent A and Oracle B must be independent production paths. Harness output cannot serve as Oracle B.
+20. QA runners must never silently substitute local task caches, sync jobs or bounded lists for REAL AS21 truth.
+21. Source timeout and latency are part of the contract: slow REAL AS21 is acceptable; false fast GREEN is not.
+22. New UI conversations must be session-isolated from prior browser turns and from QA marathon sessions.
+23. **Every data-bearing UI element is part of the product contract.** A widget/table/card/chart cannot be accepted merely because it renders: its backend/capability/source lineage and displayed facts must be proven.
+24. **No unexplained empty UI.** If REAL AS21 contains applicable data, the UI must show it. If data are legitimately absent, partial or unavailable, the UI must render the corresponding explicit state rather than an ambiguous empty block/zero.
+
+---
 
 ## 1. Current target evolution
 
@@ -36,30 +47,43 @@
 Original PO Agent / legacy behavior
         |
         v
-AS21/SWTR source contract + Core-8 hardening
+AS21/SWTR source contract + Core hardening
         |
         v
 Exact-key / sprint / multi-filter / history hardening
         |
         v
-Persistent controlled Learning Loop
+Controlled persistent Learning Loop foundation
         |
         v
-CURRENT: semantic correction-state hardening (Assignment 072)
+Semantic correction + session-state hardening
         |
         v
-TOTAL REGRESSION OF EVERY PRODUCTION SKILL (Assignment 095)
-(functional + real source + evidence + NL variants)
+TRUE A/B source recovery for assignee queries
         |
         v
-PER-SKILL LEARNING CERTIFICATION
-(correction -> source recheck -> generalized policy -> persistence -> restart -> rollback)
+CURRENT: Assignment 132
+FULL 54-SKILL TRUE A/B CERTIFICATION
++ exact-task semantics
++ dialogue regression
++ Learning Loop regression
         |
         v
-Backend catalog certification / Gate E closure
+POST-132 ARCHITECTURE EVOLUTION
+Learning Reviewer + Session Isolation
++ Capability Registry + Progressive Skills
++ Deterministic Capability Pipelines
         |
         v
-Frontend / PO Workspace acceptance
+Final backend recertification / Gate E closure
+        |
+        v
+FULL UI DATA WIRING & ACCEPTANCE CERTIFICATION
+screen/widget inventory + data lineage
++ REAL-data A/B + empty/error/partial states
+        |
+        v
+UI remediation
         |
         v
 Full browser E2E
@@ -68,331 +92,303 @@ Full browser E2E
 Release hardening and release readiness
 ```
 
-## 2. Phase gates
+---
 
-### GATE A — AS21 Source Contract
+## 2. Current recovery baseline
 
-Required source capabilities include task point read, task search, task relations, sprint membership, project/space, assignee, status, release, attachments and history/changelog where required by active skills.
+The previous total-regression campaign exposed that some earlier GREEN reports were not sufficiently authoritative. The acceptance model has therefore been tightened to TRUE A/B. Focused recovery already proved live assignee routing, exact task-key propagation, independent approved-space grounding, long-title compatibility and correction/session fixes. Assignment 131 provided meaningful REAL AS21 A/B evidence for recovered assignee queries, but it did not execute the complete 54-skill catalog. Assignment 132 exists to close that gap.
 
-The critical rule is authoritative hydration: facade/list endpoints may provide candidate keys, but task facts used for acceptance must come from the real authoritative unit/read path where available.
+---
 
-**Status:** historically GREEN. Real AS21 remains mandatory evidence for current correction/regression work and will be revalidated comprehensively by Assignment 095.
+## 3. Current active gate — Assignment 132
 
-### GATE B — Core-8 and semantic/source boundary
+Assignment 132 is the first accepted candidate for a complete backend certification run under the strengthened anti-surrogate rules.
 
-Canonical eight domain skills remain:
+Required contents include clean runtime provenance, REAL AS21/MCP-SWTR health, focused sanity A/B, exact-task semantics, all 54 discovered production skills actually executed/classified, independent Oracle B where factual comparison is possible, exact key-set equality for task collections, dialogue/Russian-language regression, Learning Loop regression, source integrity/latency evidence, anti-surrogate audit and exact arithmetic across the matrix.
 
-1. `task_search`
-2. `task_summary`
-3. `task_quality`
-4. `sprint_health`
-5. `velocity`
-6. `team_workload`
-7. `competency_match`
-8. `release_health`
+`FULL_54_SKILL_AB_CERTIFICATION_GREEN` is allowed only when all 54 unique production skills really execute/classify, no product defect is proven, required factual A/B comparisons are GREEN, no surrogate Oracle is used and the Learning Loop contract is GREEN or safely typed non-applicable.
 
-Historical Core-8 GREEN is preserved as a baseline only. Assignment 071 proved semantic recovery defects A1/A2 and exposed a production correction-state corruption: correction can corrupt `member_login` and fail to replace stale `status_raw`. This reopens the affected semantic/correction boundary without invalidating unrelated historical GREEN.
+---
 
-**Current status:** LOCALLY REOPENED by Assignment 072 until the first failing correction boundary is proven, minimally fixed by the owner, and post-fix regression is GREEN.
+## 4. Source and Oracle architecture contract
 
-### GATE C — Controlled persistent Learning Loop
-
-The learning design has two layers:
-
-**Governance layer:** candidate/evaluation/promotion lifecycle with technical gates, human approval and rollback.
-
-**Runtime behavioral layer:** explicit negative feedback can trigger a fresh authoritative source recheck and, only after a source-grounded correction, create an allow-listed generalized persistent learned policy for the affected skill.
-
-Implemented production milestones:
-
-- `f6e36ea` — persistent versioned `LearnedPolicyStore`;
-- `d53124a` — correction runtime integration with persistent learning.
-
-Expected learned behavior currently allowed:
+Agent A follows:
 
 ```text
-authoritative_recheck_on_negative
+User/UI -> Harness API -> semantic interpreter -> grounded frame
+ -> skill/capability -> Task API -> MCP-SWTR -> REAL AS21
 ```
 
-Forbidden learned artifacts include concrete truths such as `DMS-271 exists`, stored answers, sprint membership facts, assignee facts or arbitrary prompt/code mutations.
+Oracle B must be independently constructed from authoritative REAL AS21 operations and must not reuse Harness output, the same capability calculation, local task DB, previous report counts or fixtures. For task collections the primary equality rule is `set(Agent_A.task_keys) == set(Oracle_B.task_keys)`.
 
-**Protected regression rule for Assignment 072:** correction hardening must not disable or bypass the learning loop. After the owner fix, certification must explicitly prove:
+Production task spaces are `WMB`, `STS`, `OLP`, `DMS`, `CRPV`. Local synchronization may exist for non-authoritative features, but acceptance of live answers must not depend on preloading AS21 tasks into a local DB.
+
+---
+
+## 5. Semantic interpretation contract
+
+Production natural-language understanding remains **LLM-first**:
 
 ```text
-negative correction
- -> fresh authoritative recheck
- -> valid generalized policy candidate/promotion path
- -> persistent learned policy
- -> reuse on a different query/entity where applicable
+LLM: infer intent + extract semantic slots + detect ambiguity
+Deterministic grounding: resolve/validate entities and authoritative identifiers
+Capability code: retrieve/filter/calculate deterministically
+```
+
+Legacy phrase heuristics must not silently become the production NLP path. Post-132 browser forensic must expose interpreter class, `llm_used`, raw semantic frame, grounded frame, resolved skill, capability args and final source route.
+
+---
+
+## 6. Learning Loop — current contract and required evolution
+
+Current protected contract:
+
+```text
+negative feedback/correction
+ -> fresh authoritative source recheck
+ -> source-grounded correction
+ -> generalized allow-listed policy candidate
+ -> validation
+ -> persistence/versioning
+ -> reuse where applicable
  -> cold restart survival
  -> rollback
 ```
 
-If correction state is fixed but this chain regresses, Assignment 072 remains RED and Gate C is reopened.
+Learning must never memorize entity facts/answers/counts or mutate production Python/source truth. The current UX is still too passive when negative feedback only triggers recheck + clarification. Target behavior is a separate isolated **Learning Reviewer** that can compare the previous turn against independent REAL AS21, prove mismatch/no-mismatch, localize the first failing boundary, create a generalized candidate, sandbox/replay it, run independent A/B, and promote only through governance rules.
 
-**Release exit criterion:** every callable production skill must pass the applicable per-skill learning contract or explicitly prove that learning is safely non-applicable under production policy. Assignment 095 remains the comprehensive certification gate after 072 closes.
+---
 
-### GATE D — Historical requirement recovery
+## 7. Post-132 Architecture Evolution — six major stages
 
-`PO_AGENT_48_SKILL_MATRIX.md` accounts for the original 48 requirements and six reconciled additions.
+### STAGE 1 — Session + LLM-path hardening — P0
 
-**Status:** GREEN as requirement-recovery inventory.
+- browser conversation, Harness session and long-term memory scope are explicitly separated;
+- New Chat creates a fresh Harness session;
+- QA sessions use unique isolated IDs;
+- parallel browser/QA execution cannot cross-contaminate dialogue state;
+- production LLM-first path is observable end-to-end.
 
-### GATE E — Complete backend skill acceptance
+### STAGE 2 — Learning Loop 2.0 / Learning Reviewer — P0
 
-Final backend acceptance remains:
+- isolated background review plane;
+- immutable original-turn snapshot;
+- independent REAL AS21 recheck;
+- mismatch/no-mismatch and first-failing-boundary evidence;
+- generalized repair candidate only;
+- sandbox/replay + independent A/B before promotion;
+- versioned/auditable promotion, persistence and rollback.
 
-```text
-EVERY DISCOVERED PRODUCTION SKILL
-= functional GREEN
-+ correct REAL source behavior where applicable
-+ grounded evidence
-+ natural-language variants
-+ learning-loop certification
-+ restart survival
-+ rollback
-```
+### STAGE 3 — Capability Registry — P0/P1
 
-Assignment 095 is the next total certification run after Assignment 072 correction hardening is closed.
+Each capability declares semantic requirements, authoritative source route, independent Oracle contract, required tools/availability, pagination, certification SHA and latency budget. Semantic code must not know MCP endpoint details; UI must not know AS21 routing.
 
-**Exit criterion:** `FULLY_CERTIFIED` with zero functional RED and zero learning RED across the complete runtime skill catalog.
+### STAGE 4 — Progressive Skills + Deterministic Executors — P1
 
-### GATE F — Frontend / PO Workspace
+- expose only compact skill catalog first, load full contracts for selected candidates;
+- reduce context cost and skill collisions;
+- Team/Sprint/Velocity/Release and other heavy analytics use deterministic bounded pipelines instead of repeated LLM/tool ping-pong;
+- isolated subagents are reserved for genuinely multi-domain analysis, not simple factual queries.
 
-After Gate E closes, recover the original screen scope and compare it with the current frontend screen by screen. Required areas include conversational workspace, clarification UX, task search/results/detail, sprint/flow analytics, team/capacity/competency, release/product analytics, evidence/trace, feedback/learning controls, loading/empty/error/partial states and AI-PDLC lifecycle surfaces.
+### STAGE 5 — Full backend recertification — P0
 
-### GATE G — Full browser E2E
+After architecture evolution, rerun the complete production catalog under TRUE A/B, including Learning Reviewer, session isolation, restart/rollback and latency regression. Freeze backend evidence only after this clean run is GREEN.
 
-Exercise the actual production chain:
+### STAGE 6 — Full UI Data Wiring & Acceptance Certification — P0 release gate
 
-```text
-Frontend -> API -> Orchestrator -> semantic interpretation/context
- -> Skill Resolver -> deterministic capability -> AS21/SWTR
- -> evidence/trace -> response -> UI -> feedback/learning path
-```
+This is a **large independent product stage**, not cosmetic frontend polish. Current UI has multiple places where data are missing or ambiguous; every such element must be traced and certified.
 
-Critical cases include clarification/resume, session isolation, source unavailable, LLM unavailable fail-closed behavior, empty results, exact-key task lookup, sprint/release selection, attachments/history, feedback capture, persistent learning, restart survival, rollback and zero AS21 mutation authority.
+#### 6A. Complete UI inventory
 
-## 3. Learning-loop release contract
+Enumerate every route/screen and every interactive/data-bearing element:
 
-For each production skill where feedback learning is applicable, certify:
+- cards/KPIs;
+- tables and rows;
+- charts/graphs;
+- filters/selectors;
+- task/sprint/team/release panels;
+- evidence/trace views;
+- feedback/Learning controls;
+- buttons/actions/navigation;
+- loading, empty, partial and error states.
 
-```text
-initial execution
- -> explicit user negative feedback/correction
- -> fresh authoritative source validation
- -> generalized allow-listed behavioral policy
- -> persistent policy record with skill_id/version/audit
- -> different query/entity benefits
- -> cold process restart
- -> policy reloads and still applies
- -> rollback
- -> policy no longer applies
-```
+No element is omitted because it "looks secondary".
 
-Required safety properties:
+#### 6B. UI Data-Lineage Matrix
 
-- no entity memorization;
-- no answer memorization;
-- no source-fact fabrication;
-- no direct code/prompt/catalog mutation;
-- no policy promotion from unsupported user assertion;
-- no persistence of contradictory facts;
-- malformed policy store fails safely;
-- repeated identical correction does not create unbounded duplicate active policies;
-- rollback removes the policy from active resolution;
-- internal semantic rechecks must not accidentally corrupt conversation state;
-- preventing correction-state contamination must not suppress the authoritative learning evidence path.
-
-## 4. Current production milestones and active regression
-
-Verified important production changes in the current hardening line include:
-
-- source-backed sprint membership and multi-filter preservation;
-- MCP-SWTR stdio transport recovery and fail-closed source error handling;
-- authoritative direct exact-key task lookup, including the historical DMS-271 class of failures;
-- correction-aware fresh source recheck;
-- controlled lifecycle for improvement candidates/evaluation/promotion/rollback;
-- persistent versioned learned policy store;
-- correction runtime integration that can apply a generalized learned behavior in future requests;
-- Assignment 071 semantic slot recovery fixes A1/A2 retained unless a regression is proven.
-
-### Active regression — Assignment 072
-
-Known production symptom from Assignment 071:
+For each data-bearing element record:
 
 ```text
-initial:    Покажи задачи Гаранина в DMS со статусом todo
-correction: Покажи задачи Гаранина в DMS со статусом in progress
+UI element
+ -> frontend component/hook
+ -> API endpoint
+ -> Harness capability/skill
+ -> adapter/source route
+ -> authoritative source
+ -> expected data contract
+ -> Oracle B method
 ```
 
-Observed corruption included:
+This matrix must reveal dead endpoints, stale local-data dependencies, disconnected widgets, wrong filters, missing source routes and UI elements wired to placeholder/mock data.
 
-- `member_login` becoming the full correction query instead of the authoritative member login;
-- `status_raw` remaining `todo` instead of being replaced by `in progress`.
+#### 6C. REAL-data A/B per element
 
-Current QA task is boundary localization only. GigaCode must reproduce the defect and trace semantic state through interpretation, cached previous frame, dialogue classification, correction processing, grounding and pre-execution slots. It must identify `FIRST_FAILING_BOUNDARY` separately for identity and status.
+Where the element displays AS21 business facts, compare displayed normalized facts against an independent REAL AS21 Oracle. For task lists use exact task-key-set equality where applicable; for counts/aggregates compare both the underlying set and derived metric when feasible.
 
-GigaCode must not repair production code. After evidence is available, the owner makes the narrowest justified production fix. The post-fix test must include both correction-state regression and the protected learning-loop contract.
+A rendered widget with `0` or an empty array is **not PASS** unless Oracle B proves that the authoritative result is genuinely empty.
 
-Historical assignments 030-049 remain diagnostic evidence for the sprint/oracle recovery path. Historical GREEN remains useful but does not override current production counterexamples.
+#### 6D. State semantics certification
 
-## 5. Assignment 095 — next major total certification gate
-
-Assignment 095 starts only after Assignment 072 closes GREEN.
-
-It must dynamically enumerate every production skill from the running registry and produce one certification row per skill. It includes:
-
-- clean runtime provenance and REAL AS21 mode;
-- total functional black-box regression;
-- canonical Russian query plus paraphrase variants;
-- critical historical exact-key, sprint, multi-filter and history regressions;
-- complete Sprint Intelligence and Team Workload rechecks;
-- per-skill learning trigger, source revalidation and persistent policy evidence;
-- cross-entity/query generalization;
-- cold restart survival;
-- idempotency/versioning/rollback;
-- learning safety checks;
-- the entire automated test suite;
-- final complete skill certification matrix.
-
-Final allowed verdicts:
+Every data-bearing element must distinguish at least:
 
 ```text
-FULLY_CERTIFIED
-REGRESSION_DETECTED
-BLOCKED_BY_ENVIRONMENT
+LOADING
+REAL_EMPTY
+PARTIAL_DATA
+SOURCE_UNAVAILABLE
+ERROR
+SUCCESS_WITH_DATA
 ```
 
-`FULLY_CERTIFIED` is allowed only when every production skill is functionally GREEN and every applicable learning-loop contract is GREEN.
+Where relevant also certify `NOT_FOUND`, permission/read-only failures and long-running source requests. `0` must never be used as a generic substitute for unknown/error/unavailable.
 
-## 6. Ordered next steps and estimated duration
+#### 6E. Interaction certification
 
-Durations are engineering elapsed-time estimates, not guarantees. REAL SWTR latency and regressions found by the total gate remain the largest uncertainty.
+Filters, selectors, pagination, drill-down, refresh, navigation, feedback controls and any user action must preserve intended session/context and produce the expected backend request. UI state must not silently retain stale filters or stale conversation state.
 
-| Step | Work | Expected duration | Exit |
-|---|---|---:|---|
-| 072A | QA-only correction reproduction ×3 + A-I boundary trace | **30–60 min** | Proven `FIRST_FAILING_BOUNDARY`; no production changes |
-| 072B | Owner diagnosis + minimal production correction fix | **20–45 min** | Narrow diff tied to proven boundary |
-| 072C | QA post-fix correction trace ×3 + focused regression matrix + second member + REAL AS21 proof | **30–60 min** | Correction-state invariants GREEN |
-| 072D | Protected Learning Loop certification after correction fix | **30–60 min** | Recheck/promotion/persistence/generalization/restart/rollback GREEN |
-| 095 | Total real-agent regression + per-skill learning certification | **1.5–3 h** | Full report with complete skill matrix |
-| 096A | If 095 RED: diagnose narrowest broken boundary, no broad refactor | **0.5–1.5 h per defect cluster** | Reproducible root cause + focused owner fix |
-| 096B | Focused post-fix certification for affected skill/source boundary | **20–45 min per cluster** | Affected RED becomes GREEN without protected regressions |
-| 097 | Final clean rerun of total 095-equivalent gate after all fixes | **1.5–3 h** | `FULLY_CERTIFIED` |
-| 098 | Freeze backend certification artifacts, catalog/version matrix and release baseline | **30–60 min** | Backend/Gate E formally closed |
-| 099 | Frontend screen-level gap/acceptance audit against original PO Agent scope | **2–4 h** | Exact UI gap matrix |
-| 100 | Frontend remediation if gaps exist | **0.5–2 working days** depending on gaps | Screen matrix GREEN |
-| 101 | Full browser E2E including learning/feedback/restart/failure states | **3–6 h** | Critical E2E 100% GREEN |
-| 102 | Release hardening: security/read-only checks, secrets, packaging, clean install/restart smoke | **2–4 h** | Release candidate |
-| 103 | Final release-readiness certification | **1–2 h** | `RELEASE_READY=YES` |
+#### 6F. UI remediation and rerun
 
-### Best-case path from current state
+Defects are grouped by first failing boundary: frontend wiring, API contract, Harness capability, adapter/source route or state rendering. Fix one boundary at a time, run focused A/B, then rerun the complete UI matrix.
 
-If 072 is a narrow correction-state defect and the owner fix preserves the learning loop, then 095 is immediately `FULLY_CERTIFIED`:
+#### Stage 6 exit criterion
 
 ```text
-072 closure             ~1.5–3 h
-095 total certification  1.5–3 h
-097/098 final rerun+freeze 2–4 h
-frontend audit           2–4 h
-frontend fixes           0.5–2 working days, only if needed
-full browser E2E         3–6 h
-release hardening        2–4 h
-final certification      1–2 h
+100% inventory coverage
++ 100% data-lineage coverage
++ every data-bearing element classified
++ REAL-data A/B GREEN where applicable
++ zero unexplained empty/zero widgets
++ all loading/empty/partial/error/source-unavailable states explicit
++ all critical interactions GREEN
++ no mock/local-surrogate production truth
 ```
 
-Without meaningful frontend defects, release-candidate quality remains plausible in roughly **1–2 working days after backend certification**. With moderate frontend remediation, plan on **2–3 working days**. If systemic learning/source failures are found, reserve additional time rather than weakening acceptance.
+Only then proceed to final full browser E2E/release hardening.
 
-### Expected defect loop
+---
 
-Do not restart the architecture campaign. Use:
+## 8. UI / browser forensic immediately after Assignment 132
 
-```text
-QA proves first failing boundary
- -> owner fixes one boundary
- -> focused QA certification
- -> protected functional + learning regression
- -> repeat until zero RED
- -> one final total clean rerun
-```
+Before the broad Stage 6 UI audit, run a narrow browser forensic because current UI behavior has contradicted direct Harness behavior. It must prove fresh New Chat IDs, one clean Russian query with no inherited state, LLM semantic frame/`llm_used`, grounded frame, capability/route, parity with direct Harness + Oracle B, negative feedback flow and a second uncontaminated browser session.
 
-## 7. Decision rules
+This is an architecture diagnostic and happens before broad frontend remediation.
 
-### During Assignment 072
+---
 
-1. GigaCode does not fix production code.
-2. New defects are traced to the first failing boundary before any owner change.
-3. Do not patch formatter/output to hide semantic corruption.
-4. Do not hardcode member identities, task IDs, sprint IDs, query strings or unsupported status semantics.
-5. Do not replace REAL AS21 evidence with fake/mock/frozen data.
-6. Owner fix must be minimal and directly justified by trace evidence.
-7. Post-fix certification must explicitly prove the Learning Loop remains intact.
-8. Do not start Assignment 095 until 072 is GREEN.
+## 9. Performance / latency track
 
-### After Assignment 095
+Profile LLM semantic latency, grounding, Task API, MCP-SWTR, REAL AS21, deterministic calculation and response synthesis separately. Optimize via progressive skill disclosure, deterministic pipelines, avoiding duplicate reads, contract-aware pagination and safe non-authoritative metadata caching. Never trade REAL-source truth for artificial speed.
 
-If `FULLY_CERTIFIED`: freeze backend evidence, close Gate E and move to frontend audit.
+---
 
-If `REGRESSION_DETECTED`: group REDs by shared boundary, owner fixes one boundary at a time, focused QA follows each fix, then rerun the complete total gate once.
+## 10. Updated ordered next steps
 
-If `BLOCKED_BY_ENVIRONMENT`: prove the external dependency failure independently where possible; never substitute fake source evidence; resume the same gate when the environment is restored.
+| Step | Work | Exit condition |
+|---|---|---|
+| **132** | Full 54-skill TRUE A/B marathon + exact-task forensic + dialogue + Learning Loop | 54 skills actually classified; no surrogate GREEN |
+| **133** | UI/session/LLM-path forensic on fresh browser sessions | Browser/direct Harness/Oracle parity; session contamination localized if present |
+| **134** | Owner fixes for any 132/133 proven defects | Minimal evidence-backed fixes only |
+| **135** | Focused post-fix TRUE A/B regression | All affected boundaries GREEN |
+| **136** | Learning Reviewer architecture implementation | Negative feedback produces evidence-backed review/candidate flow |
+| **137** | Session Isolation implementation | Browser/QA/transcript/memory scopes separated and concurrency-safe |
+| **138** | Capability Registry v1 | Explicit skill/source/oracle/availability/certification contracts |
+| **139** | Progressive Skill Disclosure + latency benchmark | Reduced context/latency with zero semantic regression |
+| **140** | Deterministic heavy-capability pipelines | Team/Sprint/Release analytics use bounded source-backed executors |
+| **141** | Final backend clean certification after architecture evolution | Full catalog TRUE A/B + Learning Loop GREEN |
+| **142** | Freeze backend evidence, versions and release baseline | Gate E formally closed |
+| **143** | Full UI inventory + screen/element acceptance map | 100% routes/screens/widgets/actions inventoried |
+| **144** | UI Data-Lineage Matrix | Every data-bearing element mapped UI -> API -> capability -> REAL source -> Oracle |
+| **145** | REAL-data A/B certification for all UI data elements | Zero unexplained empty/zero widgets; factual parity GREEN |
+| **146** | UI state + interaction certification | Loading/empty/partial/error/source-unavailable + filters/actions GREEN |
+| **147** | UI remediation by first failing boundary | Complete UI acceptance matrix GREEN |
+| **148** | Clean rerun of full UI Data Wiring & Acceptance gate | Stage 6 formally GREEN |
+| **149** | Full browser E2E including feedback/learning/session/restart/failure states | Critical E2E 100% GREEN |
+| **150** | Release hardening: security/read-only/secrets/packaging/restart | Release candidate |
+| **151** | Final release-readiness certification | `RELEASE_READY=YES` |
 
-## 8. Work ownership and Git QA handoff
+Assignment numbers after 132 are roadmap identifiers and may be subdivided by proven defect cluster. Do not skip architectural or UI certification work merely because an earlier gate is GREEN.
+
+---
+
+## 11. Decision rules
+
+During Assignment 132 GigaCode changes no production code; all 54 skills must really execute/classify for FULL GREEN; factual PASS requires independent REAL AS21 evidence; Learning Loop must be tested through its supported runtime path; and defects require `FIRST_FAILING_BOUNDARY` before repair.
+
+After Assignment 132, even if GREEN, do not jump directly to UI remediation. First run the narrow browser/session/LLM forensic, complete architecture evolution and backend recertification, then execute the full UI acceptance stage.
+
+During UI acceptance, a missing/zero value is treated as **UNPROVEN**, not PASS, until its lineage and Oracle truth are established. Do not fix presentation code to hide a backend/source defect.
+
+---
+
+## 12. Work ownership
 
 ### ChatGPT/OpenAI side
 
-- architecture and production changes;
-- source-contract and learning-policy decisions;
-- QA assignment design;
-- roadmap updates;
-- diagnosis and fixes after QA reports;
-- acceptance/release decisions.
+Architecture and production changes, source/learning decisions, QA assignment design, roadmap updates, diagnosis/fixes and acceptance/release decisions.
 
 ### GigaCode side
 
-- QA/tester only;
-- pull current branch and restart real services;
-- use real read-only source data where required;
-- run the active assignment autonomously;
-- collect traces and adversarial evidence;
-- never weaken tests or acceptance rules;
-- never modify production code/prompts/fixtures/learning implementation;
-- commit/push only explicitly allowed QA artifacts;
-- stop after the report and return SHA + report.
+QA/tester only: pull/restart as instructed, use REAL read-only sources, execute assignments, collect traces/evidence, never weaken tests, never modify production implementation, and commit/push only explicitly allowed QA artifacts.
 
-## 9. Current gate values
+---
+
+## 13. Current gate values
 
 ```text
-GATE_A_SOURCE_CONTRACT = HISTORICAL_GREEN / REAL_SOURCE_REQUIRED_FOR_CURRENT_QA
-GATE_B_CORE8 = HISTORICAL_GREEN / CORRECTION_BOUNDARY_LOCALLY_REOPENED_BY_072
+GATE_A_SOURCE_CONTRACT = REAL_SOURCE_REQUIRED / TRUE_AB_REQUIRED
+GATE_B_CORE_TASK_ROUTING = FOCUSED_GREEN / FULL_132_PENDING
 GATE_C_LEARNING_FOUNDATION = IMPLEMENTED
-GATE_C_CORRECTION_PROTECTED_REGRESSION = PENDING_072D
-GATE_C_PER_SKILL_RELEASE_CERTIFICATION = PENDING_095
+GATE_C_LEARNING_UX = REOPENED_FOR_POST_132_EVOLUTION
+GATE_C_PER_SKILL_CERTIFICATION = ASSIGNMENT_132_IN_PROGRESS
 GATE_D_REQUIREMENT_RECOVERY = GREEN
-CATALOG_IMPLEMENTATION = 48_ORIGINAL + 6_RECONCILED / RUNTIME_DISCOVERY_AUTHORITATIVE
-GATE_E_BACKEND_ACCEPTANCE = BLOCKED_UNTIL_072_GREEN_THEN_095
-FRONTEND_FINALIZATION = DEFERRED_UNTIL_GATE_E_GREEN
+CATALOG_IMPLEMENTATION = 54_RECONCILED / RUNTIME_DISCOVERY_AUTHORITATIVE
+GATE_E_BACKEND_ACCEPTANCE = PENDING_132 + ARCHITECTURE_EVOLUTION + FINAL_RECERTIFICATION
+SESSION_ISOLATION = REQUIRES_ARCHITECTURE_EVOLUTION
+CAPABILITY_REGISTRY = PLANNED_POST_132
+PROGRESSIVE_SKILLS = PLANNED_POST_132
+DETERMINISTIC_HEAVY_PIPELINES = PLANNED_POST_132
+GATE_F_UI_DATA_WIRING_ACCEPTANCE = PLANNED / MANDATORY_RELEASE_GATE
+UI_UNEXPLAINED_EMPTY_VALUES = NOT_ACCEPTABLE
 FULL_BROWSER_E2E = NOT_STARTED
 RELEASE_READY = NO
-CURRENT_NEXT_ACTION = ASSIGNMENT_072_QA_BOUNDARY_LOCALIZATION
-NEXT_MAJOR_GATE = ASSIGNMENT_095
+CURRENT_NEXT_ACTION = ASSIGNMENT_132_FULL_54_SKILL_TRUE_AB_CERTIFICATION
+NEXT_ARCHITECTURE_GATE = POST_132_SESSION_LLM_FORENSIC
 ```
 
-## 10. Definition of Done
+---
+
+## 14. Definition of Done
 
 The product is release-ready only when:
 
-- every production skill is functionally certified;
-- every applicable skill passes the persistent learning-loop contract;
-- real AS21/SWTR source contracts are grounded and fail closed;
-- exact-key, sprint, multi-filter, attachment and history paths are proven;
-- semantic correction preserves prior valid constraints and replaces corrected constraints without state corruption;
-- correction hardening does not break authoritative recheck or persistent learning;
-- no entity/answer memorization occurs;
-- learned policies survive restart and support rollback;
-- human approval/governance boundaries remain intact where promotion requires them;
-- frontend original product scope is restored/accepted;
+- every production skill is functionally certified against its real contract;
+- every applicable skill passes the controlled Learning Loop contract;
+- REAL AS21/SWTR source contracts are grounded and fail closed;
+- exact-key, sprint, multi-filter, attachment/history and team competency paths are proven where applicable;
+- UI and direct Harness use the same intended production semantics/source path;
+- fresh UI sessions cannot inherit unrelated correction state;
+- LLM-first semantic interpretation is observable with no silent heuristic replacement;
+- Learning Reviewer autonomously source-rechecks feedback and creates only generalized evidence-backed candidates;
+- no entity/answer/count memorization occurs and learned policies support persistence/restart/rollback;
+- Capability Registry declares source/oracle/availability contracts;
+- latency is measured and avoidable orchestration overhead reduced without replacing REAL truth;
+- **every UI route/screen/widget/action is inventoried and classified;**
+- **every data-bearing UI element has a documented data lineage to its authoritative source;**
+- **REAL-data UI facts match independent Oracle B where applicable;**
+- **there are zero unexplained empty/zero data widgets;**
+- **REAL_EMPTY, PARTIAL_DATA, SOURCE_UNAVAILABLE and ERROR are visibly distinguishable;**
+- **filters, selectors, pagination, drill-down, refresh, navigation and feedback controls work against the intended backend contract;**
+- complete UI acceptance matrix is GREEN;
 - critical browser E2E is 100% GREEN;
 - P0 defects = 0;
 - unauthorized AS21 writes = 0;
@@ -401,4 +397,4 @@ The product is release-ready only when:
 
 ---
 
-**Current next action:** complete Assignment 072 QA boundary localization. After the report proves the first failing boundary, the owner makes the minimal production fix. Then run focused correction + protected Learning Loop certification. Only after Assignment 072 is GREEN proceed to Assignment 095 as the complete backend acceptance truth.
+**Current next action:** let Assignment 132 finish without production changes. Inspect its full Git QA report. Then execute the dedicated browser/session/LLM/Learning forensic. After architecture evolution and final backend recertification, run the mandatory Full UI Data Wiring & Acceptance Certification before browser E2E and release hardening.
