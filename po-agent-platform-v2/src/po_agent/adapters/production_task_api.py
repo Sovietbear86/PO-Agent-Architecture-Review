@@ -1,7 +1,7 @@
 """Production AS21 adapter extensions over the proven Task API boundary."""
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Optional
 
 import httpx
 
@@ -11,6 +11,8 @@ from .task_api import (
     AS21SourceError,
     AS21SourceUnavailable,
     TaskApiAS21Adapter,
+    _parse_query,
+    _task_matches,
 )
 
 
@@ -18,10 +20,9 @@ class ProductionTaskApiAS21Adapter(TaskApiAS21Adapter):
     """Task API adapter with proven sprint/release/history source facts.
 
     Core task mapping remains in TaskApiAS21Adapter. This subclass adds live
-    swtr-read calls needed by production sprint/release grounding. If the MCP
-    version-search tool itself is unavailable, release identifiers already
-    proven on canonical real AS21 tasks remain a valid read-only grounding
-    source; the fallback is explicit in each returned record.
+    swtr-read calls needed by production sprint/release grounding. Assignee
+    searches are also routed to the live MCP-SWTR facade so they never depend on
+    a synchronized/local task cache.
     """
 
     source_facts = frozenset({"tasks", "attachments", "history", "sprints", "releases"})
@@ -71,6 +72,72 @@ class ProductionTaskApiAS21Adapter(TaskApiAS21Adapter):
         if not isinstance(payload, dict):
             raise AS21SourceError("task-api current sprint endpoint returned malformed payload")
         return self._find_identifier(payload.get("sprint"))
+
+    async def search_tasks(
+        self,
+        jql: str,
+        max_results: int = 50,
+        fields: Optional[list[str]] = None,
+    ) -> list[Task]:
+        """Use the live AS21 TQL route for assignee searches.
+
+        The base adapter scans `/api/v1/tasks`, which is a local/cache facade.
+        That is unsuitable for member queries because stale or missing
+        `assigned_to` metadata produces false zero-task answers. The live route
+        resolves the user in AS21 and executes server-side `assigned_to` TQL.
+        Other query shapes keep the existing proven behavior.
+        """
+        del fields
+        if max_results < 0:
+            raise ValueError("max_results must be >= 0")
+        if max_results == 0:
+            return []
+
+        filters, free_text = _parse_query(jql)
+        assignee = filters.get("assignee")
+        if not assignee:
+            return await super().search_tasks(jql, max_results=max_results)
+
+        params: dict[str, Any] = {
+            "assignee": assignee,
+            "limit": 100,
+            "max_pages": 100,
+        }
+        project_space = filters.get("project_space")
+        if project_space:
+            params["space"] = project_space
+
+        try:
+            response = await self._client.get("/api/v1/swtr-read/assignee-tasks", params=params)
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 404:
+                return []
+            raise AS21SourceUnavailable(
+                f"task-api live assignee read failed: HTTP {exc.response.status_code}"
+            ) from exc
+        except httpx.HTTPError as exc:
+            raise AS21SourceUnavailable(
+                f"task-api live assignee read failed: {type(exc).__name__}"
+            ) from exc
+
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            raise AS21SourceError("task-api live assignee endpoint returned invalid JSON") from exc
+        if not isinstance(payload, dict) or not isinstance(payload.get("tasks"), list):
+            raise AS21SourceError("task-api live assignee endpoint returned malformed payload")
+
+        tasks: list[Task] = []
+        for row in payload["tasks"]:
+            if not isinstance(row, dict):
+                raise AS21SourceError("task-api live assignee row is not an object")
+            mapped = self._map(row)
+            if mapped is None:
+                continue
+            if _task_matches(mapped, filters, free_text):
+                tasks.append(mapped)
+        return tasks[:max_results]
 
     async def get_sprint_tasks(self, sprint_id: str, space: str | None = None) -> list[Task]:
         normalized = (sprint_id or "").strip()
