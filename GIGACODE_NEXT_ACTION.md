@@ -1,185 +1,193 @@
 # GigaCode — Current Action
 
 ## Status
-`ACTIVE_QA_ASSIGNMENT_126_TRUE_ORACLE_ASSIGNEE_PARITY`
+`ACTIVE_QA_ASSIGNMENT_127_POST_FIX_LIVE_ASSIGNEE_AB`
 
-## Context
-Assignment 125 materially changes the situation. A REAL AS21 independent assignee Oracle route now exists using current MCP-SWTR tools:
+## Owner fix under test
+Current branch now contains an owner production fix that restores live assignee search without local synchronization:
 
-`search_users -> externalId -> find_units_by_filter(assigned_to = externalId) -> complete pagination -> Oracle-side exact product/space filtering`
+1. Task API route: `GET /api/v1/swtr-read/assignee-tasks`
+2. Route implementation: `search_users -> externalId -> find_units_by_filter(assigned_to = externalId) -> complete pagination`
+3. Only globally approved spaces are allowed: `WMB, STS, OLP, DMS, CRPV`
+4. Harness `ProductionTaskApiAS21Adapter.search_tasks()` routes assignee filters to this live REAL AS21 facade instead of `/api/v1/tasks` local/cache scan.
 
-Assignment 125 proved for `Garanin.R.V`:
-- 15 REAL AS21 tasks assigned to Garanin across returned spaces;
-- DMS = 7 exact tasks;
-- OLP = 3 exact tasks;
-- STS = 5 tasks outside the configured Garanin product scope;
-- configured Garanin scope = DMS + OLP;
-- therefore authoritative expected in-scope result for generic `Задачи Гаранина` is 10 tasks if the Agent contract means configured product scope.
-
-Previous GREEN conclusions based on zero tasks are invalid and must not be reused as truth.
+Important scope correction: do NOT use a team member's `products:` field as the authoritative task-search scope for the generic query `Задачи <сотрудника>`. We have owner evidence that team members may have valid tasks in other approved spaces. Generic assignee search must compare against ALL globally approved spaces. Explicit `... в DMS` / `... в OLP` queries are separately scoped.
 
 ## Role boundary
-You are QA / forensic executor only. Do NOT modify production/backend/frontend code, Task API, MCP-SWTR, Harness, prompts, skills, adapters, team data, AS21 data, testing rules, or this file. Commit/push only QA artifacts under `po-agent-platform-v2/qa_reports/`.
+You are QA/test executor only. Do NOT modify production code, prompts, skills, adapters, Task API, MCP-SWTR, team configuration, AS21 data, or this file. Commit/push only QA artifacts under `po-agent-platform-v2/qa_reports/`.
 
 ## Absolute prohibitions
-- NO local DB/sync/cache as truth.
-- NO sync scripts or DB population.
-- NO fake/mock/frozen/historical data as current truth.
+- NO local DB synchronization/population.
+- NO local DB/cache as Oracle or Agent source.
+- NO fake/mock/frozen/historical truth.
 - NO AS21 writes.
-- NO Harness/Agent answer as Oracle.
-- NO zero-result acceptance without independent Oracle equality.
-- NO production fixes.
-- NO 54-skill regression yet.
-- Do not invent source limitations already disproven by Assignment 125.
+- NO Agent/Harness as Oracle B.
+- NO product/member hardcoding in test logic.
+- NO 54-skill marathon yet.
+- HTTP 200/COMPLETED alone is never PASS.
 
 ## Goal
-Use the newly proven REAL AS21 Oracle route to perform the first trustworthy A/B parity test for assignee search and identify the exact first failing boundary if the Agent disagrees.
+Certify the owner fix with TRUE live A/B equality for assignee search and determine whether the agent is usable again for this core path.
 
-A = production Agent/Harness under test.
-B = independent REAL AS21 Oracle built only from the Assignment 125 route.
+A = current production Harness/Agent after full service restart from current HEAD.
+B = independent REAL AS21 Oracle using direct MCP-SWTR reads only.
 
-## Phase 0 — provenance and health
-1. Pull current branch; record exact HEAD and clean worktree.
-2. Restart Harness/Task API from current HEAD if needed so A is definitely current code.
-3. Record PIDs/start times and REAL AS21/MCP health.
-4. Confirm local DB/sync/cache/fake/mock/frozen Oracle usage = 0; AS21 writes = 0.
-5. Confirm configured identity and product scope for Garanin from authoritative repo config.
+## Phase 0 — exact provenance and fresh runtime
+1. Pull latest `feat/core8-real-query-hardening-v2`.
+2. Record exact HEAD and clean worktree.
+3. Restart Task API and Harness from that exact HEAD. Do not reuse stale processes.
+4. Record PIDs/start times.
+5. Verify Task API health and `/api/v1/swtr-read/health`.
+6. Verify new `/api/v1/swtr-read/assignee-tasks` route is registered.
+7. Local DB/sync/cache/fake/mock usage for this assignment = 0. AS21 writes = 0.
 
-## Phase 1 — rebuild Oracle B from scratch
-Do NOT copy counts from Assignment 125 as test output. Re-execute the route live:
-1. `search_users` -> uniquely resolve Garanin -> externalId.
-2. `find_units_by_filter(query='assigned_to = "<externalId>"')`.
-3. Traverse every page until `hasNext=false`.
-4. Capture every returned task key, space and assigned_to.
-5. Apply configured product/space scope independently in QA logic only after the REAL AS21 result is complete.
+If AS21/MCP is temporarily unavailable, retry up to 2 times with 20–30 sec backoff; timeout >=120 sec. Environment failure is not a product FAIL without retest.
 
-Produce exact normalized sets:
-- `B_ALL_ASSIGNED_KEYS`
-- `B_DMS_KEYS`
-- `B_OLP_KEYS`
-- `B_IN_SCOPE_KEYS = DMS ∪ OLP`
-- `B_OUT_OF_SCOPE_KEYS`
+## Phase 1 — independent Oracle B for Garanin
+Rebuild from scratch via direct MCP-SWTR, NOT through Task API/Harness:
 
-Counts alone are insufficient.
+`search_users -> exact Garanin.R.V externalId -> find_units_by_filter(query='assigned_to = "<externalId>"') -> all pages`
 
-## Phase 2 — Agent A generic assignee query
-In a NEW session execute exactly the natural user query:
+Capture every returned task key and space.
+
+Generic Oracle scope = only globally approved spaces:
+`WMB, STS, OLP, DMS, CRPV`
+
+Produce exact sets:
+- `B_GARANIN_ALL_APPROVED_KEYS`
+- `B_GARANIN_DMS_KEYS`
+- `B_GARANIN_OLP_KEYS`
+- other approved-space subsets if present (including STS/WMB/CRPV)
+- excluded keys outside the five approved spaces
+
+Do NOT discard STS/WMB/CRPV merely because `team_members.yaml products` omits them.
+
+## Phase 2 — Task API live facade proof
+Call the new owner route directly:
+`GET /api/v1/swtr-read/assignee-tasks?assignee=Garanin.R.V`
+
+Capture:
+- source/route fields;
+- exact task-key set;
+- spaces;
+- external_id;
+- pages_read;
+- elapsed time.
+
+Required invariant:
+`TaskApiLiveKeys == B_GARANIN_ALL_APPROVED_KEYS`
+
+Then call with `space=DMS` and `space=OLP` and compare exact keys to Oracle subsets.
+
+If this boundary mismatches, STOP functional Harness analysis and identify `TASK_API_LIVE_ASSIGNEE_FACADE` as first failing boundary.
+
+## Phase 3 — Harness A generic query
+Fresh session, exact natural query:
 `Задачи Гаранина`
 
 Capture:
 - status;
 - intent/skill/version;
-- semantic frame/slots;
-- resolved member identity;
-- configured scope passed downstream;
-- capability/tool arguments;
-- source/evidence IDs;
+- semantic member identity;
+- capability arguments;
+- source/evidence;
 - exact returned task keys;
 - answer text;
 - elapsed time.
 
-Normalize to `A_GENERIC_KEYS`.
+Required invariant:
+`A_GENERIC_KEYS == B_GARANIN_ALL_APPROVED_KEYS`
 
-Primary parity criterion:
-`A_GENERIC_KEYS == B_IN_SCOPE_KEYS`
+No silent narrowing to DMS/OLP is allowed for this generic query.
 
-If the Agent contract explicitly proves a different intended scope, document the contract and compare against that exact independently derived Oracle subset. Do not silently redefine scope to make A pass.
+## Phase 4 — explicit space queries
+Fresh sessions:
 
-## Phase 3 — explicit DMS and OLP A/B tests
-Use NEW independent sessions.
+1. `Задачи Гаранина в DMS`
+   - expected exact set = `B_GARANIN_DMS_KEYS`
+   - must not ask needless clarification if `DMS` and Garanin are already unambiguous.
 
-A-DMS query:
-`Задачи Гаранина в DMS`
-Expected Oracle:
-`B_DMS_KEYS`
+2. `Задачи Гаранина в OLP`
+   - expected exact set = `B_GARANIN_OLP_KEYS`
+   - must not ask needless clarification if `OLP` and Garanin are already unambiguous.
 
-A-OLP query:
-`Задачи Гаранина в OLP`
-Expected Oracle:
-`B_OLP_KEYS`
+Capture exact parity and dialogue behavior.
 
-For each capture exact task-key equality, not counts only.
+## Phase 5 — mandatory real negative/control member: Kalachanov
+Use `Kalachanov.V.V` as the control because owner evidence confirms he has real tasks in approved spaces including WMB/CRPV/STS.
 
-## Phase 4 — negative control
-Choose one OTHER authoritative configured team member from repo config.
-Rebuild Oracle B for that member using the same REAL route:
-`search_users -> externalId -> find_units_by_filter -> complete pagination -> configured scope filter`
+Build Oracle B independently from REAL AS21:
+`search_users -> Kalachanov externalId -> find_units_by_filter assigned_to -> all pages`
 
-Then query Agent A naturally for that member.
+Filter ONLY to globally approved spaces WMB/STS/OLP/DMS/CRPV. Do not filter using `products: [DMS, OLP]` from current team YAML; that field is not authoritative for task-search scope.
 
-Purpose: prove there is no Garanin-specific hardcoding and that identity resolution/filtering changes the result.
+Capture exact:
+- `B_KALACHANOV_ALL_APPROVED_KEYS`
+- per-space counts/keys (especially WMB, CRPV, STS)
 
-Do not use arbitrary/non-team employees.
+Then fresh Harness session:
+`Задачи Калачанова`
 
-## Phase 5 — exact first failing boundary
-For every mismatch, trace evidence and assign the earliest applicable label only:
+Required invariant:
+`A_KALACHANOV_KEYS == B_KALACHANOV_ALL_APPROVED_KEYS`
+
+A zero result is a FAIL if Oracle is non-zero.
+
+## Phase 6 — exact first failing boundary
+If any mismatch occurs, trace the earliest incorrect artifact. Allowed labels:
 - `SEMANTIC_INTERPRETATION`
 - `MEMBER_IDENTITY_RESOLUTION`
-- `SCOPE_RESOLUTION`
+- `SPACE_SCOPE_RESOLUTION`
 - `SKILL_RESOLUTION`
 - `CAPABILITY_ARGUMENT_BUILDING`
-- `TASK_API_ADAPTER`
-- `MCP_TOOL_SELECTION`
-- `SOURCE_QUERY_CONSTRUCTION`
+- `PRODUCTION_ADAPTER_ROUTING`
+- `TASK_API_LIVE_ASSIGNEE_FACADE`
+- `MCP_USER_RESOLUTION`
+- `MCP_TQL_QUERY`
 - `SOURCE_RESPONSE_DECODING`
-- `POST_SOURCE_SCOPE_FILTERING`
-- `RESPONSE_STATUS_MAPPING`
+- `GLOBAL_SPACE_FILTERING`
+- `RESPONSE_MAPPING`
 - `RESPONSE_RENDERING`
 
-Show the last correct artifact and first incorrect artifact. Do not guess root cause from final count.
+Show last correct and first incorrect artifact. Do not infer root cause from count alone.
 
-## Phase 6 — old surrogate verdict invalidation
-Explicitly identify earlier QA reports that certified `0 tasks` for Garanin as GREEN or used an unproven Oracle route.
-
-Do not edit/delete old reports. Mark them in Assignment 126 as superseded by the REAL Oracle proof from 125/126.
-
-At minimum review Assignments 118R, 119, 120, 122 and any later report that reused their zero-task conclusion.
-
-## Phase 7 — anti-surrogate certification
-The report must answer YES/NO with evidence:
-- Oracle B is independent of Agent/Harness: YES required.
-- Oracle B uses live REAL AS21 reads: YES required.
-- Exact task keys captured: YES required.
-- Complete pagination proven: YES required.
-- No local DB/sync/cache/fake/mock/frozen truth: YES required.
-- No historical count copied as current Oracle: YES required.
-- Agent result compared by exact set equality: YES required.
-
-If any required answer is NO, GREEN is structurally forbidden.
+## Phase 7 — anti-surrogate gate
+All must be YES for any GREEN:
+- fresh current runtime from exact HEAD;
+- independent Oracle B direct to REAL AS21;
+- complete pagination;
+- exact task-key sets captured;
+- Task API live facade compared independently;
+- Harness result compared by exact key equality;
+- no local DB/sync/cache/fake/mock/frozen truth;
+- Garanin + Kalachanov both tested;
+- generic query uses all five approved spaces, not member `products` narrowing;
+- AS21 writes = 0.
 
 ## Allowed verdicts
-### `TRUE_AB_PARITY_GREEN`
-Generic + DMS + OLP + negative-control Agent results exactly equal independently rebuilt REAL AS21 Oracle sets.
+### `ASSIGNEE_CORE_PATH_RESTORED_GREEN`
+All Garanin generic/DMS/OLP and Kalachanov generic exact-key invariants pass.
 
-### `AGENT_ASSIGNEE_REGRESSION_PROVEN`
-Oracle is complete and independent, and at least one Agent result differs. Include first failing boundary.
+### `OWNER_FIX_PARTIAL_REGRESSION_REMAINS`
+At least one real A/B mismatch remains; identify first failing boundary.
 
-### `MIXED_AGENT_AND_QA_DEFECTS`
-A product mismatch exists and additional QA methodology/report defects are proven.
+### `OWNER_FIX_TASK_API_BOUNDARY_FAILED`
+The new Task API live facade itself differs from independent Oracle B.
 
 ### `BLOCKED_BY_ENVIRONMENT`
-A contractually valid live route cannot complete after retries.
+REAL AS21/MCP could not complete after required retries.
 
-No other GREEN verdict is allowed.
-
-## Critical rules
-- HTTP 200 / COMPLETED is NOT success without exact key parity.
-- `0 tasks` is NOT success unless Oracle B independently returns the same empty set.
-- Do not use `get_my_tasks` as Oracle for another assignee.
-- Do not use `search_tasks` as assignee Oracle; Assignment 124 proved its assignee argument is not enforced.
-- Do not use `get_sprint_tasks` alone as assignee Oracle.
-- Space filtering in Oracle B may be QA-side ONLY after complete server-side assignee retrieval; record this explicitly.
-- Do not fix anything in this assignment.
+No other GREEN is allowed.
 
 ## Output
 Primary report:
-`po-agent-platform-v2/qa_reports/TRUE_ORACLE_ASSIGNEE_PARITY_126.md`
+`po-agent-platform-v2/qa_reports/POST_FIX_LIVE_ASSIGNEE_AB_127.md`
 
 Optional raw evidence prefix:
-`TRUE_ORACLE_ASSIGNEE_PARITY_126_`
+`POST_FIX_LIVE_ASSIGNEE_AB_127_`
 
 ## Finish
 Commit/push only QA report/evidence, provide full SHA, then STOP.
 
 ## Start when instructed
-Execute Assignment 126 autonomously. No production changes and no synchronization/population.
+Execute Assignment 127 autonomously. Do not modify production code and do not synchronize/populate local task data.
