@@ -42,12 +42,7 @@ def _canonical_task_code(value: Any) -> str | None:
 
 
 def _unit_from_payload(value: Any) -> dict[str, Any] | None:
-    """Find a real SWTR task/unit object in nested Task API payloads.
-
-    Live task lookups may expose the canonical key as `task_code` rather than
-    `code`. Normalise that shape here so all downstream mapping continues to
-    consume the canonical `code` field without duplicating transport quirks.
-    """
+    """Find a real SWTR task/unit object in nested Task API payloads."""
     if isinstance(value, dict):
         code = _canonical_task_code(value.get("code")) or _canonical_task_code(value.get("task_code"))
         if code:
@@ -82,13 +77,6 @@ def _task_code_from_row(row: Any) -> str | None:
 
 
 def _workflow_status_from_row(row: Any) -> Any:
-    """Preserve authoritative workflow status exposed by sprint-task rows.
-
-    The individual SWTR task point-read is authoritative for identity and
-    relations but the live sprint-task surface currently carries workflow
-    status that the point-read may omit. Keep that source fact while still
-    proving sprint membership from the point-read.
-    """
     unit = _unit_from_payload(row)
     if unit is None and isinstance(row, dict):
         unit = row
@@ -163,13 +151,6 @@ class HardenedProductionTaskApiAS21Adapter(ProductionTaskApiAS21Adapter):
         return unit
 
     async def get_task(self, task_key: str) -> Task | None:
-        """Resolve a full task key directly against live SWTR, never the cache.
-
-        Exact-key lookup is an authoritative point read. Requiring the bounded
-        `/api/v1/tasks` cache to be populated made a valid DMS-271 lookup fail
-        even while `/api/v1/swtr-read/tasks/DMS-271` was healthy. Preserve the
-        rich-read contract by attaching live attachment metadata after mapping.
-        """
         normalized = _canonical_task_code(task_key)
         if not normalized:
             return None
@@ -180,7 +161,6 @@ class HardenedProductionTaskApiAS21Adapter(ProductionTaskApiAS21Adapter):
         if task is None:
             raise AS21SourceError(f"raw SWTR task {normalized} cannot be mapped to canonical Task")
         attachments = await self.get_attachment_metadata(normalized)
-        # Preserve _qa_fault metadata when copying task
         fault_metadata = task.source_data.get("_qa_fault")
         new_task = task.model_copy(update={"attachments": attachments})
         if fault_metadata:
@@ -194,52 +174,24 @@ class HardenedProductionTaskApiAS21Adapter(ProductionTaskApiAS21Adapter):
         return bool(await self.get_sprint_tasks(normalized))
 
     @staticmethod
-    def _map_raw_unit(
-        unit: dict[str, Any],
-        *,
-        sprint_id: str | None = None,
-        space: str | None = None,
-        workflow_status: Any = None,
-    ) -> Task | None:
+    def _map_raw_unit(unit: dict[str, Any], *, sprint_id: str | None = None, space: str | None = None, workflow_status: Any = None) -> Task | None:
         code = _canonical_task_code(unit.get("code")) or _canonical_task_code(unit.get("task_code"))
         if not code:
             return None
         attrs_list = unit.get("attributes") if isinstance(unit.get("attributes"), list) else []
-        source_data = {
-            "swtr_code": code,
-            "swtr_space": _space_code(unit.get("space")) or (space.upper() if space else None),
-            "workflow_status": workflow_status if workflow_status is not None else unit.get("workflow_status"),
-            "swtr_attributes": attrs_list,
-            "sprint_id": sprint_id,
-        }
+        source_data = {"swtr_code": code, "swtr_space": _space_code(unit.get("space")) or (space.upper() if space else None), "workflow_status": workflow_status if workflow_status is not None else unit.get("workflow_status"), "swtr_attributes": attrs_list, "sprint_id": sprint_id}
         attrs = _attributes(source_data)
         status_value = source_data.get("workflow_status") or attrs.get("workflow_status") or unit.get("workflow_status") or ""
-        if isinstance(status_value, dict):
-            # Prefer 'name' for readability, fall back to 'code' if needed
-            status_raw = status_value.get("name") or status_value.get("code") or ""
-        else:
-            status_raw = str(status_value or "")
-
-        # Store original status before fault injection
+        status_raw = (status_value.get("name") or status_value.get("code") or "") if isinstance(status_value, dict) else str(status_value or "")
         original_status_raw = status_raw
         original_status = normalize_task_status(status_raw)
-
-        # Apply QA fault injection if configured
-        injected_status, injected_status_raw, fault_metadata = apply_qa_fault_if_applicable(
-            source_data=source_data,
-            original_status=original_status,
-            original_status_raw=original_status_raw,
-            task_code=code,
-        )
-        # Use injected status for first read, original for recovery
+        injected_status, injected_status_raw, fault_metadata = apply_qa_fault_if_applicable(source_data=source_data, original_status=original_status, original_status_raw=original_status_raw, task_code=code)
         if fault_metadata:
             status_raw = injected_status_raw
             status = injected_status
-            # Mark fault as consumed so recovery will use real status
             consume_qa_fault(code)
         else:
             status = original_status
-
         display, external_id, login = _user_identity(attrs.get("assigned_to"))
         title = unit.get("summary") or unit.get("title")
         if not isinstance(title, str) or not title.strip():
@@ -248,20 +200,9 @@ class HardenedProductionTaskApiAS21Adapter(ProductionTaskApiAS21Adapter):
         updated = _parse_datetime(unit.get("updatedAt")) or created
         grounded_sprint = sprint_id or _identifier(attrs.get("scrum_board_plugin_sprint"))
         release_id = _identifier(attrs.get("fix_version_s"))
-
-        task = Task(
-            key=code, id=code, title=title,
-            description=unit.get("description") if isinstance(unit.get("description"), str) else None,
-            status=status, status_raw=status_raw or None, status_category=get_status_category(status),
-            created_at=created, updated_at=updated, assignee=display, assignee_id=external_id,
-            assignee_login=login, project_space=source_data["swtr_space"], sprint_id=grounded_sprint,
-            release_id=release_id, source="swtr", source_data=source_data,
-        )
-
-        # Attach fault metadata to source_data if injected
+        task = Task(key=code, id=code, title=title, description=unit.get("description") if isinstance(unit.get("description"), str) else None, status=status, status_raw=status_raw or None, status_category=get_status_category(status), created_at=created, updated_at=updated, assignee=display, assignee_id=external_id, assignee_login=login, project_space=source_data["swtr_space"], sprint_id=grounded_sprint, release_id=release_id, source="swtr", source_data=source_data)
         if fault_metadata:
             task.source_data["_qa_fault"] = fault_metadata
-
         return task
 
     async def _hydrate_relation(self, task: Task) -> Task:
@@ -277,11 +218,7 @@ class HardenedProductionTaskApiAS21Adapter(ProductionTaskApiAS21Adapter):
             source_data["sprint_id"] = sprint_id
         if attrs:
             source_data["swtr_attributes"] = attrs
-        return task.model_copy(update={
-            "project_space": project_space or task.project_space,
-            "sprint_id": sprint_id or task.sprint_id,
-            "source_data": source_data,
-        })
+        return task.model_copy(update={"project_space": project_space or task.project_space, "sprint_id": sprint_id or task.sprint_id, "source_data": source_data})
 
     async def _hydrate_relations(self, tasks: list[Task]) -> list[Task]:
         semaphore = asyncio.Semaphore(12)
@@ -312,7 +249,6 @@ class HardenedProductionTaskApiAS21Adapter(ProductionTaskApiAS21Adapter):
             raise AS21SourceError("task-api sprint task endpoint returned malformed payload")
         if payload.get("complete") is False:
             raise AS21SourceError("task-api sprint task endpoint returned an incomplete corpus")
-
         rows = _sprint_rows(payload)
         rows_by_code: dict[str, dict[str, Any]] = {}
         codes: list[str] = []
@@ -325,7 +261,6 @@ class HardenedProductionTaskApiAS21Adapter(ProductionTaskApiAS21Adapter):
                 seen.add(code); codes.append(code)
         if rows and not codes:
             raise AS21SourceError("live sprint rows do not expose canonical task codes")
-
         semaphore = asyncio.Semaphore(12)
         async def prove(code: str):
             async with semaphore:
@@ -337,13 +272,7 @@ class HardenedProductionTaskApiAS21Adapter(ProductionTaskApiAS21Adapter):
                 return None
             if space and (not real_space or real_space.casefold() != space.strip().casefold()):
                 return None
-            return self._map_raw_unit(
-                unit,
-                sprint_id=real_sprint,
-                space=real_space,
-                workflow_status=_workflow_status_from_row(rows_by_code.get(code)),
-            )
-
+            return self._map_raw_unit(unit, sprint_id=real_sprint, space=real_space, workflow_status=_workflow_status_from_row(rows_by_code.get(code)))
         proven = await asyncio.gather(*(prove(code) for code in codes)) if codes else []
         return [task for task in proven if task is not None]
 
@@ -353,6 +282,15 @@ class HardenedProductionTaskApiAS21Adapter(ProductionTaskApiAS21Adapter):
             return []
         project = filters.get("project_space")
         sprint = filters.get("sprint_id")
+        assignee = filters.get("assignee")
+
+        # Assignee searches must always use the authoritative live AS21 route.
+        # ProductionTaskApiAS21Adapter already sends project_space as `space`
+        # to /api/v1/swtr-read/assignee-tasks. Bypassing it here previously sent
+        # assignee+space queries to the empty legacy /api/v1/tasks facade.
+        if assignee and not sprint:
+            return await super().search_tasks(jql, max_results=max_results, fields=fields)
+
         if not project and not sprint:
             return await super().search_tasks(jql, max_results=max_results, fields=fields)
         remaining = dict(filters)
