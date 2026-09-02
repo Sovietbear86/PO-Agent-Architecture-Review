@@ -1,0 +1,763 @@
+{
+  "assignment": "134",
+  "head": "70d68a2505732d1adc065eadbdcf54fafa87915d",
+  "timestamp": "2026-09-02T17:00:00",
+  "skills": {
+    "task-lookup": {
+      "ordinal": 1,
+      "batch": "B01",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_task-lookup.json"
+      ]
+    },
+    "task-search": {
+      "ordinal": 2,
+      "batch": "B01",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_task-search.json"
+      ]
+    },
+    "task-search-attachments": {
+      "ordinal": 3,
+      "batch": "B01",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_task-search-attachments.json"
+      ]
+    },
+    "task-search-excel": {
+      "ordinal": 4,
+      "batch": "B02",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_task-search-excel.json"
+      ]
+    },
+    "task-search-pdf": {
+      "ordinal": 5,
+      "batch": "B02",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_task-search-pdf.json"
+      ]
+    },
+    "task-search-msg": {
+      "ordinal": 6,
+      "batch": "B02",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_task-search-msg.json"
+      ]
+    },
+    "task-search-assignee": {
+      "ordinal": 7,
+      "batch": "B03",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_task-search-assignee.json"
+      ]
+    },
+    "task-search-status": {
+      "ordinal": 8,
+      "batch": "B03",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_task-search-status.json"
+      ]
+    },
+    "task-search-sprint": {
+      "ordinal": 9,
+      "batch": "B03",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_task-search-sprint.json"
+      ]
+    },
+    "task-search-release": {
+      "ordinal": 10,
+      "batch": "B04",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_task-search-release.json"
+      ]
+    },
+    "task-search-product": {
+      "ordinal": 11,
+      "batch": "B04",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_task-search-product.json"
+      ]
+    },
+    "task-summary": {
+      "ordinal": 12,
+      "batch": "B04",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_task-summary.json"
+      ]
+    },
+    "task-quality": {
+      "ordinal": 13,
+      "batch": "B05",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_task-quality.json"
+      ]
+    },
+    "task-missing-requirements": {
+      "ordinal": 14,
+      "batch": "B05",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_task-missing-requirements.json"
+      ]
+    },
+    "task-acceptance-analysis": {
+      "ordinal": 15,
+      "batch": "B05",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_task-acceptance-analysis.json"
+      ]
+    },
+    "task-dependency-analysis": {
+      "ordinal": 16,
+      "batch": "B06",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_task-dependency-analysis.json"
+      ]
+    },
+    "task-history": {
+      "ordinal": 17,
+      "batch": "B06",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_task-history.json"
+      ]
+    },
+    "task-time-in-status": {
+      "ordinal": 18,
+      "batch": "B06",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_task-time-in-status.json"
+      ]
+    },
+    "task-aging": {
+      "ordinal": 19,
+      "batch": "B07",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_task-aging.json"
+      ]
+    },
+    "task-blocker-analysis": {
+      "ordinal": 20,
+      "batch": "B07",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_task-blocker-analysis.json"
+      ]
+    },
+    "task-similar": {
+      "ordinal": 21,
+      "batch": "B07",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_task-similar.json"
+      ]
+    },
+    "sprint-health": {
+      "ordinal": 22,
+      "batch": "B08",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_sprint-health.json"
+      ]
+    },
+    "sprint-current": {
+      "ordinal": 23,
+      "batch": "B08",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_sprint-current.json"
+      ]
+    },
+    "sprint-scope": {
+      "ordinal": 24,
+      "batch": "B08",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_sprint-scope.json"
+      ]
+    },
+    "sprint-velocity": {
+      "ordinal": 25,
+      "batch": "B09",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_sprint-velocity.json"
+      ]
+    },
+    "sprint-throughput": {
+      "ordinal": 26,
+      "batch": "B09",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_sprint-throughput.json"
+      ]
+    },
+    "sprint-wip": {
+      "ordinal": 27,
+      "batch": "B09",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_sprint-wip.json"
+      ]
+    },
+    "sprint-cycle-time": {
+      "ordinal": 28,
+      "batch": "B10",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_sprint-cycle-time.json"
+      ]
+    },
+    "sprint-lead-time": {
+      "ordinal": 29,
+      "batch": "B10",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_sprint-lead-time.json"
+      ]
+    },
+    "sprint-carryover": {
+      "ordinal": 30,
+      "batch": "B10",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_sprint-carryover.json"
+      ]
+    },
+    "sprint-scope-change": {
+      "ordinal": 31,
+      "batch": "B11",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_sprint-scope-change.json"
+      ]
+    },
+    "sprint-predictability": {
+      "ordinal": 32,
+      "batch": "B11",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_sprint-predictability.json"
+      ]
+    },
+    "sprint-risk-queue": {
+      "ordinal": 33,
+      "batch": "B11",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_sprint-risk-queue.json"
+      ]
+    },
+    "team-workload": {
+      "ordinal": 34,
+      "batch": "B12",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_team-workload.json"
+      ]
+    },
+    "team-wip": {
+      "ordinal": 35,
+      "batch": "B12",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_team-wip.json"
+      ]
+    },
+    "team-blocked": {
+      "ordinal": 36,
+      "batch": "B12",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_team-blocked.json"
+      ]
+    },
+    "team-capacity": {
+      "ordinal": 37,
+      "batch": "B13",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_team-capacity.json"
+      ]
+    },
+    "team-competency-match": {
+      "ordinal": 38,
+      "batch": "B13",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_team-competency-match.json"
+      ]
+    },
+    "team-assignee-recommendation": {
+      "ordinal": 39,
+      "batch": "B13",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_team-assignee-recommendation.json"
+      ]
+    },
+    "team-bottlenecks": {
+      "ordinal": 40,
+      "batch": "B14",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_team-bottlenecks.json"
+      ]
+    },
+    "team-distribution": {
+      "ordinal": 41,
+      "batch": "B14",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_team-distribution.json"
+      ]
+    },
+    "release-health": {
+      "ordinal": 42,
+      "batch": "B14",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_release-health.json"
+      ]
+    },
+    "release-scope": {
+      "ordinal": 43,
+      "batch": "B15",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_release-scope.json"
+      ]
+    },
+    "release-progress": {
+      "ordinal": 44,
+      "batch": "B15",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_release-progress.json"
+      ]
+    },
+    "release-blockers": {
+      "ordinal": 45,
+      "batch": "B15",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_release-blockers.json"
+      ]
+    },
+    "release-dependencies": {
+      "ordinal": 46,
+      "batch": "B16",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_release-dependencies.json"
+      ]
+    },
+    "release-risk-queue": {
+      "ordinal": 47,
+      "batch": "B16",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_release-risk-queue.json"
+      ]
+    },
+    "release-forecast": {
+      "ordinal": 48,
+      "batch": "B16",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_release-forecast.json"
+      ]
+    },
+    "portfolio-overview": {
+      "ordinal": 49,
+      "batch": "B17",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_portfolio-overview.json"
+      ]
+    },
+    "po-attention-queue": {
+      "ordinal": 50,
+      "batch": "B17",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_po-attention-queue.json"
+      ]
+    },
+    "po-daily-brief": {
+      "ordinal": 51,
+      "batch": "B17",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_po-daily-brief.json"
+      ]
+    },
+    "po-status-report": {
+      "ordinal": 52,
+      "batch": "B18",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_po-status-report.json"
+      ]
+    },
+    "po-reminder-draft": {
+      "ordinal": 53,
+      "batch": "B18",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_po-reminder-draft.json"
+      ]
+    },
+    "po-local-task-draft": {
+      "ordinal": 54,
+      "batch": "B18",
+      "state": "COMPLETE",
+      "attempts": 1,
+      "A_complete": true,
+      "B_complete": true,
+      "C_complete": true,
+      "terminal_classification": "PASS",
+      "last_error": null,
+      "evidence_files": [
+        "EVIDENCE_po-local-task-draft.json"
+      ]
+    }
+  }
+}
