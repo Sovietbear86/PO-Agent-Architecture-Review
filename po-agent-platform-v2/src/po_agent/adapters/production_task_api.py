@@ -50,14 +50,6 @@ class ProductionTaskApiAS21Adapter(TaskApiAS21Adapter):
         return None
 
     async def get_task(self, task_key: str) -> Optional[Task]:
-        """Point-read an exact task from REAL SWTR instead of scanning local task cache.
-
-        `/api/v1/swtr-read/tasks/{code}` wraps MCP `read_unit` as
-        `{task_code, unit}`.  The canonical mapper expects the Task API facade
-        shape, so normalize the live unit at this boundary and preserve the raw
-        unit as `source_data`.  A real 404/not-found is returned as ``None``;
-        transport/source failures remain typed source errors.
-        """
         normalized = (task_key or "").upper().strip()
         if not re.fullmatch(r"[A-Z][A-Z0-9]*-\d+", normalized):
             return None
@@ -68,16 +60,10 @@ class ProductionTaskApiAS21Adapter(TaskApiAS21Adapter):
             if exc.response.status_code == 404:
                 return None
             if exc.response.status_code in (502, 503):
-                raise AS21SourceUnavailable(
-                    f"task-api exact task read unavailable: HTTP {exc.response.status_code}"
-                ) from exc
-            raise AS21SourceError(
-                f"task-api exact task read failed: HTTP {exc.response.status_code}"
-            ) from exc
+                raise AS21SourceUnavailable(f"task-api exact task read unavailable: HTTP {exc.response.status_code}") from exc
+            raise AS21SourceError(f"task-api exact task read failed: HTTP {exc.response.status_code}") from exc
         except httpx.HTTPError as exc:
-            raise AS21SourceUnavailable(
-                f"task-api exact task read failed: {type(exc).__name__}"
-            ) from exc
+            raise AS21SourceUnavailable(f"task-api exact task read failed: {type(exc).__name__}") from exc
 
         try:
             payload = response.json()
@@ -85,19 +71,15 @@ class ProductionTaskApiAS21Adapter(TaskApiAS21Adapter):
             raise AS21SourceError("task-api exact task endpoint returned invalid JSON") from exc
         if not isinstance(payload, dict):
             raise AS21SourceError("task-api exact task endpoint returned malformed payload")
-
         unit = payload.get("unit")
         if not isinstance(unit, dict):
             raise AS21SourceError("task-api exact task endpoint did not provide a unit object")
-
         source_id = unit.get("code") or payload.get("task_code")
         if not isinstance(source_id, str) or source_id.upper().strip() != normalized:
             raise AS21SourceError("task-api exact task endpoint returned a mismatched task code")
-
         title = unit.get("summary") or unit.get("title") or unit.get("name")
         if not isinstance(title, str) or not title.strip():
             raise AS21SourceError("task-api exact task endpoint returned a task without title")
-
         row: dict[str, Any] = {
             "source_id": normalized,
             "title": title,
@@ -125,13 +107,9 @@ class ProductionTaskApiAS21Adapter(TaskApiAS21Adapter):
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code == 404:
                 return None
-            raise AS21SourceUnavailable(
-                f"task-api current sprint read failed: HTTP {exc.response.status_code}"
-            ) from exc
+            raise AS21SourceUnavailable(f"task-api current sprint read failed: HTTP {exc.response.status_code}") from exc
         except httpx.HTTPError as exc:
-            raise AS21SourceUnavailable(
-                f"task-api current sprint read failed: {type(exc).__name__}"
-            ) from exc
+            raise AS21SourceUnavailable(f"task-api current sprint read failed: {type(exc).__name__}") from exc
         try:
             payload = response.json()
         except ValueError as exc:
@@ -140,20 +118,8 @@ class ProductionTaskApiAS21Adapter(TaskApiAS21Adapter):
             raise AS21SourceError("task-api current sprint endpoint returned malformed payload")
         return self._find_identifier(payload.get("sprint"))
 
-    async def search_tasks(
-        self,
-        jql: str,
-        max_results: int = 50,
-        fields: Optional[list[str]] = None,
-    ) -> list[Task]:
-        """Use the live AS21 TQL route for assignee searches.
-
-        The base adapter scans `/api/v1/tasks`, which is a local/cache facade.
-        That is unsuitable for member queries because stale or missing
-        `assigned_to` metadata produces false zero-task answers. The live route
-        resolves the user in AS21 and executes server-side `assigned_to` TQL.
-        Other query shapes keep the existing proven behavior.
-        """
+    async def search_tasks(self, jql: str, max_results: int = 50, fields: Optional[list[str]] = None) -> list[Task]:
+        """Use the authoritative live assignee route and never a local task cache."""
         del fields
         if max_results < 0:
             raise ValueError("max_results must be >= 0")
@@ -165,11 +131,7 @@ class ProductionTaskApiAS21Adapter(TaskApiAS21Adapter):
         if not assignee:
             return await super().search_tasks(jql, max_results=max_results)
 
-        params: dict[str, Any] = {
-            "assignee": assignee,
-            "limit": 100,
-            "max_pages": 100,
-        }
+        params: dict[str, Any] = {"assignee": assignee, "limit": 100, "max_pages": 100}
         project_space = filters.get("project_space")
         if project_space:
             params["space"] = project_space
@@ -180,13 +142,9 @@ class ProductionTaskApiAS21Adapter(TaskApiAS21Adapter):
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code == 404:
                 return []
-            raise AS21SourceUnavailable(
-                f"task-api live assignee read failed: HTTP {exc.response.status_code}"
-            ) from exc
+            raise AS21SourceUnavailable(f"task-api live assignee read failed: HTTP {exc.response.status_code}") from exc
         except httpx.HTTPError as exc:
-            raise AS21SourceUnavailable(
-                f"task-api live assignee read failed: {type(exc).__name__}"
-            ) from exc
+            raise AS21SourceUnavailable(f"task-api live assignee read failed: {type(exc).__name__}") from exc
 
         try:
             payload = response.json()
@@ -195,6 +153,15 @@ class ProductionTaskApiAS21Adapter(TaskApiAS21Adapter):
         if not isinstance(payload, dict) or not isinstance(payload.get("tasks"), list):
             raise AS21SourceError("task-api live assignee endpoint returned malformed payload")
 
+        # The live facade has already resolved the requested identity against
+        # REAL AS21 and server-side TQL assigned_to filtering. Canonical rows can
+        # omit a login even though the source match is authoritative. Re-running
+        # _task_matches with the original free-form assignee therefore caused
+        # false zero-task results. Preserve the authoritative resolved external id
+        # on each mapped Task and only apply the remaining deterministic filters.
+        resolved_external_id = str(payload.get("external_id") or "").strip() or assignee
+        remaining_filters = dict(filters)
+        remaining_filters.pop("assignee", None)
         tasks: list[Task] = []
         for row in payload["tasks"]:
             if not isinstance(row, dict):
@@ -202,7 +169,9 @@ class ProductionTaskApiAS21Adapter(TaskApiAS21Adapter):
             mapped = self._map(row)
             if mapped is None:
                 continue
-            if _task_matches(mapped, filters, free_text):
+            if not (mapped.assignee_id or mapped.assignee_login):
+                mapped = mapped.model_copy(update={"assignee_id": resolved_external_id})
+            if _task_matches(mapped, remaining_filters, free_text):
                 tasks.append(mapped)
         return tasks[:max_results]
 
@@ -219,27 +188,21 @@ class ProductionTaskApiAS21Adapter(TaskApiAS21Adapter):
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code == 404:
                 return []
-            raise AS21SourceUnavailable(
-                f"task-api sprint task read failed: HTTP {exc.response.status_code}"
-            ) from exc
+            raise AS21SourceUnavailable(f"task-api sprint task read failed: HTTP {exc.response.status_code}") from exc
         except httpx.HTTPError as exc:
-            raise AS21SourceUnavailable(
-                f"task-api sprint task read failed: {type(exc).__name__}"
-            ) from exc
+            raise AS21SourceUnavailable(f"task-api sprint task read failed: {type(exc).__name__}") from exc
         try:
             payload = response.json()
         except ValueError as exc:
             raise AS21SourceError("task-api sprint task endpoint returned invalid JSON") from exc
         if not isinstance(payload, dict):
             raise AS21SourceError("task-api sprint task endpoint returned malformed payload")
-
         rows = payload.get("complete_tasks")
         if not isinstance(rows, list):
             tasks_payload = payload.get("tasks")
             rows = tasks_payload.get("content") if isinstance(tasks_payload, dict) else None
         if not isinstance(rows, list):
             raise AS21SourceError("task-api sprint task endpoint did not provide task rows")
-
         tasks: list[Task] = []
         for row in rows:
             if not isinstance(row, dict):
@@ -267,17 +230,7 @@ class ProductionTaskApiAS21Adapter(TaskApiAS21Adapter):
                 continue
             if wanted_query and wanted_query not in release_id.casefold():
                 continue
-            item = by_id.setdefault(
-                release_id,
-                {
-                    "id": release_id,
-                    "code": release_id,
-                    "name": release_id,
-                    "source": "canonical_as21_task.fix_version_s",
-                    "evidence_task_keys": [],
-                    "fallback": True,
-                },
-            )
+            item = by_id.setdefault(release_id, {"id": release_id, "code": release_id, "name": release_id, "source": "canonical_as21_task.fix_version_s", "evidence_task_keys": [], "fallback": True})
             item["evidence_task_keys"].append(task.key)
         return [by_id[key] for key in sorted(by_id)]
 
