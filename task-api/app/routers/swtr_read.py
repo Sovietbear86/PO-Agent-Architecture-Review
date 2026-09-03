@@ -37,12 +37,43 @@ def _mcp_error_detail(payload: dict[str, Any]) -> dict[str, Any]:
     return detail or {"message": "SWTR MCP returned an error payload"}
 
 
+def _is_not_found_marker(marker: str) -> bool:
+    """Recognize authoritative SWTR/MCP not-found errors without masking outages.
+
+    MCP-SWTR currently serializes some missing entities as an error payload that
+    would otherwise be surfaced as HTTP 502. Translate only explicit not-found
+    markers; transport/protocol failures remain 502/503.
+    """
+    normalized = marker.upper()
+    return any(
+        token in normalized
+        for token in (
+            "NOT_FOUND",
+            "NOT FOUND",
+            "ELEMENT_NOT_FOUND",
+            "ENTITY_NOT_FOUND",
+            "UNIT_NOT_FOUND",
+            "TASK_NOT_FOUND",
+            "НЕ НАЙДЕН",
+            "НЕ НАЙДЕНА",
+            "НЕ НАЙДЕНО",
+            "НЕ СУЩЕСТВУЕТ",
+        )
+    )
+
+
 def _raise_mcp_error_payload(payload: Any) -> None:
     if not isinstance(payload, dict) or not any(key in payload for key in _MCP_ERROR_KEYS):
         return
     detail = _mcp_error_detail(payload)
-    marker = " ".join(str(value) for value in detail.values()).upper()
-    status_code = 403 if "ACCESS_DENIED" in marker or "ДОСТУП ЗАПРЕЩЕН" in marker else 502
+    marker = " ".join(str(value) for value in detail.values())
+    upper_marker = marker.upper()
+    if _is_not_found_marker(marker):
+        status_code = 404
+    elif "ACCESS_DENIED" in upper_marker or "ДОСТУП ЗАПРЕЩЕН" in upper_marker:
+        status_code = 403
+    else:
+        status_code = 502
     raise HTTPException(status_code=status_code, detail=detail)
 
 
@@ -332,70 +363,52 @@ async def get_sprint_tasks(
         "requested_page": page,
         "requested_limit": limit,
         "tasks": payload,
-        "pagination": meta,
-        "mcp_arguments": sorted(arguments),
-        "mcp_argument_shape": "request" if "request" in arguments else "flat",
-        "mcp_argument_preview": arguments,
-        "complete": not meta["has_next"],
-        "completeness_source": "mcp",
+        "page": meta,
+        "input_properties": sorted(properties),
     }
-    if not complete or not meta["has_next"]:
+    if not complete:
         return result
 
-    paging_names = properties.intersection({"page", "page_number", "pageNumber", "offset"})
-    if paging_names:
-        all_items = _page_content(payload)
-        seen = {code for code in (_source_task_code(item) for item in all_items) if code}
-        current_page = page
-        pages_read = 1
-        while meta["has_next"]:
-            if pages_read >= max_pages:
-                raise HTTPException(status_code=502, detail="SWTR sprint pagination exceeded max_pages")
-            current_page += 1
-            next_arguments = await _schema_aware_get_sprint_tasks_arguments(
+    accumulated = list(_page_content(payload))
+    seen_codes = {code for item in accumulated if (code := _source_task_code(item))}
+    current_page = page
+    while meta["has_next"] and len(accumulated) < limit * max_pages:
+        current_page += 1
+        try:
+            arguments = await _schema_aware_get_sprint_tasks_arguments(
                 client,
                 sprint_id=normalized,
                 space=normalized_space,
                 page=current_page,
                 limit=limit,
             )
-            try:
-                next_payload = _parse_tool_content(await client.call_tool("get_sprint_tasks", next_arguments))
-            except (SWTRMCPUnavailable, SWTRMCPProtocolError) as exc:
-                raise _transport_http_error(exc) from exc
-            for item in _page_content(next_payload):
-                code = _source_task_code(item)
-                if code and code in seen:
-                    continue
-                if code:
-                    seen.add(code)
-                all_items.append(item)
-            meta = _page_meta(next_payload)
-            pages_read += 1
-        result.update({
-            "tasks": {"content": all_items, "hasNext": False, "pageNumber": page, "pageSize": limit},
-            "pagination": {"has_next": False, "page": page, "page_size": limit, "total": len(all_items)},
-            "pages_read": pages_read,
-            "complete": True,
-            "completeness_source": "mcp-all-pages",
-        })
-        return result
+            content = await client.call_tool("get_sprint_tasks", arguments)
+        except (SWTRMCPUnavailable, SWTRMCPProtocolError) as exc:
+            raise _transport_http_error(exc) from exc
+        next_payload = _parse_tool_content(content)
+        rows = _page_content(next_payload)
+        added = 0
+        for item in rows:
+            code = _source_task_code(item)
+            if code and code in seen_codes:
+                continue
+            if code:
+                seen_codes.add(code)
+            accumulated.append(item)
+            added += 1
+        next_meta = _page_meta(next_payload)
+        if next_meta["has_next"] and added == 0:
+            # The live schema may not expose an actual page/offset input. Do not
+            # loop forever while pretending that the same first page is complete.
+            raise HTTPException(
+                status_code=502,
+                detail="SWTR get_sprint_tasks reports more pages but its callable schema does not permit advancing pagination",
+            )
+        meta = next_meta
 
-    cached = _cached_complete_sprint_tasks(normalized)
-    live_codes = {code for code in (_source_task_code(item) for item in _page_content(payload)) if code}
-    cached_codes = {
-        str(item.get("source_id") or item.get("id") or "").upper()
-        for item in cached
-        if item.get("source_id") or item.get("id")
-    }
-    result.update({
-        "complete_tasks": cached,
-        "complete_task_count": len(cached),
-        "complete": True,
-        "completeness_source": "task-api-canonical-cache",
-        "live_first_page_reconciled": live_codes.issubset(cached_codes) if live_codes else None,
-        "pagination_limitation": "MCP get_sprint_tasks exposes no page/offset input despite hasNext=true",
-    })
+    result["complete_tasks"] = accumulated
+    result["complete"] = not meta["has_next"]
+    result["pages_fetched"] = current_page - page + 1
     return result
 
 
@@ -406,17 +419,14 @@ async def search_versions(
     page: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
 ):
-    """Expose the real read-only MCP `search_versions` capability."""
     normalized_space = space.upper().strip() if space else None
     if normalized_space and not re.fullmatch(r"^[A-Z][A-Z0-9_-]*$", normalized_space):
         raise HTTPException(status_code=400, detail="Invalid SWTR space")
-    search_text = query.strip() if query else None
-
     client = SWTRMCPClient()
     try:
         arguments = await _schema_aware_search_versions_arguments(
             client,
-            query=search_text,
+            query=query,
             space=normalized_space,
             page=page,
             limit=limit,
@@ -426,169 +436,51 @@ async def search_versions(
         raise _transport_http_error(exc) from exc
     payload = _parse_tool_content(content)
     return {
-        "query": search_text,
+        "query": query,
         "space": normalized_space,
+        "page": page,
+        "limit": limit,
         "versions": payload,
-        "pagination": _page_meta(payload),
-        "mcp_arguments": sorted(arguments),
-        "mcp_argument_shape": "request" if "request" in arguments else "flat",
     }
 
 
-@router.get("/tasks/{task_code}/history")
+@router.get("/tasks/{task_code}/history", response_model=HistoryResponse)
 async def get_task_history(task_code: str):
-    """Get task history (status and assignee transitions) from SWTR.
-
-    Returns normalized history events with timestamps, actors, and value changes.
-    """
     normalized = task_code.upper().strip()
     if not _TASK_CODE_RE.fullmatch(normalized):
         raise HTTPException(status_code=400, detail="Invalid SWTR task code")
-
     client = SWTRMCPClient()
     try:
-        # First verify the task exists via read_unit
-        await client.call_tool("read_unit", {"code": normalized})
+        content = await client.call_tool("get_unit_change_history", {"unit_code": normalized})
     except (SWTRMCPUnavailable, SWTRMCPProtocolError) as exc:
         raise _transport_http_error(exc) from exc
-
-    # Now fetch history
-    try:
-        content = await client.call_tool("get_task_history", {"task_code": normalized})
-    except (SWTRMCPUnavailable, SWTRMCPProtocolError) as exc:
-        raise _transport_http_error(exc) from exc
-
-    # Parse the history payload
     payload = _parse_tool_content(content)
-
-    # Check for error response from MCP
     if isinstance(payload, dict):
-        if payload.get("errorType") or payload.get("uiErrorMessage"):
-            detail = _mcp_error_detail(payload)
-            raise HTTPException(status_code=502, detail=detail)
-
-    # Normalize the history response
-    history_events = []
-    if isinstance(payload, dict):
-        # Handle standard SWTR history response structure
-        events_data = payload.get("content", [])
-        if not isinstance(events_data, list):
-            events_data = []
-        page_info = {
-            "has_next": payload.get("hasNext", False),
-            "page": payload.get("pageNumber", payload.get("page", 0)),
-            "page_size": payload.get("pageSize", payload.get("size", 100)),
-            "total": payload.get("totalElements", payload.get("total", len(events_data))),
-        }
-    elif isinstance(payload, list):
-        events_data = payload
-        page_info = {"has_next": False, "page": 0, "page_size": len(payload), "total": len(payload)}
+        events_raw = payload.get("content", payload.get("events", []))
     else:
-        events_data = []
-        page_info = {"has_next": False, "page": 0, "page_size": 0, "total": 0}
-
-    # Convert raw events to normalized HistoryEvent objects
-    for event in events_data:
-        if not isinstance(event, dict):
+        events_raw = payload
+    if not isinstance(events_raw, list):
+        raise HTTPException(status_code=502, detail="SWTR change history payload is malformed")
+    events: list[HistoryEvent] = []
+    for raw in events_raw:
+        if not isinstance(raw, dict):
             continue
-        # Extract fields from the event
-        changed_at_raw = event.get("createdAt") or event.get("created_at") or event.get("timestamp")
-        changed_at = None
-        if isinstance(changed_at_raw, str):
-            try:
-                changed_at = datetime.fromisoformat(changed_at_raw.replace("Z", "+00:00"))
-            except ValueError:
-                changed_at = None
-
-        field_code = event.get("field") or event.get("fieldCode") or ""
-        
-        # Extract entity.code if available (SWTR history uses this for field type)
-        if not field_code:
-            entity = event.get("entity")
-            if isinstance(entity, dict):
-                field_code = entity.get("code") or ""
-        
-        actor = ""
-
-        # Extract actor from user object
-        user = event.get("user") or event.get("actor") or {}
-        if isinstance(user, dict):
-            actor = user.get("externalId") or user.get("login") or ""
-
-        # Extract old_value and new_value from the event
-        # SWTR history typically has values in a nested structure (oldValue/newValue camelCase)
-        # Note: SWTR can return null for oldValue on CREATE actions (legitimate)
-        old_value = event.get("oldValue") or event.get("old_value")
-        new_value = event.get("newValue") or event.get("new_value")
-
-        # Only fall back to payload extraction if values are missing entirely
-        # (not present as keys vs present as null). We check key existence.
-        if old_value is None and "oldValue" not in event and "old_value" not in event:
-            payload_obj = event.get("payload", {})
-            if isinstance(payload_obj, dict):
-                old_value = payload_obj.get("oldValue") or payload_obj.get("old_value")
-        if new_value is None and "newValue" not in event and "new_value" not in event:
-            payload_obj = event.get("payload", {})
-            if isinstance(payload_obj, dict):
-                new_value = payload_obj.get("newValue") or payload_obj.get("new_value")
-
-        field_name = event.get("fieldName") or event.get("field_name")
-
-        # Detect field_code from old_value/new_value if not provided
-        # SWTR history API returns status changes with status info in old_value/new_value
-        if not field_code:
-            # Check if old_value or new_value contains status-like structure
-            status_like = False
-            try:
-                if isinstance(old_value, str):
-                    old_obj = json.loads(old_value.replace("'", '"'))
-                    if isinstance(old_obj, dict) and ('code' in old_obj or 'name' in old_obj):
-                        status_like = True
-                if isinstance(new_value, str):
-                    new_obj = json.loads(new_value.replace("'", '"'))
-                    if isinstance(new_obj, dict) and ('code' in new_obj or 'name' in new_obj):
-                        status_like = True
-            except (json.JSONDecodeError, ValueError):
-                pass
-
-            if status_like:
-                field_code = "workflow_status"
-
-        # Convert old_value and new_value to JSON strings if they are dicts
-        # SWTR returns structured oldValue/newValue as dictionaries
-        if isinstance(old_value, dict):
-            old_value = json.dumps(old_value, ensure_ascii=False)
-        elif old_value is not None:
-            old_value = str(old_value)
-
-        if isinstance(new_value, dict):
-            new_value = json.dumps(new_value, ensure_ascii=False)
-        elif new_value is not None:
-            new_value = str(new_value)
-
-        # Create and append the HistoryEvent
-        history_events.append(HistoryEvent(
-            task_code=normalized,
-            event_id=event.get("id"),
-            changed_at=changed_at or datetime.now(),
-            field_code=field_code,
-            field_name=field_name,
-            old_value=old_value,
-            new_value=new_value,
-            actor=actor,
-        ))
-
-    # Sort events by timestamp
-    history_events.sort(key=lambda e: e.changed_at)
-
-    history_response = HistoryResponse(
-        task_code=normalized,
-        events=history_events,
-        page_info=page_info,
-    )
-
-    return {
-        "task_code": normalized,
-        "events": [e.model_dump(mode="json") for e in history_response.events],
-        "page_info": history_response.page_info,
-    }
+        field_code = str(raw.get("fieldCode") or raw.get("field_code") or "")
+        old_value = raw.get("oldValue", raw.get("old_value"))
+        new_value = raw.get("newValue", raw.get("new_value"))
+        changed_at_raw = raw.get("changedAt", raw.get("changed_at"))
+        actor = raw.get("actor")
+        try:
+            changed_at = datetime.fromisoformat(str(changed_at_raw).replace("Z", "+00:00")) if changed_at_raw else datetime.now()
+        except ValueError:
+            changed_at = datetime.now()
+        events.append(
+            HistoryEvent(
+                field_code=field_code,
+                old_value=None if old_value is None else str(old_value),
+                new_value=None if new_value is None else str(new_value),
+                changed_at=changed_at,
+                actor=None if actor is None else str(actor),
+            )
+        )
+    return HistoryResponse(task_code=normalized, events=events)
