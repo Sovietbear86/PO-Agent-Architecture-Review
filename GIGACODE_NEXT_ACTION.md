@@ -1,117 +1,71 @@
 # GigaCode — Current Action
 
 ## Status
-`ACTIVE_QA_ASSIGNMENT_143_AGENT_CORE_V3_H1A_FOUNDATION`
+`ACTIVE_QA_ASSIGNMENT_144_AGENT_CORE_V3_H1B_PILOT`
 
 ## Mission
-Owner Stage H1A for the Hermes-inspired Agent Core v3 foundation has been committed. Certify the new additive foundation WITHOUT modifying production code and WITHOUT broad skill regression.
+Certify the first executable Agent Core v3 pilot vertical. Owner code now provides LLM-first semantic interpretation, deterministic grounding, immutable AcceptedTurnContract, pilot Capability Registry, deterministic task lookup/search executors, REAL AS21 adapter reuse, result postcondition validation, and strangler routing enabled only with `agent_core_v3_enabled=True`.
 
-Owner commits to verify in branch ancestry:
-- `d2a4db2e52e5f27d3782d62fa3a02def9e46f257` — new `agent_core_v3.py` contracts/guards/validator/routing seam
-- `62461c84ecc22a0909466e1c7b6224f3dde7fdbd` — runtime factory wires the v3 seam disabled by default
-- `d4508af3343b786f0a67187f9ab0b4cf05243d95` — focused H1A unit tests
+Owner commits:
+- `370553175128cd7b6df99da70cb921d5e47696fe`
+- `322576cbc2644e8c82b9d97ea224f4d20f644b4f`
+- `931632e6d1cc58be286f58fef96f3d4020f84be4`
 
-This assignment is architecture certification only. The v3 processor is NOT active yet; legacy runtime must remain behaviorally unchanged while the seam is disabled.
+QA only. Do not modify production/backend/frontend code.
 
-## Absolute rules
-- QA/tester only. DO NOT change production/backend/frontend code.
-- Pull `feat/core8-real-query-hardening-v2`; record exact HEAD and clean/dirty state.
-- Do NOT run 54-skill marathon.
-- Do NOT enable v3 for production/browser traffic.
-- REAL AS21 only for protected live regressions; no local DB/sync/fake/frozen truth for live acceptance.
-- Concurrency=1; normal timeout 180s, source calls 300s; retry transient transport errors twice with 30s backoff.
-- A test failure must be localized; do not patch it yourself.
+## Rules
+- REAL AS21/MCP-SWTR only for factual acceptance; Oracle B must use direct MCP independently.
+- Do not run the full 54-skill marathon.
+- Use an isolated runtime with `agent_core_v3_enabled=True`; do not switch browser production default yet.
+- Fresh session per case, concurrency 1, timeout 300 seconds.
+- Exact task-key-set equality is mandatory.
 
-# PHASE 0 — provenance and code inspection
-1. Prove all three owner commits are ancestors of HEAD.
-2. Inspect `po-agent-platform-v2/src/po_agent/harness/agent_core_v3.py` and `runtime_factory.py` read-only.
-3. Confirm `build_runtime_bundle(... agent_core_v3_enabled=False)` is the default and the wrapper delegates legacy traffic when disabled.
-4. Confirm `AgentCoreV3RoutingSeam` preserves `adapter/router/capabilities/skills` expected by `ObservedHarnessRuntime`.
+## Phase 0 — provenance
+Record HEAD, clean state, owner commits and source health. Verify the normal/default runtime still has v3 disabled.
 
-# PHASE 1 — focused unit gate
-Run at minimum:
-```bash
-pytest -q tests/test_agent_core_v3_foundation.py
-```
-All tests must pass.
+## Phase 1 — v3 trace contract
+For every pilot capture `_agent_core_v3`: interpreter_class, llm_used, raw_semantic_frame, grounded_values, accepted_turn_contract, capability_id/version, executor_args, source_authority/oracle_id and postcondition_results. Require `llm_used=true` for natural-language cases.
 
-Additionally prove directly (small QA script is allowed, production edit is not):
-- `SessionEnvelope.new_conversation()` creates distinct `conversation_id`, `runtime_session_id`, `turn_id`;
-- `.next_turn()` preserves conversation/runtime IDs, rotates `turn_id`, and sets parent lineage;
-- `AcceptedTurnContract` copies/freeze-protects its constraints from later source-dict mutation;
-- removing requested `space` raises typed `CONSTRAINT_LOSS`;
-- capability lacking requested `space` raises `UNSUPPORTED_CONSTRAINT`;
-- executor args lacking requested `space` raises `CONSTRAINT_LOSS`.
+## Phase 2 — Oracle B
+Read fresh direct REAL MCP truth for:
+1. Garanin.R.V all approved spaces
+2. Garanin.R.V in DMS
+3. Kalachanov.V.V in WMB
+4. DMS-380 point-read
+Persist exact key sets and all pages.
 
-# PHASE 2 — result postcondition safety gate
-Use synthetic rows only to test the validator itself (this phase is contract-unit behavior, not source truth):
+## Phase 3 — Agent Core v3 A/B
+Execute with v3 enabled:
+1. `Задачи Гаранина`
+2. `Задачи Гаранина в DMS`
+3. `Задачи Калачанова в WMB`
+4. `Покажи DMS-380`
 
-Contract:
-```text
-intent=task_search
-assignee=Kalachanov.V.V
-space=WMB
-requested_constraints={assignee,space}
-```
+Require all explicitly requested constraints in the accepted contract, canonical assignee grounding, WMB preserved through executor args, exact key equality against Oracle B, all postconditions passed, no unrelated-space evidence, and correct DMS-380 lookup.
 
-Cases:
-A. Task `WMB-TEST` with assignee `Kalachanov.V.V`, `swtr_space=WMB` -> validator PASS.
-B. Task `DMS-243` with assignee `Kalachanov.V.V`, `swtr_space=DMS` -> typed `RESULT_CONTRACT_VIOLATION` BEFORE any rendering/synthesis.
-C. Matching WMB task but wrong assignee -> typed `RESULT_CONTRACT_VIOLATION`.
+## Phase 4 — contract safety unit checks
+Using isolated synthetic data only, prove:
+- contract `assignee=Kalachanov.V.V, space=WMB` rejects a result row with `project_space=DMS` as `RESULT_CONTRACT_VIOLATION`;
+- requested `space` omitted from executor arguments raises `CONSTRAINT_LOSS`.
 
-Capture failure code and details. This proves the exact class of UI failure observed earlier (WMB request rendering DMS evidence) is structurally blockable by v3.
+## Phase 5 — strangler isolation
+With v3 enabled, send one clearly non-pilot sprint/release query with a validated entity and prove it delegates to legacy. With v3 disabled, prove pilot-shaped queries also delegate to legacy.
 
-# PHASE 3 — disabled seam legacy non-regression
-Build runtime normally with the v3 flag OMITTED/default false. Prove the inner observed runtime contains `AgentCoreV3RoutingSeam(enabled=False)` and that requests still follow legacy path.
+## Phase 6 — protected regressions
+Recheck `DMS-999999999` authoritative NOT_FOUND and one protected legacy assignee query with v3 disabled.
 
-Run focused protected REAL A/B only:
-1. existing `DMS-380` -> correct point-read/task key;
-2. nonexistent `DMS-999999999` -> authoritative NOT_FOUND, never source unavailable;
-3. `Задачи Гаранина` -> compare exact task-key set with fresh direct REAL MCP Oracle B;
-4. `Задачи Гаранина в DMS` -> exact key set vs fresh Oracle B.
-
-The H1A commit is RED if the disabled seam changes these legacy results.
-
-# PHASE 4 — routing fail-closed behavior
-Do NOT enable v3 in the production service. In an isolated QA/unit construction only:
-- instantiate `AgentCoreV3RoutingSeam(enabled=True, processor=None, pilot_selector=lambda _: True)` around a harmless stub/legacy runtime;
-- prove a selected request raises typed `V3_PROCESSOR_UNAVAILABLE`, rather than silently falling back to legacy;
-- prove non-selected request still delegates legacy even if seam.enabled=True.
-
-# PHASE 5 — architecture observability inventory
-Report which H1A artifacts are now directly serializable/observable:
-- SessionEnvelope fields;
-- AcceptedTurnContract.to_dict();
-- ValidationResult.to_dict();
-- typed failure code/details.
-
-Also explicitly record what is NOT implemented yet and must not be claimed GREEN:
-- real v3 LLM semantic draft/grounding integration;
-- capability registry runtime selection;
-- v3 deterministic task executor;
-- browser routing to v3;
-- Learning Reviewer;
-- A/B/C v3 pilot.
-
-# FINAL REPORT
-Write:
-`po-agent-platform-v2/qa_reports/AGENT_CORE_V3_H1A_FOUNDATION_143.md`
+## Final report
+Write `po-agent-platform-v2/qa_reports/AGENT_CORE_V3_H1B_PILOT_144.md`.
 
 Allowed verdicts:
-- `AGENT_CORE_V3_H1A_GREEN`
-- `AGENT_CORE_V3_CONTRACT_RED`
-- `AGENT_CORE_V3_VALIDATOR_RED`
-- `AGENT_CORE_V3_SEAM_REGRESSION_RED`
-- `BLOCKED_BY_PROVEN_ENVIRONMENT`
+- `AGENT_CORE_V3_H1B_GREEN`
+- `AGENT_CORE_V3_SEMANTIC_RED`
+- `AGENT_CORE_V3_AB_PARITY_RED`
+- `AGENT_CORE_V3_CONSTRAINT_RED`
+- `AGENT_CORE_V3_ROUTING_RED`
+- `BLOCKED_BY_PROVEN_SOURCE_OUTAGE`
 
-`AGENT_CORE_V3_H1A_GREEN` requires:
-- focused H1A unit tests all PASS;
-- constraint-loss/unsupported/result-violation typed behavior proven;
-- disabled seam produces no protected legacy regression;
-- no v3 production traffic enabled;
-- no production modifications by QA.
-
-Commit/push QA report only and STOP.
+GREEN requires all four pilot scenarios to execute through v3, exact A/B parity, immutable constraint preservation, and validator blocking of wrong-space output. Commit/push QA report only and STOP.
 
 ## Start now
-Execute Assignment 143 completely.
+Execute Assignment 144 completely.
