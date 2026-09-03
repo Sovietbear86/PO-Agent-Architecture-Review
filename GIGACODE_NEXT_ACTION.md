@@ -1,81 +1,79 @@
 # GigaCode — Current Action
 
 ## Status
-`ACTIVE_QA_ASSIGNMENT_152_PLAYWRIGHT_H0_RETEST`
+`ACTIVE_QA_ASSIGNMENT_153_PLAYWRIGHT_H0_FINAL`
 
 ## Mission
-Re-test the real Playwright Browser C harness after the owner fix for the session-id timing race found in Assignment 151. QA only: do not modify production/backend/frontend source code.
+Final machine-only H0 certification after fixing the Playwright assertion model. Assignment 152 proved the production session fix is correct and localized the remaining failure to the test reading stale React DOM state. The Browser C harness now reads authoritative sessionStorage identity and separately waits for UI observability to converge.
 
-Owner fix to verify in ancestry:
-- `2cf89fcb3e60db9d274f510dcb467dc00684e1af` — `send()` now reads the authoritative tab session from `sessionStorage` at send-time, removing dependence on asynchronous React state commit timing after `Новый диалог`.
+Owner/test-harness commit to verify:
+- `608c8066864fa744aa75467f28f44b3558b220b6` — Playwright session assertions now use sessionStorage as authoritative browser identity, capture POST body + X-Session-Id, and require the visible UI session label to converge to the same value.
+- Production owner fix `2cf89fcb3e60db9d274f510dcb467dc00684e1af` must also remain ancestor.
 
-Assignment 151 already proved that Playwright Chromium itself launches and interacts with the mounted Workspace. Do not replace browser execution with code review or API calls.
+QA only. Do not modify production/backend/frontend/test source code.
 
 ## Absolute rules
-- Production/backend/frontend source edits are forbidden.
-- REAL AS21/MCP-SWTR is Oracle B for business truth.
-- Browser C = real Playwright Chromium interacting with rendered `recovery/WorkspaceApp`.
-- Direct API/curl/code review cannot substitute for C.
+- REAL AS21/MCP-SWTR is Oracle B.
+- Browser C must be real Playwright Chromium against mounted `recovery/WorkspaceApp`.
+- No manual verification, code review, curl, or API-only substitute.
 - Concurrency=1.
-- Backend/source timeout 300s.
-- For transient source/transport failures retry the affected test at most twice with 30s backoff; do not hide failed attempts.
-- Preserve traces/screenshots/videos on failures.
-- No manual-user-verification verdict is allowed.
+- Backend/source timeout 300s. Retry transient source failures at most twice with 30s backoff.
+- Every failed attempt is evidence; never skip or relabel timeout as PASS.
+- Preserve Playwright traces/screenshots/videos on failure.
 
 ## Phase 0 — provenance/build
-1. Pull current branch and record HEAD/clean state.
-2. Prove owner commit `2cf89fcb...` is ancestor.
-3. Confirm Assignment 151 report exists and prior RED root cause was session-id mismatch.
-4. Install/use Playwright dependencies without committing generated files.
-5. Run frontend build.
-6. Start/verify Task API, Agent backend v3=true, and frontend. `/api/v1/health` must show healthy source, qwen-llm, v3=true.
+1. Pull branch and record HEAD/clean state.
+2. Prove `2cf89fcb...` and `608c8066...` are ancestors.
+3. Run frontend build.
+4. Start/verify Task API REAL AS21, Agent backend v3=true, frontend.
+5. `/api/v1/health` must show healthy source, qwen-llm, v3=true.
 
-## Phase 1 — focused session race regression
+## Phase 1 — focused session isolation
 Run:
 `npm run e2e:h0 -- --grep "session isolation"`
 
-Require PASS and capture evidence that:
-- browser-visible session starts `ui-`;
-- New dialogue changes it;
-- the next request response `session_id` EXACTLY equals the new visible/sessionStorage ID;
-- second browser page has a different session;
-- first page retains its own session;
-- no first-turn correction/recheck leakage.
+PASS requires all four identities to agree for the first fresh request after New dialogue:
+- browser sessionStorage ID;
+- eventually rendered UI session label;
+- POST body `session_id`;
+- request `X-Session-Id` header;
+- backend response `session_id`.
 
-If response session differs from visible/sessionStorage session, STOP with `H0_SESSION_ISOLATION_RED` and raw trace evidence.
+Also require:
+- ID changes after New dialogue;
+- second real browser page receives a distinct ID;
+- first page retains its ID;
+- no correction_recheck/correction_clarification on the first turn.
 
-## Phase 2 — full real Browser C suite
-Run:
+If any identity differs, verdict `H0_SESSION_ISOLATION_RED` with trace/network evidence.
+
+## Phase 2 — full Browser C pilots
+Run full:
 `npm run e2e:h0`
 
-All tests must PASS in real Chromium:
+All Playwright tests must PASS for:
 1. `Задачи Гаранина`
 2. `Задачи Гаранина в DMS`
 3. `Задачи Калачанова в WMB`
 4. `Покажи DMS-380`
 
-Require per case:
-- request submitted through rendered Workspace UI;
-- terminal status COMPLETED;
-- runtime/footer identifies Agent Core v3/current v3 stage;
-- response session == visible UI session == sessionStorage session;
-- v3 metadata exists, `llm_used=true` for natural-language cases;
+Per case require:
+- actual rendered Workspace request;
+- COMPLETED;
+- Agent Core v3/current stage visible;
+- sessionStorage = UI label = POST body = X-Session-Id = response session;
+- `_agent_core_v3` exists and `llm_used=true` for NL pilots;
 - trace/session details render;
-- no unexpected clarification/correction state;
-- WMB evidence contains no wrong-space task;
-- DMS-380 renders exact key.
+- no unnecessary clarification;
+- WMB has no wrong-space evidence;
+- DMS-380 exact key renders.
 
-## Phase 3 — Oracle B parity confirmation
-Fresh-read REAL AS21 for the four pilot truths used by the browser suite. Compare exact keys where applicable. Counts alone are insufficient.
+## Phase 3 — fresh Oracle B parity
+Fresh-read REAL AS21 now, not Assignment 150 counts, for the same four scenarios. Compare exact task-key sets. Browser/Agent evidence must match Oracle B where applicable.
 
-Browser C rendered/evidence keys must correspond to the same Agent execution and match Oracle B for cases where task sets are rendered/exposed.
-
-## Phase 4 — artifact/harness gate
-Confirm Playwright HTML report, trace, screenshots and failure-video configuration still works. Do not deliberately corrupt application code or source data.
-
-## Final report
-Write a NEW report:
-`po-agent-platform-v2/qa_reports/PLAYWRIGHT_H0_BROWSER_RETEST_152.md`
+## Phase 4 — final H0 decision
+Write:
+`po-agent-platform-v2/qa_reports/PLAYWRIGHT_H0_BROWSER_FINAL_153.md`
 
 Allowed verdicts ONLY:
 - `PLAYWRIGHT_BROWSER_HARNESS_GREEN_H0_CERTIFIED`
@@ -85,9 +83,9 @@ Allowed verdicts ONLY:
 - `BLOCKED_BY_PROVEN_ENVIRONMENT`
 - `BLOCKED_BY_PROVEN_SOURCE_OUTAGE`
 
-GREEN requires focused session regression PASS + full Playwright suite PASS + fresh Oracle parity. No manual verification placeholders.
+GREEN requires Phase 1 PASS, full Playwright suite PASS, and fresh Oracle B parity. No caveat GREEN.
 
 Commit/push QA report only and STOP.
 
 ## Start now
-Execute Assignment 152 completely.
+Execute Assignment 153 completely.
