@@ -31,7 +31,7 @@ export interface HarnessQueryResponse {
   clarification_id?: string | null
   intent?: string | null
   skill?: { id: string; version: string } | null
-  data?: unknown
+  data?: Record<string, unknown> | null
   evidence: EvidenceItem[]
   warnings: string[]
   trace_id: string
@@ -45,6 +45,16 @@ export interface HarnessQueryRequest {
   session_id?: string
 }
 
+export interface RuntimeHealth {
+  status: string
+  runtime: string
+  adapter: string
+  semantic_mode: string
+  agent_core_v3_enabled: boolean
+  source_status: string
+  runtime_init_error?: string | null
+}
+
 export interface FeedbackRequest {
   rating: 'up' | 'down'
   correction?: string
@@ -55,7 +65,9 @@ export interface FeedbackRequest {
 
 export const agent = {
   query: async (request: HarnessQueryRequest): Promise<HarnessQueryResponse> => {
-    const response = await api.post<HarnessQueryResponse>('/query', request)
+    const response = await api.post<HarnessQueryResponse>('/query', request, {
+      headers: request.session_id ? { 'X-Session-Id': request.session_id } : undefined,
+    })
     return response.data
   },
   feedback: async (traceId: string, request: FeedbackRequest) => {
@@ -95,6 +107,9 @@ export const releases = {
 }
 
 export const system = {
-  health: () => api.get('/health'),
+  health: async (): Promise<RuntimeHealth> => {
+    const response = await api.get<RuntimeHealth>('/health')
+    return response.data
+  },
   getMetrics: () => api.get('/metrics'),
 }
