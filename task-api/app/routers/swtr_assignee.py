@@ -150,20 +150,22 @@ async def get_assignee_tasks(
 
     while page < max_pages:
         arguments = {
-            "calculatedAttributes": [],
-            "attributes": [
-                "code",
-                "summary",
-                "assigned_to",
-                "space",
-                "workflow_status",
-                "scrum_board_plugin_sprint",
-                "fix_version_s",
-            ],
-            "query": f'assigned_to = "{external_id}"',
-            "timeZone": "Europe/Moscow",
-            "page": page,
-            "size": limit,
+            "request": {
+                "calculatedAttributes": [],
+                "attributes": [
+                    "code",
+                    "summary",
+                    "assigned_to",
+                    "space",
+                    "workflow_status",
+                    "scrum_board_plugin_sprint",
+                    "fix_version_s",
+                ],
+                "query": f'assigned_to = "{external_id}"',
+                "timeZone": "Europe/Moscow",
+                "page": page,
+                "size": limit,
+            }
         }
         try:
             content = await client.call_tool("find_units_by_filter", arguments)
