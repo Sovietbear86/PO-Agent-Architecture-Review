@@ -113,11 +113,18 @@ function AgentChat({ open, onClose }: { open: boolean; onClose(): void }) {
   async function send(textOverride?: string) {
     const text = (textOverride ?? input).trim()
     if (!text || busy) return
+
+    // sessionStorage is the authoritative transient session for this tab.
+    // Reading it at send-time removes any dependency on React state commit timing
+    // immediately after `Новый диалог` and guarantees UI/request/backend parity.
+    const requestSessionId = getTabSessionId()
+    if (requestSessionId !== sessionId) setSessionId(requestSessionId)
+
     setMessages(items => [...items, { id: crypto.randomUUID(), role: 'user', text }])
     setInput('')
     setBusy(true)
     try {
-      const result = await agent.query({ query: text, session_id: sessionId })
+      const result = await agent.query({ query: text, session_id: requestSessionId })
       const textResult = result.status === 'NEEDS_CLARIFICATION'
         ? result.question ?? 'Нужно уточнение.'
         : result.answer ?? 'Запрос выполнен.'
