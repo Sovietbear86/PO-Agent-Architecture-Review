@@ -51,6 +51,11 @@ class Settings(BaseSettings):
         default=None,
         validation_alias=AliasChoices("TEAM_CONFIG_PATH", "PO_AGENT_TEAM_CONFIG_PATH"),
     )
+    agent_core_v3_enabled: bool = Field(
+        default=False,
+        description="Enable the explicitly certified Agent Core v3 pilot routing seam",
+        validation_alias=AliasChoices("AGENT_CORE_V3_ENABLED", "PO_AGENT_AGENT_CORE_V3_ENABLED"),
+    )
     swtr_base_url: str = Field(default="https://portal.works.prod.sbt/swtr")
     swtr_token: Optional[str] = Field(default=None)
 
