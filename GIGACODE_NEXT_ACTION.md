@@ -1,103 +1,96 @@
 # GigaCode — Current Action
 
 ## Status
-`ACTIVE_QA_ASSIGNMENT_139_ASSIGNEE_LIVE_ROUTE_FOCUSED_AB`
+`ACTIVE_QA_ASSIGNMENT_140_ASSIGNEE_FULL_LIVE_ROUTE_AB`
 
 ## Mission
-Assignment 138 proved the assignee failure is a product integration defect, not an AS21 outage: `search_users` now requires its search DTO under a top-level `request` argument. Owner commit `5ce78840ecc9553c0f1f062922a8a0d26fe9ae58` fixes `task-api/app/routers/swtr_assignee.py::_resolve_external_id()` to call:
+Assignment 139 proved the previous owner fix corrected `search_users`, but the same MCP-SWTR contract change also applies to `find_units_by_filter`. Owner commit `c832d442bb073f429fb82b09920be2850e721a72` now wraps the TQL request as `{"request": {...}}` in `task-api/app/routers/swtr_assignee.py`.
 
-```python
-{"request": {"text_search": needle, "page": 0, "size": 100}}
-```
-
-Your job is to certify this fix end-to-end against independent REAL AS21 Oracle B. QA only: do not modify production code.
+Certify the COMPLETE live assignee route end-to-end. QA/test executor only: do not modify production/backend/frontend code.
 
 ## Absolute rules
-- Pull `feat/core8-real-query-hardening-v2` and prove HEAD contains owner commit `5ce78840ecc9553c0f1f062922a8a0d26fe9ae58`.
+- Pull `feat/core8-real-query-hardening-v2`; record exact HEAD and prove it contains owner commits `5ce78840...` and `c832d442...`.
 - Hard restart Task API and Harness from current HEAD.
-- REAL MCP-SWTR only; no local DB/sync/fake/mock/frozen truth.
-- Oracle B must independently call MCP `search_users` and `find_units_by_filter` directly.
-- Fresh unique session ID per Agent A case.
-- Concurrency=1; normal timeout 180s; retry transient transport failures twice with 30s backoff.
-- Do not run the full skill catalog.
+- REAL AS21/MCP-SWTR only. No local DB, sync, fake, mock, frozen or historical task sets as truth.
+- Oracle B must call MCP-SWTR directly and independently of Task API/Harness.
+- Do NOT stop after proving the wrapper schema. Execute ALL phases including natural Agent A cases.
+- Fresh session ID for every Agent A case.
+- Concurrency=1. Timeout 180s; heavy paginated calls 300s. Retry only transient transport errors twice with 30s backoff.
+- Do not run full 54-skill catalog.
 
-# PHASE 0 — source and schema health
-1. Record HEAD, worktree status, Task API/Harness PIDs and restart commands.
-2. Prove `search_users` current schema still requires `request` wrapper.
-3. Prove two known-good REAL `read_unit` calls from different approved spaces.
+# PHASE 0 — provenance and schema
+1. Record HEAD/worktree and restart commands/PIDs.
+2. Read live MCP tool schemas and prove BOTH calls require top-level `request`:
+   - `search_users`
+   - `find_units_by_filter`
+3. Prove two direct `read_unit` source-health calls from different approved spaces.
 
-# PHASE 1 — direct Task API assignee route
-For each canonical person identity below, first resolve the actual canonical identifier using direct MCP `search_users` with the live schema, then call Task API `/api/v1/swtr-read/assignee-tasks`:
-- Garanin (`Garanin.R.V` / repository-configured identity)
-- Kalachanov (derive exact repository-configured identity; do not guess spelling/login)
+# PHASE 1 — independent Oracle B FIRST
+Resolve authoritative identities with direct MCP `search_users` using current schema:
+- Garanin / `Garanin.R.V`
+- Kalachanov: derive canonical code/login from repository config + live MCP; do not guess.
 
-For Garanin additionally test `space=DMS`.
+Then call direct MCP `find_units_by_filter` with current `request` wrapper and server-side `assigned_to = "<canonical>"`. Read ALL pages. Normalize exact task-key sets for approved spaces only: WMB, STS, OLP, DMS, CRPV.
 
-Capture Task API HTTP status, `external_id`, count, pages_read and exact returned task-key set.
+Persist current live Oracle sets/counts for:
+- Garanin all approved spaces
+- Garanin DMS
+- Kalachanov all approved spaces
 
-Acceptance: no 409/502 caused by `search_users` DTO shape.
+# PHASE 2 — Task API parity
+Call `/api/v1/swtr-read/assignee-tasks` for the same identities and Garanin+DMS.
 
-# PHASE 2 — independent Oracle B exact parity
-For the same authoritative IDs, bypass Task API and execute direct REAL MCP `find_units_by_filter` using server-side `assigned_to` filter. Read all pages and normalize only approved spaces WMB/STS/OLP/DMS/CRPV.
+Require:
+- HTTP 200;
+- correct `external_id`;
+- source=`REAL_AS21`;
+- route=`search_users->find_units_by_filter`;
+- no request-wrapper ToolError;
+- exact key-set equality with Oracle B, not just counts.
 
-Compare:
-```text
-set(TaskAPI_Garanin.keys) == set(OracleB_Garanin.keys)
-set(TaskAPI_Garanin_DMS.keys) == set(OracleB_Garanin_DMS.keys)
-set(TaskAPI_Kalachanov.keys) == set(OracleB_Kalachanov.keys)
-```
+If any mismatch occurs, capture first differing keys and first failing boundary. Do not continue pretending GREEN.
 
-Count-only equality is insufficient.
+# PHASE 3 — Agent A natural language
+With fresh unique sessions execute ALL:
+1. `Задачи Гаранина`
+2. `Задачи Гаранина в DMS`
+3. `Задачи Калачанова`
 
-# PHASE 3 — Agent A natural-language path
-Fresh sessions:
-- `Задачи Гаранина`
-- `Задачи Гаранина в DMS`
-- `Задачи Калачанова`
+Capture for each:
+`INTERPRETER_CLASS`, `LLM_USED`, raw frame, grounded frame, resolved skill, capability args, source route, status, exact task keys, answer.
 
-For each capture:
-```text
-INTERPRETER_CLASS
-LLM_USED
-RAW_SEMANTIC_FRAME
-GROUNDED_FRAME
-RESOLVED_SKILL
-CAPABILITY_ARGS
-SOURCE_ROUTE
-AGENT_STATUS
-TASK_KEYS
-ANSWER
-```
+Acceptance:
+- LLM-first path is active;
+- no spurious clarification/correction state on first turn;
+- exact Agent A task-key set equals Oracle B for the corresponding query;
+- Russian query returns Russian answer.
 
-Require exact key-set equality Agent A vs Oracle B where task collection is returned.
+# PHASE 4 — protected exact-task regression
+Re-run:
+- `DMS-380`: Task API point-read 200 and Agent exact key DMS-380;
+- `DMS-999999999`: Task API 404 and Agent explicitly says task not found, never source unavailable.
 
-# PHASE 4 — protected exact-task cluster
-Ensure previous fixes remain GREEN:
-- existing `DMS-380` -> Task API 200 and Agent exact key;
-- nonexistent `DMS-999999999` -> Task API 404 and Agent says task not found, not source unavailable.
-
-# PHASE 5 — regression semantics
-Verify:
-- Russian query -> Russian answer;
-- first turn is not correction/recheck;
-- no local DB/sync used as authoritative source;
+# PHASE 5 — source integrity
+Prove from traces/logs:
+- no local task DB/sync used as authoritative truth;
 - no AS21 writes;
-- exact `search_users -> find_units_by_filter` live source route is visible for assignee search.
+- source route is direct live MCP-SWTR;
+- pagination completed rather than silently truncating task sets.
 
-# Final report
-Write:
-`po-agent-platform-v2/qa_reports/ASSIGNEE_LIVE_ROUTE_FOCUSED_AB_139.md`
+# FINAL GATE
+Write `po-agent-platform-v2/qa_reports/ASSIGNEE_FULL_LIVE_ROUTE_AB_140.md`.
 
 Allowed verdicts:
-- `ASSIGNEE_LIVE_ROUTE_GREEN`
-- `ASSIGNEE_IDENTITY_STILL_RED`
-- `ASSIGNEE_TASK_PARITY_RED`
+- `ASSIGNEE_FULL_LIVE_ROUTE_GREEN`
+- `ASSIGNEE_TASK_API_PARITY_RED`
+- `ASSIGNEE_AGENT_PARITY_RED`
+- `ASSIGNEE_IDENTITY_RED`
 - `PROTECTED_EXACT_TASK_REGRESSION_RED`
-- `BLOCKED_BY_ENVIRONMENT`
+- `BLOCKED_BY_PROVEN_SOURCE_OUTAGE`
 
-`ASSIGNEE_LIVE_ROUTE_GREEN` requires all three Agent A queries to match independent Oracle B exact key sets and no request-wrapper error.
+GREEN is forbidden unless every Phase 1-5 case was actually executed and exact key-set parity is proven for all three assignee scenarios.
 
-Commit/push QA artifacts only and STOP.
+Commit/push QA report only and STOP.
 
 ## Start now
-Execute Assignment 139 autonomously.
+Execute Assignment 140 completely.
