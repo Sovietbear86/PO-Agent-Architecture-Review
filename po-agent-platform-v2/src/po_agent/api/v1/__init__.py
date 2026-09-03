@@ -70,6 +70,7 @@ def get_runtime_bundle() -> RuntimeBundle:
                 team_config_path=settings.team_config_path,
                 semantic_interpreter=interpreter,
                 learned_semantics_path=settings.learned_semantics_path,
+                agent_core_v3_enabled=settings.agent_core_v3_enabled,
             )
             _runtime = _bundle.runtime
             _runtime_init_error = None
@@ -107,7 +108,8 @@ async def health_check(request: Request):
             "service": __app_name__,
             "runtime": "harness-dialogue-v2",
             "adapter": settings.as21_mode,
-            "semantic_mode": "qwen-llm" if settings.semantic_llm_enabled and settings.llm_api_key else "conservative-fallback",
+            "semantic_mode": "qwen-llm" if settings.semantic_llm_enabled and settings.llm_api_key else "fail-closed",
+            "agent_core_v3_enabled": settings.agent_core_v3_enabled,
             "source_status": "unknown",
             "runtime_init_error": _runtime_init_error,
             "correlation_id": correlation_id,
@@ -124,13 +126,14 @@ async def health_check(request: Request):
             source_error = type(exc).__name__
 
     readiness = bundle.readiness.summary()
-    semantic_mode = "qwen-llm" if settings.semantic_llm_enabled and settings.llm_api_key else "conservative-fallback"
+    semantic_mode = "qwen-llm" if settings.semantic_llm_enabled and settings.llm_api_key else "fail-closed"
     return {
         "status": "healthy" if source_status == "healthy" else "degraded",
         "service": __app_name__,
         "runtime": "harness-dialogue-v2",
         "adapter": bundle.mode,
         "semantic_mode": semantic_mode,
+        "agent_core_v3_enabled": settings.agent_core_v3_enabled,
         "source_status": source_status,
         "source_error": source_error,
         "runtime_init_error": None,
@@ -151,7 +154,7 @@ async def as21_diagnostics():
 async def query_agent(payload: QueryRequest, request: Request):
     settings = get_settings()
     correlation_id = request.headers.get(settings.correlation_id_header, str(uuid.uuid4()))
-    session_id = payload.session_id or str(uuid.uuid4())
+    session_id = payload.session_id or request.headers.get("X-Session-Id") or str(uuid.uuid4())
     try:
         result = await get_runtime().process(HarnessRequest(query=payload.query, session_id=session_id))
         response = result.to_dict()
