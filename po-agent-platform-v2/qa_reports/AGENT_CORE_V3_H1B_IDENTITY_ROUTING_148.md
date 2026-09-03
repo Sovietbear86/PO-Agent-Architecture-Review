@@ -2,8 +2,8 @@
 
 **Date:** 2026-09-03  
 **Branch:** `feat/core8-real-query-hardening-v2`  
-**HEAD:** `18e5a33`  
-**Status:** `BLOCKED_BY_TRANSIENT_TASK_API_TIMEOUT`
+**HEAD:** `efd568f` (owner fix)  
+**Status:** `SUCCESS`
 
 ## Mission Summary
 
@@ -28,29 +28,59 @@ QA Verification of Agent Core v3 routing and identity resolution:
 
 **Evidence:** Direct MCP-SWTR adapter call confirmed exact key set.
 
-## Phase 2: v3 Execution with Retry Logic ⚠️
+## Phase 2: v3 Execution with Owner Fix ✅
+
+### Owner Fix Commit
+
+**Commit:** `efd568f27b4e85068ef8de9dc2ca4c3f476a7bdd`  
+**Message:** `fix(v3): push accepted space constraint into live task search`
+
+**Fix Applied:**
+```python
+# Before: space filtering done in Python after adapter fetch (lost WMB tasks)
+jql = f"assignee = {assignee}"
+tasks = await self.adapter.search_tasks(jql)
+space = str(contract.constraints.get("space") or "").strip().upper()
+if space:
+    tasks = [task for task in tasks if str(task.project_space or "").upper() == space]
+
+# After: space pushed into JQL, adapter passes it to MCP-SWTR as `space` param
+space = str(contract.constraints.get("space") or "").strip().upper()
+jql = f"assignee = {assignee}"
+if space:
+    jql += f" AND project = {space}"
+tasks = await self.adapter.search_tasks(jql)
+```
 
 ### Execution Details
 
 **Query:** `Задачи Калачанова в WMB`  
-**Runtime:** `PO_AGENT_AS21_MODE=task-api PO_AGENT_AGENT_CORE_V3_ENABLED=true`  
-**Port:** 8005
+**Runtime:** `PO_AGENT_AS21_MODE=task-api PO_AGENT_AGENT_CORE_V3_ENABLED=true PO_AGENT_TASK_API_TIMEOUT_SECONDS=120`  
+**Port:** 8005  
+**Server Restarted:** After git pull to load owner fix
 
-### Attempt Log
+### Results
 
-| Attempt | Session UUID | Status | Tasks | Error |
-|---------|--------------|--------|-------|-------|
-| 1 | `KALACHANOV_1788436255496_1` | FAILED | 0 | `AS21SourceUnavailable: ReadTimeout` |
-| 2 | (skipped - timeout) | - | - | - |
-| 3 | (skipped - timeout) | - | - | - |
+| Field | Value |
+|-------|-------|
+| Status | COMPLETED |
+| Tasks | `['WMB-29242', 'WMB-29830', 'WMB-29890', 'WMB-29995', 'WMB-30000']` |
+| Count | 5 (expected: 5) |
+| Exact Oracle B parity | ✅ PASS |
 
-### Observation
+### Verification
 
-All execution attempts failed with `AS21SourceUnavailable: ReadTimeout`. This is a **transient network/service issue**, NOT a code bug:
-
-```
-po_agent.adapters.task_api.AS21SourceUnavailable: task-api live assignee read failed: ReadTimeout
-```
+| Requirement | Status |
+|-------------|--------|
+| Status=COMPLETED | ✅ |
+| Exact Oracle B parity (5 tasks) | ✅ |
+| llm_used=true | ✅ |
+| execution_ready=true | ✅ |
+| assignee=Kalachanov.V.V | ✅ |
+| space=WMB | ✅ |
+| postcondition_results.passed | ✅ |
+| source_authority=REAL_AS21 | ✅ |
+| interpreter_class=ConversationAwareSemanticInterpreter | ✅ |
 
 ### Evidence
 
@@ -58,22 +88,51 @@ po_agent.adapters.task_api.AS21SourceUnavailable: task-api live assignee read fa
 - **v3 Harness (8005):** `{"status":"healthy","agent_core_v3_enabled":true,"source_status":"healthy"}`
 - **Task API (8003):** `{"status":"healthy"}`
 
-**Root Cause:** Network timeout between harness and task-api during `search_tasks("assignee = Kalachanov.V.V")` call.
-
 **Code Path Verified:**
 1. ✅ LLM interpretation: `person_raw="Калачанова"` → `product="WMB"`
 2. ✅ Grounding: Resolves to `member_login="Kalachanov.V.V"`
 3. ✅ Stale clarification removal: Applied (fix from Assignment 146)
 4. ✅ Contract creation: `assignee=Kalachanov.V.V`, `space=WMB`
-5. ❌ Execution: Network timeout in `search_tasks()`
+5. ✅ JQL construction: `assignee = Kalachanov.V.V AND project = WMB`
+6. ✅ MCP-SWTR search: Space constraint pushed into JQL
+7. ✅ Result: All 5 WMB tasks returned
 
-### Retry Logic Implementation
+### Task API Adapter Behavior
 
-**Requirements Met:**
-- ✅ Up to 3 attempts
-- ✅ 30s backoff between attempts
-- ✅ 300s timeout per attempt
-- ⚠️ Network timeout prevented full retry cycle
+The adapter extracts `project_space` from JQL filters and passes it as `space` parameter to MCP-SWTR:
+
+```python
+# production_task_api.py
+project_space = filters.get("project_space")
+if project_space:
+    params["space"] = project_space
+```
+
+When JQL is `assignee = Kalachanov.V.V AND project = WMB`, the adapter sends:
+- `assignee=Kalachanov.V.V`
+- `space=WMB`
+- `limit=100`
+- `max_pages=100`
+
+### Final Status
+
+**VERDICT:** `SUCCESS`
+
+### What Works
+
+- ✅ Fresh Oracle B capture from real AS21/MCP-SWTR
+- ✅ Identity resolution (genitive case → nominative)
+- ✅ Stale clarification removal (Assignment 146 fix)
+- ✅ Legacy routing when v3 disabled
+- ✅ Code safety (no hardcoded names, safe fix)
+- ✅ v3 execution with owner fix (efd568f)
+- ✅ Exact Oracle B parity achieved
+- ✅ Space constraint pushed into JQL
+
+### Previous Blocker (Resolved)
+
+- ✅ Task API transient network timeout (now working with server restart)
+- ✅ Space constraint not in JQL (fixed by owner in efd568f)
 
 ## Phase 3: Legacy Routing Test ✅
 
@@ -187,15 +246,32 @@ This fix was verified in Assignment 147.
 
 ## Commit SHA
 
-**HEAD:** `18e5a336e0a5490d19e261f04c3d8c3c3a17d5a4`  
+**HEAD:** `efd568f27b4e85068ef8de9dc2ca4c3f476a7bdd` (owner fix)  
 **Report:** `AGENT_CORE_V3_H1B_IDENTITY_ROUTING_148.md`
 
 ## QA Sign-off
 
-**Status:** Ready for QA review  
-**Network Issue:** Documented and reproducible  
-**Code:** Verified correct via unit tests and legacy routing test  
-**Next Action:** Investigate Task API network timeout or wait for stability
+**Status:** COMPLETE  
+**Verdict:** SUCCESS - All requirements met  
+**Phase 1:** Fresh Oracle B captured ✅  
+**Phase 2:** v3 execution with owner fix (efd568f) ✅  
+**Phase 3:** Legacy routing verified ✅  
+**Phase 4:** Identity resolution verified ✅  
+
+### Requirements Met
+
+| Requirement | Status |
+|-------------|--------|
+| Fresh Oracle B for Kalachanov.V.V in WMB | ✅ 5 tasks |
+| Execute via v3 with owner fix | ✅ COMPLETED |
+| Exact task-key parity | ✅ PASS |
+| llm_used=true | ✅ PASS |
+| assignee=Kalachanov.V.V saved | ✅ PASS |
+| space=WMB saved | ✅ PASS |
+| postconditions PASS | ✅ PASS |
+| No extra clarifications | ✅ PASS |
+| Legacy routing (v3 disabled) | ✅ PASS |
+| No production code changes by QA | ✅ PASS |
 
 ---
 
@@ -203,4 +279,6 @@ This fix was verified in Assignment 147.
 ✅ No production code changes  
 ✅ Real AS21/MCP-SWTR Oracle B  
 ✅ Legacy routing verified  
-✅ QA report committed only
+✅ QA report committed only  
+✅ Owner fix committed (efd568f)  
+✅ Phase 2 completed successfully
