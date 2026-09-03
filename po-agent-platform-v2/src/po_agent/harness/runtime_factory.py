@@ -9,6 +9,7 @@ from po_agent.adapters import FakeAS21Adapter, FrozenAS21Adapter, SWTRShadowBatc
 from po_agent.adapters.as21 import AS21Adapter
 from po_agent.adapters.evidence_validated_task_api import EvidenceValidatedProductionTaskApiAS21Adapter
 
+from .agent_core_v3 import AgentCoreV3RoutingSeam
 from .core8_semantic_precision import Core8SemanticPrecisionInterpreter
 from .core8_hardening import enable_core8_hardened_composite
 from .correction_runtime import CorrectionAwareHarnessRuntime
@@ -72,12 +73,17 @@ def _build_runtime_with_adapter(
     release_timeline: ReleaseTimelineSource | None = None,
     semantic_interpreter: SemanticInterpreter | None = None,
     learned_semantics_path: str | None = None,
+    agent_core_v3_enabled: bool = False,
 ) -> RuntimeBundle:
     """Build the canonical Harness stack around an already selected adapter.
 
     Production task-api mode deliberately uses an LLM-first semantic core. The
     legacy deterministic language router and Core8 phrase recognizers remain only
     for fake/frozen compatibility tests; they are not a production NLP fallback.
+
+    Agent Core v3 is wired as an additive strangler seam and is disabled by
+    default. H1A therefore cannot change legacy runtime behavior until a later
+    stage supplies an explicitly certified v3 processor/pilot selector.
     """
     team_path = _resolve_team_config(team_config_path, mode)
     team_source = YamlTeamCompetencySource(team_path) if team_path is not None else None
@@ -143,6 +149,7 @@ def _build_runtime_with_adapter(
     else:
         dialogue = CorrectionAwareHarnessRuntime(dialogue)
 
+    dialogue = AgentCoreV3RoutingSeam(dialogue, enabled=agent_core_v3_enabled)
     runtime = ObservedHarnessRuntime(dialogue)
 
     return RuntimeBundle(
@@ -165,6 +172,7 @@ def build_runtime_bundle(
     release_timeline: ReleaseTimelineSource | None = None,
     semantic_interpreter: SemanticInterpreter | None = None,
     learned_semantics_path: str | None = None,
+    agent_core_v3_enabled: bool = False,
 ) -> RuntimeBundle:
     normalized = mode.strip().lower()
     if normalized == "fake":
@@ -187,6 +195,7 @@ def build_runtime_bundle(
         release_timeline=release_timeline,
         semantic_interpreter=semantic_interpreter,
         learned_semantics_path=learned_semantics_path,
+        agent_core_v3_enabled=agent_core_v3_enabled,
     )
 
 
@@ -198,6 +207,7 @@ def build_frozen_runtime_bundle(
     release_timeline: ReleaseTimelineSource | None = None,
     semantic_interpreter: SemanticInterpreter | None = None,
     learned_semantics_path: str | None = None,
+    agent_core_v3_enabled: bool = False,
 ) -> RuntimeBundle:
     """Build the real Harness stack over a previously captured SWTR batch."""
     adapter = FrozenAS21Adapter.from_shadow_batch(batch)
@@ -209,4 +219,5 @@ def build_frozen_runtime_bundle(
         release_timeline=release_timeline,
         semantic_interpreter=semantic_interpreter,
         learned_semantics_path=learned_semantics_path,
+        agent_core_v3_enabled=agent_core_v3_enabled,
     )
