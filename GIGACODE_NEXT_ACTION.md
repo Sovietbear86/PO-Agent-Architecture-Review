@@ -1,112 +1,101 @@
 # GigaCode — Current Action
 
 ## Status
-`ACTIVE_QA_ASSIGNMENT_147_AGENT_CORE_V3_H1B_FINAL`
+`ACTIVE_QA_ASSIGNMENT_149_AGENT_CORE_V3_H1C_BROWSER_ABC`
 
 ## Mission
-Final H1B certification after owner review of Assignment 146.
+Certify the first REAL browser/UI vertical for Agent Core v3. This is the first mandatory A/B/C gate:
+A = Agent Core v3 backend result,
+B = independent REAL AS21/MCP-SWTR Oracle,
+C = actual browser UI result.
 
-Important provenance:
-- QA commit `7729db3103a6b95c6aaa76aabfaf81860ce8baf8` violated QA-only rules by changing production code.
-- Owner reviewed that diff and REJECTED the generic Russian surname suffix normalization as unnecessary/unsafe.
-- Owner commit `07c807b1fec0d829d365c6a01e0bb377e6ec83c0` removes the unsafe normalization and restores the prior deterministic TeamDirectory matcher.
-- The useful generalized fix from 146 remains in `ProductionEntityResolverV2.ground()`: when authoritative grounding successfully resolves `member_login`, any stale pre-grounding `member_login` clarification must be removed.
+QA only. Do not modify production/backend/frontend code.
 
-QA/tester only. DO NOT modify production/backend/frontend code. If any product defect is found, report it and STOP.
+## Owner changes to verify
+- `efd568f27b4e85068ef8de9dc2ca4c3f476a7bdd` — accepted space constraint pushed into live source query.
+- `ddcb15f5dc3ace922202e12e0be341d6d8cff18d` — UI API client exposes runtime health and sends explicit X-Session-Id.
+- `9bb7908b6554e3c826495f378ce656863fbc1ff5` — Assistant UI uses tab-scoped session, explicit New dialogue, runtime/v3 trace indicator.
+- `3b760966ccf558f9f38640c0ab37ccc3ba489279` — v3 feature flag documented.
 
 ## Absolute rules
-- REAL AS21/MCP-SWTR only for factual Oracle B.
-- No local DB, sync, fake, frozen or cached task facade as truth.
-- v3 enabled only in isolated certification runtime.
-- Fresh session UUID for every independent case.
-- Concurrency=1; timeout 300s; retry transient source failures at most twice with 30s backoff.
-- Exact task-key-set equality, not counts only.
-- H1B GREEN requires 4/4 pilot scenarios COMPLETED through v3 with no unnecessary clarification.
+- REAL AS21/MCP-SWTR is the only Oracle B.
+- No local DB, sync, fake, frozen or previous report counts as truth.
+- Browser C MUST be a real browser interaction with the rendered Assistant UI. Direct API calls cannot substitute for C.
+- Start backend from current HEAD with `PO_AGENT_AGENT_CORE_V3_ENABLED=true`, task-api mode and production LLM settings.
+- `/api/v1/health` must show `agent_core_v3_enabled=true`, `semantic_mode=qwen-llm`, healthy source.
+- Use a NEW browser tab/incognito context with clean sessionStorage for the first case.
+- Concurrency=1. Source timeout 300s. Retry transient source failures twice with 30s backoff.
+- Exact task-key sets are mandatory where tasks are returned.
+- Do not edit code if something fails. Localize and report.
 
-## Phase 0 — provenance and code-safety gate
-1. Pull branch; record exact HEAD and clean/dirty state.
-2. Prove owner commit `07c807b1...` is ancestor of HEAD.
-3. Inspect `entity_grounding.py` read-only and prove `_normalize_russian_case` / suffix rewrite logic is ABSENT.
-4. Inspect `production_entity_grounding_v2.py` read-only and prove successful `member_login` grounding removes only stale clarification for the same field.
-5. Verify GigaCode makes zero production edits during this assignment.
+## Phase 0 — build/runtime gate
+1. Pull branch and record HEAD/clean state.
+2. Verify the four owner commits are ancestors.
+3. Build/typecheck frontend from current HEAD. Record exact command/result.
+4. Start Task API, Agent backend with v3=true, and frontend.
+5. Capture `/health` and browser runtime card. Browser must visibly show `Agent Core v3`, not Legacy Harness.
 
-## Phase 1 — grounding unit/forensic gate
-Using the real team config but no source fabrication, verify these person inputs against `TeamDirectory.resolve_person()` and the production grounder:
-- `Гаранина`
-- `Гаранин`
-- `Калачанова`
-- `Калачанов`
-- `Kalachanov.V.V`
-
-Requirements:
-- existing deterministic token/prefix matching is sufficient for unique configured identities where applicable;
-- no string suffix mutation is used;
-- unique grounded identity -> canonical login and no stale `member_login` clarification;
-- true ambiguity -> clarification remains fail-closed.
-
-Include at least one synthetic ambiguous-directory unit case with two matching entries to prove the clarification is NOT broadly suppressed.
+## Phase 1 — session isolation C gate
+In browser C:
+1. Record the visible session ID.
+2. Click `Новый диалог`; prove session ID changes and chat resets.
+3. Open a second browser tab/context; prove it gets a distinct tab-scoped session ID.
+4. Return to first tab; prove its session ID is unchanged.
+5. No first-turn response may enter stale correction/clarification state solely because of previous sessions.
 
 ## Phase 2 — fresh Oracle B
-Re-read current REAL AS21 truth independently for:
-1. Garanin.R.V all approved spaces;
-2. Garanin.R.V in DMS;
-3. Kalachanov.V.V in WMB;
-4. DMS-380 point-read.
-Persist exact key sets and page/source evidence. Do not reuse prior counts.
+Independently read REAL AS21 for current exact truth of:
+- Garanin.R.V all approved spaces;
+- Garanin.R.V in DMS;
+- Kalachanov.V.V in WMB;
+- DMS-380 point-read.
+Persist exact key sets and timestamps.
 
-## Phase 3 — final v3 A/B pilot 4/4
-Start isolated runtime with `PO_AGENT_AGENT_CORE_V3_ENABLED=true` and existing production LLM settings.
-Execute with fresh sessions:
+## Phase 3 — REAL A/B/C pilot 4/4
+For each case use a fresh browser conversation (click New dialogue) and separately capture Agent A backend response/trace and browser C rendered result:
 1. `Задачи Гаранина`
 2. `Задачи Гаранина в DMS`
 3. `Задачи Калачанова в WMB`
 4. `Покажи DMS-380`
 
-For every case capture `_agent_core_v3` metadata.
-Natural-language acceptance requires:
-- `llm_used=true`;
-- LLM-backed interpreter;
-- grounded canonical identity;
-- accepted contract preserves every requested constraint;
-- no clarification after a unique authoritative identity is grounded;
-- exact key-set equality with fresh Oracle B;
-- postcondition validation PASS;
-- no unrelated-space evidence.
+For every case require:
+- Browser actually submits the text and renders the result;
+- response footer visibly identifies `v3/H1B` (or current certified v3 stage), not legacy;
+- natural-language cases visibly/trace-prove LLM use;
+- Agent A exact task keys equal Oracle B;
+- Browser C rendered answer/count/evidence correspond to the same Agent A response and trace_id;
+- requested constraints survive: assignee, space, task_key as applicable;
+- no unrelated-space evidence;
+- postconditions PASS;
+- first visible turn is not stale `correction_clarification`.
 
-For `Задачи Калачанова в WMB` specifically require:
-- COMPLETED, not NEEDS_CLARIFICATION;
-- `assignee=Kalachanov.V.V` in accepted contract/executor args;
-- `space=WMB` preserved;
-- exact WMB task-key set == Oracle B.
+For Kalachanov+WMB specifically require exact fresh Oracle key set and no DMS evidence.
 
-## Phase 4 — negative identity safety
-Prove the generalized fix does not convert ambiguity into guessing:
-- an intentionally ambiguous person resolution must return clarification/fail-closed;
-- an unknown person must not silently map to a configured member;
-- no hardcoded Garanin/Kalachanov special-case production code exists in grounding.
+## Phase 4 — browser stale-session regression
+1. In one browser conversation execute one pilot request.
+2. Click New dialogue.
+3. Execute a different pilot request.
+4. Prove second request has a different session/conversation and is handled as a new turn, not a correction/recheck of the first.
 
-## Phase 5 — protected regression
-- `DMS-999999999` -> authoritative task not found, not source unavailable.
-- v3 disabled -> pilot-shaped request delegates legacy.
-- v3 enabled + clear non-pilot validated request -> delegates legacy.
-- wrong-space synthetic result under WMB contract -> RESULT_CONTRACT_VIOLATION.
+## Phase 5 — strangler visibility
+Restart isolated Agent backend with `PO_AGENT_AGENT_CORE_V3_ENABLED=false` without committing config changes.
+Refresh/new browser context and prove runtime card shows Legacy Harness.
+Submit a pilot-shaped query and prove browser footer does NOT claim v3 execution.
+Restore/terminate isolated runtime after evidence.
 
 ## Final report
-Write:
-`po-agent-platform-v2/qa_reports/AGENT_CORE_V3_H1B_FINAL_147.md`
+Write `po-agent-platform-v2/qa_reports/AGENT_CORE_V3_H1C_BROWSER_ABC_149.md`.
 
 Allowed verdicts:
-- `AGENT_CORE_V3_H1B_FINAL_GREEN`
-- `AGENT_CORE_V3_IDENTITY_RED`
-- `AGENT_CORE_V3_AB_PARITY_RED`
-- `AGENT_CORE_V3_CONSTRAINT_RED`
-- `AGENT_CORE_V3_ROUTING_RED`
-- `BLOCKED_BY_PROVEN_ENVIRONMENT`
+- `AGENT_CORE_V3_H1C_BROWSER_ABC_GREEN`
+- `H1C_UI_SESSION_RED`
+- `H1C_UI_RUNTIME_WIRING_RED`
+- `H1C_BROWSER_PARITY_RED`
+- `H1C_AGENT_AB_PARITY_RED`
+- `H1C_FRONTEND_BUILD_RED`
 - `BLOCKED_BY_PROVEN_SOURCE_OUTAGE`
+- `BLOCKED_BY_PROVEN_ENVIRONMENT`
 
-GREEN is forbidden unless all 4 pilot cases actually execute successfully through v3 and exact Oracle parity is proven. No "3/4 plus expected clarification" exception.
+GREEN requires all 4 scenarios complete in REAL browser C, exact A=B task truth, browser C linked to the same traces, session isolation proven, and v3/legacy runtime visibility proven.
 
-Commit/push QA report ONLY and STOP.
-
-## Start now
-Execute Assignment 147 completely.
+Commit/push QA report only and STOP.
