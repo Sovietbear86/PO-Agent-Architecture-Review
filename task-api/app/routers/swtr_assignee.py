@@ -33,8 +33,14 @@ def _attrs(row: dict[str, Any]) -> dict[str, Any]:
     if not isinstance(raw, list):
         return result
     for item in raw:
-        if isinstance(item, dict) and isinstance(item.get("code"), str):
-            result[item["code"]] = item.get("value")
+        if not isinstance(item, dict):
+            continue
+        code = item.get("code")
+        if not isinstance(code, str):
+            descriptor = item.get("attribute")
+            code = descriptor.get("code") if isinstance(descriptor, dict) else None
+        if isinstance(code, str):
+            result[code] = item.get("value")
     return result
 
 
@@ -61,15 +67,31 @@ def _row_value(row: dict[str, Any], attrs: dict[str, Any], *names: str) -> Any:
 
 def _canonical_row(row: dict[str, Any]) -> dict[str, Any] | None:
     attrs = _attrs(row)
-    code = _value_id(_row_value(row, attrs, "code", "key", "source_id", "id"))
+    unit = row.get("unit") if isinstance(row.get("unit"), dict) else {}
+
+    code = _value_id(_row_value(unit, attrs, "code", "key", "source_id", "id"))
+    if not code:
+        code = _value_id(_row_value(row, attrs, "code", "key", "source_id", "id"))
     if not code:
         return None
-    summary = _row_value(row, attrs, "summary", "title", "name")
+
+    summary = _row_value(unit, attrs, "summary", "title", "name")
+    if summary is None:
+        summary = _row_value(row, attrs, "summary", "title", "name")
     title = str(summary).strip() if isinstance(summary, (str, int)) and str(summary).strip() else code
-    assigned = _row_value(row, attrs, "assigned_to", "assignee")
-    space_value = _row_value(row, attrs, "space", "project", "project_space")
+
+    assigned = _row_value(unit, attrs, "assigned_to", "assignee")
+    if assigned is None:
+        assigned = _row_value(row, attrs, "assigned_to", "assignee")
+
+    space_value = _row_value(unit, attrs, "space", "project", "project_space")
+    if space_value is None:
+        space_value = _row_value(row, attrs, "space", "project", "project_space")
     space = _value_id(space_value)
-    status_value = _row_value(row, attrs, "workflow_status", "status")
+
+    status_value = _row_value(unit, attrs, "workflow_status", "status")
+    if status_value is None:
+        status_value = _row_value(row, attrs, "workflow_status", "status")
     status = _value_id(status_value)
 
     swtr_attributes = row.get("attributes") if isinstance(row.get("attributes"), list) else []
@@ -111,24 +133,35 @@ async def _resolve_external_id(client: SWTRMCPClient, assignee: str) -> str:
         rows = [row for row in payload if isinstance(row, dict)]
 
     exact: list[str] = []
+    all_codes: list[str] = []
     for row in rows:
         code = row.get("code")
         login = row.get("login")
+        if isinstance(code, str) and code.strip():
+            all_codes.append(code.strip())
         candidates = [value for value in (code, login) if isinstance(value, str)]
         if any(value.casefold() == needle.casefold() for value in candidates):
             if isinstance(code, str) and code.strip():
                 exact.append(code.strip())
     exact = list(dict.fromkeys(exact))
-    if len(exact) != 1:
-        raise HTTPException(
-            status_code=409,
-            detail={
-                "message": "AS21 assignee identity is ambiguous or not found",
-                "assignee": needle,
-                "matches": exact,
-            },
-        )
-    return exact[0]
+    if len(exact) == 1:
+        return exact[0]
+
+    # The authoritative search endpoint already performs its own indexed name/
+    # login matching. A single unique code is safe to accept as a deterministic
+    # fallback; zero or multiple codes remain ambiguous and fail closed.
+    unique_codes = list(dict.fromkeys(all_codes))
+    if not exact and len(unique_codes) == 1:
+        return unique_codes[0]
+
+    raise HTTPException(
+        status_code=409,
+        detail={
+            "message": "AS21 assignee identity is ambiguous or not found",
+            "assignee": needle,
+            "matches": exact or unique_codes,
+        },
+    )
 
 
 @router.get("/assignee-tasks")
