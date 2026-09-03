@@ -1,71 +1,93 @@
 # GigaCode — Current Action
 
 ## Status
-`ACTIVE_QA_ASSIGNMENT_144_AGENT_CORE_V3_H1B_PILOT`
+`ACTIVE_QA_ASSIGNMENT_145_AGENT_CORE_V3_H1B_RETEST`
 
 ## Mission
-Certify the first executable Agent Core v3 pilot vertical. Owner code now provides LLM-first semantic interpretation, deterministic grounding, immutable AcceptedTurnContract, pilot Capability Registry, deterministic task lookup/search executors, REAL AS21 adapter reuse, result postcondition validation, and strangler routing enabled only with `agent_core_v3_enabled=True`.
+Re-test H1B after owner fixes from Assignment 144. QA only: do not modify production/backend/frontend code.
 
-Owner commits:
-- `370553175128cd7b6df99da70cb921d5e47696fe`
-- `322576cbc2644e8c82b9d97ea224f4d20f644b4f`
-- `931632e6d1cc58be286f58fef96f3d4020f84be4`
+Owner fixes to verify in ancestry:
+- `f3baf402238f7c416735dfa8dd2f986b3d5d5363` — Settings exposes `PO_AGENT_AGENT_CORE_V3_ENABLED`, default false.
+- `8bb8220d193a6e800da8b103ddbb6045cf7cf7c9` — API passes the setting into runtime factory; health exposes v3 state; X-Session-Id fallback restored.
+- `ace38f4b4e439a8272e427b4b08671da12528a17` — live assignee adapter no longer re-filters authoritative AS21 identity into a false zero result.
 
-QA only. Do not modify production/backend/frontend code.
+The prior report established fresh Oracle B truth: Garanin all approved spaces=16, Garanin DMS=8, Kalachanov WMB=0, DMS-380 exists. Re-read Oracle B fresh for this run; do not reuse counts as truth.
 
-## Rules
-- REAL AS21/MCP-SWTR only for factual acceptance; Oracle B must use direct MCP independently.
-- Do not run the full 54-skill marathon.
-- Use an isolated runtime with `agent_core_v3_enabled=True`; do not switch browser production default yet.
-- Fresh session per case, concurrency 1, timeout 300 seconds.
+## Absolute rules
+- QA/tester only. No production code changes.
+- REAL AS21/MCP-SWTR is the only factual Oracle. No local DB, sync, fake, frozen or cached task facade as truth.
+- Do not run the 54-skill marathon.
+- Concurrency=1. Timeout 300s. Retry transient transport/source failures twice with 30s backoff.
+- Fresh session UUID per independent case.
 - Exact task-key-set equality is mandatory.
+- Do not declare semantic GREEN unless `_agent_core_v3.llm_used=true` for natural-language pilot cases.
 
-## Phase 0 — provenance
-Record HEAD, clean state, owner commits and source health. Verify the normal/default runtime still has v3 disabled.
+## Phase 0 — provenance/config gate
+1. Pull branch and record HEAD/clean state.
+2. Prove all three owner fixes are ancestors.
+3. Prove Settings behavior directly:
+   - env unset -> `agent_core_v3_enabled == False`;
+   - `PO_AGENT_AGENT_CORE_V3_ENABLED=true` -> True after settings reset.
+4. Start isolated v3 runtime using existing project `.env`/LLM credentials plus:
+   `PO_AGENT_AS21_MODE=task-api`, live task-api base URL, `PO_AGENT_AGENT_CORE_V3_ENABLED=true`.
+5. `/health` must report `agent_core_v3_enabled=true` and `semantic_mode=qwen-llm`. If LLM credentials are absent, classify environment evidence precisely; do not call this a code semantic failure.
 
-## Phase 1 — v3 trace contract
-For every pilot capture `_agent_core_v3`: interpreter_class, llm_used, raw_semantic_frame, grounded_values, accepted_turn_contract, capability_id/version, executor_args, source_authority/oracle_id and postcondition_results. Require `llm_used=true` for natural-language cases.
+## Phase 1 — adapter live-route certification before Harness
+Fresh direct Oracle B via MCP-SWTR and independent Agent-side adapter call.
 
-## Phase 2 — Oracle B
-Read fresh direct REAL MCP truth for:
-1. Garanin.R.V all approved spaces
-2. Garanin.R.V in DMS
-3. Kalachanov.V.V in WMB
-4. DMS-380 point-read
-Persist exact key sets and all pages.
+Cases:
+- `adapter.search_tasks("assignee = Garanin.R.V", max_results=100)` must equal fresh Oracle B exact key set across approved spaces.
+- `adapter.search_tasks("assignee = Garanin.R.V AND project = DMS", max_results=100)` must equal fresh DMS Oracle B exact key set.
+- `adapter.search_tasks("assignee = Kalachanov.V.V AND project = WMB", max_results=100)` must equal fresh WMB Oracle B exact key set, including valid zero if Oracle B is zero.
 
-## Phase 3 — Agent Core v3 A/B
-Execute with v3 enabled:
+Capture endpoint/path proof showing the adapter uses `/api/v1/swtr-read/assignee-tasks`, not `/api/v1/tasks`.
+
+## Phase 2 — v3 trace and A/B
+Run isolated v3 requests:
 1. `Задачи Гаранина`
 2. `Задачи Гаранина в DMS`
 3. `Задачи Калачанова в WMB`
 4. `Покажи DMS-380`
 
-Require all explicitly requested constraints in the accepted contract, canonical assignee grounding, WMB preserved through executor args, exact key equality against Oracle B, all postconditions passed, no unrelated-space evidence, and correct DMS-380 lookup.
+For each v3-routed response capture `_agent_core_v3` completely. Require:
+- stage H1B;
+- natural-language cases `llm_used=true`;
+- interpreter class is LLM-backed production semantic stack, not FailClosedSemanticInterpreter;
+- raw semantic frame and grounded values present;
+- immutable accepted contract contains every explicitly requested constraint;
+- capability/executor/source authority/oracle metadata present;
+- postcondition validation passes;
+- exact key-set equality vs fresh Oracle B;
+- no unrelated-space evidence;
+- DMS-380 exact point read;
+- valid zero result is not source-unavailable.
 
-## Phase 4 — contract safety unit checks
-Using isolated synthetic data only, prove:
-- contract `assignee=Kalachanov.V.V, space=WMB` rejects a result row with `project_space=DMS` as `RESULT_CONTRACT_VIOLATION`;
-- requested `space` omitted from executor arguments raises `CONSTRAINT_LOSS`.
+If a request does not contain `_agent_core_v3`, classify ROUTING_RED and capture health/config plus selector evidence.
 
-## Phase 5 — strangler isolation
-With v3 enabled, send one clearly non-pilot sprint/release query with a validated entity and prove it delegates to legacy. With v3 disabled, prove pilot-shaped queries also delegate to legacy.
+## Phase 3 — safety/strangler regression
+- Synthetic wrong-space row under WMB accepted contract -> typed `RESULT_CONTRACT_VIOLATION`.
+- Missing requested space in executor args -> typed `CONSTRAINT_LOSS`.
+- v3 enabled + validated non-pilot sprint/release query -> legacy delegation.
+- v3 disabled + pilot-shaped query -> legacy delegation.
+- `DMS-999999999` -> authoritative NOT_FOUND, not source unavailable.
 
-## Phase 6 — protected regressions
-Recheck `DMS-999999999` authoritative NOT_FOUND and one protected legacy assignee query with v3 disabled.
-
-## Final report
-Write `po-agent-platform-v2/qa_reports/AGENT_CORE_V3_H1B_PILOT_144.md`.
+## Phase 4 — report
+Write `po-agent-platform-v2/qa_reports/AGENT_CORE_V3_H1B_RETEST_145.md` with raw evidence references, fresh Oracle sets, Agent sets, diffs, trace metadata, latency, retries and exact failure localization.
 
 Allowed verdicts:
 - `AGENT_CORE_V3_H1B_GREEN`
+- `AGENT_CORE_V3_CONFIG_RED`
+- `AGENT_CORE_V3_ADAPTER_RED`
 - `AGENT_CORE_V3_SEMANTIC_RED`
 - `AGENT_CORE_V3_AB_PARITY_RED`
 - `AGENT_CORE_V3_CONSTRAINT_RED`
 - `AGENT_CORE_V3_ROUTING_RED`
+- `BLOCKED_BY_PROVEN_ENVIRONMENT`
 - `BLOCKED_BY_PROVEN_SOURCE_OUTAGE`
 
-GREEN requires all four pilot scenarios to execute through v3, exact A/B parity, immutable constraint preservation, and validator blocking of wrong-space output. Commit/push QA report only and STOP.
+GREEN requires config activation proven, LLM-backed v3 execution proven, adapter parity proven, all four pilot scenarios exact A/B, and safety/strangler checks PASS.
+
+Commit/push QA report only and STOP.
 
 ## Start now
-Execute Assignment 144 completely.
+Execute Assignment 145 completely.
