@@ -253,7 +253,66 @@ Exit: 100% UI inventory + lineage + interaction tests (filters, pagination, refr
 - full protected regression;
 - release readiness.
 
-## 6. Immediate next action
+## 6. Remaining work and retrospective timing estimate
+
+There are **9 remaining major stages: H0-H8**. In practice, based on Assignments 136-149, each architecture stage usually needs one owner implementation pass plus 1-3 focused QA/fix cycles. Small-looking semantic/session defects have repeatedly taken 1-3 hours once live AS21/browser evidence is included, while marathon/certification stages consume several hours of machine/runtime time even when no code fix is needed.
+
+The estimates below therefore include expected QA/rework, not only initial coding.
+
+| Stage | Scope | Expected focused effort | Calendar expectation* |
+|---|---|---:|---:|
+| H0 | Real Workspace cutover, single UI entry, clean sessions | 3-5 h | ~0.5-1 day |
+| H1 | Hermes core loop + registry + progressive skill loading | 5-8 h | ~1 day |
+| H2 | persistent sessions + memory + session_search | 4-7 h | ~0.5-1 day |
+| H3 | self-learning reviewer, skill create/patch/promote/rollback | 8-12 h | ~1-2 days |
+| H4 | migrate all 54 skills by capability family | 10-16 h | ~1.5-2.5 days |
+| H5 | exhaustive 54-skill × space × member A/B/C certification | 8-14 h incl. machine runtime | ~1-2 days |
+| H6 | full UI data-plane migration + empty-state remediation | 8-14 h | ~1-2 days |
+| H7 | full browser + learning E2E | 4-7 h | ~0.5-1 day |
+| H8 | release hardening/performance/security/readiness | 4-7 h | ~0.5-1 day |
+
+`*` Calendar expectation assumes a focused 6-8 hour working day and no prolonged AS21 outage.
+
+### Total retrospective estimate
+
+- **Best case:** ~54 focused hours, about **7 working days**.
+- **Realistic case:** ~70-80 focused hours, about **9-11 working days**.
+- **With 2-3 additional defect clusters/source instability:** ~90 hours, about **12-14 working days**.
+
+The realistic planning baseline is therefore **~2 working weeks** to release-candidate quality, not counting long external source outages.
+
+### Milestones
+
+**Milestone A — "actually Hermes"** = H0-H3 complete.  
+Expected: **20-32 h / 3-5 working days**. At this point the product has one real core loop, persistent recall, procedural skills and a closed self-learning cycle.
+
+**Milestone B — "all skills on Hermes"** = H4 complete.  
+Expected cumulative: **30-48 h / 5-7 working days**.
+
+**Milestone C — "catalog proven"** = H5 complete.  
+Expected cumulative: **38-62 h / 6-9 working days**. All 54 skills are terminally classified across applicable spaces/team members/query variants.
+
+**Milestone D — "product ready for final hardening"** = H6-H7 complete.  
+Expected cumulative: **50-73 h / 8-10 working days**.
+
+**Milestone E — release candidate** = H8 complete.  
+Expected cumulative realistic target: **9-11 working days**.
+
+Timing is updated after each stage using actual elapsed owner + QA time and number of defect loops.
+
+## 7. Execution discipline
+
+1. No broad 54-skill migration before H0-H3 are GREEN.
+2. Every stage has a narrow owner implementation followed by focused GigaCode certification.
+3. GigaCode remains QA-only; production code changes are owner-only.
+4. A live browser contradiction automatically reopens the corresponding gate even if a report is GREEN.
+5. For long AS21 suites, checkpoint/resume is mandatory; timeout cannot skip a test.
+6. H4 migration happens family-by-family, so a defect in one family does not block already certified families.
+7. H5 uses a generated applicability manifest for all 54 skills × relevant spaces × canonical team members × query variants.
+8. H6 explicitly inventories every screen/widget/action so empty UI values cannot be hidden outside the skill catalog.
+9. After each stage, update this document with actual elapsed time and revised ETA.
+
+## 8. Immediate next action
 
 Do NOT expand additional skills on the current mixed UI/runtime.
 
@@ -261,7 +320,7 @@ Next owner work is **H0 REAL WORKSPACE CUTOVER**, followed immediately by H1/H2/
 
 GigaCode remains QA-only and must not modify production code. Its next certification starts only after the H0 owner changes exist.
 
-## 7. Current gate state
+## 9. Current gate state
 
 ```text
 REAL_SOURCE_PLANE = FOCUSED_GREEN
