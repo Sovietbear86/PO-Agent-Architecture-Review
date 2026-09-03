@@ -56,6 +56,43 @@ class TeamDirectory:
     def _tokens(value: str) -> tuple[str, ...]:
         return tuple(x.casefold() for x in re.findall(r"[A-Za-zА-Яа-яЁё0-9]+", value) if len(x) > 1)
 
+    @staticmethod
+    def _normalize_russian_case(value: str) -> str:
+        """Normalize common Russian case endings to nominative for matching.
+        
+        Handles genitive case (e.g., Гаранина -> Гаранин, Калачанова -> Калачанов)
+        by checking if removing common suffixes yields a valid nominative form.
+        Returns normalized form if valid, otherwise returns original.
+        """
+        value = value.strip()
+        if not value:
+            return value
+        
+        # Common Russian genitive case endings for male surnames
+        # These endings typically indicate "of [person]" or possessive form
+        genitive_patterns = [
+            ("ганина", "ганин"),   # Гаранина -> Гаранин
+            ("овна", "овен"),      # Generic -овна -> -овен
+            ("ая", ""),            # -ая (feminine) -> empty stem
+            ("яя", ""),            # -яя (feminine) -> empty stem
+            ("ова", "ов"),         # -ова -> -ов (Калачанова -> Калачанов)
+            ("ева", "ев"),         # -ева -> -ев
+            ("ина", "ин"),         # -ина -> -ин
+        ]
+        
+        for genitive_stem, nominative_stem in genitive_patterns:
+            if value.endswith(genitive_stem):
+                # Extract stem and transform
+                stem = value[:-len(genitive_stem)]
+                if stem:
+                    # Build the nominative form
+                    nominative = stem + nominative_stem
+                    # Validate that the result looks like a real name
+                    if len(nominative) >= 2 and len(stem) >= 2:
+                        return nominative
+        
+        return value
+
     def resolve_person(self, candidate: str) -> tuple[TeamDirectoryEntry, ...]:
         raw = candidate.strip().casefold()
         if not raw:
@@ -71,6 +108,16 @@ class TeamDirectory:
             hay = self._tokens(f"{entry.full_name} {entry.login}")
             if all(any(h == w or h.startswith(w) or w.startswith(h) for h in hay) for w in wanted):
                 matches.append(entry)
+        # Try with normalized Russian case if no matches found
+        if not matches:
+            normalized = self._normalize_russian_case(candidate)
+            if normalized and normalized != candidate:
+                wanted_norm = self._tokens(normalized)
+                if wanted_norm:
+                    for entry in self.entries:
+                        hay = self._tokens(f"{entry.full_name} {entry.login}")
+                        if all(any(h == w or h.startswith(w) or w.startswith(h) for h in hay) for w in wanted_norm):
+                            matches.append(entry)
         return tuple(matches)
 
 

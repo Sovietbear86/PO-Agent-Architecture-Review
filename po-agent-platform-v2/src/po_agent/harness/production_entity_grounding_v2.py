@@ -171,6 +171,10 @@ class ProductionEntityResolverV2(LiveGroundedEntityResolver):
         needs = list(grounded.clarifications)
         context = await self.semantic_context()
 
+        # Remove member_login clarification if we successfully resolved it
+        if final_slots.get("member_login"):
+            needs = [n for n in needs if n.field != "member_login"]
+
         if final_slots.get("member_login"):
             final_slots["assignee"] = final_slots["member_login"]
 
