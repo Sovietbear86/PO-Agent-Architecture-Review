@@ -7,6 +7,7 @@ returns canonical task-shaped rows for the Harness production adapter.
 """
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
@@ -118,12 +119,11 @@ def _canonical_row(row: dict[str, Any]) -> dict[str, Any] | None:
     }
 
 
-async def _resolve_external_id(client: SWTRMCPClient, assignee: str) -> str:
-    needle = assignee.strip()
+async def _search_user_rows(client: SWTRMCPClient, text: str) -> list[dict[str, Any]]:
     try:
         content = await client.call_tool(
             "search_users",
-            {"request": {"text_search": needle, "page": 0, "size": 100}},
+            {"request": {"text_search": text, "page": 0, "size": 100}},
         )
     except (SWTRMCPUnavailable, SWTRMCPProtocolError) as exc:
         raise _transport_http_error(exc) from exc
@@ -131,6 +131,37 @@ async def _resolve_external_id(client: SWTRMCPClient, assignee: str) -> str:
     rows = _page_content(payload)
     if not rows and isinstance(payload, list):
         rows = [row for row in payload if isinstance(row, dict)]
+    return rows
+
+
+def _russian_nominative_retry(value: str) -> str | None:
+    """Return a conservative surname retry for common masculine genitive `-а`.
+
+    This is not fuzzy identity matching: it is only attempted for one Cyrillic
+    token ending in `а`, and the source still has to resolve the retry to exactly
+    one unique canonical code before it is accepted.
+    """
+    text = value.strip()
+    if not re.fullmatch(r"[А-Яа-яЁё]+", text):
+        return None
+    if len(text) < 4 or not text.casefold().endswith("а"):
+        return None
+    candidate = text[:-1]
+    return candidate if len(candidate) >= 3 else None
+
+
+async def _resolve_external_id(client: SWTRMCPClient, assignee: str) -> str:
+    needle = assignee.strip()
+    rows = await _search_user_rows(client, needle)
+
+    # Natural Russian task queries commonly contain a masculine surname in the
+    # genitive case (e.g. "Калачанова"). If the authoritative search returns no
+    # rows, retry only the conservative nominative variant; ambiguity still fails
+    # closed below.
+    if not rows:
+        retry = _russian_nominative_retry(needle)
+        if retry and retry.casefold() != needle.casefold():
+            rows = await _search_user_rows(client, retry)
 
     exact: list[str] = []
     all_codes: list[str] = []
