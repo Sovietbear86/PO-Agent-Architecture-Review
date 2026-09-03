@@ -85,8 +85,6 @@ class AgentCoreV3PilotSelector:
             return True
         if not any(marker in lower for marker in ("задач", "task")):
             return False
-        # H1B search pilots require an assignee/name cue; broad portfolio/task
-        # searches remain on legacy until their capability family is migrated.
         return any(marker in lower for marker in ("гаранин", "калачан", "assignee", "исполнител"))
 
 
@@ -152,15 +150,12 @@ class AgentCoreV3PilotProcessor:
             task_key = match.group(0).upper() if match else ""
         if task_key:
             constraints["task_key"] = task_key.upper()
-
         assignee = str(grounded_slots.get("member_login") or grounded_slots.get("assignee") or "").strip()
         if assignee:
             constraints["assignee"] = assignee
-
         space = str(grounded_slots.get("product") or "").strip().upper() or AgentCoreV3PilotProcessor._explicit_space(query)
         if space:
             constraints["space"] = space.upper()
-
         status = str(grounded_slots.get("status") or grounded_slots.get("status_semantic") or "").strip()
         if status:
             constraints["status"] = status
@@ -172,7 +167,6 @@ class AgentCoreV3PilotProcessor:
         context = dict(context)
         context["allowed_intents"] = allowed_intents
         context["available_capabilities"] = capabilities
-
         raw = await self.interpreter.interpret(request.query, context=context)
         grounded = await self.grounder.ground(raw, request.query)
         if grounded.clarifications:
@@ -195,7 +189,6 @@ class AgentCoreV3PilotProcessor:
                     "execution_ready": False,
                 }},
             )
-
         requested = self._requested_fields(request.query, raw.slots)
         constraints = self._canonical_constraints(request.query, grounded.slots)
         intent = str(grounded.intent_hint or "").strip()
@@ -203,7 +196,6 @@ class AgentCoreV3PilotProcessor:
             intent = "task_lookup"
         elif requested & {"assignee", "space", "status"}:
             intent = "task_search"
-
         contract = AcceptedTurnContract(
             turn_id=envelope.turn_id,
             intent=intent,
@@ -236,12 +228,11 @@ class AgentCoreV3PilotProcessor:
                 AgentCoreV3FailureCode.UNRESOLVED_CONSTRAINT,
                 "H1B task-search pilot requires a grounded assignee",
             )
-        # Fetch authoritative assignee set once, then apply remaining accepted
-        # constraints deterministically. No downstream layer may drop them.
-        tasks = await self.adapter.search_tasks(f"assignee = {assignee}")
         space = str(contract.constraints.get("space") or "").strip().upper()
+        jql = f"assignee = {assignee}"
         if space:
-            tasks = [task for task in tasks if str(task.project_space or "").upper() == space]
+            jql += f" AND project = {space}"
+        tasks = await self.adapter.search_tasks(jql)
         status = str(contract.constraints.get("status") or "").strip().casefold()
         if status:
             if status in {"not_completed", "open_tasks", "unresolved", "active"}:
@@ -272,12 +263,10 @@ class AgentCoreV3PilotProcessor:
                 registration.contract.supported_constraints,
                 executor_args,
             )
-
             if contract.intent == "task_lookup":
                 answer, data, evidence = await self._execute_lookup(contract)
             else:
                 answer, data, evidence = await self._execute_search(contract)
-
             validation = self.validator.validate(contract, data)
             meta = {
                 "stage": "H1B",
@@ -299,11 +288,10 @@ class AgentCoreV3PilotProcessor:
                 "postcondition_results": validation.to_dict(),
                 "execution_ready": True,
             }
-            if isinstance(data, dict):
-                data = dict(data)
-                data["_agent_core_v3"] = meta
+            data = dict(data)
+            data["_agent_core_v3"] = meta
             status = ResponseStatus.COMPLETED
-            if isinstance(data, dict) and data.get("found") is False:
+            if data.get("found") is False:
                 status = ResponseStatus.FAILED
             return HarnessResponse(
                 status=status,
