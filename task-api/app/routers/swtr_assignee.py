@@ -101,7 +101,7 @@ async def _resolve_external_id(client: SWTRMCPClient, assignee: str) -> str:
     try:
         content = await client.call_tool(
             "search_users",
-            {"text_search": needle, "page": 0, "size": 100},
+            {"request": {"text_search": needle, "page": 0, "size": 100}},
         )
     except (SWTRMCPUnavailable, SWTRMCPProtocolError) as exc:
         raise _transport_http_error(exc) from exc
