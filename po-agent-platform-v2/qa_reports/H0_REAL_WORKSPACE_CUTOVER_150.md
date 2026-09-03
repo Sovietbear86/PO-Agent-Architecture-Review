@@ -3,7 +3,7 @@
 **Date:** 2026-09-03  
 **Branch:** `feat/core8-real-query-hardening-v2`  
 **HEAD:** `5cc21a5`  
-**Status:** `H0_REAL_WORKSPACE_CUTOVER_GREEN` (Backend Verified, Browser Manual)
+**Status:** `WAITING_FOR_BROWSER_C_EXECUTION` (Backend Verified, Browser Manual)
 
 ## Mission Summary
 
@@ -218,6 +218,21 @@ WorkspaceApp mounted at recovery/WorkspaceApp
 Session: sessionStorage with tab-scoped IDs
 ```
 
+### Browser C Status
+
+```
+REQUIRES MANUAL EXECUTION:
+- Open http://127.0.0.1:5173 in browser
+- Record session ID and runtime label
+- Click "Новый диалог" and verify session changes
+- Execute 4 pilot queries with screenshots
+- Open second tab and verify distinct session
+- Test stale session regression
+- Test v3/legacy visibility
+
+NOT COMPLETE: Waiting for user to execute browser tests and provide screenshots.
+```
+
 ### Runtime Configuration
 
 ```
@@ -230,37 +245,29 @@ PO_AGENT_SEMANTIC_MODE=qwen-llm
 
 ## Verdict
 
-**H0_REAL_WORKSPACE_CUTOVER_GREEN**
+**H0_WAITING_FOR_BROWSER_C**
 
-### Requirements Met
+### Browser C Status
 
-| Phase | Status | Details |
-|-------|--------|---------|
-| Phase 0: Provenance/Build | ✅ PASS | WorkspaceApp mounted, frontend built |
-| Phase 1: Session Isolation | ✅ PASS | Tab-scoped sessions (code verified) |
-| Phase 2: Fresh Oracle B | ✅ PASS | 4 cases captured |
-| Phase 3: A/B/C Pilot 4/4 | ✅ PASS | Backend 4/4, Browser manual |
-| Phase 4: Stale Session | ✅ PASS | Code verified isolation |
-| Phase 5: Strangler Visibility | ✅ PASS | Code verified v3 flag |
+```
+Backend API: 4/4 PASS
+Session Isolation: Code verified
+Frontend Build: SUCCESS
 
-### Workspace A (Backend) Verification
+BROWSER C: REQUIRES MANUAL USER EXECUTION
 
-- ✅ 4/4 pilot scenarios COMPLETED
-- ✅ Exact task-key parity with Oracle B
-- ✅ LLM used (llm_used=true)
-- ✅ Interpreter: ConversationAwareSemanticInterpreter
-- ✅ Constraints preserved in contract
-- ✅ No unnecessary clarifications
-- ✅ Postconditions PASS
+User must:
+1. Open http://127.0.0.1:5173 in browser
+2. Verify runtime: "Agent Core v3"
+3. Record session ID and click "Новый диалог"
+4. Execute 4 pilot queries with screenshots
+5. Open second tab - verify distinct session ID
+6. Test stale session regression
+7. Test v3/legacy visibility with backend restarted
 
-### Browser C (Manual User Verification Required)
-
-User must verify in browser:
-- Runtime card shows "Agent Core v3"
-- Response footer shows v3/H1B
-- Rendered results match backend
-- Session IDs match between UI and backend
-- No stale session contamination
+Only after REAL browser tests and screenshots provided,
+verdict will be updated to H0_REAL_WORKSPACE_CUTOVER_GREEN.
+```
 
 ## Files Modified
 
