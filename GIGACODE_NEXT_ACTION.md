@@ -1,118 +1,124 @@
 # GigaCode — Current Action
 
 ## Status
-`ACTIVE_QA_ASSIGNMENT_159_H1A_RUNTIME_CONTINUATION`
+`ACTIVE_QA_ASSIGNMENT_160_H1A_WMB_SOURCE_RETRY`
 
 ## Mission
-Continue H1A certification after Assignment 158 proved the Capability Registry contract GREEN but failed runtime/browser verification only because the QA backend was started with `agent_core_v3_enabled=false`.
+Finish H1A certification after Assignment 159 proved the Capability Registry runtime and exact A/B parity GREEN, with only one protected Browser C case failing on `AS21SourceUnavailable` for `Задачи Калачанова в WMB`.
 
-DO NOT restart Assignment 158 from scratch. Phases 0-1 are already accepted PASS from report `po-agent-platform-v2/qa_reports/AGENT_CORE_V3_H1A_CAPABILITY_REGISTRY_158.md`.
+This is a CONTINUATION. Do NOT rerun Assignment 158 from scratch and do NOT repeat already-green H1A registry/unit phases unless provenance changed.
 
-This is QA only. Do not modify production/backend/frontend/test source code or committed `.env` files.
+QA only. Do not modify production/backend/frontend/test source code or committed `.env` files.
 
-Required owner commits already certified at contract level:
-- `4b45864c71a1b02758608a3227fc39ad9e4f5a6f`
-- `9798faa350eeb593c30a797169b88526f26ddd59`
-- `0b643d7e6bf7a4dcef2b4df939f81f4ea558b8d1`
-
-Protected H0 baseline:
-- Assignment 157 verdict `PLAYWRIGHT_BROWSER_HARNESS_GREEN_H0_CERTIFIED`.
+Accepted evidence from prior assignments:
+- Assignment 157: `PLAYWRIGHT_BROWSER_HARNESS_GREEN_H0_CERTIFIED`.
+- Assignment 158 Phase 0-1: H1A registry contract/unit gate PASS (10/10).
+- Assignment 159 Phase 0: v3=true, qwen LLM, source healthy preflight PASS.
+- Assignment 159 Phase 1: focused H1A runtime registry proof PASS 2/2.
+- Assignment 159 Phase 2: fresh REAL Agent A == Oracle B exact parity PASS.
+- Assignment 159 Phase 3: 4/5 Playwright PASS; only `Задачи Калачанова в WMB` failed with `AS21SourceUnavailable`.
 
 ## Absolute rules
 - REAL AS21/MCP-SWTR is Oracle B.
 - Browser C = real Playwright Chromium against mounted WorkspaceApp.
 - No local DB, sync, fake, frozen or surrogate truth.
 - Concurrency=1.
-- Source-backed timeout 300s. Retry only proven transient source failures twice with 30s backoff.
+- Source-backed timeout 300s.
+- A source failure may be called transient ONLY after the required retries are actually executed and recorded.
+- Retry proven source failures exactly twice, with 30s backoff between attempts.
 - Exact task-key-set parity is mandatory.
-- No production/backend/frontend/test source edits.
-- Do not edit/commit `.env` just to enable v3.
+- No source/backend/frontend/test edits.
 - No caveat GREEN.
 
-## Phase 0 — mandatory runtime preflight BEFORE any tests
-1. Pull branch and record HEAD/clean state.
-2. Read Assignment 158 report and confirm Phase 0-1 PASS; do not rerun them unless provenance changed.
-3. Stop the old Agent backend on port 8004.
-4. Start the Agent backend from `po-agent-platform-v2` with an environment override, preserving all existing working LLM/source environment variables:
+## Phase 0 — provenance and runtime preflight
+1. `git pull --ff-only origin feat/core8-real-query-hardening-v2`.
+2. Record HEAD/clean state.
+3. Confirm Assignment 159 report exists and contains:
+   - H1A runtime proof PASS;
+   - exact A/B parity PASS;
+   - 4/5 Browser PASS;
+   - WMB failure `AS21SourceUnavailable`.
+4. Start/reuse the production-like Agent backend with `PO_AGENT_AGENT_CORE_V3_ENABLED=true`, REAL Task API and qwen LLM.
+5. Query `/health` and require:
+   - `agent_core_v3_enabled=true`;
+   - semantic mode qwen/LLM;
+   - source status healthy.
+6. Also probe the REAL source path needed by WMB before Browser C. Health alone is not sufficient evidence: execute one direct REAL AS21/MCP-SWTR WMB-capable read/query and record success/failure.
 
-`PO_AGENT_AGENT_CORE_V3_ENABLED=true PO_AGENT_AS21_MODE=task-api PO_AGENT_TASK_API_BASE_URL=http://127.0.0.1:8003 python3 -m uvicorn po_agent.main:app --host 127.0.0.1 --port 8004 --timeout-keep-alive 300`
+If preflight source is unavailable, execute the required 2 retries with 30s backoff. If still unavailable, STOP with `BLOCKED_BY_PROVEN_SOURCE_OUTAGE` and raw evidence.
 
-If the local runtime normally needs additional already-existing environment variables for qwen/AS21, preserve/reuse them. Do not erase them and do not create fake replacements.
+## Phase 1 — focused WMB triage with mandatory retries
+Fresh-read REAL AS21 Oracle B for:
+`Задачи Калачанова в WMB`
 
-5. BEFORE continuing, query `/health` and require all of:
-- `agent_core_v3_enabled == true`
-- semantic mode is qwen/LLM (`qwen-llm` or the equivalent configured production LLM mode)
-- REAL AS21 source is healthy.
+Persist exact normalized task-key set and timestamp. Historical count/key sets are not authoritative.
 
-If v3 is false: STOP as `BLOCKED_BY_PROVEN_ENVIRONMENT` with raw startup/health evidence.
-If source is degraded: restore/restart the existing REAL Task API/MCP-SWTR runtime and recheck health. Do not use local DB/sync/fake. If still unavailable after proven retries, STOP as `BLOCKED_BY_PROVEN_SOURCE_OUTAGE`.
+Then execute the same query through Agent A in a fresh session.
 
-DO NOT launch Playwright or business tests until this preflight is GREEN.
-
-## Phase 1 — focused H1A runtime registry proof
-Use fresh session IDs and execute through Agent A:
-1. `Задачи Гаранина`
-2. `Покажи DMS-380`
-
-For each require:
-- `COMPLETED`;
-- `_agent_core_v3.architecture_stage == H1A_REGISTRY`;
-- `capability_catalog_size == 2`;
-- correct capability id/version/family;
-- `source_authority == REAL_AS21`;
-- executor selected from resolved registry registration;
-- accepted requested constraints preserved into executor args;
-- `llm_used=true` for the natural-language case;
+Require:
+- `architecture_stage == H1A_REGISTRY`;
+- `capability_id == task-search-v3`;
+- source authority REAL_AS21;
+- `llm_used=true`;
+- accepted constraints include `assignee=Kalachanov.V.V` and `space=WMB`;
 - postconditions PASS;
-- no unexpected clarification/correction state.
+- status COMPLETED unless Oracle B itself proves source unavailable;
+- Agent A exact keys == fresh Oracle B exact keys.
 
-Persist raw v3 metadata/trace evidence. Unit-level registry evidence alone is NOT sufficient here.
+If either Oracle B or Agent A returns `AS21SourceUnavailable`, retry that failing operation twice with 30s backoff and record all three attempts separately. Do NOT label it transient without this evidence.
 
-## Phase 2 — fresh REAL A/B exact parity
-Fresh-read Oracle B directly from REAL AS21/MCP-SWTR NOW, not historical counts.
+If Oracle B succeeds but Agent A still fails after retries, verdict must be `H1A_WMB_AGENT_SOURCE_PATH_RED` and STOP: this is a product/adaptor path defect, not a generic source outage.
 
-Compare exact task-key sets for:
-- `Задачи Гаранина` — all approved spaces;
-- `Покажи DMS-380` — exact point read.
+If both Oracle B and Agent A fail after retries, verdict may be `BLOCKED_BY_PROVEN_SOURCE_OUTAGE`.
 
-Require Agent A exact key set == Oracle B exact key set. Persist timestamps/raw normalized sets.
+## Phase 2 — focused Browser C WMB
+Only after Phase 1 is GREEN, run the single Browser test for WMB first:
 
-## Phase 3 — protected Browser C regression
-With the same healthy v3=true backend, run from frontend:
+`npm run e2e:h0 -- --grep "Калачанова.*WMB"`
+
+Require PASS in real Chromium with:
+- drawer session correlation intact;
+- Agent Core v3/current H1A stage visible;
+- no stale correction/clarification;
+- COMPLETED;
+- exact/semantic result consistent with the same fresh Oracle B set.
+
+If Browser C gets `AS21SourceUnavailable`, perform two re-runs of the focused Browser test with 30s backoff, recording each attempt. If direct Oracle B remains healthy while Browser/Agent path repeatedly fails, classify as product path RED, not transient source outage.
+
+## Phase 3 — protected full H0 regression
+Only after focused WMB Browser PASS, run:
 
 `npm run e2e:h0`
 
-Require all 5 tests PASS in real Chromium:
-- session isolation/new conversation;
-- `Задачи Гаранина`;
-- `Задачи Гаранина в DMS`;
-- `Задачи Калачанова в WMB`;
-- `Покажи DMS-380`.
+Require all 5 tests PASS.
 
-The routed-request correlation from Assignment 157 must remain intact. UI must show Agent Core v3/current stage, fresh sessions must not enter correction state, and task results must remain semantically/source correct.
+Do not stop on an unrelated transient source error without the same required retry evidence. Preserve the first failing boundary and raw trace if any real defect appears.
 
-If Browser fails, report the exact first failing boundary. Do not edit tests or product code.
+## Phase 4 — H1A final consistency audit
+Before verdict, correct/report any arithmetic inconsistencies from prior reports. Assignment 159 stated 16 total Garanin tasks but listed per-space counts that summed differently; recompute from the exact key set, not prose counts.
 
-## Phase 4 — final decision
-Write a NEW continuation report:
+Confirm final H1A evidence:
+- registry unit/contract PASS;
+- runtime registry proof PASS;
+- exact Agent A/Oracle B parity PASS;
+- focused WMB PASS;
+- full Browser C 5/5 PASS.
 
-`po-agent-platform-v2/qa_reports/AGENT_CORE_V3_H1A_RUNTIME_CONTINUATION_159.md`
+## Phase 5 — final report
+Write:
+`po-agent-platform-v2/qa_reports/AGENT_CORE_V3_H1A_WMB_SOURCE_RETRY_160.md`
 
 Allowed verdicts ONLY:
 - `AGENT_CORE_V3_H1A_REGISTRY_GREEN`
-- `H1A_RUNTIME_REGRESSION_RED`
+- `H1A_WMB_AGENT_SOURCE_PATH_RED`
 - `H1A_BROWSER_REGRESSION_RED`
 - `H1A_AGENT_ORACLE_PARITY_RED`
 - `BLOCKED_BY_PROVEN_SOURCE_OUTAGE`
 - `BLOCKED_BY_PROVEN_ENVIRONMENT`
 
-GREEN requires:
-- mandatory v3=true/LLM/source-healthy preflight PASS;
-- focused runtime registry proof PASS;
-- fresh exact A/B parity PASS;
-- all 5 protected Playwright H0 tests PASS.
+GREEN requires focused WMB Agent/Oracle parity + focused Browser PASS + full H0 Playwright 5/5 PASS, in addition to already-accepted H1A gates.
 
-Commit/push ONLY the new QA report. Do not alter Assignment 158 report. STOP.
+Commit/push ONLY the new QA report and STOP.
 
 ## Start now
-Execute Assignment 159 completely. First output the current HEAD and the `Status` line above so it is explicit that this is a NEW continuation assignment, not completed Assignment 158.
+Execute Assignment 160 completely. Do not call the WMB failure transient unless the mandated retry sequence is actually performed and recorded.
