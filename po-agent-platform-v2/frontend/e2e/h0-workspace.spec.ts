@@ -38,18 +38,20 @@ async function expectVisibleSession(page: Page, expected: string) {
 }
 
 async function ask(page: Page, query: string): Promise<QueryObservation> {
-  // Read the browser identity immediately before the user action. This is the
-  // identity the mounted Workspace is contractually required to propagate.
-  // Playwright cannot reliably expose Axios/XHR request bodies in this runtime,
-  // so H0 proves end-to-end propagation by comparing browser identity with the
-  // authoritative backend echo and the eventually rendered UI trace. The
-  // X-Session-Id header is retained as additional network evidence when exposed.
+  // OverviewDashboard issues its own background /api/v1/query requests on page
+  // mount. They intentionally have no conversational X-Session-Id and must not
+  // be mistaken for the PO Agent drawer request. Correlate the response to the
+  // browser conversation by the session header instead of accepting the first
+  // arbitrary /query response.
   const browserSessionId = await sessionId(page)
   await expectVisibleSession(page, browserSessionId)
 
-  const responsePromise = page.waitForResponse(response =>
-    response.url().includes('/api/v1/query') && response.request().method() === 'POST'
-  )
+  const responsePromise = page.waitForResponse(response => {
+    if (!response.url().includes('/api/v1/query') || response.request().method() !== 'POST') return false
+    const headers = response.request().headers()
+    return headers['x-session-id'] === browserSessionId
+  })
+
   const input = page.getByPlaceholder('Спросите естественным языком…')
   await input.fill(query)
   await page.getByRole('button', { name: 'Отправить' }).click()
@@ -100,9 +102,7 @@ test.describe('H0 real Workspace browser harness', () => {
 
     const observed = await ask(first, 'Задачи Гаранина')
     expect(observed.browserSessionId).toBe(resetSession)
-    if (observed.requestHeaderSessionId !== null) {
-      expect(observed.requestHeaderSessionId).toBe(resetSession)
-    }
+    expect(observed.requestHeaderSessionId).toBe(resetSession)
     expect(observed.payload.session_id).toBe(resetSession)
     expect(observed.payload.status).not.toBe('NEEDS_CLARIFICATION')
     expect(observed.payload.warnings ?? []).not.toContain('correction_recheck')
@@ -128,9 +128,7 @@ test.describe('H0 real Workspace browser harness', () => {
       const observed = await ask(page, query)
       const payload = observed.payload
       expect(observed.browserSessionId).toBe(browserSession)
-      if (observed.requestHeaderSessionId !== null) {
-        expect(observed.requestHeaderSessionId).toBe(browserSession)
-      }
+      expect(observed.requestHeaderSessionId).toBe(browserSession)
       expect(payload.status).toBe('COMPLETED')
       expect(payload.session_id).toBe(browserSession)
       const meta = v3Meta(payload)
