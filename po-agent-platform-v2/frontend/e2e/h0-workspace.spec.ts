@@ -37,6 +37,16 @@ async function expectVisibleSession(page: Page, expected: string) {
   await expect(page.getByText(`session: ${expected}`, { exact: true })).toBeVisible({ timeout: 10_000 })
 }
 
+function parseRequestSessionId(postData: string | null): string | null {
+  if (!postData) return null
+  try {
+    const parsed = JSON.parse(postData) as { session_id?: unknown }
+    return typeof parsed.session_id === 'string' ? parsed.session_id : null
+  } catch (error) {
+    throw new Error(`POST /api/v1/query body is not valid JSON: ${String(error)}`)
+  }
+}
+
 async function ask(page: Page, query: string): Promise<QueryObservation> {
   const responsePromise = page.waitForResponse(response =>
     response.url().includes('/api/v1/query') && response.request().method() === 'POST'
@@ -48,9 +58,8 @@ async function ask(page: Page, query: string): Promise<QueryObservation> {
   expect(response.ok(), `Query HTTP ${response.status()} for ${query}`).toBeTruthy()
 
   const request = response.request()
-  const requestData = request.postDataJSON() as { session_id?: string } | null
-  const requestSessionId = requestData?.session_id ?? null
-  const requestHeaderSessionId = request.headerValue('x-session-id')
+  const requestSessionId = parseRequestSessionId(request.postData())
+  const requestHeaderSessionId = await request.headerValue('x-session-id')
   const payload = await response.json() as QueryResponse
 
   await expect(page.getByText(new RegExp(`Agent Core v3.*${payload.status}`)).last()).toBeVisible({ timeout: 300_000 })
