@@ -3,14 +3,14 @@
 The pilot deliberately supports only the first certified task family.  It uses the
 existing LLM-first semantic interpreter and deterministic production grounder,
 then freezes an AcceptedTurnContract before executing against the authoritative
-adapter.  Unsupported queries fall back through the strangler seam to legacy.
+adapter.  Capability discovery is supplied by the Hermes-style v3 registry;
+unsupported queries fall back through the strangler seam to legacy.
 """
 from __future__ import annotations
 
 import re
 import time
 import uuid
-from dataclasses import dataclass
 from typing import Any, Mapping
 
 from po_agent.adapters.as21 import AS21Adapter
@@ -20,58 +20,16 @@ from .agent_core_v3 import (
     AcceptedTurnContract,
     AgentCoreV3ContractError,
     AgentCoreV3FailureCode,
-    CapabilityContractV3,
     ResultPostconditionValidator,
-    SOURCE_AUTHORITY_REAL_AS21,
     SessionEnvelope,
     guard_constraint_preservation,
 )
+from .agent_core_v3_registry import build_h1_task_registry
 from .contracts import Evidence, HarnessRequest, HarnessResponse, ResponseStatus
 from .dialogue_runtime import SemanticGrounder, SemanticInterpreter, _semantic_capability_contract
 
 _APPROVED_SPACES = frozenset({"WMB", "STS", "OLP", "DMS", "CRPV"})
 _TASK_KEY_RE = re.compile(r"\b[A-ZА-Я][A-ZА-Я0-9_]{1,15}-\d+(?![-A-ZА-Я0-9_])\b", re.I)
-
-
-@dataclass(frozen=True)
-class V3CapabilityRegistration:
-    contract: CapabilityContractV3
-
-
-class PilotCapabilityRegistryV3:
-    def __init__(self) -> None:
-        source = SOURCE_AUTHORITY_REAL_AS21
-        self._items = {
-            "task_lookup": V3CapabilityRegistration(
-                CapabilityContractV3(
-                    id="task-lookup-v3",
-                    version="3.0.0-h1b",
-                    supported_constraints=frozenset({"task_key"}),
-                    source_authority=source,
-                    executor_id="task_lookup_executor_v3",
-                    oracle_id="direct_mcp_read_unit",
-                )
-            ),
-            "task_search": V3CapabilityRegistration(
-                CapabilityContractV3(
-                    id="task-search-v3",
-                    version="3.0.0-h1b",
-                    supported_constraints=frozenset({"assignee", "space", "status"}),
-                    source_authority=source,
-                    executor_id="task_search_executor_v3",
-                    oracle_id="direct_mcp_task_search",
-                )
-            ),
-        }
-
-    def resolve(self, intent: str) -> V3CapabilityRegistration:
-        key = "task_lookup" if intent == "task_lookup" else "task_search"
-        if key not in self._items:
-            raise AgentCoreV3ContractError(
-                AgentCoreV3FailureCode.UNSUPPORTED_CONSTRAINT,
-                f"No H1B v3 capability for intent {intent}",
-            )
-        return self._items[key]
 
 
 class AgentCoreV3PilotSelector:
@@ -99,7 +57,7 @@ class AgentCoreV3PilotProcessor:
         self.adapter = adapter
         self.interpreter = interpreter
         self.grounder = grounder
-        self.registry = PilotCapabilityRegistryV3()
+        self.registry = build_h1_task_registry()
         self.validator = ResultPostconditionValidator()
 
     @staticmethod
@@ -167,6 +125,7 @@ class AgentCoreV3PilotProcessor:
         context = dict(context)
         context["allowed_intents"] = allowed_intents
         context["available_capabilities"] = capabilities
+        context["agent_core_v3_capability_catalog"] = self.registry.compact_catalog(family="tasks")
         raw = await self.interpreter.interpret(request.query, context=context)
         grounded = await self.grounder.ground(raw, request.query)
         if grounded.clarifications:
@@ -180,12 +139,14 @@ class AgentCoreV3PilotProcessor:
                 intent=grounded.intent_hint,
                 data={"_agent_core_v3": {
                     "stage": "H1B",
+                    "architecture_stage": "H1A_REGISTRY",
                     "conversation_id": envelope.conversation_id,
                     "runtime_session_id": envelope.runtime_session_id,
                     "turn_id": envelope.turn_id,
                     "llm_used": raw.llm_used,
                     "raw_semantic_frame": {"intent": raw.intent_hint, "slots": dict(raw.slots)},
                     "grounded_values": dict(grounded.slots),
+                    "capability_catalog_size": len(self.registry),
                     "execution_ready": False,
                 }},
             )
@@ -254,7 +215,7 @@ class AgentCoreV3PilotProcessor:
                 clarification.latency_ms = (time.perf_counter() - started) * 1000
                 return clarification
             assert contract is not None
-            registration = self.registry.resolve(contract.intent)
+            registration = self.registry.resolve_intent(contract.intent)
             registration.contract.validate_turn(contract)
             executor_args = dict(contract.constraints)
             guard_constraint_preservation(
@@ -263,13 +224,20 @@ class AgentCoreV3PilotProcessor:
                 registration.contract.supported_constraints,
                 executor_args,
             )
-            if contract.intent == "task_lookup":
+            if registration.contract.executor_id == "task_lookup_executor_v3":
                 answer, data, evidence = await self._execute_lookup(contract)
-            else:
+            elif registration.contract.executor_id == "task_search_executor_v3":
                 answer, data, evidence = await self._execute_search(contract)
+            else:
+                raise AgentCoreV3ContractError(
+                    AgentCoreV3FailureCode.V3_PROCESSOR_UNAVAILABLE,
+                    f"No executor bound for capability {registration.contract.id}",
+                    details={"executor_id": registration.contract.executor_id},
+                )
             validation = self.validator.validate(contract, data)
             meta = {
                 "stage": "H1B",
+                "architecture_stage": "H1A_REGISTRY",
                 "conversation_id": envelope.conversation_id,
                 "runtime_session_id": envelope.runtime_session_id,
                 "memory_scope_id": envelope.memory_scope_id,
@@ -281,6 +249,8 @@ class AgentCoreV3PilotProcessor:
                 "accepted_turn_contract": contract.to_dict(),
                 "capability_id": registration.contract.id,
                 "capability_version": registration.contract.version,
+                "capability_family": registration.family,
+                "capability_catalog_size": len(self.registry),
                 "executor_id": registration.contract.executor_id,
                 "executor_args": executor_args,
                 "source_authority": registration.contract.source_authority,
@@ -313,11 +283,13 @@ class AgentCoreV3PilotProcessor:
                 answer="Agent Core v3 остановил выполнение: результат не соответствует принятому контракту запроса.",
                 data={"_agent_core_v3": {
                     "stage": "H1B",
+                    "architecture_stage": "H1A_REGISTRY",
                     "conversation_id": envelope.conversation_id,
                     "runtime_session_id": envelope.runtime_session_id,
                     "turn_id": envelope.turn_id,
                     "failure_code": exc.code.value,
                     "details": exc.details,
+                    "capability_catalog_size": len(self.registry),
                     "execution_ready": False,
                 }},
                 warnings=[exc.code.value],
