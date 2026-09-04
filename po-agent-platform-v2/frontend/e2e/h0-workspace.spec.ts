@@ -1,4 +1,4 @@
-import { expect, Page, test } from '@playwright/test'
+import { expect, Page, Request, test } from '@playwright/test'
 
 type QueryResponse = {
   status: string
@@ -38,34 +38,58 @@ async function expectVisibleSession(page: Page, expected: string) {
 }
 
 async function ask(page: Page, query: string): Promise<QueryObservation> {
-  // OverviewDashboard issues its own background /api/v1/query requests on page
-  // mount. They intentionally have no conversational X-Session-Id and must not
-  // be mistaken for the PO Agent drawer request. Correlate the response to the
-  // browser conversation by the session header instead of accepting the first
-  // arbitrary /query response.
+  // OverviewDashboard launches four unrelated background /api/v1/query calls.
+  // Correlate the drawer call at REQUEST time, where Playwright exposes the
+  // request headers reliably, then await the response belonging to that exact
+  // Request object. This avoids both arbitrary-response races and the response
+  // context limitations seen in Assignments 153-156.
   const browserSessionId = await sessionId(page)
   await expectVisibleSession(page, browserSessionId)
 
-  const responsePromise = page.waitForResponse(response => {
-    if (!response.url().includes('/api/v1/query') || response.request().method() !== 'POST') return false
-    const headers = response.request().headers()
-    return headers['x-session-id'] === browserSessionId
+  let resolveDrawerRequest!: (request: Request) => void
+  let rejectDrawerRequest!: (error: Error) => void
+  const drawerRequestPromise = new Promise<Request>((resolve, reject) => {
+    resolveDrawerRequest = resolve
+    rejectDrawerRequest = reject
   })
 
-  const input = page.getByPlaceholder('Спросите естественным языком…')
-  await input.fill(query)
-  await page.getByRole('button', { name: 'Отправить' }).click()
-  const response = await responsePromise
-  expect(response.ok(), `Query HTTP ${response.status()} for ${query}`).toBeTruthy()
+  const routeHandler = async (route: Parameters<Page['route']>[1] extends (route: infer R) => unknown ? R : never) => {
+    try {
+      const request = route.request()
+      const headers = request.headers()
+      if (request.method() === 'POST' && headers['x-session-id'] === browserSessionId) {
+        resolveDrawerRequest(request)
+      }
+      await route.continue()
+    } catch (error) {
+      rejectDrawerRequest(error instanceof Error ? error : new Error(String(error)))
+      throw error
+    }
+  }
 
-  const requestHeaderSessionId = await response.request().headerValue('x-session-id')
-  const payload = await response.json() as QueryResponse
+  await page.route('**/api/v1/query', routeHandler)
 
-  await expect(page.getByText(new RegExp(`Agent Core v3.*${payload.status}`)).last()).toBeVisible({ timeout: 300_000 })
-  const renderedText = payload.status === 'NEEDS_CLARIFICATION' ? payload.question : payload.answer
-  if (renderedText) await expect(page.getByText(renderedText, { exact: true }).last()).toBeVisible({ timeout: 300_000 })
-  await expectVisibleSession(page, browserSessionId)
-  return { payload, browserSessionId, requestHeaderSessionId }
+  try {
+    const input = page.getByPlaceholder('Спросите естественным языком…')
+    await input.fill(query)
+    await page.getByRole('button', { name: 'Отправить' }).click()
+
+    const request = await drawerRequestPromise
+    const response = await request.response()
+    if (!response) throw new Error(`No response object for drawer query: ${query}`)
+    expect(response.ok(), `Query HTTP ${response.status()} for ${query}`).toBeTruthy()
+
+    const requestHeaderSessionId = request.headers()['x-session-id'] ?? null
+    const payload = await response.json() as QueryResponse
+
+    await expect(page.getByText(new RegExp(`Agent Core v3.*${payload.status}`)).last()).toBeVisible({ timeout: 300_000 })
+    const renderedText = payload.status === 'NEEDS_CLARIFICATION' ? payload.question : payload.answer
+    if (renderedText) await expect(page.getByText(renderedText, { exact: true }).last()).toBeVisible({ timeout: 300_000 })
+    await expectVisibleSession(page, browserSessionId)
+    return { payload, browserSessionId, requestHeaderSessionId }
+  } finally {
+    await page.unroute('**/api/v1/query', routeHandler)
+  }
 }
 
 function v3Meta(payload: QueryResponse): Record<string, unknown> | null {
