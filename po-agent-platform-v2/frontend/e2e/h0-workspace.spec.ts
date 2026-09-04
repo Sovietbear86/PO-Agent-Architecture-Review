@@ -1,4 +1,4 @@
-import { expect, Page, Request, test } from '@playwright/test'
+import { expect, Page, Request, Route, test } from '@playwright/test'
 
 type QueryResponse = {
   status: string
@@ -53,7 +53,7 @@ async function ask(page: Page, query: string): Promise<QueryObservation> {
     rejectDrawerRequest = reject
   })
 
-  const routeHandler = async (route: Parameters<Page['route']>[1] extends (route: infer R) => unknown ? R : never) => {
+  const routeHandler = async (route: Route) => {
     try {
       const request = route.request()
       const headers = request.headers()
