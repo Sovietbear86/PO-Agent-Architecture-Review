@@ -1,123 +1,118 @@
 # GigaCode — Current Action
 
 ## Status
-`ACTIVE_QA_ASSIGNMENT_158_H1A_CAPABILITY_REGISTRY`
+`ACTIVE_QA_ASSIGNMENT_159_H1A_RUNTIME_CONTINUATION`
 
 ## Mission
-Certify H1A of the Hermes re-architecture: Agent Core v3 now uses a reusable self-registering Capability Registry instead of the pilot-local hard-coded capability table.
+Continue H1A certification after Assignment 158 proved the Capability Registry contract GREEN but failed runtime/browser verification only because the QA backend was started with `agent_core_v3_enabled=false`.
 
-This is a QA assignment only. Do not modify production/backend/frontend/test source code. If a defect is found, localize it and STOP for owner fix.
+DO NOT restart Assignment 158 from scratch. Phases 0-1 are already accepted PASS from report `po-agent-platform-v2/qa_reports/AGENT_CORE_V3_H1A_CAPABILITY_REGISTRY_158.md`.
 
-Required owner commits:
-- `4b45864c71a1b02758608a3227fc39ad9e4f5a6f` — new `agent_core_v3_registry.py` with reusable registry/catalog.
-- `9798faa350eeb593c30a797169b88526f26ddd59` — H1 task pilot consumes the registry and exposes registry metadata.
-- `0b643d7e6bf7a4dcef2b4df939f81f4ea558b8d1` — registry unit tests.
+This is QA only. Do not modify production/backend/frontend/test source code or committed `.env` files.
 
-H0 Browser baseline is already certified by Assignment 157 and MUST remain green.
+Required owner commits already certified at contract level:
+- `4b45864c71a1b02758608a3227fc39ad9e4f5a6f`
+- `9798faa350eeb593c30a797169b88526f26ddd59`
+- `0b643d7e6bf7a4dcef2b4df939f81f4ea558b8d1`
 
-## Architectural acceptance rules
-H1A is not a rename. Prove all of the following:
-1. Capability contracts are registered in one reusable registry abstraction, not duplicated in `AgentCoreV3PilotProcessor`.
-2. Intent ownership is unique and duplicate registration fails closed.
-3. Unknown intents fail closed; they are not guessed/routed to a default capability.
-4. Registry metadata contains NO entity facts: no team-member names/logins, task IDs, counts, or hard-coded source results.
-5. Compact catalog is deterministic and contains discovery metadata only; executor/oracle internals are not exposed in the compact LLM catalog.
-6. Current task pilot resolves `task_lookup` and `task_search` through `registry.resolve_intent()`.
-7. Accepted constraints still pass unchanged to capability validation/executor args.
-8. Source authority remains REAL AS21.
-9. H0 session/browser behavior and the four certified task scenarios do not regress.
+Protected H0 baseline:
+- Assignment 157 verdict `PLAYWRIGHT_BROWSER_HARNESS_GREEN_H0_CERTIFIED`.
 
-## Absolute QA rules
-- REAL AS21/MCP-SWTR is Oracle B for business facts.
-- Browser C is real Playwright Chromium using the routed-request correlation certified in Assignment 157.
-- No local DB/sync/fake/frozen/surrogate truth.
+## Absolute rules
+- REAL AS21/MCP-SWTR is Oracle B.
+- Browser C = real Playwright Chromium against mounted WorkspaceApp.
+- No local DB, sync, fake, frozen or surrogate truth.
 - Concurrency=1.
-- Timeout 300s for source-backed cases; retry only proven transient source failures twice with 30s backoff.
-- Exact task-key-set parity, not count-only parity.
-- Production/backend/frontend/test edits forbidden.
+- Source-backed timeout 300s. Retry only proven transient source failures twice with 30s backoff.
+- Exact task-key-set parity is mandatory.
+- No production/backend/frontend/test source edits.
+- Do not edit/commit `.env` just to enable v3.
 - No caveat GREEN.
 
-## Phase 0 — provenance/build
-1. Pull current branch and record HEAD/clean state.
-2. Prove all three H1A commits are ancestors.
-3. Prove Assignment 157 report has verdict `PLAYWRIGHT_BROWSER_HARNESS_GREEN_H0_CERTIFIED`.
-4. Inspect `agent_core_v3_registry.py` and `agent_core_v3_pilot.py`; explicitly show that the old local `PilotCapabilityRegistryV3`/hard-coded registration table is gone from the pilot.
-5. Build/import smoke gate.
+## Phase 0 — mandatory runtime preflight BEFORE any tests
+1. Pull branch and record HEAD/clean state.
+2. Read Assignment 158 report and confirm Phase 0-1 PASS; do not rerun them unless provenance changed.
+3. Stop the old Agent backend on port 8004.
+4. Start the Agent backend from `po-agent-platform-v2` with an environment override, preserving all existing working LLM/source environment variables:
 
-## Phase 1 — registry unit/contract gate
-Run at minimum:
-`pytest -q tests/test_agent_core_v3_registry.py tests/test_agent_core_v3_foundation.py`
+`PO_AGENT_AGENT_CORE_V3_ENABLED=true PO_AGENT_AS21_MODE=task-api PO_AGENT_TASK_API_BASE_URL=http://127.0.0.1:8003 python3 -m uvicorn po_agent.main:app --host 127.0.0.1 --port 8004 --timeout-keep-alive 300`
 
-Require all PASS.
+If the local runtime normally needs additional already-existing environment variables for qwen/AS21, preserve/reuse them. Do not erase them and do not create fake replacements.
 
-Also report explicit evidence for:
-- registry size = 2 for current certified task family;
-- `task_lookup -> task-lookup-v3`;
-- `task_search -> task-search-v3`;
-- duplicate capability id rejected;
-- duplicate intent owner rejected;
-- unknown intent rejected;
-- compact catalog stable across repeated reads;
-- compact catalog contains no executor_id/oracle_id and no entity facts.
+5. BEFORE continuing, query `/health` and require all of:
+- `agent_core_v3_enabled == true`
+- semantic mode is qwen/LLM (`qwen-llm` or the equivalent configured production LLM mode)
+- REAL AS21 source is healthy.
 
-## Phase 2 — focused runtime registry proof
-Start/verify production-like v3 runtime with REAL Task API and qwen LLM.
+If v3 is false: STOP as `BLOCKED_BY_PROVEN_ENVIRONMENT` with raw startup/health evidence.
+If source is degraded: restore/restart the existing REAL Task API/MCP-SWTR runtime and recheck health. Do not use local DB/sync/fake. If still unavailable after proven retries, STOP as `BLOCKED_BY_PROVEN_SOURCE_OUTAGE`.
 
-Execute through Agent A with fresh sessions:
+DO NOT launch Playwright or business tests until this preflight is GREEN.
+
+## Phase 1 — focused H1A runtime registry proof
+Use fresh session IDs and execute through Agent A:
 1. `Задачи Гаранина`
 2. `Покажи DMS-380`
 
 For each require:
-- COMPLETED;
+- `COMPLETED`;
 - `_agent_core_v3.architecture_stage == H1A_REGISTRY`;
 - `capability_catalog_size == 2`;
 - correct capability id/version/family;
-- source_authority == REAL_AS21;
-- executor id is selected from the resolved registration;
-- accepted constraints == executor args for requested constraints;
-- llm_used=true for natural-language case;
-- postconditions PASS.
+- `source_authority == REAL_AS21`;
+- executor selected from resolved registry registration;
+- accepted requested constraints preserved into executor args;
+- `llm_used=true` for the natural-language case;
+- postconditions PASS;
+- no unexpected clarification/correction state.
 
-Do not accept branch-by-intent evidence alone: show registry resolution metadata in returned trace/data.
+Persist raw v3 metadata/trace evidence. Unit-level registry evidence alone is NOT sufficient here.
 
-## Phase 3 — fresh A/B exact parity
-Fresh-read REAL AS21 Oracle B NOW for the same two scenarios.
-Compare exact task-key sets:
-- Garanin all approved spaces;
-- DMS-380 point read.
+## Phase 2 — fresh REAL A/B exact parity
+Fresh-read Oracle B directly from REAL AS21/MCP-SWTR NOW, not historical counts.
 
-Agent A exact keys must equal Oracle B exactly.
+Compare exact task-key sets for:
+- `Задачи Гаранина` — all approved spaces;
+- `Покажи DMS-380` — exact point read.
 
-## Phase 4 — H0 Browser C protected regression
-Run:
+Require Agent A exact key set == Oracle B exact key set. Persist timestamps/raw normalized sets.
+
+## Phase 3 — protected Browser C regression
+With the same healthy v3=true backend, run from frontend:
+
 `npm run e2e:h0`
 
-All five existing Playwright H0 tests must still PASS in real Chromium. This protects:
-- session isolation;
-- routed request correlation;
+Require all 5 tests PASS in real Chromium:
+- session isolation/new conversation;
 - `Задачи Гаранина`;
 - `Задачи Гаранина в DMS`;
 - `Задачи Калачанова в WMB`;
 - `Покажи DMS-380`.
 
-If browser expectations fail only because capability version changed from H1B to H1A, do NOT edit tests; report the exact mismatch for owner review. Existing UI semantics must remain compatible unless owner explicitly changes the contract.
+The routed-request correlation from Assignment 157 must remain intact. UI must show Agent Core v3/current stage, fresh sessions must not enter correction state, and task results must remain semantically/source correct.
 
-## Phase 5 — final decision
-Write:
-`po-agent-platform-v2/qa_reports/AGENT_CORE_V3_H1A_CAPABILITY_REGISTRY_158.md`
+If Browser fails, report the exact first failing boundary. Do not edit tests or product code.
+
+## Phase 4 — final decision
+Write a NEW continuation report:
+
+`po-agent-platform-v2/qa_reports/AGENT_CORE_V3_H1A_RUNTIME_CONTINUATION_159.md`
 
 Allowed verdicts ONLY:
 - `AGENT_CORE_V3_H1A_REGISTRY_GREEN`
-- `H1A_REGISTRY_CONTRACT_RED`
 - `H1A_RUNTIME_REGRESSION_RED`
 - `H1A_BROWSER_REGRESSION_RED`
 - `H1A_AGENT_ORACLE_PARITY_RED`
 - `BLOCKED_BY_PROVEN_SOURCE_OUTAGE`
 - `BLOCKED_BY_PROVEN_ENVIRONMENT`
 
-GREEN requires registry contract PASS + focused runtime PASS + fresh exact A/B parity + full H0 Playwright regression PASS.
+GREEN requires:
+- mandatory v3=true/LLM/source-healthy preflight PASS;
+- focused runtime registry proof PASS;
+- fresh exact A/B parity PASS;
+- all 5 protected Playwright H0 tests PASS.
 
-Commit/push QA report only and STOP.
+Commit/push ONLY the new QA report. Do not alter Assignment 158 report. STOP.
 
 ## Start now
-Execute Assignment 158 completely.
+Execute Assignment 159 completely. First output the current HEAD and the `Status` line above so it is explicit that this is a NEW continuation assignment, not completed Assignment 158.
