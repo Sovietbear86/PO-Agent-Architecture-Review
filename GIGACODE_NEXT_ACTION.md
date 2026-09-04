@@ -1,100 +1,123 @@
 # GigaCode — Current Action
 
 ## Status
-`ACTIVE_QA_ASSIGNMENT_157_H0_ROUTED_REQUEST_FINAL`
+`ACTIVE_QA_ASSIGNMENT_158_H1A_CAPABILITY_REGISTRY`
 
 ## Mission
-Close H0 using request-time interception instead of response-context inspection. Assignments 153-156 proved that this Playwright runtime does not reliably expose POST body or request headers through `response.request()`. The Browser C harness now captures the PO Agent drawer request at request-time with `page.route()`, identifies it by the drawer `X-Session-Id`, continues that exact request, and awaits the response belonging to that exact Playwright Request object.
+Certify H1A of the Hermes re-architecture: Agent Core v3 now uses a reusable self-registering Capability Registry instead of the pilot-local hard-coded capability table.
 
-QA only. Do not modify production/backend/frontend/test source code.
+This is a QA assignment only. Do not modify production/backend/frontend/test source code. If a defect is found, localize it and STOP for owner fix.
 
-Required ancestors:
-- `2cf89fcb3e60db9d274f510dcb467dc00684e1af` — production chat send reads authoritative tab sessionStorage at send-time.
-- `ee52805dee27be3c4a4617d37e5863483f17a2f0` — Browser C correlates drawer query through request-time `page.route()` interception.
-- `a446939d1fe8f02009f43e3c51532c6d89279f98` — routed-request harness typing cleanup.
+Required owner commits:
+- `4b45864c71a1b02758608a3227fc39ad9e4f5a6f` — new `agent_core_v3_registry.py` with reusable registry/catalog.
+- `9798faa350eeb593c30a797169b88526f26ddd59` — H1 task pilot consumes the registry and exposes registry metadata.
+- `0b643d7e6bf7a4dcef2b4df939f81f4ea558b8d1` — registry unit tests.
 
-## Known background traffic
-`OverviewDashboard.tsx` launches four unrelated `/api/v1/query` calls on mount without conversational session IDs. They must be observed/ignored by correlation and must never be mistaken for the drawer request.
+H0 Browser baseline is already certified by Assignment 157 and MUST remain green.
 
-## Absolute rules
-- REAL AS21/MCP-SWTR is Oracle B.
-- Browser C = real Playwright Chromium against mounted recovery/WorkspaceApp.
-- No manual verification, API-only or code-review substitute.
-- No source/backend/frontend/test edits.
+## Architectural acceptance rules
+H1A is not a rename. Prove all of the following:
+1. Capability contracts are registered in one reusable registry abstraction, not duplicated in `AgentCoreV3PilotProcessor`.
+2. Intent ownership is unique and duplicate registration fails closed.
+3. Unknown intents fail closed; they are not guessed/routed to a default capability.
+4. Registry metadata contains NO entity facts: no team-member names/logins, task IDs, counts, or hard-coded source results.
+5. Compact catalog is deterministic and contains discovery metadata only; executor/oracle internals are not exposed in the compact LLM catalog.
+6. Current task pilot resolves `task_lookup` and `task_search` through `registry.resolve_intent()`.
+7. Accepted constraints still pass unchanged to capability validation/executor args.
+8. Source authority remains REAL AS21.
+9. H0 session/browser behavior and the four certified task scenarios do not regress.
+
+## Absolute QA rules
+- REAL AS21/MCP-SWTR is Oracle B for business facts.
+- Browser C is real Playwright Chromium using the routed-request correlation certified in Assignment 157.
+- No local DB/sync/fake/frozen/surrogate truth.
 - Concurrency=1.
-- Backend/source timeout 300s; retry only proven transient source failures twice with 30s backoff.
-- Exact task-key parity mandatory for Agent A vs Oracle B.
+- Timeout 300s for source-backed cases; retry only proven transient source failures twice with 30s backoff.
+- Exact task-key-set parity, not count-only parity.
+- Production/backend/frontend/test edits forbidden.
 - No caveat GREEN.
 
 ## Phase 0 — provenance/build
 1. Pull current branch and record HEAD/clean state.
-2. Prove all three commits above are ancestors.
-3. Verify test harness uses `page.route('**/api/v1/query', ...)`, reads request headers in the route handler, resolves only the request whose `x-session-id` equals current drawer sessionStorage ID, calls `route.continue()`, then awaits `request.response()`.
-4. Verify background dashboard calls remain sessionless and are not selected as drawer request.
-5. Frontend build PASS.
-6. Start/verify REAL Task API, Agent backend v3=true, frontend, Chromium; health source=healthy, semantic=qwen-llm, v3=true.
+2. Prove all three H1A commits are ancestors.
+3. Prove Assignment 157 report has verdict `PLAYWRIGHT_BROWSER_HARNESS_GREEN_H0_CERTIFIED`.
+4. Inspect `agent_core_v3_registry.py` and `agent_core_v3_pilot.py`; explicitly show that the old local `PilotCapabilityRegistryV3`/hard-coded registration table is gone from the pilot.
+5. Build/import smoke gate.
 
-## Phase 1 — focused routed-request/session proof
-Run:
-`npm run e2e:h0 -- --grep "session isolation"`
+## Phase 1 — registry unit/contract gate
+Run at minimum:
+`pytest -q tests/test_agent_core_v3_registry.py tests/test_agent_core_v3_foundation.py`
 
-PASS requires:
-- initial/reset sessions are `ui-*`;
-- New dialogue changes session;
-- second page receives another session;
-- first page retains its session;
-- route handler captures the drawer request with `X-Session-Id == resetSession`;
-- background sessionless `/query` requests are not selected;
-- the exact captured Request object's response has `payload.session_id == resetSession`;
-- rendered trace session_id == resetSession;
-- no correction_recheck/correction_clarification on first fresh turn.
+Require all PASS.
 
-If route-time `request.headers()` itself does not expose `X-Session-Id`, report the raw headers/evidence and STOP as harness RED. Do not speculate about production session mutation.
+Also report explicit evidence for:
+- registry size = 2 for current certified task family;
+- `task_lookup -> task-lookup-v3`;
+- `task_search -> task-search-v3`;
+- duplicate capability id rejected;
+- duplicate intent owner rejected;
+- unknown intent rejected;
+- compact catalog stable across repeated reads;
+- compact catalog contains no executor_id/oracle_id and no entity facts.
 
-## Phase 2 — full real Chromium suite
+## Phase 2 — focused runtime registry proof
+Start/verify production-like v3 runtime with REAL Task API and qwen LLM.
+
+Execute through Agent A with fresh sessions:
+1. `Задачи Гаранина`
+2. `Покажи DMS-380`
+
+For each require:
+- COMPLETED;
+- `_agent_core_v3.architecture_stage == H1A_REGISTRY`;
+- `capability_catalog_size == 2`;
+- correct capability id/version/family;
+- source_authority == REAL_AS21;
+- executor id is selected from the resolved registration;
+- accepted constraints == executor args for requested constraints;
+- llm_used=true for natural-language case;
+- postconditions PASS.
+
+Do not accept branch-by-intent evidence alone: show registry resolution metadata in returned trace/data.
+
+## Phase 3 — fresh A/B exact parity
+Fresh-read REAL AS21 Oracle B NOW for the same two scenarios.
+Compare exact task-key sets:
+- Garanin all approved spaces;
+- DMS-380 point read.
+
+Agent A exact keys must equal Oracle B exactly.
+
+## Phase 4 — H0 Browser C protected regression
 Run:
 `npm run e2e:h0`
 
-All five tests must PASS:
+All five existing Playwright H0 tests must still PASS in real Chromium. This protects:
 - session isolation;
+- routed request correlation;
 - `Задачи Гаранина`;
 - `Задачи Гаранина в DMS`;
 - `Задачи Калачанова в WMB`;
 - `Покажи DMS-380`.
 
-Per pilot require:
-- request submitted via rendered drawer;
-- captured route request session == browser sessionStorage;
-- exact captured response session == browser session;
-- status COMPLETED;
-- Agent Core v3/current stage visible;
-- `_agent_core_v3.llm_used=true` for natural-language cases;
-- trace/session details render;
-- no unnecessary correction/clarification;
-- WMB evidence has no wrong-space task;
-- DMS-380 exact key renders.
+If browser expectations fail only because capability version changed from H1B to H1A, do NOT edit tests; report the exact mismatch for owner review. Existing UI semantics must remain compatible unless owner explicitly changes the contract.
 
-## Phase 3 — fresh exact Oracle B
-Fresh-read REAL AS21 now for all four pilots. Persist exact task-key sets and timestamps.
-Compare Agent A exact result sets to Oracle B exactly. Browser C must render a semantically correct result tied to that same Agent execution; do not invent keys not rendered/exposed.
-
-## Phase 4 — final H0 decision
-Confirm Playwright report/trace/screenshot/video artifacts.
+## Phase 5 — final decision
 Write:
-`po-agent-platform-v2/qa_reports/PLAYWRIGHT_H0_ROUTED_REQUEST_FINAL_157.md`
+`po-agent-platform-v2/qa_reports/AGENT_CORE_V3_H1A_CAPABILITY_REGISTRY_158.md`
 
 Allowed verdicts ONLY:
-- `PLAYWRIGHT_BROWSER_HARNESS_GREEN_H0_CERTIFIED`
-- `H0_ROUTED_REQUEST_RED`
-- `H0_SESSION_ISOLATION_RED`
-- `H0_BROWSER_C_RED`
-- `H0_AGENT_PARITY_RED`
+- `AGENT_CORE_V3_H1A_REGISTRY_GREEN`
+- `H1A_REGISTRY_CONTRACT_RED`
+- `H1A_RUNTIME_REGRESSION_RED`
+- `H1A_BROWSER_REGRESSION_RED`
+- `H1A_AGENT_ORACLE_PARITY_RED`
 - `BLOCKED_BY_PROVEN_SOURCE_OUTAGE`
 - `BLOCKED_BY_PROVEN_ENVIRONMENT`
 
-GREEN requires Phase 1 PASS + all five Chromium tests PASS + fresh exact Oracle B parity. No manual placeholders/caveats.
+GREEN requires registry contract PASS + focused runtime PASS + fresh exact A/B parity + full H0 Playwright regression PASS.
 
 Commit/push QA report only and STOP.
 
 ## Start now
-Execute Assignment 157 completely.
+Execute Assignment 158 completely.
