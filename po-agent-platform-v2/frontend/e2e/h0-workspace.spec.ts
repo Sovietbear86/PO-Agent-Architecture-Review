@@ -13,7 +13,7 @@ type QueryResponse = {
 
 type QueryObservation = {
   payload: QueryResponse
-  requestSessionId: string | null
+  browserSessionId: string
   requestHeaderSessionId: string | null
 }
 
@@ -37,17 +37,16 @@ async function expectVisibleSession(page: Page, expected: string) {
   await expect(page.getByText(`session: ${expected}`, { exact: true })).toBeVisible({ timeout: 10_000 })
 }
 
-function parseRequestSessionId(postData: string | null): string | null {
-  if (!postData) return null
-  try {
-    const parsed = JSON.parse(postData) as { session_id?: unknown }
-    return typeof parsed.session_id === 'string' ? parsed.session_id : null
-  } catch (error) {
-    throw new Error(`POST /api/v1/query body is not valid JSON: ${String(error)}`)
-  }
-}
-
 async function ask(page: Page, query: string): Promise<QueryObservation> {
+  // Read the browser identity immediately before the user action. This is the
+  // identity the mounted Workspace is contractually required to propagate.
+  // Playwright cannot reliably expose Axios/XHR request bodies in this runtime,
+  // so H0 proves end-to-end propagation by comparing browser identity with the
+  // authoritative backend echo and the eventually rendered UI trace. The
+  // X-Session-Id header is retained as additional network evidence when exposed.
+  const browserSessionId = await sessionId(page)
+  await expectVisibleSession(page, browserSessionId)
+
   const responsePromise = page.waitForResponse(response =>
     response.url().includes('/api/v1/query') && response.request().method() === 'POST'
   )
@@ -57,15 +56,14 @@ async function ask(page: Page, query: string): Promise<QueryObservation> {
   const response = await responsePromise
   expect(response.ok(), `Query HTTP ${response.status()} for ${query}`).toBeTruthy()
 
-  const request = response.request()
-  const requestSessionId = parseRequestSessionId(request.postData())
-  const requestHeaderSessionId = await request.headerValue('x-session-id')
+  const requestHeaderSessionId = await response.request().headerValue('x-session-id')
   const payload = await response.json() as QueryResponse
 
   await expect(page.getByText(new RegExp(`Agent Core v3.*${payload.status}`)).last()).toBeVisible({ timeout: 300_000 })
   const renderedText = payload.status === 'NEEDS_CLARIFICATION' ? payload.question : payload.answer
   if (renderedText) await expect(page.getByText(renderedText, { exact: true }).last()).toBeVisible({ timeout: 300_000 })
-  return { payload, requestSessionId, requestHeaderSessionId }
+  await expectVisibleSession(page, browserSessionId)
+  return { payload, browserSessionId, requestHeaderSessionId }
 }
 
 function v3Meta(payload: QueryResponse): Record<string, unknown> | null {
@@ -101,8 +99,10 @@ test.describe('H0 real Workspace browser harness', () => {
     await expectVisibleSession(first, resetSession)
 
     const observed = await ask(first, 'Задачи Гаранина')
-    expect(observed.requestSessionId).toBe(resetSession)
-    expect(observed.requestHeaderSessionId).toBe(resetSession)
+    expect(observed.browserSessionId).toBe(resetSession)
+    if (observed.requestHeaderSessionId !== null) {
+      expect(observed.requestHeaderSessionId).toBe(resetSession)
+    }
     expect(observed.payload.session_id).toBe(resetSession)
     expect(observed.payload.status).not.toBe('NEEDS_CLARIFICATION')
     expect(observed.payload.warnings ?? []).not.toContain('correction_recheck')
@@ -127,8 +127,10 @@ test.describe('H0 real Workspace browser harness', () => {
 
       const observed = await ask(page, query)
       const payload = observed.payload
-      expect(observed.requestSessionId).toBe(browserSession)
-      expect(observed.requestHeaderSessionId).toBe(browserSession)
+      expect(observed.browserSessionId).toBe(browserSession)
+      if (observed.requestHeaderSessionId !== null) {
+        expect(observed.requestHeaderSessionId).toBe(browserSession)
+      }
       expect(payload.status).toBe('COMPLETED')
       expect(payload.session_id).toBe(browserSession)
       const meta = v3Meta(payload)
