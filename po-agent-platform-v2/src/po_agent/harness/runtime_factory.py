@@ -7,6 +7,7 @@ from po_agent.adapters import FakeAS21Adapter, FrozenAS21Adapter, SWTRShadowBatc
 from po_agent.adapters.as21 import AS21Adapter
 from po_agent.adapters.evidence_validated_task_api import EvidenceValidatedProductionTaskApiAS21Adapter
 from .agent_core_v3 import AgentCoreV3RoutingSeam
+from .agent_core_v3_loop import AgentLoopPlannerV3
 from .agent_core_v3_pilot import AgentCoreV3PilotProcessor, AgentCoreV3PilotSelector
 from .core8_semantic_precision import Core8SemanticPrecisionInterpreter
 from .core8_hardening import enable_core8_hardened_composite
@@ -37,6 +38,12 @@ def _resolve_team_config(explicit,mode):
     if mode!="task-api": return None
     return next((p for p in (Path("../task-api/config/team_members.yaml"),Path("task-api/config/team_members.yaml")) if p.exists()),None)
 
+def _planner_client_and_model(semantic_interpreter):
+    """Return the configured production LLM for H1B planning without unwrapping runtime state."""
+    if isinstance(semantic_interpreter,(LLMJsonSemanticInterpreter,LLMFirstSemanticInterpreter)):
+        return semantic_interpreter.client, semantic_interpreter.model
+    return None, None
+
 def _build_runtime_with_adapter(adapter:AS21Adapter,*,mode:RuntimeMode,team_config_path=None,sprint_snapshots=None,release_timeline=None,semantic_interpreter=None,learned_semantics_path=None,agent_core_v3_enabled:bool=False)->RuntimeBundle:
     team_path=_resolve_team_config(team_config_path,mode); team_source=YamlTeamCompetencySource(team_path) if team_path is not None else None
     dependencies=SourceDependencyBundle(sprint_snapshots=sprint_snapshots,team_competencies=team_source,release_timeline=release_timeline); readiness=build_source_readiness(adapter,extra_facts=dependencies.facts)
@@ -46,6 +53,7 @@ def _build_runtime_with_adapter(adapter:AS21Adapter,*,mode:RuntimeMode,team_conf
     if sprint_snapshots is not None or release_timeline is not None: enable_historical_skills(executable,sprint_snapshots=sprint_snapshots,release_timeline=release_timeline)
     semantics=LearnedSemanticsStore(learned_semantics_path) if learned_semantics_path else None; directory=TeamDirectory.from_yaml(team_path)
     grounder=ProductionEntityResolverV2(adapter,team=directory,semantics=semantics) if mode=="task-api" else GroundedEntityResolver(adapter,team=directory,semantics=semantics)
+    planner_client,planner_model=_planner_client_and_model(semantic_interpreter)
     if mode=="task-api":
         if isinstance(semantic_interpreter,LLMJsonSemanticInterpreter): selected_interpreter=ConversationAwareSemanticInterpreter(RecoveringLLMFirstSemanticInterpreter(semantic_interpreter.client,model=semantic_interpreter.model))
         elif isinstance(semantic_interpreter,ConversationAwareSemanticInterpreter): selected_interpreter=semantic_interpreter
@@ -60,7 +68,8 @@ def _build_runtime_with_adapter(adapter:AS21Adapter,*,mode:RuntimeMode,team_conf
     else: dialogue=CorrectionAwareHarnessRuntime(dialogue)
     processor=None; selector=None
     if mode=="task-api" and agent_core_v3_enabled:
-        processor=AgentCoreV3PilotProcessor(adapter,interpreter=selected_interpreter,grounder=grounder); selector=AgentCoreV3PilotSelector()
+        loop_planner=AgentLoopPlannerV3(planner_client,model=planner_model,max_steps=4) if planner_client is not None else None
+        processor=AgentCoreV3PilotProcessor(adapter,interpreter=selected_interpreter,grounder=grounder,loop_planner=loop_planner); selector=AgentCoreV3PilotSelector()
     dialogue=AgentCoreV3RoutingSeam(dialogue,enabled=agent_core_v3_enabled,processor=processor,pilot_selector=selector)
     return RuntimeBundle(mode,ObservedHarnessRuntime(dialogue),adapter,readiness,dependencies,semantics)
 
