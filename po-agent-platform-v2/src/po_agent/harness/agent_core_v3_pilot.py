@@ -1,11 +1,4 @@
-"""Agent Core v3 H1B pilot vertical.
-
-The pilot deliberately supports only the first certified task family.  It uses the
-existing LLM-first semantic interpreter and deterministic production grounder,
-then freezes an AcceptedTurnContract before executing against the authoritative
-adapter.  Capability discovery is supplied by the Hermes-style v3 registry;
-unsupported queries fall back through the strangler seam to legacy.
-"""
+"""Agent Core v3 H1B task vertical with bounded Hermes-style agent loop."""
 from __future__ import annotations
 
 import re
@@ -24,6 +17,7 @@ from .agent_core_v3 import (
     SessionEnvelope,
     guard_constraint_preservation,
 )
+from .agent_core_v3_loop import AgentLoopObservationV3, AgentLoopPlannerV3, resolve_observation_reference
 from .agent_core_v3_registry import build_h1_task_registry
 from .contracts import Evidence, HarnessRequest, HarnessResponse, ResponseStatus
 from .dialogue_runtime import SemanticGrounder, SemanticInterpreter, _semantic_capability_contract
@@ -33,7 +27,7 @@ _TASK_KEY_RE = re.compile(r"\b[A-ZА-Я][A-ZА-Я0-9_]{1,15}-\d+(?![-A-ZА-Я0-9
 
 
 class AgentCoreV3PilotSelector:
-    """Route only the explicitly chosen first v3 task family."""
+    """Route only the certified task-family strangler slice."""
 
     @staticmethod
     def __call__(request: HarnessRequest) -> bool:
@@ -53,10 +47,12 @@ class AgentCoreV3PilotProcessor:
         *,
         interpreter: SemanticInterpreter,
         grounder: SemanticGrounder,
+        loop_planner: AgentLoopPlannerV3 | None = None,
     ) -> None:
         self.adapter = adapter
         self.interpreter = interpreter
         self.grounder = grounder
+        self.loop_planner = loop_planner
         self.registry = build_h1_task_registry()
         self.validator = ResultPostconditionValidator()
 
@@ -207,6 +203,163 @@ class AgentCoreV3PilotProcessor:
             [Evidence(type="task", source="as21", entity_id=task.key, label=task.title, value=task.status.value) for task in tasks],
         )
 
+    async def _execute_contract(self, contract: AcceptedTurnContract):
+        registration = self.registry.resolve_intent(contract.intent)
+        registration.contract.validate_turn(contract)
+        executor_args = dict(contract.constraints)
+        guard_constraint_preservation(
+            contract.requested_constraints,
+            contract.constraints,
+            registration.contract.supported_constraints,
+            executor_args,
+        )
+        if registration.contract.executor_id == "task_lookup_executor_v3":
+            answer, data, evidence = await self._execute_lookup(contract)
+        elif registration.contract.executor_id == "task_search_executor_v3":
+            answer, data, evidence = await self._execute_search(contract)
+        else:
+            raise AgentCoreV3ContractError(
+                AgentCoreV3FailureCode.V3_PROCESSOR_UNAVAILABLE,
+                f"No executor bound for capability {registration.contract.id}",
+                details={"executor_id": registration.contract.executor_id},
+            )
+        validation = self.validator.validate(contract, data)
+        return registration, executor_args, answer, data, evidence, validation
+
+    @staticmethod
+    def _literal_is_source_safe(field: str, value: str, query: str) -> bool:
+        raw = value.strip()
+        if not raw:
+            return False
+        if raw.startswith("$obs."):
+            return True
+        if field == "task_key":
+            return raw.upper() in {m.group(0).upper() for m in _TASK_KEY_RE.finditer(query)}
+        if field == "space":
+            return raw.upper() == (AgentCoreV3PilotProcessor._explicit_space(query) or "")
+        return raw.casefold() in query.casefold()
+
+    async def _run_agent_loop(self, request: HarnessRequest, envelope: SessionEnvelope, started: float) -> HarnessResponse:
+        if self.loop_planner is None:
+            raise AgentCoreV3ContractError(
+                AgentCoreV3FailureCode.V3_PROCESSOR_UNAVAILABLE,
+                "H1B multi-step planner is unavailable",
+            )
+        observations: list[AgentLoopObservationV3] = []
+        all_evidence: list[Evidence] = []
+        trace_steps: list[dict[str, Any]] = []
+        last_answer = ""
+        seen_calls: set[tuple[str, tuple[tuple[str, str], ...]]] = set()
+
+        for step in range(1, self.loop_planner.max_steps + 1):
+            action = await self.loop_planner.next_action(
+                user_query=request.query,
+                registry=self.registry,
+                observations=observations,
+            )
+            if action.action == "final":
+                final_answer = action.final_answer or last_answer or "Запрос выполнен по подтвержденным данным источника."
+                return HarnessResponse(
+                    status=ResponseStatus.COMPLETED,
+                    trace_id=str(uuid.uuid4()),
+                    session_id=envelope.runtime_session_id,
+                    answer=final_answer,
+                    intent="agent_loop",
+                    skill_id="agent-core-v3-h1b-loop",
+                    skill_version="3.2.0-h1b",
+                    data={
+                        "observations": [item.to_dict() for item in observations],
+                        "_agent_core_v3": {
+                            "stage": "H1B",
+                            "architecture_stage": "H1B_AGENT_LOOP",
+                            "conversation_id": envelope.conversation_id,
+                            "runtime_session_id": envelope.runtime_session_id,
+                            "turn_id": envelope.turn_id,
+                            "planner_class": type(self.loop_planner).__name__,
+                            "capability_catalog_size": len(self.registry),
+                            "loop_steps": trace_steps,
+                            "loop_step_count": len(observations),
+                            "source_authority": "REAL_AS21",
+                            "execution_ready": True,
+                        },
+                    },
+                    evidence=all_evidence,
+                    latency_ms=(time.perf_counter() - started) * 1000,
+                )
+
+            assert action.capability_id is not None
+            registration = self.registry.get(action.capability_id)
+            resolved: dict[str, str] = {}
+            raw_constraints = dict(action.constraints or {})
+            for field, raw_value in raw_constraints.items():
+                if not self._literal_is_source_safe(field, raw_value, request.query):
+                    raise AgentCoreV3ContractError(
+                        AgentCoreV3FailureCode.UNRESOLVED_CONSTRAINT,
+                        "H1B planner proposed a literal constraint not grounded in the user request or observations",
+                        details={"field": field, "value": raw_value},
+                    )
+                resolved[field] = resolve_observation_reference(raw_value, observations=observations)
+            call_key = (registration.contract.id, tuple(sorted(resolved.items())))
+            if call_key in seen_calls:
+                raise AgentCoreV3ContractError(
+                    AgentCoreV3FailureCode.UNSUPPORTED_CONSTRAINT,
+                    "H1B planner attempted a duplicate capability call",
+                    details={"capability_id": registration.contract.id, "constraints": resolved},
+                )
+            seen_calls.add(call_key)
+            intent = next(iter(sorted(registration.intents)))
+            contract = AcceptedTurnContract(
+                turn_id=f"{envelope.turn_id}:{step}",
+                intent=intent,
+                constraints=resolved,
+                requested_constraints=frozenset(resolved),
+            )
+            reg, executor_args, answer, data, evidence, validation = await self._execute_contract(contract)
+            observation = AgentLoopObservationV3(
+                step=step,
+                capability_id=reg.contract.id,
+                constraints=resolved,
+                data=dict(data),
+            )
+            observations.append(observation)
+            all_evidence.extend(evidence)
+            last_answer = answer
+            trace_steps.append({
+                "step": step,
+                "capability_id": reg.contract.id,
+                "executor_id": reg.contract.executor_id,
+                "constraints": resolved,
+                "executor_args": executor_args,
+                "postcondition_results": validation.to_dict(),
+                "observation_keys": sorted(data.keys()),
+                "planner_rationale": action.rationale,
+            })
+            if data.get("found") is False:
+                return HarnessResponse(
+                    status=ResponseStatus.FAILED,
+                    trace_id=str(uuid.uuid4()),
+                    session_id=envelope.runtime_session_id,
+                    answer=answer,
+                    intent=intent,
+                    skill_id=reg.contract.id,
+                    skill_version=reg.contract.version,
+                    data={"observations": [item.to_dict() for item in observations], "_agent_core_v3": {
+                        "stage": "H1B",
+                        "architecture_stage": "H1B_AGENT_LOOP",
+                        "failure_code": "SOURCE_ENTITY_NOT_FOUND",
+                        "loop_steps": trace_steps,
+                        "execution_ready": False,
+                    }},
+                    evidence=all_evidence,
+                    latency_ms=(time.perf_counter() - started) * 1000,
+                )
+
+        raise AgentCoreV3ContractError(
+            AgentCoreV3FailureCode.UNSUPPORTED_CONSTRAINT,
+            "H1B agent loop exhausted its bounded step budget without a final answer",
+            details={"max_steps": self.loop_planner.max_steps},
+        )
+
     async def process(self, request: HarnessRequest, *, envelope: SessionEnvelope) -> HarnessResponse:
         started = time.perf_counter()
         try:
@@ -215,26 +368,12 @@ class AgentCoreV3PilotProcessor:
                 clarification.latency_ms = (time.perf_counter() - started) * 1000
                 return clarification
             assert contract is not None
-            registration = self.registry.resolve_intent(contract.intent)
-            registration.contract.validate_turn(contract)
-            executor_args = dict(contract.constraints)
-            guard_constraint_preservation(
-                contract.requested_constraints,
-                contract.constraints,
-                registration.contract.supported_constraints,
-                executor_args,
-            )
-            if registration.contract.executor_id == "task_lookup_executor_v3":
-                answer, data, evidence = await self._execute_lookup(contract)
-            elif registration.contract.executor_id == "task_search_executor_v3":
-                answer, data, evidence = await self._execute_search(contract)
-            else:
-                raise AgentCoreV3ContractError(
-                    AgentCoreV3FailureCode.V3_PROCESSOR_UNAVAILABLE,
-                    f"No executor bound for capability {registration.contract.id}",
-                    details={"executor_id": registration.contract.executor_id},
-                )
-            validation = self.validator.validate(contract, data)
+            try:
+                registration, executor_args, answer, data, evidence, validation = await self._execute_contract(contract)
+            except AgentCoreV3ContractError as exc:
+                if exc.code == AgentCoreV3FailureCode.UNSUPPORTED_CONSTRAINT and self.loop_planner is not None:
+                    return await self._run_agent_loop(request, envelope, started)
+                raise
             meta = {
                 "stage": "H1B",
                 "architecture_stage": "H1A_REGISTRY",
@@ -260,9 +399,7 @@ class AgentCoreV3PilotProcessor:
             }
             data = dict(data)
             data["_agent_core_v3"] = meta
-            status = ResponseStatus.COMPLETED
-            if data.get("found") is False:
-                status = ResponseStatus.FAILED
+            status = ResponseStatus.COMPLETED if data.get("found") is not False else ResponseStatus.FAILED
             return HarnessResponse(
                 status=status,
                 trace_id=str(uuid.uuid4()),
@@ -283,7 +420,7 @@ class AgentCoreV3PilotProcessor:
                 answer="Agent Core v3 остановил выполнение: результат не соответствует принятому контракту запроса.",
                 data={"_agent_core_v3": {
                     "stage": "H1B",
-                    "architecture_stage": "H1A_REGISTRY",
+                    "architecture_stage": "H1B_AGENT_LOOP" if self.loop_planner is not None else "H1A_REGISTRY",
                     "conversation_id": envelope.conversation_id,
                     "runtime_session_id": envelope.runtime_session_id,
                     "turn_id": envelope.turn_id,
