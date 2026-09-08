@@ -1,20 +1,13 @@
 """Typed decision protocol for the H1B Hermes-style agent loop.
 
-The previous planner encoded the control decision in a free string field named
-``action``. Some OpenAI-compatible Qwen endpoints returned syntactically valid
-JSON while leaving that field (and sometimes every field) empty. H1B must not
-make orchestration correctness depend on one fragile enum token.
+The planner encodes the control decision structurally as exactly one CALL or one FINAL
+branch. Execution, grounding, observation binding, postconditions and source authority
+remain deterministic outside the model.
 
-This planner therefore uses a structural union:
-
-    {"call": {"capability_id": "...", "constraints": {...}}, "final": null, ...}
-
-or
-
-    {"call": null, "final": {"answer": "..."}, ...}
-
-The branch is derived from the shape itself. Execution, grounding, observation
-binding, postconditions and source authority remain deterministic elsewhere.
+Important provider note: the current Qwen 3.8 OpenAI-compatible endpoint corrupts
+JSON when `response_format` is supplied. Therefore this planner intentionally uses
+plain completion requests and validates the returned typed object locally. Retries
+use a fresh conversation so a malformed provider response cannot poison later attempts.
 """
 from __future__ import annotations
 
@@ -24,11 +17,7 @@ from typing import Any, Mapping
 from po_agent.llm.client import LLMClient, LLMMessage
 
 from .agent_core_v3 import AgentCoreV3ContractError, AgentCoreV3FailureCode
-from .agent_core_v3_loop import (
-    AgentLoopActionV3,
-    AgentLoopObservationV3,
-    _extract_json_object,
-)
+from .agent_core_v3_loop import AgentLoopActionV3, AgentLoopObservationV3, _extract_json_object
 from .agent_core_v3_registry import CapabilityRegistryV3
 
 
@@ -54,10 +43,11 @@ Rules:
 - Break compound requests into the minimum sequence of capability calls and re-plan after each observation.
 - Never invent task keys, logins, spaces, statuses, people, counts or any other source fact.
 - Do not repeat the same capability with the same constraints.
+- Output JSON only. No markdown and no prose outside the JSON object.
 """
 
-    REPAIR = """The previous object did not select exactly one typed decision.
-Return ONE corrected object now. Choose exactly one branch:
+    REPAIR = """Your previous planner response was not an executable typed decision.
+Return exactly ONE JSON object only. Choose exactly one branch:
 CALL => non-null call and final=null.
 FINAL => call=null and non-null final.answer.
 Do not return both null. Do not add an action field. Do not invent source facts."""
@@ -68,67 +58,14 @@ Do not return both null. Do not add an action field. Do not invent source facts.
         self.max_steps = max(2, int(max_steps))
 
     @staticmethod
-    def _response_schema() -> dict[str, Any]:
-        # Keep a fixed outer object rather than oneOf/discriminator because some
-        # compatible endpoints only partially enforce complex JSON Schema.
-        return {
-            "type": "json_schema",
-            "json_schema": {
-                "name": "po_agent_h1b_typed_decision",
-                "strict": True,
-                "schema": {
-                    "type": "object",
-                    "properties": {
-                        "call": {
-                            "anyOf": [
-                                {"type": "null"},
-                                {
-                                    "type": "object",
-                                    "properties": {
-                                        "capability_id": {"type": "string"},
-                                        "constraints": {
-                                            "type": "object",
-                                            "additionalProperties": {"type": "string"},
-                                        },
-                                    },
-                                    "required": ["capability_id", "constraints"],
-                                    "additionalProperties": False,
-                                },
-                            ]
-                        },
-                        "final": {
-                            "anyOf": [
-                                {"type": "null"},
-                                {
-                                    "type": "object",
-                                    "properties": {"answer": {"type": "string"}},
-                                    "required": ["answer"],
-                                    "additionalProperties": False,
-                                },
-                            ]
-                        },
-                        "rationale": {"type": ["string", "null"]},
-                    },
-                    "required": ["call", "final", "rationale"],
-                    "additionalProperties": False,
-                },
-            },
-        }
-
-    @staticmethod
-    def _decode_candidate(
-        data: Mapping[str, Any],
-        *,
-        registry: CapabilityRegistryV3,
-    ) -> AgentLoopActionV3 | None:
-        """Decode only structurally complete CALL or FINAL objects."""
+    def _decode_candidate(data: Mapping[str, Any], *, registry: CapabilityRegistryV3) -> AgentLoopActionV3 | None:
         call = data.get("call")
         final = data.get("final")
         rationale = str(data.get("rationale") or "").strip() or None
 
         call_selected = isinstance(call, Mapping)
         final_selected = isinstance(final, Mapping)
-        if call_selected == final_selected:  # both selected or both absent/null
+        if call_selected == final_selected:
             return None
 
         if call_selected:
@@ -161,6 +98,21 @@ Do not return both null. Do not add an action field. Do not invent source facts.
             return None
         return AgentLoopActionV3(action="final", final_answer=answer, rationale=rationale)
 
+    @classmethod
+    def _attempt_messages(
+        cls,
+        *,
+        payload: Mapping[str, Any],
+        repair: bool,
+    ) -> list[LLMMessage]:
+        messages = [
+            LLMMessage(role="system", content=cls.SYSTEM),
+            LLMMessage(role="user", content=json.dumps(payload, ensure_ascii=False)),
+        ]
+        if repair:
+            messages.append(LLMMessage(role="user", content=cls.REPAIR))
+        return messages
+
     async def next_action(
         self,
         *,
@@ -176,52 +128,45 @@ Do not return both null. Do not add an action field. Do not invent source facts.
             "observations": [item.to_dict() for item in observations],
             "step_budget_remaining": self.max_steps - len(observations),
         }
-        messages = [
-            LLMMessage(role="system", content=self.SYSTEM),
-            LLMMessage(role="user", content=json.dumps(payload, ensure_ascii=False)),
-        ]
         failures: list[dict[str, Any]] = []
-        formats = (
-            {"response_format": self._response_schema()},
-            {"response_format": {"type": "json_object"}},
-            {},
-        )
-        for attempt, extra in enumerate(formats, start=1):
-            raw = ""
+
+        # Qwen 3.8's current OpenAI-compatible endpoint double-wraps/corrupts JSON
+        # when response_format is present. Do not send response_format at all.
+        # Every retry starts from a fresh base conversation to avoid poisoning the
+        # model with malformed output from the previous provider attempt.
+        for attempt in range(1, 4):
+            messages = self._attempt_messages(payload=payload, repair=attempt > 1)
             try:
                 response = await self.client.complete(
                     messages,
                     model=self.model,
                     temperature=0.0,
                     max_tokens=350,
-                    **extra,
                 )
             except Exception as exc:
                 failures.append({"attempt": attempt, "reason": "provider_error", "type": type(exc).__name__})
                 continue
-            if response.choices:
-                raw = response.choices[0].message.content or ""
-                parsed = _extract_json_object(raw)
-                if parsed is not None:
-                    decision = self._decode_candidate(parsed, registry=registry)
-                    if decision is not None:
-                        return decision
-                    failures.append({
-                        "attempt": attempt,
-                        "reason": "no_typed_branch",
-                        "has_call": isinstance(parsed.get("call"), Mapping),
-                        "has_final": isinstance(parsed.get("final"), Mapping),
-                    })
-                else:
-                    failures.append({"attempt": attempt, "reason": "invalid_json"})
-            else:
-                failures.append({"attempt": attempt, "reason": "no_choice"})
 
-            messages = [
-                *messages,
-                LLMMessage(role="assistant", content=raw or "{}"),
-                LLMMessage(role="user", content=self.REPAIR),
-            ]
+            if not response.choices:
+                failures.append({"attempt": attempt, "reason": "no_choice"})
+                continue
+
+            raw = response.choices[0].message.content or ""
+            parsed = _extract_json_object(raw)
+            if parsed is None:
+                failures.append({"attempt": attempt, "reason": "invalid_json"})
+                continue
+
+            decision = self._decode_candidate(parsed, registry=registry)
+            if decision is not None:
+                return decision
+
+            failures.append({
+                "attempt": attempt,
+                "reason": "no_typed_branch",
+                "has_call": isinstance(parsed.get("call"), Mapping),
+                "has_final": isinstance(parsed.get("final"), Mapping),
+            })
 
         raise AgentCoreV3ContractError(
             AgentCoreV3FailureCode.V3_PROCESSOR_UNAVAILABLE,
