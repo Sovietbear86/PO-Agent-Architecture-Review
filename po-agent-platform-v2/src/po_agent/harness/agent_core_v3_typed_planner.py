@@ -40,6 +40,7 @@ Rules:
 - Prefer $ground.member_login for a grounded person.
 - If the next step depends on a source fact from a previous capability, use $obs; never guess it.
 - FINAL is allowed only when observations support the requested result, or when the requested operation is outside the available catalog and the answer explicitly says it is unsupported.
+- Keep FINAL concise and task-focused. Do not copy long descriptions, comments or raw source payloads unless the user explicitly asked for their full text. Prefer identifiers, title, status and the specific facts needed to answer the request.
 - Break compound requests into the minimum sequence of capability calls and re-plan after each observation.
 - Never invent task keys, logins, spaces, statuses, people, counts or any other source fact.
 - Do not repeat the same capability with the same constraints.
@@ -50,6 +51,7 @@ Rules:
 Return exactly ONE JSON object only. Choose exactly one branch:
 CALL => non-null call and final=null.
 FINAL => call=null and non-null final.answer.
+Keep FINAL concise; do not copy long source descriptions unless explicitly required by the user.
 Do not return both null. Do not add an action field. Do not invent source facts."""
 
     def __init__(self, client: LLMClient, *, model: str | None = None, max_steps: int = 4) -> None:
@@ -134,6 +136,10 @@ Do not return both null. Do not add an action field. Do not invent source facts.
         # when response_format is present. Do not send response_format at all.
         # Every retry starts from a fresh base conversation to avoid poisoning the
         # model with malformed output from the previous provider attempt.
+        # A real task observation can contain several KB of source text, so 350
+        # output tokens is not a safe bound for the post-observation FINAL branch.
+        # Keep a bounded but sufficiently large budget and instruct the model to
+        # summarize rather than echo long source descriptions.
         for attempt in range(1, 4):
             messages = self._attempt_messages(payload=payload, repair=attempt > 1)
             try:
@@ -141,7 +147,7 @@ Do not return both null. Do not add an action field. Do not invent source facts.
                     messages,
                     model=self.model,
                     temperature=0.0,
-                    max_tokens=350,
+                    max_tokens=1600,
                 )
             except Exception as exc:
                 failures.append({"attempt": attempt, "reason": "provider_error", "type": type(exc).__name__})
