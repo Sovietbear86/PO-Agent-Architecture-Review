@@ -1,8 +1,8 @@
 """H1B processor that makes the Hermes-style loop the primary v3 control flow.
 
-The loop remains planner-first for capability selection, but semantic grounding is
-performed once before planning so human references are resolved to authoritative
-source identities rather than sent to AS21 as raw names.
+The loop remains planner-first for capability selection. Semantic grounding is an
+advisory source of authoritative identities, not a gate that may suppress a
+compound plan before the loop gets a chance to reason over capabilities.
 """
 from __future__ import annotations
 
@@ -76,7 +76,7 @@ class AgentCoreV3H1BProcessor(AgentCoreV3PilotProcessor):
                     answer=final_answer,
                     intent="agent_loop",
                     skill_id="agent-core-v3-h1b-loop",
-                    skill_version="3.2.1-h1b",
+                    skill_version="3.2.2-h1b",
                     data={
                         "observations": [item.to_dict() for item in observations],
                         "_agent_core_v3": {
@@ -116,15 +116,22 @@ class AgentCoreV3H1BProcessor(AgentCoreV3PilotProcessor):
                     resolved[field] = resolve_observation_reference(raw_text, observations=observations)
                     continue
 
-                # A human-name literal is allowed only when the semantic grounder
-                # resolved it to an authoritative member login. Execution receives
-                # the canonical login, never the raw person surface form.
                 if field == "assignee":
                     person_raw = str(grounded_values.get("person_raw") or "").strip()
                     member_login = str(grounded_values.get("member_login") or "").strip()
                     if member_login and person_raw and raw_text.casefold() == person_raw.casefold():
                         resolved[field] = member_login
                         continue
+                    # Human display names are never source identifiers. A planner
+                    # must use a grounded login or an authoritative observation.
+                    # Explicit login-like values remain allowed if the user typed
+                    # them literally in the request.
+                    if "." not in raw_text or raw_text.casefold() not in request.query.casefold():
+                        raise AgentCoreV3ContractError(
+                            AgentCoreV3FailureCode.UNRESOLVED_CONSTRAINT,
+                            "H1B task search requires a grounded or observation-derived assignee login",
+                            details={"value": raw_text},
+                        )
 
                 if not self._literal_is_source_safe(field, raw_text, request.query):
                     raise AgentCoreV3ContractError(
@@ -204,16 +211,19 @@ class AgentCoreV3H1BProcessor(AgentCoreV3PilotProcessor):
         if self.loop_planner is None:
             return await super().process(request, envelope=envelope)
         try:
+            # Reuse the proven LLM-first interpreter + source grounder to obtain
+            # canonical identities, but do not let a pre-pass clarification suppress
+            # the planner. H1B itself is responsible for deciding whether a missing
+            # identity/capability needs clarification or fail-closed behavior.
             _contract, raw, grounded, clarification = await self._semantic_contract(request, envelope)
-            if clarification is not None:
-                clarification.latency_ms = (time.perf_counter() - started) * 1000
-                return clarification
             grounded_values = dict(grounded.slots)
             semantic_meta = {
                 "llm_used": raw.llm_used,
                 "raw_intent": raw.intent_hint,
                 "raw_slots": dict(raw.slots),
                 "grounded_intent": grounded.intent_hint,
+                "prepass_clarification_advisory": bool(clarification),
+                "prepass_clarification_question": clarification.question if clarification is not None else None,
             }
             return await self._run_grounded_agent_loop(
                 request,
