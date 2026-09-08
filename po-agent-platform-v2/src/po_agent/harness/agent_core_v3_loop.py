@@ -121,6 +121,12 @@ Planning policy:
 - The authoritative source is accessed only by executors; you are a planner only.
 """
 
+    REPAIR = """Your previous planner object was not executable. Repair it now.
+Return exactly one JSON object. The `action` value must be `call_capability` or `final`.
+If a capability is needed, provide its exact capability_id from the catalog and safe constraints.
+If the request is already fully answered by observations, return `final` with final_answer.
+Do not return an empty action. Do not invent source facts."""
+
     def __init__(self, client: LLMClient, *, model: str | None = None, max_steps: int = 4) -> None:
         self.client = client
         self.model = model
@@ -152,6 +158,38 @@ Planning policy:
             },
         }
 
+    @staticmethod
+    def _normalize_candidate(data: Mapping[str, Any], *, has_observations: bool) -> dict[str, Any]:
+        """Normalize only shapes that are already semantically unambiguous.
+
+        Provider-side JSON-schema enforcement is not reliable for every supported
+        model. We may infer the action from a selected capability or an explicit
+        final answer, but never invent a missing capability/final decision.
+        """
+        normalized = dict(data)
+        action = str(normalized.get("action") or "").strip()
+        capability_id = str(normalized.get("capability_id") or "").strip()
+        raw_constraints = normalized.get("constraints")
+        constraints = raw_constraints if isinstance(raw_constraints, dict) else {}
+        final_answer = str(normalized.get("final_answer") or "").strip()
+        if not action and capability_id:
+            action = "call_capability"
+        elif not action and has_observations and not capability_id and not constraints and final_answer:
+            action = "final"
+        normalized["action"] = action
+        return normalized
+
+    @staticmethod
+    def _candidate_executable(data: Mapping[str, Any]) -> bool:
+        action = str(data.get("action") or "").strip()
+        capability_id = str(data.get("capability_id") or "").strip()
+        final_answer = str(data.get("final_answer") or "").strip()
+        if action == "call_capability":
+            return bool(capability_id)
+        if action == "final":
+            return bool(final_answer)
+        return False
+
     async def next_action(
         self,
         *,
@@ -173,12 +211,13 @@ Planning policy:
             LLMMessage(role="user", content=json.dumps(payload, ensure_ascii=False)),
         ]
         data: dict[str, Any] | None = None
+        invalid_shapes: list[dict[str, Any]] = []
         attempts = (
             {"response_format": self._response_schema()},
             {"response_format": {"type": "json_object"}},
             {},
         )
-        for extra in attempts:
+        for attempt_index, extra in enumerate(attempts, start=1):
             try:
                 response = await self.client.complete(
                     messages,
@@ -189,14 +228,38 @@ Planning policy:
                 )
             except Exception:
                 continue
-            if response.choices:
-                data = self._parse(response.choices[0].message.content)
-                if data is not None:
+            if not response.choices:
+                continue
+            raw_content = response.choices[0].message.content
+            candidate = self._parse(raw_content)
+            if candidate is None:
+                invalid_shapes.append({"attempt": attempt_index, "reason": "invalid_json"})
+            else:
+                candidate = self._normalize_candidate(candidate, has_observations=bool(observations))
+                if self._candidate_executable(candidate):
+                    data = candidate
                     break
+                invalid_shapes.append({
+                    "attempt": attempt_index,
+                    "reason": "non_executable_action",
+                    "action": str(candidate.get("action") or ""),
+                    "capability_id": str(candidate.get("capability_id") or ""),
+                    "has_final_answer": bool(str(candidate.get("final_answer") or "").strip()),
+                })
+            # The old code retried transport formats with the exact same prompt,
+            # which produced the same empty action deterministically. Subsequent
+            # attempts are explicit LLM repair turns instead.
+            messages = [
+                *messages,
+                LLMMessage(role="assistant", content=raw_content or "{}"),
+                LLMMessage(role="user", content=self.REPAIR),
+            ]
+
         if data is None:
             raise AgentCoreV3ContractError(
                 AgentCoreV3FailureCode.V3_PROCESSOR_UNAVAILABLE,
-                "H1B agent-loop planner did not return valid JSON",
+                "H1B agent-loop planner failed bounded decision repair",
+                details={"attempts": invalid_shapes},
             )
 
         action = str(data.get("action") or "").strip()
@@ -210,18 +273,8 @@ Planning policy:
         final_answer = str(data.get("final_answer") or "").strip() or None
         rationale = str(data.get("rationale") or "").strip() or None
 
-        # Some compatible endpoints validate object shape but fail to enforce the
-        # enum value and emit action="" for an otherwise explicit final response.
-        # Normalize only the unambiguous final shape; never guess a missing tool call.
-        if not action and observations and not capability_id and not constraints and final_answer:
-            action = "final"
-
         if action == "final":
-            return AgentLoopActionV3(
-                action="final",
-                final_answer=final_answer,
-                rationale=rationale,
-            )
+            return AgentLoopActionV3(action="final", final_answer=final_answer, rationale=rationale)
         if action != "call_capability":
             raise AgentCoreV3ContractError(
                 AgentCoreV3FailureCode.UNSUPPORTED_CONSTRAINT,
