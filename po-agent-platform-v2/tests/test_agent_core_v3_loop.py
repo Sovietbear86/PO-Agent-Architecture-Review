@@ -3,7 +3,7 @@ from types import MappingProxyType
 import pytest
 
 from po_agent.harness.agent_core_v3 import AgentCoreV3ContractError, AgentCoreV3FailureCode
-from po_agent.harness.agent_core_v3_loop import AgentLoopObservationV3, resolve_observation_reference
+from po_agent.harness.agent_core_v3_loop import AgentLoopObservationV3, AgentLoopPlannerV3, resolve_observation_reference
 from po_agent.harness.agent_core_v3_pilot import AgentCoreV3PilotProcessor
 
 
@@ -57,3 +57,17 @@ def test_space_literal_must_be_explicit_in_original_query() -> None:
     query = "Проверь DMS-380 и покажи задачи исполнителя в WMB"
     assert AgentCoreV3PilotProcessor._literal_is_source_safe("space", "WMB", query)
     assert not AgentCoreV3PilotProcessor._literal_is_source_safe("space", "STS", query)
+
+
+def test_planner_parser_accepts_json_after_think_wrapper() -> None:
+    raw = '<think>internal reasoning</think>\n{"action":"final","capability_id":null,"constraints":{},"final_answer":"ok","rationale":null}'
+    parsed = AgentLoopPlannerV3._parse(raw)
+    assert parsed is not None
+    assert parsed["action"] == "final"
+
+
+def test_planner_parser_extracts_embedded_json_object() -> None:
+    raw = 'Result follows: {"action":"call_capability","capability_id":"task-lookup-v3","constraints":{"task_key":"DMS-380"},"final_answer":null,"rationale":"lookup"}'
+    parsed = AgentLoopPlannerV3._parse(raw)
+    assert parsed is not None
+    assert parsed["capability_id"] == "task-lookup-v3"
