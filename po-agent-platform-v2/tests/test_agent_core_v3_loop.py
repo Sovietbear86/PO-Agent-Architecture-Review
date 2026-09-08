@@ -71,3 +71,41 @@ def test_planner_parser_extracts_embedded_json_object() -> None:
     parsed = AgentLoopPlannerV3._parse(raw)
     assert parsed is not None
     assert parsed["capability_id"] == "task-lookup-v3"
+
+
+def test_empty_action_with_selected_capability_is_unambiguously_call() -> None:
+    normalized = AgentLoopPlannerV3._normalize_candidate(
+        {
+            "action": "",
+            "capability_id": "task-lookup-v3",
+            "constraints": {"task_key": "DMS-380"},
+            "final_answer": None,
+        },
+        has_observations=False,
+    )
+    assert normalized["action"] == "call_capability"
+    assert AgentLoopPlannerV3._candidate_executable(normalized)
+
+
+def test_empty_action_without_decision_is_not_executable() -> None:
+    normalized = AgentLoopPlannerV3._normalize_candidate(
+        {"action": "", "capability_id": None, "constraints": {}, "final_answer": None},
+        has_observations=False,
+    )
+    assert normalized["action"] == ""
+    assert not AgentLoopPlannerV3._candidate_executable(normalized)
+
+
+def test_empty_action_with_observations_and_final_answer_is_final() -> None:
+    normalized = AgentLoopPlannerV3._normalize_candidate(
+        {"action": "", "capability_id": None, "constraints": {}, "final_answer": "Готово"},
+        has_observations=True,
+    )
+    assert normalized["action"] == "final"
+    assert AgentLoopPlannerV3._candidate_executable(normalized)
+
+
+def test_final_without_answer_is_not_executable() -> None:
+    assert not AgentLoopPlannerV3._candidate_executable(
+        {"action": "final", "capability_id": None, "constraints": {}, "final_answer": None}
+    )
