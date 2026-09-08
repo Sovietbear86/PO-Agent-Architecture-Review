@@ -9,6 +9,7 @@ source identifiers or bypass capability contracts/postconditions.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from typing import Any, Mapping
 
@@ -41,6 +42,56 @@ class AgentLoopObservationV3:
             "constraints": dict(self.constraints),
             "data": dict(self.data),
         }
+
+
+def _extract_json_object(raw: str) -> dict[str, Any] | None:
+    """Extract one JSON object from provider output, tolerating wrappers/thinking.
+
+    Some OpenAI-compatible providers occasionally prepend reasoning text or wrap the
+    JSON in markdown despite response_format. The planner contract remains strict,
+    but parsing must not reject a valid object merely because the transport added
+    harmless wrapper text.
+    """
+    text = (raw or "").strip()
+    if not text:
+        return None
+    text = re.sub(r"<think>.*?</think>", "", text, flags=re.I | re.S).strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text, flags=re.I | re.S).strip()
+    try:
+        value = json.loads(text)
+        return value if isinstance(value, dict) else None
+    except Exception:
+        pass
+    for start, char in enumerate(text):
+        if char != "{":
+            continue
+        depth = 0
+        in_string = False
+        escaped = False
+        for index in range(start, len(text)):
+            current = text[index]
+            if in_string:
+                if escaped:
+                    escaped = False
+                elif current == "\\":
+                    escaped = True
+                elif current == '"':
+                    in_string = False
+                continue
+            if current == '"':
+                in_string = True
+            elif current == "{":
+                depth += 1
+            elif current == "}":
+                depth -= 1
+                if depth == 0:
+                    try:
+                        value = json.loads(text[start:index + 1])
+                    except Exception:
+                        break
+                    return value if isinstance(value, dict) else None
+    return None
 
 
 class AgentLoopPlannerV3:
@@ -84,16 +135,29 @@ Planning policy:
 
     @staticmethod
     def _parse(raw: str) -> dict[str, Any] | None:
-        text = (raw or "").strip()
-        if text.startswith("```"):
-            text = text.strip("`")
-            if text.lower().startswith("json"):
-                text = text[4:].strip()
-        try:
-            value = json.loads(text)
-        except Exception:
-            return None
-        return value if isinstance(value, dict) else None
+        return _extract_json_object(raw)
+
+    @staticmethod
+    def _response_schema() -> dict[str, Any]:
+        return {
+            "type": "json_schema",
+            "json_schema": {
+                "name": "po_agent_h1b_next_action",
+                "strict": True,
+                "schema": {
+                    "type": "object",
+                    "properties": {
+                        "action": {"type": "string", "enum": ["call_capability", "final"]},
+                        "capability_id": {"type": ["string", "null"]},
+                        "constraints": {"type": "object", "additionalProperties": {"type": "string"}},
+                        "final_answer": {"type": ["string", "null"]},
+                        "rationale": {"type": ["string", "null"]},
+                    },
+                    "required": ["action", "capability_id", "constraints", "final_answer", "rationale"],
+                    "additionalProperties": False,
+                },
+            },
+        }
 
     async def next_action(
         self,
@@ -114,13 +178,18 @@ Planning policy:
             LLMMessage(role="user", content=json.dumps(payload, ensure_ascii=False)),
         ]
         data: dict[str, Any] | None = None
-        for extra in ({"response_format": {"type": "json_object"}}, {}):
+        attempts = (
+            {"response_format": self._response_schema()},
+            {"response_format": {"type": "json_object"}},
+            {},
+        )
+        for extra in attempts:
             try:
                 response = await self.client.complete(
                     messages,
                     model=self.model,
                     temperature=0.0,
-                    max_tokens=700,
+                    max_tokens=450,
                     **extra,
                 )
             except Exception:
