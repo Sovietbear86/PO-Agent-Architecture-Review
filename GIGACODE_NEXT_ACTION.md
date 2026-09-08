@@ -4,22 +4,23 @@
 `ACTIVE_QA_ASSIGNMENT_166_H1B_TYPED_DECISION_PROTOCOL`
 
 ## Mission
-Certify the H1B architectural change that removes the fragile `action` enum as the control-flow decision. Assignment 165 proved the previous JSON planner remained unreliable on Qwen 3.8 (2/5) even after bounded repair. The new protocol encodes the decision structurally as exactly one of two typed branches: CALL or FINAL.
+Certify the H1B architectural change that removes the fragile free-form `action` enum as the control-flow decision. Assignment 165 proved the action-based JSON planner remained unreliable on Qwen 3.8 (2/5) even after bounded repair. The new protocol encodes the decision structurally as exactly one of two typed branches: CALL or FINAL.
 
 This is QA ONLY. Do not modify production/backend/frontend/test source code, prompts, `.env`, registry contracts or committed Playwright tests.
 
 ## Required owner commits
-All MUST be ancestors before testing:
-- `d2885c7146084e5be67123692edd45b0a155ed46` — new `TypedAgentLoopPlannerV3`: decision is derived from CALL-vs-FINAL structure, not an `action` string.
-- `b8bb4f808ea28d0b4829dc8a324fd15b449c1de5` — production runtime wires `TypedAgentLoopPlannerV3` for Agent Core v3 H1B.
-- `d2c3d93eae2d96d6a1e09e8b540d3276a1be9b84` — typed-decision safety tests.
+Both MUST be ancestors before testing:
+- `d3f0c6341864688c20224ca5433e9aa424019483` — H1B planner protocol replaced with typed `{call, final, rationale}` decision; execution no longer depends on an `action` field.
+- `33f271b6eae8b04bbc913f1baae31946e2adbd4d` — typed CALL/FINAL safety/parser tests.
+
+Important architecture note: production runtime still instantiates the same `AgentLoopPlannerV3` class. The class implementation itself is now typed-protocol. Do NOT expect or require a renamed planner class.
 
 Accepted evidence from 162–165:
 - H1B loop mechanics are real and previously executed two source-backed capabilities;
 - `$obs` observation propagation works;
 - REAL AS21 is authoritative;
 - semantic grounding is advisory and raw human display names may not be sent as assignee identifiers;
-- 165 demonstrated the old action-based planner was unreliable: 2/5 on `Покажи DMS-380`, with failed runs returning empty action/capability objects across all repair turns.
+- 165 demonstrated the OLD action-based planner was unreliable: 2/5 on `Покажи DMS-380`, with failed runs returning empty action/capability objects across all repair turns.
 
 ## Absolute rules
 - Oracle B = fresh direct REAL AS21/MCP-SWTR only. No local DB/sync/fake/frozen/surrogate truth.
@@ -33,24 +34,25 @@ Accepted evidence from 162–165:
 ## Phase 0 — pull and preflight
 1. `git pull --ff-only origin feat/core8-real-query-hardening-v2`.
 2. Print HEAD, git status and this Status line.
-3. Verify all 3 owner commits above are ancestors.
+3. Verify both owner commits above are ancestors.
 4. Start/restart REAL MCP-SWTR + Task API + PO Agent v3 + frontend so NEW code is loaded.
 5. `/health` must prove v3=true, semantic LLM healthy and source healthy. Frontend must respond before Browser phases.
-6. Static runtime proof: `runtime_factory.py` must instantiate `TypedAgentLoopPlannerV3`, not the old action-based `AgentLoopPlannerV3`, when v3=true.
+6. Static runtime proof: when v3=true, runtime uses `AgentLoopPlannerV3`, and the loaded class source contains typed `call/final` protocol and does NOT require `action` from model output.
 
 If environment is not healthy, STOP as `BLOCKED_BY_PROVEN_ENVIRONMENT`; do not run expensive probes.
 
 ## Phase 1 — unit/static typed-protocol gate
 Run:
-`pytest -q tests/test_agent_core_v3_foundation.py tests/test_agent_core_v3_registry.py tests/test_agent_core_v3_loop.py tests/test_agent_core_v3_h1b_grounding.py tests/test_agent_core_v3_typed_planner.py`
+`pytest -q tests/test_agent_core_v3_foundation.py tests/test_agent_core_v3_registry.py tests/test_agent_core_v3_loop.py tests/test_agent_core_v3_h1b_grounding.py`
 
 Require all PASS.
 
 Prove statically:
-- planner control decision does NOT depend on an `action` field;
+- planner control decision does NOT depend on a model-produced `action` field;
 - CALL shape = non-null `call` object + `final=null`;
 - FINAL shape = `call=null` + non-null `final.answer`;
 - both-null and both-selected shapes are non-executable and repaired/fail-closed;
+- legacy action-only object is non-executable;
 - capability ID still must exist in H1A registry;
 - unsupported constraints still fail closed;
 - `$ground`/`$obs`, duplicate blocking, postconditions and max_steps=4 remain intact;
@@ -68,9 +70,10 @@ Each must:
 - use H1B typed planner;
 - select CALL structurally with `task-lookup-v3`;
 - return exact DMS-380 source identity;
-- finalize after observation without an action-enum failure.
+- finalize after observation through FINAL typed branch;
+- have no dependency on legacy `action`.
 
-Record per run: status, latency, planner attempts, selected branch, capability, loop steps.
+Record per run: status, latency, planner attempts, selected branches, capability, loop steps.
 
 ### 2B — five grounded human-name runs
 Fresh Oracle B first for current `Garanin.R.V` DMS exact task-key set. Then run exactly 5 fresh production requests:
@@ -114,11 +117,12 @@ Require:
 Prove all:
 1. `{call:null, final:null}` is never executed as success.
 2. Both CALL and FINAL selected simultaneously is never executed as success.
-3. Unknown capability ID fails closed.
-4. Unsupported constraint fails closed.
-5. Invented `$ground` or `$obs` reference fails closed.
-6. Duplicate capability+constraints is blocked and no run exceeds 4 calls.
-7. `Проверь DMS-380 и затем покажи историю его статусов` must NOT silently succeed with only lookup; missing status-history capability must be explicit unsupported/fail-closed/clarification.
+3. Legacy `action/capability_id`-only decision is never executed as typed success.
+4. Unknown capability ID fails closed.
+5. Unsupported constraint fails closed.
+6. Invented `$ground` or `$obs` reference fails closed.
+7. Duplicate capability+constraints is blocked and no run exceeds 4 calls.
+8. `Проверь DMS-380 и затем покажи историю его статусов` must NOT silently succeed with only lookup; missing status-history capability must be explicit unsupported/fail-closed/clarification.
 
 ## Phase 6 — protected single-step exact parity
 Fresh Oracle B then Agent A for:
@@ -127,7 +131,7 @@ Fresh Oracle B then Agent A for:
 3. `Задачи Калачанова в WMB`
 4. `Покажи DMS-380`
 
-Require COMPLETED + exact parity and typed planner metadata.
+Require COMPLETED + exact parity and typed planner behavior.
 
 ## Phase 7 — Browser C regression
 Run:
@@ -136,7 +140,7 @@ Run:
 Require 5/5 PASS. Start frontend if needed; do not skip.
 
 ## Phase 8 — Browser C multi-step
-Use real Playwright Chromium in a fresh conversation for Challenge A. Persist screenshot, browser session id, correlated backend trace, typed CALL/CALL/FINAL metadata, rendered result and exact same-window Oracle parity.
+Use real Playwright Chromium in a fresh conversation for Challenge A. Persist screenshot, browser session id, correlated backend trace, CALL/CALL/FINAL behavior, rendered result and exact same-window Oracle parity.
 
 ## Phase 9 — final report
 Write ONLY:
