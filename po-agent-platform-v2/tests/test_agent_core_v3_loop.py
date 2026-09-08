@@ -59,53 +59,62 @@ def test_space_literal_must_be_explicit_in_original_query() -> None:
     assert not AgentCoreV3PilotProcessor._literal_is_source_safe("space", "STS", query)
 
 
-def test_planner_parser_accepts_json_after_think_wrapper() -> None:
-    raw = '<think>internal reasoning</think>\n{"action":"final","capability_id":null,"constraints":{},"final_answer":"ok","rationale":null}'
+def test_planner_parser_accepts_typed_json_after_think_wrapper() -> None:
+    raw = '<think>internal reasoning</think>\n{"call":null,"final":{"answer":"ok"},"rationale":null}'
     parsed = AgentLoopPlannerV3._parse(raw)
     assert parsed is not None
-    assert parsed["action"] == "final"
+    action = AgentLoopPlannerV3._typed_candidate(parsed)
+    assert action is not None
+    assert action.action == "final"
+    assert action.final_answer == "ok"
 
 
-def test_planner_parser_extracts_embedded_json_object() -> None:
-    raw = 'Result follows: {"action":"call_capability","capability_id":"task-lookup-v3","constraints":{"task_key":"DMS-380"},"final_answer":null,"rationale":"lookup"}'
+def test_planner_parser_extracts_embedded_typed_call() -> None:
+    raw = 'Result follows: {"call":{"capability_id":"task-lookup-v3","constraints":{"task_key":"DMS-380"}},"final":null,"rationale":"lookup"}'
     parsed = AgentLoopPlannerV3._parse(raw)
     assert parsed is not None
-    assert parsed["capability_id"] == "task-lookup-v3"
+    action = AgentLoopPlannerV3._typed_candidate(parsed)
+    assert action is not None
+    assert action.action == "call_capability"
+    assert action.capability_id == "task-lookup-v3"
+    assert action.constraints == {"task_key": "DMS-380"}
 
 
-def test_empty_action_with_selected_capability_is_unambiguously_call() -> None:
-    normalized = AgentLoopPlannerV3._normalize_candidate(
+def test_typed_call_requires_capability_id() -> None:
+    action = AgentLoopPlannerV3._typed_candidate(
+        {"call": {"capability_id": "", "constraints": {}}, "final": None, "rationale": None}
+    )
+    assert action is None
+
+
+def test_typed_final_requires_nonempty_answer() -> None:
+    action = AgentLoopPlannerV3._typed_candidate(
+        {"call": None, "final": {"answer": ""}, "rationale": None}
+    )
+    assert action is None
+
+
+def test_both_typed_branches_null_is_not_executable() -> None:
+    assert AgentLoopPlannerV3._typed_candidate(
+        {"call": None, "final": None, "rationale": None}
+    ) is None
+
+
+def test_both_typed_branches_present_is_not_executable() -> None:
+    assert AgentLoopPlannerV3._typed_candidate(
         {
-            "action": "",
+            "call": {"capability_id": "task-lookup-v3", "constraints": {"task_key": "DMS-380"}},
+            "final": {"answer": "done"},
+            "rationale": None,
+        }
+    ) is None
+
+
+def test_legacy_action_only_object_is_not_executable() -> None:
+    assert AgentLoopPlannerV3._typed_candidate(
+        {
+            "action": "call_capability",
             "capability_id": "task-lookup-v3",
             "constraints": {"task_key": "DMS-380"},
-            "final_answer": None,
-        },
-        has_observations=False,
-    )
-    assert normalized["action"] == "call_capability"
-    assert AgentLoopPlannerV3._candidate_executable(normalized)
-
-
-def test_empty_action_without_decision_is_not_executable() -> None:
-    normalized = AgentLoopPlannerV3._normalize_candidate(
-        {"action": "", "capability_id": None, "constraints": {}, "final_answer": None},
-        has_observations=False,
-    )
-    assert normalized["action"] == ""
-    assert not AgentLoopPlannerV3._candidate_executable(normalized)
-
-
-def test_empty_action_with_observations_and_final_answer_is_final() -> None:
-    normalized = AgentLoopPlannerV3._normalize_candidate(
-        {"action": "", "capability_id": None, "constraints": {}, "final_answer": "Готово"},
-        has_observations=True,
-    )
-    assert normalized["action"] == "final"
-    assert AgentLoopPlannerV3._candidate_executable(normalized)
-
-
-def test_final_without_answer_is_not_executable() -> None:
-    assert not AgentLoopPlannerV3._candidate_executable(
-        {"action": "final", "capability_id": None, "constraints": {}, "final_answer": None}
-    )
+        }
+    ) is None
