@@ -1,154 +1,132 @@
 # GigaCode — Current Action
 
 ## Status
-`ACTIVE_QA_ASSIGNMENT_166_H1B_TYPED_DECISION_PROTOCOL`
+`ACTIVE_QA_ASSIGNMENT_167_H1B_QWEN_NO_RESPONSE_FORMAT`
 
 ## Mission
-Certify the H1B architectural change that removes the fragile free-form `action` enum as the control-flow decision. Assignment 165 proved the action-based JSON planner remained unreliable on Qwen 3.8 (2/5) even after bounded repair. The new protocol encodes the decision structurally as exactly one of two typed branches: CALL or FINAL.
+Certify the owner fix for the Qwen 3.8 typed-planner provider incompatibility proven by Assignment 166. The typed CALL/FINAL protocol itself was correct, but the Qwen OpenAI-compatible endpoint corrupted planner JSON whenever `response_format` was supplied. Production planner now sends NO `response_format` at all and every bounded retry starts from a fresh conversation so malformed provider output cannot contaminate the next attempt.
 
-This is QA ONLY. Do not modify production/backend/frontend/test source code, prompts, `.env`, registry contracts or committed Playwright tests.
+QA ONLY. Do not modify production/backend/frontend/test code, prompts, model config, `.env`, registry contracts, Playwright tests or runtime learning data.
 
 ## Required owner commits
 Both MUST be ancestors before testing:
-- `d3f0c6341864688c20224ca5433e9aa424019483` — H1B planner protocol replaced with typed `{call, final, rationale}` decision; execution no longer depends on an `action` field.
-- `33f271b6eae8b04bbc913f1baae31946e2adbd4d` — typed CALL/FINAL safety/parser tests.
+- `118b4ef9226a48cebf785dbca5d5e9713f696008` — typed planner removes all `response_format` usage and uses clean independent retries.
+- `01a4da13629e2c239ee351086af30b63af356ea1` — safety/unit proof for clean no-format retry construction.
 
-Important architecture note: production runtime still instantiates the same `AgentLoopPlannerV3` class. The class implementation itself is now typed-protocol. Do NOT expect or require a renamed planner class.
-
-Accepted evidence from 162–165:
-- H1B loop mechanics are real and previously executed two source-backed capabilities;
-- `$obs` observation propagation works;
-- REAL AS21 is authoritative;
-- semantic grounding is advisory and raw human display names may not be sent as assignee identifiers;
-- 165 demonstrated the OLD action-based planner was unreliable: 2/5 on `Покажи DMS-380`, with failed runs returning empty action/capability objects across all repair turns.
+Accepted evidence from Assignment 166:
+- typed CALL/FINAL structural decision protocol is valid;
+- REAL source and runtime were healthy;
+- direct Qwen test without response_format produced correct typed JSON;
+- json_schema/json_object response_format corrupted output and polluted subsequent retry history;
+- 166 stopped at reliability gate as required.
 
 ## Absolute rules
 - Oracle B = fresh direct REAL AS21/MCP-SWTR only. No local DB/sync/fake/frozen/surrogate truth.
-- Target model = current Qwen 3.8 runtime. Do not change model/config.
+- Keep target model Qwen 3.8; do not switch models.
 - Concurrency=1.
-- Source-backed timeout=300s. A proven source failure gets exactly 2 retries with 30s backoff.
-- Exact task-key-set equality mandatory for collections.
+- Source timeout=300s. Only proven source outage gets exactly 2 retries with 30s backoff.
 - No caveat GREEN.
-- Commit/push only the final QA report.
+- Exact task-key-set equality for collections.
+- Commit/push only final QA report.
 
-## Phase 0 — pull and preflight
+## Phase 0 — preflight
 1. `git pull --ff-only origin feat/core8-real-query-hardening-v2`.
 2. Print HEAD, git status and this Status line.
 3. Verify both owner commits above are ancestors.
-4. Start/restart REAL MCP-SWTR + Task API + PO Agent v3 + frontend so NEW code is loaded.
-5. `/health` must prove v3=true, semantic LLM healthy and source healthy. Frontend must respond before Browser phases.
-6. Static runtime proof: when v3=true, runtime uses `AgentLoopPlannerV3`, and the loaded class source contains typed `call/final` protocol and does NOT require `action` from model output.
+4. Restart/reuse REAL MCP-SWTR, Task API, PO Agent v3 and frontend so latest code is loaded.
+5. `/health`: v3=true, semantic LLM healthy, REAL source healthy. Frontend reachable.
+6. Static proof from loaded planner source:
+   - NO `response_format` argument is passed by `TypedAgentLoopPlannerV3.next_action()`;
+   - retries rebuild a fresh base conversation and do not append malformed assistant output;
+   - decision is still typed CALL/FINAL, not legacy action enum;
+   - no deterministic regex/keyword fallback was added.
 
-If environment is not healthy, STOP as `BLOCKED_BY_PROVEN_ENVIRONMENT`; do not run expensive probes.
+If environment is not healthy, STOP `BLOCKED_BY_PROVEN_ENVIRONMENT` before expensive tests.
 
-## Phase 1 — unit/static typed-protocol gate
+## Phase 1 — unit/static safety gate
 Run:
-`pytest -q tests/test_agent_core_v3_foundation.py tests/test_agent_core_v3_registry.py tests/test_agent_core_v3_loop.py tests/test_agent_core_v3_h1b_grounding.py`
+`pytest -q tests/test_agent_core_v3_foundation.py tests/test_agent_core_v3_registry.py tests/test_agent_core_v3_loop.py tests/test_agent_core_v3_h1b_grounding.py tests/test_agent_core_v3_typed_planner.py`
 
 Require all PASS.
 
-Prove statically:
-- planner control decision does NOT depend on a model-produced `action` field;
-- CALL shape = non-null `call` object + `final=null`;
-- FINAL shape = `call=null` + non-null `final.answer`;
-- both-null and both-selected shapes are non-executable and repaired/fail-closed;
-- legacy action-only object is non-executable;
-- capability ID still must exist in H1A registry;
-- unsupported constraints still fail closed;
-- `$ground`/`$obs`, duplicate blocking, postconditions and max_steps=4 remain intact;
-- there is NO deterministic regex/keyword fallback that maps `DMS-380` or person names directly to capabilities.
+Prove:
+- CALL and FINAL mutual exclusivity;
+- both-null/both-selected fail closed;
+- unknown capability and unsupported constraints fail closed;
+- `$ground` and `$obs` safety preserved;
+- duplicate blocking/postconditions/max_steps=4 preserved;
+- retry messages contain no previous malformed assistant response;
+- no response_format anywhere in typed planner runtime call.
 
-## Phase 2 — mandatory 10-run decision reliability gate
-Do NOT proceed to multi-step until all ten runs pass. Use fresh sessions, concurrency=1.
+## Phase 2 — mandatory 10/10 reliability gate
+This is the STOPPING GATE. Use fresh sessions and concurrency=1.
 
-### 2A — five point-read runs
-Run exactly 5 fresh production `/api/v1/query` requests:
+### 2A — 5x point-read
+Exactly five fresh requests:
 `Покажи DMS-380`
 
-Each must:
-- COMPLETED;
-- use H1B typed planner;
-- select CALL structurally with `task-lookup-v3`;
-- return exact DMS-380 source identity;
-- finalize after observation through FINAL typed branch;
-- have no dependency on legacy `action`.
+Every run must be COMPLETED and prove:
+- H1B_AGENT_LOOP;
+- typed CALL to `task-lookup-v3`;
+- exact DMS-380 identity from REAL source;
+- typed FINAL after observation;
+- no invalid_json/no_typed_branch caused by provider formatting;
+- record planner attempt count and latency.
 
-Record per run: status, latency, planner attempts, selected branches, capability, loop steps.
-
-### 2B — five grounded human-name runs
-Fresh Oracle B first for current `Garanin.R.V` DMS exact task-key set. Then run exactly 5 fresh production requests:
+### 2B — 5x grounded human search
+Fresh same-window Oracle B for `Garanin.R.V` in DMS, then exactly five fresh requests:
 `Задачи Гаранина в DMS`
 
-Each must:
-- COMPLETED;
-- resolve to authoritative canonical login before AS21 task-search;
-- select CALL structurally with `task-search-v3`;
-- exact task-key set == same-window fresh Oracle B (refresh Oracle if source data changed during the probe);
-- never send raw `Гаранин/Гаранина` as AS21 assignee identifier.
+Every run must be COMPLETED and prove:
+- canonical source-backed login reaches AS21, raw Russian display name never does;
+- typed CALL `task-search-v3`;
+- exact task-key set equals fresh Oracle B;
+- typed FINAL after observation.
 
-Acceptance for Phase 2: **10/10 PASS**. No averaging and no caveat.
-If ANY of the ten fails due to planner decision shape/reliability, STOP immediately with `H1B_TYPED_DECISION_RELIABILITY_RED`. Do not run later phases.
-If a source error occurs, apply only the defined source retry policy and distinguish it from planner failure with raw evidence.
+Phase 2 acceptance = **10/10 PASS**. If ANY planner/typed-decision failure occurs, STOP immediately with `H1B_NO_FORMAT_DECISION_RELIABILITY_RED`. Do not run later phases. A proven source error must use only the defined source retry policy and be evidenced separately.
 
 ## Phase 3 — REAL multi-step Challenge A
-Fresh Oracle B then Agent A:
+Fresh Oracle B then:
 `Проверь DMS-380 и затем покажи задачи его исполнителя`
 
-Require:
-- COMPLETED and `architecture_stage=H1B_AGENT_LOOP`;
-- typed CALL `task-lookup-v3` -> authoritative observation -> typed CALL `task-search-v3` using `$obs`-derived assignee;
-- >=2 and <=4 capability executions;
-- every postcondition PASS;
-- exact final task-key set == fresh Oracle B;
-- typed FINAL only after requested outcomes are supported by observations.
+Require typed CALL lookup -> authoritative observation -> typed CALL assignee search using `$obs` -> typed FINAL; 2–4 calls; all postconditions PASS; exact final key-set parity.
 
-## Phase 4 — REAL multi-step Challenge B / grounding
-Fresh Oracle B then Agent A:
+## Phase 4 — REAL multi-step Challenge B
+Fresh Oracle B then:
 `Найди задачи Гаранина в DMS и затем покажи подробности DMS-380`
 
-Require:
-- canonical source-backed login for Garanin, never raw display name to AS21;
-- one typed CALL to `task-search-v3` and one typed CALL to `task-lookup-v3` (order may vary);
-- both outcomes preserved in observations/final response;
-- exact search-key parity + exact DMS-380 identity parity;
-- COMPLETED.
+Require one typed task-search and one typed task-lookup (order may vary), canonical grounded login, both outcomes preserved, exact collection parity + exact DMS-380 identity, COMPLETED.
 
-## Phase 5 — typed safety / no silent truncation
-Prove all:
-1. `{call:null, final:null}` is never executed as success.
-2. Both CALL and FINAL selected simultaneously is never executed as success.
-3. Legacy `action/capability_id`-only decision is never executed as typed success.
-4. Unknown capability ID fails closed.
-5. Unsupported constraint fails closed.
-6. Invented `$ground` or `$obs` reference fails closed.
-7. Duplicate capability+constraints is blocked and no run exceeds 4 calls.
-8. `Проверь DMS-380 и затем покажи историю его статусов` must NOT silently succeed with only lookup; missing status-history capability must be explicit unsupported/fail-closed/clarification.
+## Phase 5 — safety / no silent truncation
+Prove:
+1. both-null and both-selected typed decisions never succeed;
+2. legacy action-only decision never succeeds as typed decision;
+3. unknown capability / unsupported constraint / invented `$ground` / invented `$obs` fail closed;
+4. duplicate calls blocked and max 4;
+5. unsupported compound `Проверь DMS-380 и затем покажи историю его статусов` cannot silently return partial success.
 
 ## Phase 6 — protected single-step exact parity
-Fresh Oracle B then Agent A for:
+Fresh Oracle B then Agent A:
 1. `Задачи Гаранина`
 2. `Задачи Гаранина в DMS`
 3. `Задачи Калачанова в WMB`
 4. `Покажи DMS-380`
 
-Require COMPLETED + exact parity and typed planner behavior.
+Require COMPLETED + exact parity.
 
 ## Phase 7 — Browser C regression
-Run:
-`npm run e2e:h0`
-
-Require 5/5 PASS. Start frontend if needed; do not skip.
+Run existing `npm run e2e:h0`; require 5/5 PASS. Start frontend if needed. Do not skip.
 
 ## Phase 8 — Browser C multi-step
-Use real Playwright Chromium in a fresh conversation for Challenge A. Persist screenshot, browser session id, correlated backend trace, CALL/CALL/FINAL behavior, rendered result and exact same-window Oracle parity.
+Fresh Playwright Chromium conversation for Challenge A. Persist screenshot, browser session, correlated backend trace, CALL/CALL/FINAL metadata, rendered result and same-window Oracle parity.
 
-## Phase 9 — final report
+## Phase 9 — report
 Write ONLY:
-`po-agent-platform-v2/qa_reports/AGENT_CORE_V3_H1B_TYPED_DECISION_PROTOCOL_166.md`
+`po-agent-platform-v2/qa_reports/AGENT_CORE_V3_H1B_QWEN_NO_RESPONSE_FORMAT_167.md`
 
-Allowed verdicts ONLY:
-- `AGENT_CORE_V3_H1B_TYPED_LOOP_GREEN`
-- `H1B_TYPED_DECISION_RELIABILITY_RED`
+Allowed verdicts:
+- `AGENT_CORE_V3_H1B_LOOP_GREEN`
+- `H1B_NO_FORMAT_DECISION_RELIABILITY_RED`
 - `H1B_TYPED_PROTOCOL_SAFETY_RED`
 - `H1B_GROUNDING_RED`
 - `H1B_OBSERVATION_PROPAGATION_RED`
@@ -159,7 +137,7 @@ Allowed verdicts ONLY:
 - `BLOCKED_BY_PROVEN_SOURCE_OUTAGE`
 - `BLOCKED_BY_PROVEN_ENVIRONMENT`
 
-GREEN requires ALL phases, including 10/10 reliability gate and Browser C. Commit/push only this report and STOP.
+GREEN requires ALL phases including 10/10 and Browser C. Commit/push only this report and STOP.
 
 ## Start now
-Execute Assignment 166 completely. First pull, print HEAD + this Status line, verify owner commits, then preflight. Do not modify code.
+Execute Assignment 167 completely. First pull, print HEAD + Status, verify owner commits, then healthy preflight before tests.
