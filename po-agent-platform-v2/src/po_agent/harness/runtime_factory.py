@@ -8,7 +8,7 @@ from po_agent.adapters.as21 import AS21Adapter
 from po_agent.adapters.evidence_validated_task_api import EvidenceValidatedProductionTaskApiAS21Adapter
 from .agent_core_v3 import AgentCoreV3RoutingSeam
 from .agent_core_v3_h1b import AgentCoreV3H1BProcessor
-from .agent_core_v3_loop import AgentLoopPlannerV3
+from .agent_core_v3_typed_planner import TypedAgentLoopPlannerV3
 from .agent_core_v3_pilot import AgentCoreV3PilotSelector
 from .core8_semantic_precision import Core8SemanticPrecisionInterpreter
 from .core8_hardening import enable_core8_hardened_composite
@@ -69,7 +69,7 @@ def _build_runtime_with_adapter(adapter:AS21Adapter,*,mode:RuntimeMode,team_conf
     else: dialogue=CorrectionAwareHarnessRuntime(dialogue)
     processor=None; selector=None
     if mode=="task-api" and agent_core_v3_enabled:
-        loop_planner=AgentLoopPlannerV3(planner_client,model=planner_model,max_steps=4) if planner_client is not None else None
+        loop_planner=TypedAgentLoopPlannerV3(planner_client,model=planner_model,max_steps=4) if planner_client is not None else None
         processor=AgentCoreV3H1BProcessor(adapter,interpreter=selected_interpreter,grounder=grounder,loop_planner=loop_planner); selector=AgentCoreV3PilotSelector()
     dialogue=AgentCoreV3RoutingSeam(dialogue,enabled=agent_core_v3_enabled,processor=processor,pilot_selector=selector)
     return RuntimeBundle(mode,ObservedHarnessRuntime(dialogue),adapter,readiness,dependencies,semantics)
