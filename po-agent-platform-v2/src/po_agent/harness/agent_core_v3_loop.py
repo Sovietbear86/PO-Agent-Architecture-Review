@@ -1,9 +1,9 @@
 """Bounded Hermes-style plan/execute/observe loop for Agent Core v3 H1B.
 
 The planner is LLM-driven, but execution remains deterministic and source-safe.
-The LLM may select only capabilities present in the registry and may bind a
-constraint either to a literal value from the original user request, to a
-source-grounded semantic value, or to a previous authoritative observation.
+The LLM selects one of two typed decision shapes: CALL or FINAL. Execution never
+relies on a free-form action string. Constraint values may come only from the
+original request, source-grounded semantic values, or authoritative observations.
 """
 from __future__ import annotations
 
@@ -87,14 +87,24 @@ def _extract_json_object(raw: str) -> dict[str, Any] | None:
 
 
 class AgentLoopPlannerV3:
-    """LLM planner constrained to a closed capability registry and observations."""
+    """LLM planner constrained to typed CALL/FINAL decisions and a closed registry."""
 
     SYSTEM = """You are the bounded planner for a Product Owner agent.
-Return ONE JSON object only with keys:
-action, capability_id, constraints, final_answer, rationale.
+Return ONE JSON object only with exactly these top-level keys:
+call, final, rationale.
 
-action MUST be exactly one of: call_capability, final.
-For call_capability:
+You MUST choose exactly one typed decision shape:
+
+CALL shape:
+{"call":{"capability_id":"<id from capability_catalog>","constraints":{...}},"final":null,"rationale":"..."}
+
+FINAL shape:
+{"call":null,"final":{"answer":"..."},"rationale":"..."}
+
+Never return an `action` field. The decision is determined by which typed branch is non-null.
+Exactly one of `call` or `final` MUST be non-null.
+
+For CALL:
 - capability_id MUST be one id from capability_catalog.
 - constraints MUST contain only constraints supported by that capability.
 - A constraint value may be:
@@ -103,15 +113,12 @@ For call_capability:
   3) an observation reference in the exact form $obs.<step>.<path>.
 - Prefer $ground.member_login for a person resolved by the semantic grounder.
 - Never invent source ids, logins, task keys, spaces, statuses, people or counts.
-- If the next operation depends on a fact returned by a previous capability,
-  reference that observation instead of guessing the value.
+- If the next operation depends on a fact returned by a previous capability, use an observation reference.
 
-For final:
+For FINAL:
 - Use only facts present in observations.
-- If the requested result is not yet supported by observations, do NOT finalize;
-  call another capability when one in the catalog can obtain it.
-- If the requested operation is outside the catalog, fail closed by returning final
-  with a concise statement that the requested operation is unsupported; do not silently omit it.
+- If the requested result is not yet supported by observations, do not finalize; CALL another capability when available.
+- If the requested operation is outside the catalog, FINAL may explicitly say it is unsupported; never silently omit it.
 
 Planning policy:
 - Break compound requests into the minimum sequence of capability calls.
@@ -121,11 +128,12 @@ Planning policy:
 - The authoritative source is accessed only by executors; you are a planner only.
 """
 
-    REPAIR = """Your previous planner object was not executable. Repair it now.
-Return exactly one JSON object. The `action` value must be `call_capability` or `final`.
-If a capability is needed, provide its exact capability_id from the catalog and safe constraints.
-If the request is already fully answered by observations, return `final` with final_answer.
-Do not return an empty action. Do not invent source facts."""
+    REPAIR = """Your previous typed planner decision was invalid or empty. Repair it now.
+Return exactly one JSON object with top-level keys call, final, rationale.
+Set exactly ONE of call/final to a non-null object and the other to null.
+For CALL, choose an exact capability_id from the supplied catalog and safe constraints.
+For FINAL, provide a non-empty answer supported by observations.
+Never emit an `action` field. Never return both call and final null. Never invent source facts."""
 
     def __init__(self, client: LLMClient, *, model: str | None = None, max_steps: int = 4) -> None:
         self.client = client
@@ -138,57 +146,72 @@ Do not return an empty action. Do not invent source facts."""
 
     @staticmethod
     def _response_schema() -> dict[str, Any]:
+        # Keep the schema simple for OpenAI-compatible endpoints: branch exclusivity
+        # is enforced deterministically below instead of relying on provider oneOf.
         return {
             "type": "json_schema",
             "json_schema": {
-                "name": "po_agent_h1b_next_action",
+                "name": "po_agent_h1b_typed_decision",
                 "strict": True,
                 "schema": {
                     "type": "object",
                     "properties": {
-                        "action": {"type": "string", "enum": ["call_capability", "final"]},
-                        "capability_id": {"type": ["string", "null"]},
-                        "constraints": {"type": "object", "additionalProperties": {"type": "string"}},
-                        "final_answer": {"type": ["string", "null"]},
+                        "call": {
+                            "type": ["object", "null"],
+                            "properties": {
+                                "capability_id": {"type": "string"},
+                                "constraints": {"type": "object", "additionalProperties": {"type": "string"}},
+                            },
+                            "required": ["capability_id", "constraints"],
+                            "additionalProperties": False,
+                        },
+                        "final": {
+                            "type": ["object", "null"],
+                            "properties": {"answer": {"type": "string"}},
+                            "required": ["answer"],
+                            "additionalProperties": False,
+                        },
                         "rationale": {"type": ["string", "null"]},
                     },
-                    "required": ["action", "capability_id", "constraints", "final_answer", "rationale"],
+                    "required": ["call", "final", "rationale"],
                     "additionalProperties": False,
                 },
             },
         }
 
     @staticmethod
-    def _normalize_candidate(data: Mapping[str, Any], *, has_observations: bool) -> dict[str, Any]:
-        """Normalize only shapes that are already semantically unambiguous.
+    def _typed_candidate(data: Mapping[str, Any]) -> AgentLoopActionV3 | None:
+        """Decode a typed CALL/FINAL object without guessing the missing branch."""
+        call = data.get("call")
+        final = data.get("final")
+        rationale = str(data.get("rationale") or "").strip() or None
 
-        Provider-side JSON-schema enforcement is not reliable for every supported
-        model. We may infer the action from a selected capability or an explicit
-        final answer, but never invent a missing capability/final decision.
-        """
-        normalized = dict(data)
-        action = str(normalized.get("action") or "").strip()
-        capability_id = str(normalized.get("capability_id") or "").strip()
-        raw_constraints = normalized.get("constraints")
-        constraints = raw_constraints if isinstance(raw_constraints, dict) else {}
-        final_answer = str(normalized.get("final_answer") or "").strip()
-        if not action and capability_id:
-            action = "call_capability"
-        elif not action and has_observations and not capability_id and not constraints and final_answer:
-            action = "final"
-        normalized["action"] = action
-        return normalized
+        call_present = isinstance(call, Mapping)
+        final_present = isinstance(final, Mapping)
+        if call_present == final_present:  # both present or both absent/null
+            return None
 
-    @staticmethod
-    def _candidate_executable(data: Mapping[str, Any]) -> bool:
-        action = str(data.get("action") or "").strip()
-        capability_id = str(data.get("capability_id") or "").strip()
-        final_answer = str(data.get("final_answer") or "").strip()
-        if action == "call_capability":
-            return bool(capability_id)
-        if action == "final":
-            return bool(final_answer)
-        return False
+        if call_present:
+            capability_id = str(call.get("capability_id") or "").strip()
+            raw_constraints = call.get("constraints")
+            if not capability_id or not isinstance(raw_constraints, Mapping):
+                return None
+            constraints = {
+                str(k): str(v).strip()
+                for k, v in raw_constraints.items()
+                if v not in (None, "") and str(v).strip()
+            }
+            return AgentLoopActionV3(
+                action="call_capability",
+                capability_id=capability_id,
+                constraints=constraints,
+                rationale=rationale,
+            )
+
+        answer = str(final.get("answer") or "").strip()
+        if not answer:
+            return None
+        return AgentLoopActionV3(action="final", final_answer=answer, rationale=rationale)
 
     async def next_action(
         self,
@@ -210,7 +233,6 @@ Do not return an empty action. Do not invent source facts."""
             LLMMessage(role="system", content=self.SYSTEM),
             LLMMessage(role="user", content=json.dumps(payload, ensure_ascii=False)),
         ]
-        data: dict[str, Any] | None = None
         invalid_shapes: list[dict[str, Any]] = []
         attempts = (
             {"response_format": self._response_schema()},
@@ -226,75 +248,46 @@ Do not return an empty action. Do not invent source facts."""
                     max_tokens=450,
                     **extra,
                 )
-            except Exception:
+            except Exception as exc:
+                invalid_shapes.append({"attempt": attempt_index, "reason": "provider_error", "error": type(exc).__name__})
                 continue
             if not response.choices:
+                invalid_shapes.append({"attempt": attempt_index, "reason": "no_choices"})
                 continue
+
             raw_content = response.choices[0].message.content
             candidate = self._parse(raw_content)
-            if candidate is None:
-                invalid_shapes.append({"attempt": attempt_index, "reason": "invalid_json"})
-            else:
-                candidate = self._normalize_candidate(candidate, has_observations=bool(observations))
-                if self._candidate_executable(candidate):
-                    data = candidate
-                    break
-                invalid_shapes.append({
-                    "attempt": attempt_index,
-                    "reason": "non_executable_action",
-                    "action": str(candidate.get("action") or ""),
-                    "capability_id": str(candidate.get("capability_id") or ""),
-                    "has_final_answer": bool(str(candidate.get("final_answer") or "").strip()),
-                })
-            # The old code retried transport formats with the exact same prompt,
-            # which produced the same empty action deterministically. Subsequent
-            # attempts are explicit LLM repair turns instead.
+            action = self._typed_candidate(candidate) if candidate is not None else None
+            if action is not None:
+                if action.action == "call_capability":
+                    registration = registry.get(action.capability_id or "")
+                    constraints = dict(action.constraints or {})
+                    unsupported = sorted(set(constraints) - set(registration.contract.supported_constraints))
+                    if unsupported:
+                        raise AgentCoreV3ContractError(
+                            AgentCoreV3FailureCode.UNSUPPORTED_CONSTRAINT,
+                            "H1B planner proposed constraints outside the capability contract",
+                            details={"capability_id": action.capability_id, "unsupported": unsupported},
+                        )
+                return action
+
+            invalid_shapes.append({
+                "attempt": attempt_index,
+                "reason": "invalid_typed_decision",
+                "has_call": isinstance(candidate.get("call"), Mapping) if candidate else False,
+                "has_final": isinstance(candidate.get("final"), Mapping) if candidate else False,
+                "legacy_action_present": bool(candidate and "action" in candidate),
+            })
             messages = [
                 *messages,
                 LLMMessage(role="assistant", content=raw_content or "{}"),
                 LLMMessage(role="user", content=self.REPAIR),
             ]
 
-        if data is None:
-            raise AgentCoreV3ContractError(
-                AgentCoreV3FailureCode.V3_PROCESSOR_UNAVAILABLE,
-                "H1B agent-loop planner failed bounded decision repair",
-                details={"attempts": invalid_shapes},
-            )
-
-        action = str(data.get("action") or "").strip()
-        capability_id = str(data.get("capability_id") or "").strip()
-        raw_constraints = data.get("constraints")
-        constraints = {
-            str(k): str(v).strip()
-            for k, v in raw_constraints.items()
-            if isinstance(raw_constraints, dict) and v not in (None, "") and str(v).strip()
-        } if isinstance(raw_constraints, dict) else {}
-        final_answer = str(data.get("final_answer") or "").strip() or None
-        rationale = str(data.get("rationale") or "").strip() or None
-
-        if action == "final":
-            return AgentLoopActionV3(action="final", final_answer=final_answer, rationale=rationale)
-        if action != "call_capability":
-            raise AgentCoreV3ContractError(
-                AgentCoreV3FailureCode.UNSUPPORTED_CONSTRAINT,
-                "H1B planner returned an unsupported action",
-                details={"action": action, "has_final_answer": bool(final_answer)},
-            )
-
-        registration = registry.get(capability_id)
-        unsupported = sorted(set(constraints) - set(registration.contract.supported_constraints))
-        if unsupported:
-            raise AgentCoreV3ContractError(
-                AgentCoreV3FailureCode.UNSUPPORTED_CONSTRAINT,
-                "H1B planner proposed constraints outside the capability contract",
-                details={"capability_id": capability_id, "unsupported": unsupported},
-            )
-        return AgentLoopActionV3(
-            action="call_capability",
-            capability_id=capability_id,
-            constraints=constraints,
-            rationale=rationale,
+        raise AgentCoreV3ContractError(
+            AgentCoreV3FailureCode.V3_PROCESSOR_UNAVAILABLE,
+            "H1B agent-loop planner failed bounded typed-decision repair",
+            details={"attempts": invalid_shapes},
         )
 
 
