@@ -2,9 +2,8 @@
 
 The planner is LLM-driven, but execution remains deterministic and source-safe.
 The LLM may select only capabilities present in the registry and may bind a
-constraint either to a literal value from the original user request or to a
-previous authoritative observation. It never receives permission to invent
-source identifiers or bypass capability contracts/postconditions.
+constraint either to a literal value from the original user request, to a
+source-grounded semantic value, or to a previous authoritative observation.
 """
 from __future__ import annotations
 
@@ -45,13 +44,6 @@ class AgentLoopObservationV3:
 
 
 def _extract_json_object(raw: str) -> dict[str, Any] | None:
-    """Extract one JSON object from provider output, tolerating wrappers/thinking.
-
-    Some OpenAI-compatible providers occasionally prepend reasoning text or wrap the
-    JSON in markdown despite response_format. The planner contract remains strict,
-    but parsing must not reject a valid object merely because the transport added
-    harmless wrapper text.
-    """
     text = (raw or "").strip()
     if not text:
         return None
@@ -106,10 +98,10 @@ For call_capability:
 - capability_id MUST be one id from capability_catalog.
 - constraints MUST contain only constraints supported by that capability.
 - A constraint value may be:
-  1) a literal value explicitly present in the original user_query; or
-  2) an observation reference in the exact form $obs.<step>.<path>, where <step>
-     is a previous observation step and <path> addresses a field in that
-     observation's data, for example $obs.1.task.assignee_login.
+  1) a literal value explicitly present in the original user_query;
+  2) a source-grounded semantic reference in the exact form $ground.<field> from grounded_values; or
+  3) an observation reference in the exact form $obs.<step>.<path>.
+- Prefer $ground.member_login for a person resolved by the semantic grounder.
 - Never invent source ids, logins, task keys, spaces, statuses, people or counts.
 - If the next operation depends on a fact returned by a previous capability,
   reference that observation instead of guessing the value.
@@ -118,7 +110,8 @@ For final:
 - Use only facts present in observations.
 - If the requested result is not yet supported by observations, do NOT finalize;
   call another capability when one in the catalog can obtain it.
-- Do not claim facts that are absent from observations.
+- If the requested operation is outside the catalog, fail closed by returning final
+  with a concise statement that the requested operation is unsupported; do not silently omit it.
 
 Planning policy:
 - Break compound requests into the minimum sequence of capability calls.
@@ -165,10 +158,12 @@ Planning policy:
         user_query: str,
         registry: CapabilityRegistryV3,
         observations: list[AgentLoopObservationV3],
+        grounded_values: Mapping[str, str] | None = None,
     ) -> AgentLoopActionV3:
         catalog = list(registry.compact_catalog(family="tasks"))
         payload = {
             "user_query": user_query,
+            "grounded_values": dict(grounded_values or {}),
             "capability_catalog": catalog,
             "observations": [item.to_dict() for item in observations],
             "step_budget_remaining": self.max_steps - len(observations),
@@ -205,27 +200,36 @@ Planning policy:
             )
 
         action = str(data.get("action") or "").strip()
-        if action == "final":
-            return AgentLoopActionV3(
-                action="final",
-                final_answer=str(data.get("final_answer") or "").strip() or None,
-                rationale=str(data.get("rationale") or "").strip() or None,
-            )
-        if action != "call_capability":
-            raise AgentCoreV3ContractError(
-                AgentCoreV3FailureCode.UNSUPPORTED_CONSTRAINT,
-                "H1B planner returned an unsupported action",
-                details={"action": action},
-            )
-
         capability_id = str(data.get("capability_id") or "").strip()
-        registration = registry.get(capability_id)
         raw_constraints = data.get("constraints")
         constraints = {
             str(k): str(v).strip()
             for k, v in raw_constraints.items()
             if isinstance(raw_constraints, dict) and v not in (None, "") and str(v).strip()
         } if isinstance(raw_constraints, dict) else {}
+        final_answer = str(data.get("final_answer") or "").strip() or None
+        rationale = str(data.get("rationale") or "").strip() or None
+
+        # Some compatible endpoints validate object shape but fail to enforce the
+        # enum value and emit action="" for an otherwise explicit final response.
+        # Normalize only the unambiguous final shape; never guess a missing tool call.
+        if not action and observations and not capability_id and not constraints and final_answer:
+            action = "final"
+
+        if action == "final":
+            return AgentLoopActionV3(
+                action="final",
+                final_answer=final_answer,
+                rationale=rationale,
+            )
+        if action != "call_capability":
+            raise AgentCoreV3ContractError(
+                AgentCoreV3FailureCode.UNSUPPORTED_CONSTRAINT,
+                "H1B planner returned an unsupported action",
+                details={"action": action, "has_final_answer": bool(final_answer)},
+            )
+
+        registration = registry.get(capability_id)
         unsupported = sorted(set(constraints) - set(registration.contract.supported_constraints))
         if unsupported:
             raise AgentCoreV3ContractError(
@@ -237,7 +241,7 @@ Planning policy:
             action="call_capability",
             capability_id=capability_id,
             constraints=constraints,
-            rationale=str(data.get("rationale") or "").strip() or None,
+            rationale=rationale,
         )
 
 
