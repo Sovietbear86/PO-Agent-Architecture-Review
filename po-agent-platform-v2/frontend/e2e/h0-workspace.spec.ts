@@ -97,6 +97,13 @@ function v3Meta(payload: QueryResponse): Record<string, unknown> | null {
   return meta && typeof meta === 'object' ? meta as Record<string, unknown> : null
 }
 
+function metaLlmUsed(meta: Record<string, unknown> | null): boolean {
+  if (meta?.llm_used === true) return true
+  const semanticPrepass = meta?.semantic_prepass
+  if (!semanticPrepass || typeof semanticPrepass !== 'object') return false
+  return (semanticPrepass as Record<string, unknown>).llm_used === true
+}
+
 test.describe('H0 real Workspace browser harness', () => {
   test('session isolation and new conversation are real browser behavior', async ({ browser }) => {
     const context = await browser.newContext()
@@ -157,7 +164,7 @@ test.describe('H0 real Workspace browser harness', () => {
       expect(payload.session_id).toBe(browserSession)
       const meta = v3Meta(payload)
       expect(meta, 'Expected _agent_core_v3 metadata').not.toBeNull()
-      expect(meta?.llm_used).toBe(true)
+      expect(metaLlmUsed(meta), 'Expected semantic LLM usage in v3 metadata').toBe(true)
 
       await page.getByRole('button', { name: /Evidence .* trace/ }).last().click()
       await expect(page.getByText(`trace_id: ${payload.trace_id}`)).toBeVisible()
