@@ -124,6 +124,49 @@ class ProductionEntityResolverV2(LiveGroundedEntityResolver):
         if assignee and not slots.get("member_login") and not slots.get("person_raw"):
             slots["person_raw"] = assignee
 
+    @staticmethod
+    def _query_mentions_identity(original_query: str, identity: dict[str, str]) -> bool:
+        query_tokens = _tokens(original_query)
+        if not query_tokens:
+            return False
+        candidate = " ".join(str(identity.get(key) or "") for key in ("display_name", "login", "external_id"))
+        identity_tokens = tuple(token for token in _tokens(candidate) if len(token) >= 4)
+        return any(
+            q == candidate_token or q.startswith(candidate_token) or candidate_token.startswith(q)
+            for q in query_tokens
+            for candidate_token in identity_tokens
+        )
+
+    async def _infer_missing_person_from_query(self, frame: SemanticFrame, slots: dict[str, str], original_query: str) -> None:
+        """Recover a uniquely source-backed team identity when the semantic LLM omitted the person slot.
+
+        This is entity grounding, not intent routing: it is used only for an already
+        selected task-search intent and only when exactly one source/configured identity
+        matches the user's wording. Ambiguity remains fail-closed.
+        """
+        if slots.get("member_login") or slots.get("person_raw") or any(slots.get(alias) for alias in self._PERSON_RAW_ALIASES):
+            return
+        intent = str(frame.intent_hint or "").casefold().replace("-", "_")
+        if "task" not in intent or "search" not in intent:
+            return
+        context = await self.semantic_context()
+        matches = [
+            identity
+            for identity in context.get("assignee_identities", [])
+            if isinstance(identity, dict) and self._query_mentions_identity(original_query, identity)
+        ]
+        unique = {
+            (
+                str(item.get("display_name") or ""),
+                str(item.get("login") or ""),
+                str(item.get("external_id") or ""),
+            )
+            for item in matches
+        }
+        if len(unique) == 1:
+            display, login, external_id = next(iter(unique))
+            slots["person_raw"] = display or login or external_id
+
     async def _ground_person_login(self, slots: dict[str, str]) -> None:
         person_raw = str(slots.get("person_raw") or "").strip()
         if not person_raw:
@@ -155,6 +198,7 @@ class ProductionEntityResolverV2(LiveGroundedEntityResolver):
         if slots.get("status_raw") and not slots.get("status") and not slots.get("status_semantic"):
             slots["status"] = slots["status_raw"]
         self._normalize_person_slots(slots)
+        await self._infer_missing_person_from_query(frame, slots, original_query)
         self._normalize_status_constraint(slots, original_query)
         await self._ground_person_login(slots)
 
@@ -194,6 +238,8 @@ class ProductionEntityResolverV2(LiveGroundedEntityResolver):
                 ))
 
         requested_person = next((requested_slots.get(key) for key in ("person_raw", *self._PERSON_RAW_ALIASES, "assignee") if requested_slots.get(key)), None)
+        if not requested_person and slots.get("person_raw"):
+            requested_person = slots.get("person_raw")
         if requested_person and not final_slots.get("member_login"):
             needs.append(ClarificationNeed(
                 "member_login",
