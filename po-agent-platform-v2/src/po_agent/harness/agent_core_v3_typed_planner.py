@@ -39,6 +39,7 @@ Rules:
 - Constraint values may only be literals present in user_query, $ground.<field> from grounded_values, or $obs.<step>.<path> from observations.
 - Prefer $ground.member_login for a grounded person.
 - If the next step depends on a source fact from a previous capability, use $obs; never guess it.
+- Observations are a compact authoritative projection for planning. Use the supplied fields; do not infer additional source constraints from identifier spelling. For example, if a task lookup observation supplies project_space, use $obs.<step>.task.project_space instead of deriving a space from the task-key prefix.
 - FINAL is allowed only when observations support the requested result, or when the requested operation is outside the available catalog and the answer explicitly says it is unsupported.
 - Keep FINAL concise and task-focused. Do not copy long descriptions, comments or raw source payloads unless the user explicitly asked for their full text. Prefer identifiers, title, status and the specific facts needed to answer the request.
 - Break compound requests into the minimum sequence of capability calls and re-plan after each observation.
@@ -52,7 +53,22 @@ Return exactly ONE JSON object only. Choose exactly one branch:
 CALL => non-null call and final=null.
 FINAL => call=null and non-null final.answer.
 Keep FINAL concise; do not copy long source descriptions unless explicitly required by the user.
+Use source facts from $ground or $obs instead of deriving identifiers or spaces by analogy.
 Do not return both null. Do not add an action field. Do not invent source facts."""
+
+    _TASK_PLAN_FIELDS = (
+        "key",
+        "id",
+        "title",
+        "status",
+        "status_category",
+        "assignee",
+        "assignee_login",
+        "assignee_id",
+        "project_space",
+        "sprint_id",
+        "release_id",
+    )
 
     def __init__(self, client: LLMClient, *, model: str | None = None, max_steps: int = 4) -> None:
         self.client = client
@@ -101,6 +117,46 @@ Do not return both null. Do not add an action field. Do not invent source facts.
         return AgentLoopActionV3(action="final", final_answer=answer, rationale=rationale)
 
     @classmethod
+    def _compact_task(cls, raw: Any) -> dict[str, Any] | None:
+        if not isinstance(raw, Mapping):
+            return None
+        return {field: raw.get(field) for field in cls._TASK_PLAN_FIELDS if raw.get(field) not in (None, "")}
+
+    @classmethod
+    def _compact_observation(cls, item: AgentLoopObservationV3) -> dict[str, Any]:
+        """Project executor output into the minimum source facts required for replanning.
+
+        Full descriptions/source_data stay in the authoritative observation kept by
+        the executor and response trace. They are intentionally excluded from the LLM
+        planner prompt: the planner needs routing facts, not multi-KB payloads.
+        """
+        data = dict(item.data)
+        compact: dict[str, Any] = {}
+        task = cls._compact_task(data.get("task"))
+        if task:
+            compact["task"] = task
+        if "found" in data:
+            compact["found"] = bool(data.get("found"))
+        if "count" in data:
+            compact["count"] = data.get("count")
+        if isinstance(data.get("filters"), Mapping):
+            compact["filters"] = dict(data["filters"])
+        tasks = data.get("tasks")
+        if isinstance(tasks, list):
+            compact_tasks = [row for row in (cls._compact_task(value) for value in tasks[:50]) if row]
+            compact["task_count"] = len(tasks)
+            compact["tasks"] = compact_tasks
+            compact["task_keys"] = [str(row.get("key")) for row in compact_tasks if row.get("key")]
+            if len(tasks) > len(compact_tasks):
+                compact["tasks_truncated_for_planner"] = True
+        return {
+            "step": item.step,
+            "capability_id": item.capability_id,
+            "constraints": dict(item.constraints),
+            "data": compact,
+        }
+
+    @classmethod
     def _attempt_messages(
         cls,
         *,
@@ -127,7 +183,7 @@ Do not return both null. Do not add an action field. Do not invent source facts.
             "user_query": user_query,
             "grounded_values": dict(grounded_values or {}),
             "capability_catalog": list(registry.compact_catalog(family="tasks")),
-            "observations": [item.to_dict() for item in observations],
+            "observations": [self._compact_observation(item) for item in observations],
             "step_budget_remaining": self.max_steps - len(observations),
         }
         failures: list[dict[str, Any]] = []
@@ -136,10 +192,8 @@ Do not return both null. Do not add an action field. Do not invent source facts.
         # when response_format is present. Do not send response_format at all.
         # Every retry starts from a fresh base conversation to avoid poisoning the
         # model with malformed output from the previous provider attempt.
-        # A real task observation can contain several KB of source text, so 350
-        # output tokens is not a safe bound for the post-observation FINAL branch.
-        # Keep a bounded but sufficiently large budget and instruct the model to
-        # summarize rather than echo long source descriptions.
+        # The planner sees a compact observation projection, while the full source
+        # result remains available to deterministic execution/evidence.
         for attempt in range(1, 4):
             messages = self._attempt_messages(payload=payload, repair=attempt > 1)
             try:
