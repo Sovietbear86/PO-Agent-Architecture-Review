@@ -124,12 +124,7 @@ Do not return both null. Do not add an action field. Do not invent source facts.
 
     @classmethod
     def _compact_observation(cls, item: AgentLoopObservationV3) -> dict[str, Any]:
-        """Project executor output into the minimum source facts required for replanning.
-
-        Full descriptions/source_data stay in the authoritative observation kept by
-        the executor and response trace. They are intentionally excluded from the LLM
-        planner prompt: the planner needs routing facts, not multi-KB payloads.
-        """
+        """Project executor output into the minimum source facts required for replanning."""
         data = dict(item.data)
         compact: dict[str, Any] = {}
         task = cls._compact_task(data.get("task"))
@@ -155,6 +150,53 @@ Do not return both null. Do not add an action field. Do not invent source facts.
             "constraints": dict(item.constraints),
             "data": compact,
         }
+
+    @staticmethod
+    def _observation_reference_for_literal(field: str, value: str, observations: list[AgentLoopObservationV3]) -> str | None:
+        """Bind a model literal to an identical authoritative observation fact.
+
+        This does not infer new values. It only replaces a literal with a source-backed
+        reference when an exact value is already present in a previous executor result.
+        """
+        wanted = value.strip().casefold()
+        if not wanted or value.startswith("$obs.") or value.startswith("$ground."):
+            return None
+        field_paths = {
+            "space": ("project_space",),
+            "assignee": ("assignee_login", "assignee_id", "assignee"),
+            "task_key": ("key",),
+            "status": ("status", "status_category"),
+        }
+        candidates = field_paths.get(field, ())
+        for item in reversed(observations):
+            task = item.data.get("task") if isinstance(item.data, Mapping) else None
+            if isinstance(task, Mapping):
+                for source_field in candidates:
+                    source_value = task.get(source_field)
+                    if source_value not in (None, "") and str(source_value).strip().casefold() == wanted:
+                        return f"$obs.{item.step}.task.{source_field}"
+        return None
+
+    @classmethod
+    def _bind_observation_literals(cls, decision: AgentLoopActionV3, observations: list[AgentLoopObservationV3]) -> AgentLoopActionV3:
+        if decision.action != "call_capability" or not decision.constraints or not observations:
+            return decision
+        constraints = dict(decision.constraints)
+        changed = False
+        for field, value in list(constraints.items()):
+            reference = cls._observation_reference_for_literal(field, value, observations)
+            if reference:
+                constraints[field] = reference
+                changed = True
+        if not changed:
+            return decision
+        return AgentLoopActionV3(
+            action=decision.action,
+            capability_id=decision.capability_id,
+            constraints=constraints,
+            final_answer=decision.final_answer,
+            rationale=decision.rationale,
+        )
 
     @classmethod
     def _attempt_messages(
@@ -188,12 +230,6 @@ Do not return both null. Do not add an action field. Do not invent source facts.
         }
         failures: list[dict[str, Any]] = []
 
-        # Qwen 3.8's current OpenAI-compatible endpoint double-wraps/corrupts JSON
-        # when response_format is present. Do not send response_format at all.
-        # Every retry starts from a fresh base conversation to avoid poisoning the
-        # model with malformed output from the previous provider attempt.
-        # The planner sees a compact observation projection, while the full source
-        # result remains available to deterministic execution/evidence.
         for attempt in range(1, 4):
             messages = self._attempt_messages(payload=payload, repair=attempt > 1)
             try:
@@ -219,7 +255,7 @@ Do not return both null. Do not add an action field. Do not invent source facts.
 
             decision = self._decode_candidate(parsed, registry=registry)
             if decision is not None:
-                return decision
+                return self._bind_observation_literals(decision, observations)
 
             failures.append({
                 "attempt": attempt,
