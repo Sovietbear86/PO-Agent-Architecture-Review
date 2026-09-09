@@ -138,16 +138,15 @@ class ProductionEntityResolverV2(LiveGroundedEntityResolver):
         )
 
     async def _infer_missing_person_from_query(self, frame: SemanticFrame, slots: dict[str, str], original_query: str) -> None:
-        """Recover a uniquely source-backed team identity when the semantic LLM omitted the person slot.
+        """Recover one uniquely source-backed identity when the semantic LLM omitted it.
 
-        This is entity grounding, not intent routing: it is used only for an already
-        selected task-search intent and only when exactly one source/configured identity
-        matches the user's wording. Ambiguity remains fail-closed.
+        This is entity annotation only, never intent/capability routing. The recovery
+        may run even when the semantic pre-pass returned an empty intent, because H1B
+        already controls whether the request is in the task vertical. A value is bound
+        only when the user's wording matches exactly one source/configured identity;
+        zero or multiple matches remain fail-closed downstream.
         """
         if slots.get("member_login") or slots.get("person_raw") or any(slots.get(alias) for alias in self._PERSON_RAW_ALIASES):
-            return
-        intent = str(frame.intent_hint or "").casefold().replace("-", "_")
-        if "task" not in intent or "search" not in intent:
             return
         context = await self.semantic_context()
         matches = [
