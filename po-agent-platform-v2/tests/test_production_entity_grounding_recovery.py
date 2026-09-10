@@ -2,6 +2,7 @@ import asyncio
 import types
 
 from po_agent.harness.dialogue_runtime import SemanticFrame
+from po_agent.harness.entity_grounding import TeamDirectory, TeamDirectoryEntry
 from po_agent.harness.production_entity_grounding_v2 import ProductionEntityResolverV2
 
 
@@ -59,3 +60,26 @@ def test_existing_llm_person_slot_is_never_overridden() -> None:
     asyncio.run(resolver._infer_missing_person_from_query(_empty_frame(), slots, "Задачи Гаранина"))
 
     assert slots["person_raw"] == "Гаранина"
+
+
+class _EmptyBulkTaskAdapter:
+    async def search_tasks(self, query: str, **kwargs):
+        del query, kwargs
+        return []
+
+
+def test_semantic_context_seeds_identity_from_team_directory_when_bulk_scan_is_empty() -> None:
+    team = TeamDirectory((
+        TeamDirectoryEntry(login="Garanin.R.V", full_name="Родион Гаранин", products=("DMS", "OLP")),
+        TeamDirectoryEntry(login="Semavin.M.M", full_name="Михаил Семавин", products=("DMS",)),
+    ))
+    resolver = ProductionEntityResolverV2(_EmptyBulkTaskAdapter(), team=team)
+
+    context = asyncio.run(resolver.semantic_context())
+
+    assert {item["login"] for item in context["assignee_identities"]} == {"Garanin.R.V", "Semavin.M.M"}
+    assert "Garanin.R.V" in context["known_assignees"]
+
+    slots: dict[str, str] = {}
+    asyncio.run(resolver._infer_missing_person_from_query(_empty_frame(), slots, "Задачи Гаранина"))
+    assert slots["person_raw"] == "Родион Гаранин"
