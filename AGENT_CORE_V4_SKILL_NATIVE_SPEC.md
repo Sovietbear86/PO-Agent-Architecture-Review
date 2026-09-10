@@ -4,6 +4,41 @@
 **Decision:** APPROVED  
 **Reason:** Assignment 175 proves the current semantic-prepass/clarification seam is structurally too brittle for the product goal. We stop adding field/name/phrase exceptions and move to a skill-native Hermes-style agent runtime.
 
+## 0. V4 decision checkpoint and rollback safety
+
+V4 is an **additive architectural experiment behind a feature flag**, not an irreversible replacement of the last H1B state.
+
+The exact pre-V4 rollback checkpoint is:
+
+```text
+1a87e3e3ea5da14ef44da6c4515dbf2961df0423
+```
+
+This is the parent of the first V4 production commit `867761b2abe9b8d958d93556627ef729f9d604b6`. The pre-V4 checkpoint therefore preserves all work accepted before the V4 implementation slice while excluding every V4 production change.
+
+Decision rules:
+- V4 is the **primary path toward the product DoD** while the V4 POC is active.
+- H1B/V3 remains the rollback/reference path; do not delete it until V4 has passed the defined cutover gates.
+- A RED V4 test does **not** automatically mean rollback. First classify whether the failure is a bounded V4 implementation defect, source outage, model reliability problem or evidence that the architecture itself cannot satisfy the DoD.
+- Roll back to `1a87e3e3ea5da14ef44da6c4515dbf2961df0423` only if the V4 architecture fails its decision gate after bounded repair attempts, or if V4 causes an unrecoverable regression in a previously proven lower-layer invariant.
+- Do not resume the old strategy of accumulating person/phrase/semantic-field exceptions after rollback. A rollback would trigger an architecture re-evaluation, not a return to endless H1B patching.
+- Keep V4 code isolated by `PO_AGENT_AGENT_CORE_V4_ENABLED`; V3/H1B remains runnable with V4 disabled until formal cutover.
+
+### V4 POC decision gate
+
+Before committing to full 54-skill migration, V4 must prove all of the following on REAL AS21:
+
+1. Raw natural-language requests can execute even when the legacy semantic pre-pass is empty or wrong.
+2. New people/spaces/sprints do not require production routing or prompt edits.
+3. Single-step factual requests achieve exact Oracle B parity.
+4. Compound requests produce a valid multi-step `plan -> call -> observe -> re-plan` trajectory.
+5. Requested constraints survive execution and are postcondition-validated.
+6. Browser C reproduces the same correct result with session isolation.
+7. Fail-closed behavior is preserved for ambiguity, source-unavailable and unsupported historical facts.
+8. The architecture demonstrates a credible migration path for all 54 skills using reusable capabilities rather than 54 phrase routers.
+
+If these conditions are met, V4 becomes the committed architecture and we proceed family-by-family to the 54-skill DoD. If not, use the checkpoint above to restore the pre-V4 production state and reassess the orchestration design while preserving the proven REAL AS21/source plane.
+
 ## 1. Product goal
 
 PO Agent must solve user requests by selecting and composing its skills/capabilities, not by relying on a brittle mandatory semantic schema that has to perfectly extract every person, space, sprint, status or phrase before execution can begin.
