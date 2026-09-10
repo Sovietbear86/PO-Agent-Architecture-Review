@@ -71,6 +71,7 @@ def get_runtime_bundle() -> RuntimeBundle:
                 semantic_interpreter=interpreter,
                 learned_semantics_path=settings.learned_semantics_path,
                 agent_core_v3_enabled=settings.agent_core_v3_enabled,
+                agent_core_v4_enabled=settings.agent_core_v4_enabled,
             )
             _runtime = _bundle.runtime
             _runtime_init_error = None
@@ -110,6 +111,8 @@ async def health_check(request: Request):
             "adapter": settings.as21_mode,
             "semantic_mode": "qwen-llm" if settings.semantic_llm_enabled and settings.llm_api_key else "fail-closed",
             "agent_core_v3_enabled": settings.agent_core_v3_enabled,
+            "agent_core_v4_enabled": settings.agent_core_v4_enabled,
+            "agent_core_v4_ready": False,
             "source_status": "unknown",
             "runtime_init_error": _runtime_init_error,
             "correlation_id": correlation_id,
@@ -134,6 +137,8 @@ async def health_check(request: Request):
         "adapter": bundle.mode,
         "semantic_mode": semantic_mode,
         "agent_core_v3_enabled": settings.agent_core_v3_enabled,
+        "agent_core_v4_enabled": settings.agent_core_v4_enabled,
+        "agent_core_v4_ready": bundle.v4_runtime is not None,
         "source_status": source_status,
         "source_error": source_error,
         "runtime_init_error": None,
@@ -179,6 +184,45 @@ async def query_agent(payload: QueryRequest, request: Request):
             },
             "evidence": [],
             "warnings": ["harness_internal_error"],
+            "trace_id": str(uuid.uuid4()),
+            "session_id": session_id,
+            "latency_ms": 0.0,
+        }
+    response["correlation_id"] = correlation_id
+    return response
+
+
+@router.post("/query-v4")
+async def query_agent_v4(payload: QueryRequest, request: Request):
+    """Additive Agent Core v4 POC endpoint.
+
+    It intentionally bypasses the legacy semantic-prepass/clarification routing
+    path.  The raw query is handled by the skill-native planner + governed source
+    capabilities.  Keeping this endpoint separate allows direct A/B/C comparison
+    while v4 is still a POC.
+    """
+    settings = get_settings()
+    correlation_id = request.headers.get(settings.correlation_id_header, str(uuid.uuid4()))
+    session_id = payload.session_id or request.headers.get("X-Session-Id") or str(uuid.uuid4())
+    bundle = get_runtime_bundle()
+    if not settings.agent_core_v4_enabled or bundle.v4_runtime is None:
+        raise HTTPException(status_code=503, detail="Agent Core v4 POC is not enabled/ready")
+    try:
+        result = await bundle.v4_runtime.process(HarnessRequest(query=payload.query, session_id=session_id))
+        response = result.to_dict()
+    except Exception as exc:
+        logger.exception("Agent Core v4 query failed", extra={"correlation_id": correlation_id, "session_id": session_id})
+        response = {
+            "status": "FAILED",
+            "answer": "Agent Core v4 завершил выполнение fail-closed из-за внутренней ошибки.",
+            "question": None,
+            "options": [],
+            "clarification_id": None,
+            "intent": "skill_native_v4",
+            "skill": None,
+            "data": {"_agent_core_v4": {"exception_type": type(exc).__name__}},
+            "evidence": [],
+            "warnings": ["v4_internal_error"],
             "trace_id": str(uuid.uuid4()),
             "session_id": session_id,
             "latency_ms": 0.0,
