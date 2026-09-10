@@ -41,6 +41,10 @@ class ProductionEntityResolverV2(LiveGroundedEntityResolver):
         "person", "person_name", "member", "member_name", "assignee_raw",
         "assignee_name", "employee", "user",
     )
+    _GENERIC_SEMANTIC_CLARIFICATION_FIELDS = frozenset({
+        "filter", "filters", "constraint", "constraints", "semantic_filter",
+        "semantic_filters", "query_filters",
+    })
 
     async def semantic_context(self) -> dict[str, Any]:
         context = await super().semantic_context()
@@ -153,6 +157,83 @@ class ProductionEntityResolverV2(LiveGroundedEntityResolver):
             for candidate_token in identity_tokens
         )
 
+    @classmethod
+    def _query_explicit_space(cls, original_query: str) -> str | None:
+        tokens = {token.upper() for token in re.findall(r"\b[A-Za-zА-Яа-я0-9_-]+\b", original_query)}
+        matches = sorted(tokens & APPROVED_PRODUCT_SPACES)
+        return matches[0] if len(matches) == 1 else None
+
+    @classmethod
+    def _material_query_constraints_are_grounded(
+        cls,
+        *,
+        slots: dict[str, str],
+        final_slots: dict[str, str],
+        original_query: str,
+    ) -> bool:
+        """Return True only when every material constraint visible to this layer is proven.
+
+        This is used solely to reconcile stale *generic* LLM clarification messages.
+        It never invents an entity, status or space. If the query explicitly asks for
+        a dimension and grounding has not produced its canonical value, clarification
+        remains fail-closed.
+        """
+        person_requested = bool(slots.get("person_raw") or slots.get("member_login"))
+        if person_requested and not final_slots.get("member_login"):
+            return False
+
+        product_requested = bool(slots.get("product")) or cls._query_explicit_space(original_query) is not None
+        if product_requested and not final_slots.get("product"):
+            return False
+
+        status_requested = bool(
+            slots.get("status") or slots.get("status_raw") or slots.get("status_semantic")
+            or cls._query_requests_open_task_set(original_query)
+        )
+        if status_requested and not final_slots.get("status"):
+            return False
+
+        for field in ("sprint_id", "release_id", "task_key"):
+            if slots.get(field) and not final_slots.get(field):
+                return False
+        return True
+
+    @classmethod
+    def _reconcile_grounded_clarifications(
+        cls,
+        needs: list[ClarificationNeed],
+        *,
+        slots: dict[str, str],
+        final_slots: dict[str, str],
+        original_query: str,
+    ) -> list[ClarificationNeed]:
+        """Drop only clarification needs made obsolete by authoritative grounding.
+
+        LLM semantic pre-pass is advisory in H1B. It may ask a generic "clarify the
+        filters" question before the deterministic grounding layer has resolved a
+        full name/space/status. Once those exact constraints are source-backed, that
+        earlier generic uncertainty is stale and must not suppress execution.
+        Specific unresolved needs remain intact.
+        """
+        reconciled: list[ClarificationNeed] = []
+        all_material_grounded = cls._material_query_constraints_are_grounded(
+            slots=slots,
+            final_slots=final_slots,
+            original_query=original_query,
+        )
+        for need in needs:
+            field = str(need.field or "").strip().casefold()
+            if field in {"member_login", "person", "person_raw", "assignee"} and final_slots.get("member_login"):
+                continue
+            if field in {"product", "space"} and final_slots.get("product"):
+                continue
+            if field in {"status", "status_raw", "status_semantic"} and final_slots.get("status"):
+                continue
+            if field in cls._GENERIC_SEMANTIC_CLARIFICATION_FIELDS and all_material_grounded:
+                continue
+            reconciled.append(need)
+        return reconciled
+
     async def _infer_missing_person_from_query(self, frame: SemanticFrame, slots: dict[str, str], original_query: str) -> None:
         """Recover one uniquely source-backed identity when the semantic LLM omitted it.
 
@@ -230,10 +311,6 @@ class ProductionEntityResolverV2(LiveGroundedEntityResolver):
         needs = list(grounded.clarifications)
         context = await self.semantic_context()
 
-        # Remove member_login clarification if we successfully resolved it
-        if final_slots.get("member_login"):
-            needs = [n for n in needs if n.field != "member_login"]
-
         if final_slots.get("member_login"):
             final_slots["assignee"] = final_slots["member_login"]
 
@@ -275,6 +352,13 @@ class ProductionEntityResolverV2(LiveGroundedEntityResolver):
                 f"Не удалось однозначно подтвердить условие статуса «{requested_slots.get('status') or requested_slots.get('status_raw') or requested_slots.get('status_semantic')}».",
                 tuple(str(x) for x in context.get("known_statuses", [])),
             ))
+
+        needs = self._reconcile_grounded_clarifications(
+            needs,
+            slots=slots,
+            final_slots=final_slots,
+            original_query=original_query,
+        )
 
         return SemanticFrame(
             canonical_query=grounded.canonical_query,
