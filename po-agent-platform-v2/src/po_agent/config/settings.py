@@ -56,6 +56,11 @@ class Settings(BaseSettings):
         description="Enable the explicitly certified Agent Core v3 pilot routing seam",
         validation_alias=AliasChoices("AGENT_CORE_V3_ENABLED", "PO_AGENT_AGENT_CORE_V3_ENABLED"),
     )
+    agent_core_v4_enabled: bool = Field(
+        default=False,
+        description="Enable additive Agent Core v4 skill-native POC endpoint/runtime",
+        validation_alias=AliasChoices("AGENT_CORE_V4_ENABLED", "PO_AGENT_AGENT_CORE_V4_ENABLED"),
+    )
     swtr_base_url: str = Field(default="https://portal.works.prod.sbt/swtr")
     swtr_token: Optional[str] = Field(default=None)
 
