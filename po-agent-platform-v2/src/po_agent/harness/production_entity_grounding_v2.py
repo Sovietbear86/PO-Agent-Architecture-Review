@@ -49,6 +49,22 @@ class ProductionEntityResolverV2(LiveGroundedEntityResolver):
         seen: set[tuple[str, str, str]] = set()
         known_assignees = {str(value) for value in context.get("known_assignees", []) if value}
 
+        # TeamDirectory is an authoritative configured identity source and is
+        # populated even when the legacy bulk /tasks endpoint is empty in
+        # production task-api mode. Seed it first, then enrich with live tasks.
+        for member in context.get("team_members", []):
+            if not isinstance(member, dict):
+                continue
+            display = str(member.get("full_name") or "").strip()
+            login = str(member.get("login") or "").strip()
+            external_id = login
+            key = (display, login, external_id)
+            if not login or key in seen:
+                continue
+            seen.add(key)
+            identities.append({"display_name": display, "login": login, "external_id": external_id})
+            known_assignees.update(value for value in key if value)
+
         # Product-space validity is a configuration/source-contract fact, not a
         # property of whether the current task scan happens to contain tasks in
         # that space. Seed globally approved spaces and enrich them with any
