@@ -1,225 +1,156 @@
 # GigaCode — Current Action
 
 ## Status
-`ACTIVE_QA_ASSIGNMENT_174_H1B_FULL_COLLECTION_AND_UI_ROUTING_CERTIFICATION`
+`ACTIVE_QA_ASSIGNMENT_175_H1B_GROUNDED_CLARIFICATION_RECONCILIATION`
 
 ## Mission
-Certify BOTH:
-1. the owner fix for the full-collection defect exposed by Assignment 173 (`max_results=50` silent truncation), and
-2. the newly observed Browser/UI routing inconsistency where semantically equivalent task queries can take different runtime paths (H1B vs legacy/composite vs early fail) depending on member/space wording.
+Certify the final H1B routing-fidelity fix exposed by Assignment 174.
 
-Do NOT declare H1B closed merely because backend focused cases are green. The real UI must prove stable routing, stable grounding, and exact source parity for equivalent task-search requests.
+Assignment 174 already certifies and MUST NOT be broadly repeated:
+- full-collection cap fix is GREEN (large collections are no longer truncated at 50);
+- `Задачи Гаранина` identity/grounding path is GREEN;
+- typed 2-step loop is GREEN with exact Oracle parity;
+- Browser C multi-step is GREEN;
+- e2e:h0 was 5/5;
+- remaining RED is compound task queries such as `Открытые задачи Андрея Моисеева в DMS` and `Открытые задачи Семавина в DMS` returning NEEDS_CLARIFICATION while equivalent Garanin/Kalachanov queries complete.
 
-Observed real UI anomalies that MUST be reproduced or disproved:
-- `Открытые задачи Гаранина в DMS` -> H1B, correct-looking detailed result.
-- `Открытые задачи Андрея Моисеева в OLAP` -> legacy/composite-looking `Составной поиск: найдено задач: 25` very quickly.
-- `Открытые задачи Андрея Моисеева в DMS` -> early `FAILED` / `Не удалось безопасно интерпретировать запрос` in ~133 ms.
-- UI also showed a stale-looking top runtime line `Agent Core v3 · ready · NEEDS_CLARIFICATION · 0 ms` while subsequent turns completed.
+Owner fix under test:
+- `9fc3b4f57ad462c44c21379b52e224431d283c25` — reconcile stale semantic clarification needs only after deterministic/source-backed grounding has proven all material requested constraints.
+- `ba534718941395cb4bc76adab9b67c3f997b5492` — regression tests for safe clarification reconciliation.
 
-These behaviors are not acceptable as an unexamined selector seam. Equivalent task requests must not silently produce different truth semantics depending on surname or wording.
+The fix MUST NOT make semantic ambiguity unsafe. It may suppress an earlier generic LLM clarification only when the exact person/space/status constraints visible to the grounding layer are now authoritatively grounded. Specific unresolved sprint/release/person/product/status needs must remain fail-closed.
 
-QA ONLY. Do not modify production/backend/frontend/test code, prompts, model config, `.env`, registry contracts or runtime learning data.
-
-## Required owner commits
-Both MUST be ancestors before testing:
-- `700b4f0dcb930c1f16e269b791e4904bd0bdedee` — H1B task-search executor explicitly requests full collection window (`max_results=10000`).
-- `9fe2992f87850564561e19b67a2d45dd79f528ec` — regression test proving H1B does not inherit adapter default 50.
+QA ONLY. Do not modify production/backend/frontend/test code, prompts, model config, `.env`, registry contracts, or runtime learning data.
 
 ## Absolute rules
-- Oracle B = fresh direct REAL AS21/MCP-SWTR only. Never `/api/v1/tasks`, local DB, sync, fake, frozen, cached surrogate or old QA report counts.
-- Keep Qwen 3.8 and current endpoint unchanged.
-- Concurrency = 1.
-- Source timeout = 300s; end-to-end QA timeout may be 600s for large collections.
-- Proven source outage only: 2 retries with 30s backoff.
-- Exact task-key-set equality is mandatory for every collection certification. Subset parity is FAIL.
-- Do not accept a reported `count` unless it equals actual returned task-key count and fresh Oracle count.
-- Record the ACTUAL selected runtime path for every UI/backend request: selector result, `skill_id`, `intent`, H1B vs legacy/composite, raw semantic frame, grounded values, accepted contract, actual source query/JQL/TQL, result count, exact keys.
-- A semantically equivalent request must not silently change source semantics merely because the member name changes.
-- `OLAP` must NOT be silently treated as an arbitrary space. If an explicit supported alias exists in code/config, prove it and show canonicalization to `OLP`; otherwise expected behavior is clarification/fail-closed, never fabricated data.
-- Do not change production code if a defect is found; localize and STOP for owner fix.
-- Commit/push only final QA report.
+- Pull first: `git pull --ff-only origin feat/core8-real-query-hardening-v2`.
+- Verify both owner commits are ancestors of HEAD.
+- Oracle B = fresh direct REAL AS21/MCP-SWTR only. Never `/api/v1/tasks`, local DB, sync, fake/frozen/cached surrogate, or historical counts.
+- Keep Qwen 3.8/current provider unchanged.
+- Concurrency=1.
+- Source timeout 300s; E2E QA timeout may be 600s.
+- Exact task-key-set equality is mandatory for factual collection cases.
+- No production code changes. If a new defect is found, identify FIRST FAILING BOUNDARY and STOP for owner fix.
+- Commit/push only the final QA report.
 
-## Phase 0 — pull / provenance / healthy runtime
-1. `git pull --ff-only origin feat/core8-real-query-hardening-v2`.
-2. Print HEAD, git status, and this Status line.
-3. Verify both required owner commits are ancestors.
-4. Restart/reuse REAL MCP-SWTR + Task API + PO Agent v3 + frontend so new code is loaded.
-5. `/health` must prove v3=true, semantic LLM healthy, REAL source healthy; frontend reachable.
-6. Static proof from loaded production code:
-   - H1B `_execute_search()` calls `adapter.search_tasks(..., max_results=10000)` (or equivalent named H1B constant =10000);
-   - adapter global/default search limit remains 50;
-   - no local DB/sync path introduced;
-   - H1B `count` is derived from complete returned rows;
-   - identify and print the current task selector / strangler routing logic that decides H1B vs legacy.
+## Phase 0 — Provenance / fresh runtime
+1. Pull branch, print HEAD/status/current assignment.
+2. Verify `9fc3b4f...` and `ba534718...` are ancestors.
+3. Restart/reuse REAL MCP-SWTR + Task API + PO Agent v3 + frontend so owner code is loaded.
+4. `/health`: v3=true, semantic LLM healthy, REAL source healthy, frontend reachable.
+5. Static proof:
+   - generic semantic clarification reconciliation exists in `ProductionEntityResolverV2`;
+   - it suppresses only needs made obsolete by grounded values;
+   - explicit requested space/status/person must be grounded before a generic filter clarification can disappear;
+   - specific unresolved needs remain preserved;
+   - no surname/login hardcoding or capability routing was added.
 
-If environment/source unhealthy, STOP before expensive tests with proven blocker verdict.
+## Phase 1 — Unit/safety gate
+Run the focused grounding recovery/reconciliation tests plus the previously accepted H1B grounding/literal safety tests.
+Require all PASS.
 
-## Phase 1 — focused unit/build gate
-Run H1/H1B unit suites, including:
-`tests/test_agent_core_v3_h1b_full_collection.py`
+At minimum prove:
+- generic `filters` clarification + grounded Moiseev + DMS + open status => clarification removed;
+- same clarification + missing grounded DMS => clarification preserved;
+- specific unresolved sprint clarification => preserved;
+- ambiguous/nonexistent person => fail closed;
+- existing successful LLM person grounding is not overridden.
 
-Also include previously accepted H1B grounding/planner/loop/registry tests needed to detect regressions. Require all PASS.
-Run frontend typecheck/build required by project; require PASS.
+## Phase 2 — Fresh Oracle B
+Resolve and fetch fresh exact Oracle key sets for:
+- `Moiseev.A.N` in DMS, open/not-completed subset;
+- `Moiseev.A.N` in OLP, open/not-completed subset;
+- `Semavin.M.M` in DMS, open/not-completed subset;
+- `Garanin.R.V` in DMS, open/not-completed subset;
+- `Kalachanov.V.V` in WMB, open/not-completed subset.
 
-## Phase 2 — large-collection Oracle B baseline
-Fetch fresh REAL Oracle B via authoritative live assignee route for at least:
-- `Kalachanov.V.V` across approved spaces;
-- `Semavin.M.M` across approved spaces;
-- `Garanin.R.V` across approved spaces;
-- `Moiseev` / Андрей Моисеев: resolve source-backed canonical identity first, then fetch all approved-space tasks.
+Record canonical identity, canonical space, status semantics, counts and exact keys.
 
-Record exact current counts and exact key sets. Do not reuse prior report counts.
+## Phase 3 — Compound-query routing fidelity gate
+Fresh runtime session for every run. Execute 5x each:
+1. `Открытые задачи Андрея Моисеева в DMS`
+2. `Открытые задачи Андрея Моисеева в OLP`
+3. `Открытые задачи Семавина в DMS`
+4. `Открытые задачи Гаранина в DMS`
+5. `Открытые задачи Калачанова в WMB`
 
-At least one tested identity MUST have >50 tasks and one MUST have >300 tasks. If current source data no longer satisfies that, use another real configured team member and explain why.
-
-## Phase 3 — H1B full-collection gate
-Run fresh-session Agent A queries, concurrency=1:
-- 3× `Задачи Калачанова`
-- 3× `Задачи Гаранина`
-
-For every run require:
-- COMPLETED;
-- canonical grounded assignee;
-- H1B path when selected exposes `task-search-v3` executor metadata;
-- exact task-key set == same-window Oracle B;
-- returned row count == Oracle count;
-- answer count == returned row count == Oracle count;
-- no silent 50 cap;
-- no duplicate task keys.
-
-Any H1B run returning exactly 50 while Oracle >50 is immediate `H1B_COLLECTION_TRUNCATION_RED`.
-
-## Phase 4 — cross-route fidelity / selector consistency
-Run fresh sessions for ALL of the following, three times each where practical:
-- `Задачи Семавина`
-- `Открытые задачи Гаранина в DMS`
-- `Открытые задачи Андрея Моисеева в DMS`
-- `Открытые задачи Андрея Моисеева в OLP`
-- `Открытые задачи Калачанова в WMB`
-
-For every request capture:
-- selected selector/path;
-- `skill_id` and version;
-- raw semantic intent/slots and `llm_used`;
-- grounded member_login/person/space/status;
-- accepted turn contract;
-- actual source query/JQL/TQL sent downstream;
+For every run capture:
+- `llm_used`;
+- raw semantic intent/slots/clarifications;
+- grounded values after reconciliation;
+- remaining clarification list;
+- selected path/skill;
+- canonical assignee/space/status;
+- actual downstream source query;
 - status/latency;
-- returned count and exact keys;
-- fresh Oracle exact parity.
+- returned keys/count;
+- exact Oracle parity.
 
 Acceptance:
-- all source-backed cases must be truth-equivalent to Oracle B regardless of H1B/legacy path;
-- same semantic class of query must not fail only because the member is Moiseev while Garanin succeeds;
-- no path may report a different count/key set for the same canonical constraints;
-- if selector coverage differs but facts remain exact, record seam explicitly as H1C migration debt;
-- if routing difference changes result semantics, status behavior, source authority, or parity -> `H1B_ROUTE_FIDELITY_RED`.
+- every supported source-backed query must COMPLETE with exact Oracle parity;
+- Moiseev/Semavin must not fail solely because the semantic LLM emitted a stale generic filter clarification;
+- if LLM emits useful raw slots, they may be used; if deterministic grounding proves the same constraints, a stale generic clarification must not suppress execution;
+- any unresolved specific constraint remains clarification/fail-closed.
 
-## Phase 5 — explicit OLAP/OLP ambiguity gate
-Run in fresh sessions:
+Required result: 25/25 supported runs terminally correct. Any name-dependent NEEDS_CLARIFICATION with all canonical constraints proven => RED.
+
+## Phase 4 — ambiguity/fail-closed controls
+Fresh sessions:
+- nonexistent team member in DMS;
+- deliberately ambiguous person surname if the configured roster has one; otherwise create a non-production unit-only ambiguity using existing tests, do NOT invent source truth;
+- unsupported/unknown space token;
+- task query containing an explicit unresolved sprint/release constraint.
+
+Require no generic reconciliation to erase a genuinely unresolved constraint.
+No fabricated tasks, IDs, people or spaces.
+
+## Phase 5 — OLAP/OLP control
+Run:
 - `Открытые задачи Андрея Моисеева в OLP`
 - `Открытые задачи Андрея Моисеева в OLAP`
 
-First inspect code/config for an explicit alias mapping `OLAP -> OLP`.
+`OLAP` behavior may remain explicit clarification/fail-closed at H1B. It must not silently execute against arbitrary space. Record whether deterministic alias exists but is not yet integrated into the semantic path; this is H1C debt unless fabricated data is returned.
 
-Acceptance:
-- If explicit alias exists: `OLAP` must deterministically canonicalize to `OLP`, and both queries must have identical canonical constraints and exact Oracle key set.
-- If no explicit alias exists: `OLAP` must produce clarification/fail-closed; it MUST NOT execute against an arbitrary project or return an unexplained task set.
-- Silent `OLAP` interpretation without explicit alias evidence is FAIL: `H1B_SPACE_ALIAS_RED`.
+## Phase 6 — protected H1B regression
+Do NOT rerun full long catalog. Run only protected regression:
+- `Задачи Гаранина`
+- `Задачи Калачанова`
+- `Покажи DMS-380`
+- 3x `Проверь DMS-380 и затем покажи задачи его исполнителя`
 
-## Phase 6 — multi-step high-cardinality regression
-Fresh Oracle B for assignee of DMS-380 and full assignee collection.
-Run 3× fresh-session:
-`Проверь DMS-380 и затем покажи задачи его исполнителя`
+Use fresh Oracle B and require exact parity for factual results. Multi-step must remain typed two-step and full-collection safe.
 
-Require each run:
-- real typed 2-step loop: task lookup -> task search;
-- step-2 assignee from authoritative observation/source-backed binding;
-- full step-2 task-key set == fresh Oracle B (not first 50);
-- count == full Oracle count;
-- no duplicate keys;
-- postconditions pass.
+## Phase 7 — Browser C
+1. Run existing `npm run e2e:h0`; require 5/5.
+2. Real Playwright Chromium, fresh conversation per case:
+   - `Открытые задачи Андрея Моисеева в DMS`
+   - `Открытые задачи Семавина в DMS`
+   - `Открытые задачи Гаранина в DMS`
+   - `Проверь DMS-380 и затем покажи задачи его исполнителя`
+3. Persist screenshot, UI session id, correlated backend trace, selected path, grounded constraints, counts and exact Oracle keys.
+4. Browser C == Agent A == Oracle B.
 
-## Phase 7 — space-filter regression
-Using fresh Oracle B, run:
-- `Задачи Гаранина в DMS`
-- `Задачи Калачанова в WMB`
-- `Открытые задачи Андрея Моисеева в DMS`
-- `Открытые задачи Андрея Моисеева в OLP`
-- one real high-cardinality assignee + approved space where result remains >50, if such current source case exists.
-
-Require exact same-window key-set parity, status filtering parity and constraint preservation. If no >50 per-space case exists, state that; do not invent one.
-
-## Phase 8 — Browser C H0 + routing consistency regression
-Run existing:
-`npm run e2e:h0`
-Require 5/5 PASS.
-
-Then use REAL Playwright Chromium, fresh conversation/session per case, for:
-1. `Открытые задачи Гаранина в DMS`
-2. `Открытые задачи Андрея Моисеева в DMS`
-3. `Открытые задачи Андрея Моисеева в OLP`
-4. `Открытые задачи Андрея Моисеева в OLAP`
-5. `Открытые задачи Семавина в DMS` or another approved space with live data
-6. `Открытые задачи Калачанова в WMB`
-
-Persist for each:
-- screenshot;
-- browser session id;
-- correlated backend trace id;
-- rendered runtime label (`Agent Core v3/H1B` vs other);
-- backend `skill_id`, semantic frame, grounded constraints, selected path;
-- actual downstream source query;
-- rendered count;
-- backend count;
-- fresh Oracle count and exact key parity.
-
-Acceptance:
-- Browser C == Agent A == Oracle B for every valid supported query;
-- no equivalent request may randomly use incompatible truth semantics;
-- Moiseev/DMS must not early-fail if the same canonical identity+space can be grounded and queried through source;
-- stale `NEEDS_CLARIFICATION · 0 ms` UI state must be investigated: prove whether it is harmless initial/stale presentation or a real session contamination signal. Capture exact request/response/session evidence.
-
-If stale state corresponds to prior session/turn leakage, verdict `H1B_BROWSER_SESSION_STATE_RED`.
-If it is presentation-only while request isolation is correct, record as frontend UX debt for later H6.
-
-## Phase 9 — Browser C real full-collection multi-step
-Fresh Playwright Chromium conversation:
-`Проверь DMS-380 и затем покажи задачи его исполнителя`
-
-Persist screenshot/artifacts, UI session id, correlated backend trace, loop steps and source evidence.
-Require Browser C == Agent A == fresh Oracle B for COMPLETE step-2 collection and count.
-
-If UI intentionally summarizes thousands of rows, backend exact full collection is still mandatory and UI must clearly distinguish displayed sample from total; it must never present a truncated sample count as total.
-
-## Phase 10 — closure decision
+## Phase 8 — H1B closure decision
 Write ONLY:
-`po-agent-platform-v2/qa_reports/AGENT_CORE_V3_H1B_FULL_COLLECTION_UI_ROUTING_174.md`
+`po-agent-platform-v2/qa_reports/AGENT_CORE_V3_H1B_GROUNDED_CLARIFICATION_175.md`
 
-Allowed verdicts ONLY:
+Allowed verdicts only:
 - `AGENT_CORE_V3_H1B_LOOP_GREEN`
-- `H1B_COLLECTION_TRUNCATION_RED`
-- `H1B_AGENT_ORACLE_PARITY_RED`
+- `H1B_CLARIFICATION_RECONCILIATION_RED`
 - `H1B_ROUTE_FIDELITY_RED`
-- `H1B_SPACE_ALIAS_RED`
-- `H1B_MULTI_STEP_REGRESSION_RED`
+- `H1B_AGENT_ORACLE_PARITY_RED`
+- `H1B_SAFETY_REGRESSION_RED`
 - `H1B_BROWSER_REGRESSION_RED`
-- `H1B_BROWSER_SESSION_STATE_RED`
 - `BLOCKED_BY_PROVEN_SOURCE_OUTAGE`
 - `BLOCKED_BY_PROVEN_ENVIRONMENT`
 
-GREEN requires phases 0–9 all certified.
+GREEN requires Phases 0-7 all pass. If GREEN explicitly state:
+- H1B task lookup/search Hermes loop is CLOSED/certified;
+- source completeness, identity grounding, compound query grounding and Browser C parity are certified;
+- remaining selector/progressive disclosure debt moves to H1C/H3 Progressive Skill Loading;
+- next stage is H1C/H3 progressive capability/skill selection, not further H1B surname-specific patching.
 
-If GREEN, explicitly state:
-- H1B Hermes Agent Loop is CLOSED/certified for task lookup/search slice;
-- full collection parity is proven beyond the old 50-row cap;
-- Browser C and backend use truth-equivalent semantics for tested team members/spaces;
-- any remaining selector implementation seam is fidelity-safe and moves to H1C Progressive Skill Loading;
-- next architecture stage = H1C Progressive Skill Loading.
-
-If RED due routing/UI anomaly, identify FIRST FAILING BOUNDARY and exact file/function responsible. Do not patch it in QA.
-
-Commit/push only final QA report and STOP.
+Commit/push only the final QA report and STOP.
 
 ## Start now
-Execute Assignment 174 completely. Pull first, load fresh runtime, establish fresh Oracle baselines, prove full-collection parity, then explicitly reproduce/disprove the UI anomalies before any H1B closure verdict.
+Execute Assignment 175 completely. Do not modify production code.
