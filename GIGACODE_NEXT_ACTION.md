@@ -1,116 +1,156 @@
 # GigaCode — Current Action
 
 ## Status
-`ACTIVE_QA_ASSIGNMENT_172_H1B_IDENTITY_SOURCE_RECOVERY_RETEST`
+`ACTIVE_QA_ASSIGNMENT_173_H1B_CANONICAL_GROUNDED_LITERAL_CERTIFICATION`
 
 ## Mission
-Certify the owner fix for the exact production boundary proven by Assignment 171: `ProductionEntityResolverV2._infer_missing_person_from_query()` was correct, but its `assignee_identities` pool was empty because production task-api bulk `/api/v1/tasks` returns no rows. Identity recovery must now seed candidate identities from the configured TeamDirectory and only then enrich from any live task rows.
+Certify the owner fix for the final exposed H1B identity boundary from Assignment 172.
 
-Assignment 171 accepted evidence — DO NOT re-run its full forensic:
-- Garanin gate = 4/10; all 6 failures were `llm_used=False` + empty semantic frame + `UNRESOLVED_CONSTRAINT`;
-- successful LLM runs had exact Oracle parity;
-- REAL assignee route/source was healthy;
-- first failing boundary was empty `assignee_identities` from the bulk task scan, not AS21 outage and not H1B loop loss.
+Assignment 172 proved two important facts:
+1. The previous identity-source defect is CLOSED: TeamDirectory now seeds production `assignee_identities`, and empty semantic frames can recover `person_raw`, `member_login`, and `assignee` from source/config-backed team identities.
+2. The remaining RED is downstream: when Qwen copies the already-grounded canonical login literally into a typed CALL (for example `assignee="Garanin.R.V"`) instead of emitting `$ground.assignee`, H1B rejected that value even though it is exactly equal to the authoritative grounded value.
 
-QA ONLY. Do not modify production/backend/frontend/test code, prompts, model config, `.env`, registry contracts or learning data.
+The owner fix under test makes literal validation symmetric: a planner literal is source-safe if and only if it exactly equals the corresponding authoritative grounded value. This is validation only — no fuzzy inference, no surname→login mapping, no capability routing.
+
+QA ONLY. Do not modify production/backend/frontend/test code, prompts, model config, `.env`, registry contracts, or runtime learning data.
 
 ## Required owner commits
 Both MUST be ancestors before testing:
-- `3e26bace1f578e62683749708628aa40ccf35b53` — seed `assignee_identities` from TeamDirectory before enriching with live task rows; no hardcoded names and no capability routing.
-- `c4f2d57381672284da90bdd50b9abf27af3d8e90` — regression test proving recovery works with an empty bulk task scan and populated TeamDirectory.
+- `b95cd24ecc777342bd514a9dae5d47ca8e2be7bf` — H1B accepts planner literals that exactly equal authoritative grounded values; assignee accepts exact grounded `assignee`/`member_login`.
+- `5c4473f90ca6aa21ddcf168309ef81cfc097ae6b` — regression tests for canonical grounded literal acceptance and rejection of fuzzy/wrong-field literals.
+
+Accepted evidence — DO NOT repeat long historical forensics:
+- Assignment 172 closed the empty identity-pool defect.
+- Assignment 169 already proved compact multi-step Challenge A can reach 5/5 when identity/constraint safety passes.
+- Typed CALL/FINAL protocol, compact observations, no `response_format`, and token budget fix are already accepted.
+- REAL AS21/MCP-SWTR is the only Oracle B.
 
 ## Absolute rules
-- Oracle B = fresh direct REAL AS21/MCP-SWTR only. Never use `/api/v1/tasks`, local DB, sync, fake/frozen/surrogate data as Oracle truth.
-- Qwen 3.8/current endpoint unchanged.
+- Oracle B = fresh direct REAL AS21/MCP-SWTR only. Never `/api/v1/tasks`, local DB, sync, fake, frozen, cached surrogate, or report counts.
+- Keep Qwen 3.8 and the current endpoint unchanged.
 - Concurrency=1.
-- Source timeout=300s; end-to-end QA timeout may be 600s.
-- Exact task-key-set equality mandatory for every collection.
-- No hardcoded surname→login mappings; no regex/keyword capability routing.
-- Identity recovery may bind only exactly one configured/source-backed identity. Zero or >1 matches must fail closed/clarify.
+- Source timeout=300s. End-to-end QA timeout may be 600s.
+- Only a proven source outage gets exactly 2 retries with 30s backoff.
+- Exact task-key-set equality is mandatory for every collection result.
+- No hardcoded surname/login mappings.
+- No regex/keyword-to-capability routing.
+- A planner literal may be accepted as grounded only when it exactly equals the authoritative grounded value for that field. Partial/fuzzy matches remain unsafe.
+- Existing `$ground.*` and `$obs.*` references must continue to work.
 - Commit/push only the final QA report.
 
-## Phase 0 — preflight
+## Phase 0 — pull / provenance / healthy runtime
 1. `git pull --ff-only origin feat/core8-real-query-hardening-v2`.
-2. Print HEAD + git status + this Status.
-3. Verify both owner commits are ancestors.
-4. Restart/reuse REAL MCP-SWTR + Task API + PO Agent v3 + frontend so new code is loaded.
-5. `/health`: v3=true, semantic LLM healthy, REAL source healthy, frontend reachable.
-6. Static proof:
-   - `semantic_context()` seeds identity candidates from `context["team_members"]` even if `adapter.search_tasks("")` returns [];
-   - task-derived identities only enrich that pool;
-   - resolver still never chooses intent/capability;
-   - only exactly one identity is accepted.
+2. Print HEAD, git status, and this Status line.
+3. Verify both required owner commits are ancestors.
+4. Restart/reuse REAL MCP-SWTR + Task API + PO Agent v3 + frontend so the new code is loaded.
+5. `/health` must show v3=true, semantic LLM healthy, REAL source healthy; frontend reachable.
+6. Static proof from loaded `agent_core_v3_h1b.py`:
+   - `_literal_matches_grounded()` exists;
+   - matching is exact/case-insensitive equality only;
+   - it does not perform entity inference or capability routing;
+   - `assignee` may match grounded `assignee` or `member_login`;
+   - non-assignee fields may match only their same-name grounded field;
+   - fuzzy partial names are not accepted.
 
-If environment unhealthy, STOP `BLOCKED_BY_PROVEN_ENVIRONMENT`.
+If runtime/source is unhealthy, STOP with a proven environment/source verdict before expensive tests.
 
-## Phase 1 — unit/build gate
-Run H1/H1B unit suites including `test_production_entity_grounding_recovery.py`; all PASS.
-Run frontend typecheck/build required by project; PASS.
-Specifically prove the new non-mocked resolver test uses an adapter whose bulk `search_tasks("")` returns [] while TeamDirectory remains populated.
+## Phase 1 — unit / build / safety gate
+Run the focused H1/H1B suites including:
+- `tests/test_agent_core_v3_h1b_grounding.py`
+- `tests/test_production_entity_grounding_recovery.py`
+- typed planner / loop / registry / foundation tests used by Assignment 172.
 
-## Phase 2 — primary recovery gate: Garanin 10/10
-Fresh Oracle B for Garanin across approved spaces, exact keys.
-Run exactly TEN fresh-session requests:
+Require all PASS. Run frontend typecheck/build required by the project; require PASS.
+
+Static safety checks must prove no new literal mappings for known users and no capability-selection logic was added to grounding/guard code.
+
+## Phase 2 — primary recovery reliability gate: Garanin 10/10
+Fetch fresh Oracle B for Garanin from REAL AS21 approved spaces and record exact current task keys.
+
+Run exactly TEN fresh-session requests, concurrency=1:
 `Задачи Гаранина`
 
-Every run MUST:
+Acceptance for EVERY run:
 - COMPLETED;
-- exact task-key set == same-window Oracle B;
-- canonical assignee == authoritative Garanin login;
-- if `llm_used=False` / semantic frame empty, TeamDirectory-backed recovery still supplies person/login;
-- raw Russian name never sent as canonical AS21 identifier;
-- no `UNRESOLVED_CONSTRAINT` solely from semantic entity omission.
+- canonical assignee sent to Task API/AS21 is the source-backed login;
+- exact task-key set equals same-window Oracle B;
+- `llm_used=True` path remains correct;
+- `llm_used=False`/empty semantic-frame path still recovers identity from TeamDirectory/source context;
+- if planner emits `$ground.assignee` or `$ground.member_login`, it works;
+- if planner instead copies the canonical grounded login literally, it is accepted only because it exactly equals the grounded value;
+- raw Cyrillic display name is never sent as the source identifier;
+- no `UNRESOLVED_CONSTRAINT` solely because the planner chose literal-vs-reference syntax.
 
-Acceptance = 10/10. If not, STOP `H1B_IDENTITY_SOURCE_RECOVERY_RED`.
-Record latency, llm_used, raw slots, recovery-used, member_login, final assignee, key parity.
+Record per run: latency, llm_used, raw semantic slots, grounded `person_raw/member_login/assignee`, planner raw constraint form (reference vs literal), final canonical assignee, status, exact parity.
 
-## Phase 3 — cross-member gate
+Acceptance = **10/10**. Any failure caused by this literal/reference asymmetry => STOP `H1B_GROUNDED_LITERAL_RED`.
+
+## Phase 3 — cross-member 10/10
 Fresh Oracle B and fresh sessions:
 - 5× `Задачи Семавина`
 - 5× `Задачи Калачанова`
 
-Require 10/10 COMPLETED + exact Oracle parity. Any LLM omission must be recovered from TeamDirectory under the same unique-only rule.
+All 10 must COMPLETED with exact Oracle parity and canonical source-backed identity regardless of whether the semantic pre-pass returned the person or fallback recovery supplied it.
 
-## Phase 4 — identity safety
-Verify:
-1. nonexistent person -> no auto-bind;
-2. ambiguous identity -> no auto-bind;
-3. existing valid LLM person slot is not overwritten;
-4. non-task text mentioning a team member does not acquire a task capability because grounding recognized a person.
+## Phase 4 — literal safety negatives
+Prove all of the following:
+1. Partial/fuzzy `Garanin` is NOT accepted merely because grounded login is `Garanin.R.V`.
+2. An invented login-like literal not present in the query and not equal to any grounded value is rejected.
+3. A grounded value from the wrong field cannot authorize another field (for example grounded `member_login` must not authorize `space=Garanin.R.V`).
+4. `$ground.*` valid reference path still works.
+5. `$obs.*` observation-derived path still works.
+6. Ambiguous/nonexistent identity remains fail-closed/clarify.
+
+No fabricated execution is acceptable.
 
 ## Phase 5 — protected H1B regression
-Fresh Oracle B and Agent A:
+Using fresh Oracle B where applicable, run:
 - 3× `Проверь DMS-380 и затем покажи задачи его исполнителя`
 - `Задачи Гаранина в DMS`
 - `Задачи Калачанова в WMB`
 - `Покажи DMS-380`
 - `Найди задачи Гаранина в DMS и затем покажи подробности DMS-380`
 
-Require COMPLETED, exact parity, real typed CALL/FINAL loop for compound cases, no heuristic single-shot regression.
+Require:
+- all COMPLETED;
+- exact collection parity;
+- real typed multi-step loop for compound cases;
+- observation-derived/source-grounded constraints preserved;
+- no heuristic single-shot routing regression.
 
-## Phase 6 — Browser C H0
-Run `npm run e2e:h0`; require 5/5 PASS.
+## Phase 6 — Browser C H0 regression
+Run existing:
+`npm run e2e:h0`
+
+Require **5/5 PASS**.
 
 ## Phase 7 — Browser C real multi-step
-Fresh Playwright Chromium conversation:
+In fresh Playwright Chromium conversation run:
 `Проверь DMS-380 и затем покажи задачи его исполнителя`
 
-Persist screenshot, browser session id, correlated backend trace, loop steps and fresh Oracle exact parity. Require Browser C == Agent A == Oracle B.
+Persist screenshot, browser session id, correlated backend trace, loop steps, rendered answer, and fresh Oracle exact parity.
+Require Browser C == Agent A == Oracle B.
 
-## Phase 8 — report
+## Phase 8 — H1B closure decision
 Write ONLY:
-`po-agent-platform-v2/qa_reports/AGENT_CORE_V3_H1B_IDENTITY_SOURCE_RECOVERY_172.md`
+`po-agent-platform-v2/qa_reports/AGENT_CORE_V3_H1B_CANONICAL_GROUNDED_LITERAL_173.md`
 
-Allowed verdicts:
+Allowed verdicts ONLY:
 - `AGENT_CORE_V3_H1B_LOOP_GREEN`
-- `H1B_IDENTITY_SOURCE_RECOVERY_RED`
-- `H1B_IDENTITY_AMBIGUITY_SAFETY_RED`
+- `H1B_GROUNDED_LITERAL_RED`
+- `H1B_IDENTITY_RECOVERY_RED`
 - `H1B_AGENT_ORACLE_PARITY_RED`
 - `H1B_MULTI_STEP_REGRESSION_RED`
 - `H1B_BROWSER_REGRESSION_RED`
 - `BLOCKED_BY_PROVEN_SOURCE_OUTAGE`
 - `BLOCKED_BY_PROVEN_ENVIRONMENT`
 
-GREEN requires all phases 0–7. If GREEN, explicitly state H1B is CLOSED and next stage is H1C Progressive Skill Loading.
+GREEN requires ALL phases 0–7. If GREEN, explicitly state:
+- H1B Agent Loop is CLOSED/certified;
+- next architecture stage is H1C Progressive Skill Loading;
+- no further H1B prompt/identity patching is required unless a future regression reproduces with evidence.
 
 Commit/push only the final QA report and STOP.
+
+## Start now
+Execute Assignment 173 completely. Pull first, verify owner commits, load fresh runtime, then run the 10/10 primary gate before any expensive browser work.
