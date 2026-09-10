@@ -1,7 +1,7 @@
 import asyncio
 import types
 
-from po_agent.harness.dialogue_runtime import SemanticFrame
+from po_agent.harness.dialogue_runtime import ClarificationNeed, SemanticFrame
 from po_agent.harness.entity_grounding import TeamDirectory, TeamDirectoryEntry
 from po_agent.harness.production_entity_grounding_v2 import ProductionEntityResolverV2
 
@@ -83,3 +83,79 @@ def test_semantic_context_seeds_identity_from_team_directory_when_bulk_scan_is_e
     slots: dict[str, str] = {}
     asyncio.run(resolver._infer_missing_person_from_query(_empty_frame(), slots, "Задачи Гаранина"))
     assert slots["person_raw"] == "Родион Гаранин"
+
+
+def test_generic_filter_clarification_is_removed_when_all_material_constraints_are_grounded() -> None:
+    needs = [ClarificationNeed("filters", "Уточните значения фильтров")]
+    slots = {
+        "person_raw": "Андрей Моисеев",
+        "member_login": "Moiseev.A.N",
+        "product": "DMS",
+        "status": "not_completed",
+    }
+    final_slots = {
+        "person_raw": "Андрей Моисеев",
+        "member_login": "Moiseev.A.N",
+        "assignee": "Moiseev.A.N",
+        "product": "DMS",
+        "status": "not_completed",
+    }
+
+    result = ProductionEntityResolverV2._reconcile_grounded_clarifications(
+        needs,
+        slots=slots,
+        final_slots=final_slots,
+        original_query="Открытые задачи Андрея Моисеева в DMS",
+    )
+
+    assert result == []
+
+
+def test_generic_filter_clarification_is_preserved_when_explicit_space_is_not_grounded() -> None:
+    needs = [ClarificationNeed("filters", "Уточните значения фильтров")]
+    slots = {
+        "person_raw": "Андрей Моисеев",
+        "member_login": "Moiseev.A.N",
+        "status": "not_completed",
+    }
+    final_slots = {
+        "person_raw": "Андрей Моисеев",
+        "member_login": "Moiseev.A.N",
+        "assignee": "Moiseev.A.N",
+        "status": "not_completed",
+    }
+
+    result = ProductionEntityResolverV2._reconcile_grounded_clarifications(
+        needs,
+        slots=slots,
+        final_slots=final_slots,
+        original_query="Открытые задачи Андрея Моисеева в DMS",
+    )
+
+    assert result == needs
+
+
+def test_specific_unresolved_clarification_is_never_suppressed_by_other_grounded_fields() -> None:
+    needs = [ClarificationNeed("sprint_id", "Какой спринт?")]
+    slots = {
+        "person_raw": "Андрей Моисеев",
+        "member_login": "Moiseev.A.N",
+        "product": "DMS",
+        "status": "not_completed",
+    }
+    final_slots = {
+        "person_raw": "Андрей Моисеев",
+        "member_login": "Moiseev.A.N",
+        "assignee": "Moiseev.A.N",
+        "product": "DMS",
+        "status": "not_completed",
+    }
+
+    result = ProductionEntityResolverV2._reconcile_grounded_clarifications(
+        needs,
+        slots=slots,
+        final_slots=final_slots,
+        original_query="Открытые задачи Андрея Моисеева в DMS",
+    )
+
+    assert result == needs
