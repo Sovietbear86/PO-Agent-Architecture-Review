@@ -39,6 +39,32 @@ class AgentCoreV3H1BProcessor(AgentCoreV3PilotProcessor):
             )
         return resolved
 
+    @staticmethod
+    def _literal_matches_grounded(field: str, value: str, grounded_values: Mapping[str, str]) -> str | None:
+        """Return the canonical source-backed value when a planner echoes it literally.
+
+        The typed planner is encouraged to use ``$ground.<field>`` references, but some
+        providers occasionally copy the canonical grounded value into the CALL payload.
+        That literal is source-safe iff it is byte-for-byte/case-insensitively equal to a
+        value already produced by the authoritative grounding layer. This is validation,
+        not entity inference or capability routing.
+        """
+        raw = str(value or "").strip()
+        if not raw:
+            return None
+
+        candidates = [str(grounded_values.get(field) or "").strip()]
+        if field == "assignee":
+            candidates.extend([
+                str(grounded_values.get("assignee") or "").strip(),
+                str(grounded_values.get("member_login") or "").strip(),
+            ])
+
+        for candidate in candidates:
+            if candidate and raw.casefold() == candidate.casefold():
+                return candidate
+        return None
+
     async def _run_grounded_agent_loop(
         self,
         request: HarnessRequest,
@@ -114,6 +140,11 @@ class AgentCoreV3H1BProcessor(AgentCoreV3PilotProcessor):
                     continue
                 if raw_text.startswith("$obs."):
                     resolved[field] = resolve_observation_reference(raw_text, observations=observations)
+                    continue
+
+                grounded_literal = self._literal_matches_grounded(field, raw_text, grounded_values)
+                if grounded_literal is not None:
+                    resolved[field] = grounded_literal
                     continue
 
                 if field == "assignee":
