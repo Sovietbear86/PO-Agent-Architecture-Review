@@ -24,6 +24,7 @@ from .dialogue_runtime import SemanticGrounder, SemanticInterpreter, _semantic_c
 
 _APPROVED_SPACES = frozenset({"WMB", "STS", "OLP", "DMS", "CRPV"})
 _TASK_KEY_RE = re.compile(r"\b[A-ZА-Я][A-ZА-Я0-9_]{1,15}-\d+(?![-A-ZА-Я0-9_])\b", re.I)
+_H1B_COLLECTION_MAX_RESULTS = 10000
 
 
 class AgentCoreV3PilotSelector:
@@ -189,7 +190,13 @@ class AgentCoreV3PilotProcessor:
         jql = f"assignee = {assignee}"
         if space:
             jql += f" AND project = {space}"
-        tasks = await self.adapter.search_tasks(jql)
+        # H1B collection capabilities promise source-complete task sets for the
+        # current assignee query. Never inherit the adapter's display-oriented
+        # default of 50, because that silently truncates authoritative results
+        # and makes the reported count factually wrong. The live assignee route
+        # is already bounded server-side (100 rows x 100 pages), so align the
+        # executor with that certified source window explicitly.
+        tasks = await self.adapter.search_tasks(jql, max_results=_H1B_COLLECTION_MAX_RESULTS)
         status = str(contract.constraints.get("status") or "").strip().casefold()
         if status:
             if status in {"not_completed", "open_tasks", "unresolved", "active"}:
