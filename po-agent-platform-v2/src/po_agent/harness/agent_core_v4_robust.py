@@ -1,28 +1,32 @@
 """Provider-robust decision protocol for Agent Core v4.
 
 The V4 planner remains fully agentic: the LLM chooses which skill to load and
-which governed capability to call next.  This module only hardens the transport
-of that decision so a provider-specific malformed JSON serialization cannot kill
-an otherwise valid multi-step trajectory.
+which governed capability to call next. This module hardens only the transport
+of that decision so provider-specific malformed JSON cannot kill an otherwise
+valid trajectory.
 
-JSON remains the primary protocol.  When serialization is unreliable, the model
-may use a tiny typed DSL that is decoded into the same V4Decision contract:
+Primary decisions use the normal JSON contract from SkillNativePlannerV4.
+Only after an undecodable primary decision may the model use a tiny typed DSL:
 
     LOAD <skill_id>
     CALL <capability_id> key=value key2="multi word value"
-    READY <short answer/synthesis instruction>
+
+Recovery is deliberately action-only. A repair turn may never manufacture a
+terminal READY decision: if the model cannot recover a valid LOAD/CALL within
+the bounded attempts, the runtime fails closed. READY remains available on the
+primary decision through the normal V4 JSON contract (and is still decodable if
+it is emitted as primary DSL), but never as a repair shortcut.
 
 The DSL does not bypass capability loading, observation binding, source-backed
-identity checks, argument validation or postconditions.  It is deliberately
-trajectory-agnostic and contains no person/space/sprint/task rules.
+identity checks, argument validation or postconditions. It is trajectory-agnostic
+and contains no person/space/sprint/task rules.
 """
 from __future__ import annotations
 
 import json
 import re
 import shlex
-from types import SimpleNamespace
-from typing import Any, Mapping
+from typing import Any
 
 from po_agent.llm.client import LLMMessage
 
@@ -38,24 +42,20 @@ from .agent_core_v4_reliable import ReliableAgentCoreV4Runtime
 
 
 class RobustSkillNativePlannerV4(SkillNativePlannerV4):
-    """Skill-native planner with JSON primary + typed DSL recovery."""
+    """JSON-primary planner with bounded, action-only typed recovery."""
 
-    DSL_SYSTEM_ADDENDUM = """
-Decision transport reliability:
-- JSON is preferred.
-- If you cannot serialize the required JSON object exactly, return exactly ONE DSL line instead:
-  LOAD <skill_id>
-  CALL <capability_id> key=value key2="multi word value"
-  READY <short answer or synthesis instruction>
-- DSL is only an alternate serialization of the same decision. It does not relax tool, source, identity, observation or safety constraints.
-"""
-
-    DSL_REPAIR = """The previous decision could not be decoded safely.
-Return exactly ONE decision. Prefer valid JSON. If JSON serialization is unreliable, return exactly one DSL line:
+    # Do not alter the primary decision framing. Assignment 180 proved that an
+    # always-on DSL/READY addendum changes Qwen's action-selection behaviour.
+    # The recovery protocol is disclosed only after a primary decode failure.
+    DSL_REPAIR = """The previous planner decision could not be decoded safely.
+Recover the SAME next action only. Return exactly ONE action decision.
+Prefer valid JSON using exactly one non-null branch: load_skill OR call.
+If JSON serialization is unreliable, return exactly one DSL line:
 LOAD <skill_id>
 CALL <capability_id> key=value key2="multi word value"
-READY <short answer>
-Do not add prose, markdown or source facts. Do not invent ids."""
+Do NOT return READY during recovery. Do not answer the user, add prose, markdown,
+or source facts. Do not invent ids. If the trajectory is not complete, continue
+with the next governed skill/capability action."""
 
     @staticmethod
     def _clean_text(raw: str) -> str:
@@ -66,14 +66,15 @@ Do not add prose, markdown or source facts. Do not invent ids."""
         return text
 
     @classmethod
-    def _decode_dsl(cls, raw: str) -> V4Decision | None:
+    def _decode_dsl(cls, raw: str, *, allow_ready: bool = True) -> V4Decision | None:
         text = cls._clean_text(raw)
         if not text:
             return None
+        commands = r"LOAD|CALL|READY" if allow_ready else r"LOAD|CALL"
         candidate_lines = [
             line.strip()
             for line in text.splitlines()
-            if re.match(r"^(?:LOAD|CALL|READY)\b", line.strip(), flags=re.I)
+            if re.match(rf"^(?:{commands})\b", line.strip(), flags=re.I)
         ]
         if len(candidate_lines) != 1:
             return None
@@ -108,16 +109,20 @@ Do not add prose, markdown or source facts. Do not invent ids."""
                 arguments=arguments,
                 rationale="dsl_recovery",
             )
-        if command == "READY":
+        if command == "READY" and allow_ready:
             answer = line[len(parts[0]):].strip()
-            return V4Decision("ready", answer=answer, rationale="dsl_recovery") if answer else None
+            return V4Decision("ready", answer=answer, rationale="dsl_primary") if answer else None
         return None
 
     @classmethod
-    def _decode_any(cls, raw: str) -> V4Decision | None:
+    def _decode_any(cls, raw: str, *, allow_ready: bool = True) -> V4Decision | None:
         obj = _extract_json_object(raw)
         decision = cls._decode(obj) if obj is not None else None
-        return decision or cls._decode_dsl(raw)
+        if decision is not None:
+            if decision.kind == "ready" and not allow_ready:
+                return None
+            return decision
+        return cls._decode_dsl(raw, allow_ready=allow_ready)
 
     @staticmethod
     def _decision_allowed(
@@ -157,7 +162,10 @@ Do not add prose, markdown or source facts. Do not invent ids."""
             "step_budget_remaining": self.max_steps - len(observations),
         }
         messages = [
-            LLMMessage(role="system", content=self.SYSTEM + self.DSL_SYSTEM_ADDENDUM),
+            # Keep the primary framing byte-for-byte equivalent in spirit to the
+            # proven JSON-only V4 planner. Recovery instructions are added only
+            # after an actual decode/governance failure.
+            LLMMessage(role="system", content=self.SYSTEM),
             LLMMessage(role="user", content=json.dumps(payload, ensure_ascii=False)),
         ]
         failures: list[str] = []
@@ -176,18 +184,28 @@ Do not add prose, markdown or source facts. Do not invent ids."""
                 failures.append("no_choices")
                 continue
             raw = str(response.choices[0].message.content or "")
-            decision = self._decode_any(raw)
+            is_primary = attempt == 0
+            decision = self._decode_any(raw, allow_ready=is_primary)
             if decision is not None:
-                allowed, reason = self._decision_allowed(
-                    decision,
-                    catalog=catalog,
-                    loaded_skills=loaded_skills,
-                )
-                if allowed:
-                    return decision
-                failures.append(reason or "decision_not_allowed")
+                # Defense in depth: a repair turn is exclusively for restoring an
+                # action decision. A terminal answer after a malformed turn is
+                # ambiguous and must fail closed rather than silently truncate the
+                # trajectory.
+                if not is_primary and decision.kind == "ready":
+                    failures.append("recovery_ready_not_permitted")
+                else:
+                    allowed, reason = self._decision_allowed(
+                        decision,
+                        catalog=catalog,
+                        loaded_skills=loaded_skills,
+                    )
+                    if allowed:
+                        return decision
+                    failures.append(reason or "decision_not_allowed")
             else:
-                failures.append("invalid_json_and_dsl_decision")
+                failures.append(
+                    "invalid_primary_decision" if is_primary else "invalid_recovery_action"
+                )
             messages.extend(
                 [
                     LLMMessage(role="assistant", content=raw or "{}"),
