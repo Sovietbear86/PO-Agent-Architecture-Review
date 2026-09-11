@@ -9,8 +9,8 @@ Rules:
   a sprint) when a global source search is ambiguous;
 - canonical values already returned by trusted observations may be re-used even
   when the planner emits the literal value instead of `$obs.N.field` syntax;
-- current sprint uses the certified task source with a quoted product filter and
-  full collection semantics instead of the legacy small/default scan.
+- current sprint uses the dedicated authoritative swtr-read current-sprint route,
+  never the legacy/local task-cache search path.
 """
 from __future__ import annotations
 
@@ -301,11 +301,6 @@ Additional reliability rule:
                         f"planner literal is not grounded in user query: {key}={raw}"
                     )
 
-    @staticmethod
-    def _sprint_sort_key(value: str) -> tuple[int, str]:
-        match = re.search(r"-SPRNT-(\d+)$", str(value or ""), flags=re.I)
-        return (int(match.group(1)) if match else -1, str(value or ""))
-
     async def _sprint_current_source_backed(self, args: dict[str, str]) -> CapabilityResult:
         product = str(args.get("product") or args.get("space") or "").strip().upper()
         if product not in APPROVED_PRODUCT_SPACES:
@@ -313,32 +308,23 @@ Additional reliability rule:
                 f"Не удалось подтвердить пространство «{product or '?'}».",
                 options=tuple(sorted(APPROVED_PRODUCT_SPACES)),
             )
-        # Production search routing expects quoted project literals. Ask for the
-        # full collection so current-sprint resolution cannot depend on a small
-        # default page.
-        tasks = list(
-            await self.adapter.search_tasks(
-                f'project = "{product}"',
-                max_results=10000,
-            )
-        )
-        sprint_ids = sorted(
-            {str(task.sprint_id).strip() for task in tasks if getattr(task, "sprint_id", None)},
-            key=self._sprint_sort_key,
-            reverse=True,
-        )
-        current = sprint_ids[0] if sprint_ids else None
+
+        # Current sprint is an authoritative source fact. Never infer it from a
+        # task collection and never use the generic `/api/v1/tasks` cache path.
+        # ProductionTaskApiAS21Adapter.get_current_sprint_id() is wired directly
+        # to `/api/v1/swtr-read/spaces/{space}/current-sprint` -> MCP-SWTR -> AS21.
+        current = await self.adapter.get_current_sprint_id(product)
+
         return CapabilityResult(
             answer=(
-                f"Текущий доступный спринт {product}: {current}."
+                f"Текущий спринт {product}: {current}."
                 if current
-                else f"Для {product} не найден спринт в доступных REAL AS21 данных."
+                else f"Для {product} REAL AS21 не вернул текущий спринт."
             ),
             data={
                 "product": product,
                 "space": product,
                 "sprint_id": current,
-                "candidate_sprints": sprint_ids,
                 "source": "REAL_AS21",
             },
             evidence=[
