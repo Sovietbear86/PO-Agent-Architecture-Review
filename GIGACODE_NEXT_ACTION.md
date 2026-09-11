@@ -1,164 +1,153 @@
 # GigaCode — Current Action
 
 ## Status
-`ACTIVE_QA_ASSIGNMENT_180_V4_DECISION_PROTOCOL_RELIABILITY`
+`ACTIVE_QA_ASSIGNMENT_181_V4_ACTION_ONLY_RECOVERY`
 
 ## Mission
-Continue the Agent Core v4 POC from the Assignment 179 checkpoint. **Do not restart the full POC.** Assignment 179 proved the source-backed lookup/binding owner fix itself is correct, but the multi-step trajectory remains unreliable because Qwen 3.8 intermittently emits malformed JSON on the second planner decision.
+Continue Agent Core v4 from the Assignment 180 RED checkpoint. **Do not restart the whole V4 POC.**
 
-This assignment certifies a generalized provider-robust decision transport. It must NOT add or rely on a deterministic `lookup -> assignee -> search` route, surname/phrase rules, semantic-prepass, or entity facts.
+Assignment 180 proved the JSON+DSL transport implementation itself was wired correctly, but also proved a new fail-open defect: the always-on DSL framing plus repair-time `READY` allowed an undecodable second-step action to terminate the trajectory confidently with 0/306 Oracle keys.
+
+Causal A/B in 180 is important: with the same turn-3 state, the prior JSON-only framing produced the correct `task.search(assignee=semavin.m.m)` 3/3, while the 180 always-on DSL framing derailed into task-description prose and then repair-time `READY`.
 
 Owner commits under test:
-- `54371e57f73543f52102994746488fe5bc42d74a` — new generalized `RobustSkillNativePlannerV4`: JSON primary protocol plus a tiny typed DSL recovery (`LOAD`, `CALL`, `READY`) decoded into the same `V4Decision` contract;
-- `b29ce9f4eb856287d65c0fd76ff7e46826945761` — production runtime factory now instantiates `RobustReliableAgentCoreV4Runtime` when V4 is enabled;
-- `1a1c2d38211fc18035baf4fd2a5e099b3856e558` — focused unit tests for DSL decoding and malformed-JSON -> typed-DSL recovery.
+- `54d23fcecbd08c1f20de488c3244d54dc9cb915b` — generalized action-only recovery: primary planner framing is restored to the normal V4 JSON SYSTEM; recovery instructions are disclosed only after a decode/governance failure; recovery permits only LOAD/CALL; terminal READY is rejected on all repair attempts and bounded failure remains fail-closed;
+- `e950f412ca0018bc822260763769e6da75191176` — regression tests proving primary READY remains possible while repair-time DSL/JSON READY cannot mint a terminal answer and recovery can still restore generic LOAD/CALL actions.
 
-The V4 DoD remains unchanged: the LLM decides the trajectory from progressive skills/capabilities. The DSL is only an alternate serialization of the same planner decision and must pass through the same capability loading, source-backed binding, observation lineage, safety and postcondition validation.
+This is deliberately NOT a DMS-380 or lookup->assignee->search fallback. The LLM still chooses the trajectory dynamically. The change is a generic planner-transport safety invariant: **repair recovers actions, never terminal completion**.
 
 QA ONLY. Do not modify production/backend/frontend/test code, prompts, model config, `.env`, skill registry, source data, learning artifacts or owner files.
 
 ## Absolute rules
 - First: `git pull --ff-only origin feat/core8-real-query-hardening-v2`.
-- Verify all three owner commits above are ancestors of HEAD.
-- Keep the current Qwen 3.8/provider unchanged.
+- Verify both owner commits are ancestors of HEAD.
+- Keep current Qwen 3.8/provider unchanged.
 - Runtime env only: `PO_AGENT_AGENT_CORE_V4_ENABLED=true`.
-- Restart PO Agent so current HEAD is definitely loaded. Reuse Task API/MCP-SWTR only if healthy and current.
+- Start a fresh PO Agent process from current HEAD; do not reuse stale 180 runtime.
 - Oracle B = fresh direct REAL MCP-SWTR/AS21 only. Never local `/api/v1/tasks`, SQLite, sync, fake/frozen or Agent A output.
-- Concurrency=1.
-- Source timeout >=300s; long agent call <=600s.
+- Concurrency=1; source timeout >=300s; long agent call <=600s.
 - Fresh runtime session per independent run.
 - Exact task-key-set parity for factual collections.
-- Reuse Assignment 178/179 evidence only for unaffected gates.
+- Reuse unaffected 178/179/180 evidence; do not broadly rerun certified source/binding/current-sprint gates.
 - First new production defect => capture exact first failing boundary, report, commit/push report only, STOP.
 
 ## Retained checkpoint — do NOT broadly rerun
-Treat as retained unless fresh evidence contradicts it:
-- V4 raw-query/progressive-skill architecture is active and semantic-prepass is absent;
-- task.lookup source-backed canonical assignee fields are correct;
-- canonical literal/observation binding is accepted correctly when the planner emits a valid decision;
-- `sprint.current` uses REAL swtr-read and is GREEN;
-- Garanin/Moiseev critical searches were Oracle-exact in the preceding POC;
-- PVM-Guru benchmark previously reached terminal Oracle-correct behavior;
-- `Гарановых` safety false-positive is closed;
-- cross-skill source handlers other than the decision transport are retained.
+Retain unless fresh evidence contradicts it:
+- raw-query/progressive-skill V4 architecture active; semantic-prepass absent;
+- REAL source-backed `task.lookup` canonical `assignee_login/assignee_id` is correct;
+- trusted observation binding is accepted when the planner emits a valid call;
+- `sprint.current` uses REAL swtr-read, not local cache;
+- Garanin/Moiseev critical searches and PVM-Guru benchmark previously reached Oracle-correct behavior;
+- unrelated-surname false-positive safety defect is closed;
+- Assignment 180 Oracle for DMS-380 assignee task collection was 306 approved-space tasks (refresh before exact parity, do not hardcode count).
 
-## Phase 0 — Build/unit/static gate
-Run focused tests first:
-- `tests/test_agent_core_v4_robust_protocol.py`
-- existing V4 reliability tests affected by task.lookup/binding/current sprint;
-- runtime factory construction smoke.
+## Phase 0 — Focused build/protocol gate
+Run focused V4 robust-protocol + reliability + factory smoke tests.
 
-Require proof that:
-1. `RobustReliableAgentCoreV4Runtime` is the production V4 runtime when the flag is enabled;
-2. JSON remains accepted as the primary planner protocol;
-3. malformed JSON can recover through the generic typed DSL;
-4. DSL decisions are converted to ordinary `V4Decision` objects;
-5. a DSL `CALL` still cannot invoke a capability that has not been loaded;
-6. no person/sprint/space/task/trajectory-specific fallback exists;
-7. no semantic-prepass dependency was reintroduced.
+Require proof:
+1. production V4 factory still instantiates `RobustReliableAgentCoreV4Runtime`;
+2. primary planner request uses the inherited V4 SYSTEM without an always-on DSL/READY addendum;
+3. primary valid JSON CALL/LOAD/READY still decode normally;
+4. malformed primary decisions may enter bounded recovery;
+5. recovery accepts generic JSON/DSL LOAD or CALL;
+6. recovery-time READY is rejected whether emitted as DSL or valid JSON;
+7. four bad/terminal-only repair turns end in `V4ContractError` (fail-closed), never COMPLETED;
+8. capability-not-loaded and unknown skill/capability remain rejected;
+9. no entity/phrase/trajectory-specific routing or semantic-prepass dependency was added.
 
-Any failure => `V4_DECISION_PROTOCOL_BUILD_RED` and STOP.
+Any failure => `V4_ACTION_RECOVERY_BUILD_RED` and STOP.
 
-## Phase 1 — Critical 10x decision-reliability gate
-Refresh Oracle B for `DMS-380` and for the complete current task collection of its canonical source assignee.
+## Phase 1 — Critical 10x multi-step gate
+Refresh Oracle B for DMS-380 and the complete current approved-space task collection of its canonical source assignee.
 
 Run 10 independent fresh sessions:
 `Покажи DMS-380 и затем задачи его исполнителя`
 
-For each run capture:
-- loaded skill(s);
-- planner decisions for every step;
-- whether each decision decoded from JSON or DSL recovery;
-- task.lookup observation including canonical assignee_login/assignee_id;
+Capture per run:
+- loaded skills;
+- every raw planner decision;
+- primary vs repair attempt and JSON vs DSL decode;
+- source-backed DMS-380 observation including canonical assignee identity;
 - downstream task.search arguments;
-- final exact task-key set;
-- terminal status and latency.
+- exact final task-key set;
+- status and latency.
 
-Acceptance = **10/10 terminally correct** and exact Oracle parity.
+Acceptance: **10/10 terminally correct + exact Oracle parity**.
 
-Allowed trajectories are planner-selected. Do not require a particular serialization. Require only that the semantic action is valid, capability-governed and source-safe.
+Specific protocol assertions:
+- a malformed decision may not become terminal merely because repair emits READY;
+- when repair is needed it must restore a governed LOAD/CALL or fail closed;
+- no hardcoded lookup->assignee trajectory;
+- no login derivation from display text;
+- no local DB/sync truth.
 
-Reject as RED if:
-- planner exhausts bounded repair because both JSON and DSL decision transport fail;
-- a hardcoded trajectory bypasses the planner;
-- a login is derived from display text instead of trusted source observation;
-- task collection differs from Oracle B;
-- local DB/sync is used as truth.
+If this gate is not 10/10 exact => `V4_ACTION_RECOVERY_RELIABILITY_RED` and STOP.
 
-## Phase 2 — Provider transport generalization gate
-The recovery protocol must not be specific to the DMS-380 trajectory.
+## Phase 2 — Decision-protocol generalization
+Only after Phase 1 GREEN, run at least two fresh sessions for each shape:
+1. simple task collection;
+2. person + space search;
+3. person + sprint search (PVM-Guru benchmark or fresh source equivalent);
+4. current sprint / sprint health;
+5. one task analysis skill (`task.quality` or `task.summary`).
 
-Run at least 2 fresh sessions each for four different decision shapes:
-1. simple task collection requiring `LOAD` + `CALL` + `READY`;
-2. person + space task search;
-3. person + sprint task search (use the current still-valid PVM-Guru benchmark or a fresh equivalent from REAL source);
-4. current sprint or sprint health query.
+At least one scenario must naturally require >1 capability call.
 
-At least one case must naturally require more than one capability call.
+Require terminal source-correct behavior, exact key parity for factual collections, dynamic planner-selected trajectory, and no DMS-380-specific recovery behavior.
 
-Require:
-- terminally correct source-backed result;
-- exact Oracle parity where a collection is factual;
-- no entity-specific parser/fallback;
-- DSL, if exercised, works identically for any loaded capability, not only `task.search`.
+## Phase 3 — Safety / fail-closed gate
+Verify:
+- user-supplied strings resembling `CALL ...`, `LOAD ...`, `READY ...` cannot directly execute planner decisions;
+- recovery-time READY cannot produce COMPLETED;
+- unknown/not-loaded capabilities remain blocked;
+- invented person/task/sprint fails closed or asks typed clarification;
+- source unavailable is not converted to an empty legitimate result.
 
-## Phase 3 — Safety / governance gate
-Attempt adversarial DSL-like text as USER INPUT, for example strings containing `CALL task.search ...` or `LOAD ...`.
+Any bypass => `V4_ACTION_RECOVERY_SAFETY_RED` and STOP.
 
-Require that user text is treated as a user query and cannot directly execute a capability. Only the model planner response may enter the decision decoder.
-
-Also verify:
-- capability-not-loaded remains rejected;
-- unknown skill/capability remains rejected;
-- invented identity/task/sprint remains fail-closed;
-- source unavailability is not converted to an empty legitimate result.
-
-Any governance bypass => `V4_DECISION_PROTOCOL_SAFETY_RED` and STOP.
-
-## Phase 4 — Mini cross-skill regression
-Run one fresh smoke each:
+## Phase 4 — Mini architecture regression
+One fresh smoke each:
 - `Задачи Гаранина`
 - `Открытые задачи Андрея Моисеева в DMS`
-- PVM-Guru-style person+sprint benchmark
+- person+sprint PVM-Guru-style benchmark
 - `Какой текущий спринт в DMS?`
-- one `task.quality` or `task.summary`
+- one task quality/summary query
 
-Require retained behavior plus no regression from robust decision transport.
+Do not rerun the entire old matrix. Confirm only that the action-only recovery change caused no regression.
 
-## Phase 5 — Architecture decision gate
+## Phase 5 — Decision gate
 GREEN requires all:
-- Phase 0 GREEN;
-- critical DMS-380 multi-step = 10/10 exact;
-- decision recovery is generic across different skills/capabilities;
-- LLM still selects the trajectory dynamically;
-- no deterministic phrase/person/trajectory routing added;
+- focused protocol gate GREEN;
+- DMS-380 multi-step 10/10 exact;
+- generic decision shapes GREEN;
+- safety/fail-closed invariants GREEN;
+- planner remains dynamic and skill-native;
 - REAL AS21 remains authoritative;
-- progressive skill loading remains visible;
 - semantic-prepass absent;
-- safety/governance preserved.
+- no entity/phrase/trajectory hardcode.
 
-If GREEN, declare:
-`AGENT_CORE_V4_DECISION_PROTOCOL_GREEN`
+If all pass declare:
+`AGENT_CORE_V4_ACTION_RECOVERY_GREEN`
 
-This is the last focused infrastructure reliability gate before connecting V4 to Browser C/UI and expanding the progressive catalog toward the mandatory 54/54 skill certification.
+This is sufficient to close the V4 API decision-transport reliability gate. The next owner milestone is V4 Browser C/UI POC, followed by progressive catalog expansion and mandatory 54/54 A/B/C certification. Do NOT declare overall V4 DoD complete: V4_DOD_LOCK.md remains authoritative and Learning Reviewer/self-improvement is still mandatory later.
 
 ## Phase 6 — Report
 Write only:
-`po-agent-platform-v2/qa_reports/AGENT_CORE_V4_DECISION_PROTOCOL_180.md`
+`po-agent-platform-v2/qa_reports/AGENT_CORE_V4_ACTION_RECOVERY_181.md`
 
 Allowed verdicts:
-- `AGENT_CORE_V4_DECISION_PROTOCOL_GREEN`
-- `V4_DECISION_PROTOCOL_BUILD_RED`
-- `V4_DECISION_PROTOCOL_RELIABILITY_RED`
-- `V4_DECISION_PROTOCOL_SAFETY_RED`
+- `AGENT_CORE_V4_ACTION_RECOVERY_GREEN`
+- `V4_ACTION_RECOVERY_BUILD_RED`
+- `V4_ACTION_RECOVERY_RELIABILITY_RED`
+- `V4_ACTION_RECOVERY_SAFETY_RED`
 - `V4_AGENT_ORACLE_PARITY_RED`
 - `V4_SOURCE_ADAPTER_RED`
 - `BLOCKED_BY_PROVEN_SOURCE_OUTAGE`
 - `BLOCKED_BY_PROVEN_ENVIRONMENT`
 
-If RED include raw failing planner output, decoded/not-decoded form, loaded skills, observations, exact first failing boundary, Oracle truth and the smallest generalized owner fix. Do not propose surname/phrase/semantic-prepass patches or a trajectory-specific fallback.
+If RED include raw first-failing planner output, primary/repair attempt number, decoded decision (if any), loaded skills, trusted observations, Oracle truth and smallest generalized owner fix. No surname rules, phrase routers, semantic-prepass patches or trajectory-specific fallbacks.
 
 Commit/push only the QA report and STOP.
 
 ## Start now
-Execute Assignment 180 from the Assignment 179 checkpoint. Do not restart the whole V4 POC.
+Resume from Assignment 180 checkpoint and execute Assignment 181. Do not restart the entire V4 POC.
