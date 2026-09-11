@@ -9,6 +9,8 @@ Rules:
   a sprint) when a global source search is ambiguous;
 - canonical values already returned by trusted observations may be re-used even
   when the planner emits the literal value instead of `$obs.N.field` syntax;
+- task.lookup exposes canonical source-backed assignee identity so downstream
+  skill steps can bind it without guessing from display text;
 - current sprint uses the dedicated authoritative swtr-read current-sprint route,
   never the legacy/local task-cache search path.
 """
@@ -39,6 +41,7 @@ class ReliableAgentCoreV4Runtime(AgentCoreV4Runtime):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self._handlers["sprint.current"] = self._sprint_current_source_backed
+        self._handlers["task.lookup"] = self._task_lookup_source_backed
         self._capability_specs["member.resolve"] = CapabilitySpecV4(
             "member.resolve",
             "Resolve a human reference against REAL AS21, optionally inside a source-backed sprint/space context when global identity search is ambiguous.",
@@ -52,8 +55,9 @@ class ReliableAgentCoreV4Runtime(AgentCoreV4Runtime):
         # contextual resolver contract without loading entity facts into prompts.
         self.catalog = self._build_skill_catalog()
         self.planner.SYSTEM = SkillNativePlannerV4.SYSTEM + """
-Additional reliability rule:
+Additional reliability rules:
 - When a person reference may be globally ambiguous and the user also supplied a sprint or space, first validate the context and then pass sprint_id/space to member.resolve. Prefer authoritative context-scoped identity resolution over guessing a global identity.
+- After task.lookup, bind downstream assignee operations to the canonical assignee_login/assignee_id returned by that trusted task observation; never derive a login from the human display name.
 """
 
     @staticmethod
@@ -66,10 +70,19 @@ Additional reliability rule:
 
     @classmethod
     def _token_equivalent(cls, left: str, right: str) -> bool:
+        """Conservative morphology-oriented token match.
+
+        Exact/prefix matches are safe for canonical ids and full tokens. For
+        inflected human names, allow only a one-character stem difference relative
+        to the shorter token. This covers normal Russian case endings such as
+        `Моисеев`/`Моисеева`, while rejecting unrelated surnames that merely share a
+        five-character prefix (the Assignment 178 `Гарановых` false positive).
+        """
         if left == right or left.startswith(right) or right.startswith(left):
             return True
         common = os.path.commonprefix((left, right))
-        return len(common) >= min(5, len(left), len(right))
+        shorter = min(len(left), len(right))
+        return shorter >= 4 and len(common) >= max(4, shorter - 1)
 
     @classmethod
     def _reference_matches_identity(cls, reference: str, *identity_values: str) -> bool:
@@ -144,10 +157,11 @@ Additional reliability rule:
     ) -> str | None:
         """Resolve a person from source rows already bounded by user context.
 
-        This is the generalized PVM-Guru-style behavior: when global user search is
-        ambiguous but the question contains a sprint/space, inspect the authoritative
-        task context and accept the identity only when exactly one canonical assignee
-        in that context matches the natural reference. No names or ids are hardcoded.
+        First match human/display values conservatively. If that is insufficient,
+        intersect source identity-resolution candidates with canonical assignee ids
+        actually present in the bounded sprint. This bridges display/transliteration
+        differences without accepting a person who is absent from the user's source
+        context.
         """
         sprint = str(sprint_id or "").strip().upper()
         product = str(space or "").strip().upper()
@@ -157,21 +171,39 @@ Additional reliability rule:
             return None
 
         tasks = list(await self.adapter.get_sprint_tasks(sprint, product or None))
-        matches: set[str] = set()
+        context_ids: set[str] = set()
+        lexical_matches: set[str] = set()
         for task in tasks:
             display = str(getattr(task, "assignee", None) or "").strip()
             login = str(getattr(task, "assignee_login", None) or "").strip()
             external_id = str(getattr(task, "assignee_id", None) or "").strip()
-            if self._reference_matches_identity(reference, display, login, external_id):
-                canonical = login or external_id
-                if canonical:
-                    matches.add(canonical)
-        if len(matches) == 1:
-            return next(iter(matches))
-        if len(matches) > 1:
+            canonical = login or external_id
+            if canonical:
+                context_ids.add(canonical)
+            if canonical and self._reference_matches_identity(reference, display, login, external_id):
+                lexical_matches.add(canonical)
+        if len(lexical_matches) == 1:
+            return next(iter(lexical_matches))
+        if len(lexical_matches) > 1:
             raise V4NeedsClarification(
                 f"В контексте {sprint} найдено несколько исполнителей для «{reference}». Кого выбрать?",
-                options=tuple(sorted(matches)),
+                options=tuple(sorted(lexical_matches)),
+            )
+
+        # Source resolver may know name/transliteration mappings better than the
+        # task row. Accept it only if the candidate is also present in this sprint.
+        try:
+            source_login = await self._resolve_source_login(reference)
+            intersections = {item for item in context_ids if item.casefold() == source_login.casefold()}
+        except V4NeedsClarification as exc:
+            candidates = {str(item).strip().casefold() for item in exc.options if str(item).strip()}
+            intersections = {item for item in context_ids if item.casefold() in candidates}
+        if len(intersections) == 1:
+            return next(iter(intersections))
+        if len(intersections) > 1:
+            raise V4NeedsClarification(
+                f"В контексте {sprint} найдено несколько подтверждённых исполнителей для «{reference}». Кого выбрать?",
+                options=tuple(sorted(intersections)),
             )
         return None
 
@@ -234,6 +266,66 @@ Additional reliability rule:
         # 3) Fall back to global REAL AS21 identity resolution.
         external_id = await self._resolve_source_login(reference)
         return self._member_result(reference, external_id, "AS21_GLOBAL")
+
+    async def _task_lookup_source_backed(self, args: dict[str, str]) -> CapabilityResult:
+        """Return one REAL AS21 task with a bindable canonical assignee identity.
+
+        Multi-step skill composition must never derive a login from the human
+        display string. The canonical Task model already carries assignee_login /
+        assignee_id from the authoritative adapter, so expose those fields directly
+        in the trusted observation for subsequent task.search calls.
+        """
+        task_key = str(args.get("task_key") or "").strip().upper()
+        if not task_key:
+            raise V4NeedsClarification("Какую задачу нужно открыть?")
+        task = await self.adapter.get_task(task_key)
+        if task is None:
+            return CapabilityResult(
+                answer=f"Задача {task_key} не найдена в REAL AS21.",
+                data={"task_key": task_key, "task": None, "source": "REAL_AS21"},
+                evidence=[],
+                warnings=["task_not_found"],
+            )
+
+        row = {
+            "key": task.key,
+            "id": task.id,
+            "title": task.title,
+            "description": task.description,
+            "status": task.status.value,
+            "status_category": task.status_category.value,
+            "assignee": task.assignee,
+            "assignee_id": task.assignee_id,
+            "assignee_login": task.assignee_login,
+            "project_space": task.project_space,
+            "sprint_id": task.sprint_id,
+            "release_id": task.release_id,
+            "source": task.source,
+        }
+        return CapabilityResult(
+            answer=(
+                f"{task.key} — {task.title}. Статус: {task.status.value}."
+                + (f" Исполнитель: {task.assignee}." if task.assignee else "")
+            ),
+            data={
+                "task_key": task.key,
+                "task": row,
+                # Mirror canonical identity at observation root for simple planner
+                # references while preserving the nested canonical task payload.
+                "assignee_login": task.assignee_login,
+                "assignee_id": task.assignee_id,
+                "source": "REAL_AS21",
+            },
+            evidence=[
+                Evidence(
+                    type="task",
+                    source="as21",
+                    entity_id=task.key,
+                    label=task.title,
+                    value=task.status.value,
+                )
+            ],
+        )
 
     @staticmethod
     def _trusted_identity_values(observations: list[V4Observation]) -> set[str]:
