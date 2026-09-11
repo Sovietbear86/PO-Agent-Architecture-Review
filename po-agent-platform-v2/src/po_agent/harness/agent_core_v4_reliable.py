@@ -5,6 +5,8 @@ re-introducing semantic-prepass, surname rules, phrase routers or entity facts.
 
 Rules:
 - team roster is an authorization/scope hint, REAL AS21 remains identity truth;
+- a person may also be resolved inside an authoritative task context (for example
+  a sprint) when a global source search is ambiguous;
 - canonical values already returned by trusted observations may be re-used even
   when the planner emits the literal value instead of `$obs.N.field` syntax;
 - current sprint uses the certified task source with a quoted product filter and
@@ -20,6 +22,8 @@ from po_agent.adapters.task_api import AS21SourceError, AS21SourceUnavailable
 
 from .agent_core_v4 import (
     AgentCoreV4Runtime,
+    CapabilitySpecV4,
+    SkillNativePlannerV4,
     V4ContractError,
     V4NeedsClarification,
     V4Observation,
@@ -35,6 +39,22 @@ class ReliableAgentCoreV4Runtime(AgentCoreV4Runtime):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
         self._handlers["sprint.current"] = self._sprint_current_source_backed
+        self._capability_specs["member.resolve"] = CapabilitySpecV4(
+            "member.resolve",
+            "Resolve a human reference against REAL AS21, optionally inside a source-backed sprint/space context when global identity search is ambiguous.",
+            {
+                "reference": "required raw human reference",
+                "sprint_id": "optional sprint id or prior sprint.resolve observation",
+                "space": "optional approved product space",
+            },
+        )
+        # Rebuild detail catalog so progressive disclosure exposes the generalized
+        # contextual resolver contract without loading entity facts into prompts.
+        self.catalog = self._build_skill_catalog()
+        self.planner.SYSTEM = SkillNativePlannerV4.SYSTEM + """
+Additional reliability rule:
+- When a person reference may be globally ambiguous and the user also supplied a sprint or space, first validate the context and then pass sprint_id/space to member.resolve. Prefer authoritative context-scoped identity resolution over guessing a global identity.
+"""
 
     @staticmethod
     def _name_tokens(value: str) -> tuple[str, ...]:
@@ -50,6 +70,12 @@ class ReliableAgentCoreV4Runtime(AgentCoreV4Runtime):
             return True
         common = os.path.commonprefix((left, right))
         return len(common) >= min(5, len(left), len(right))
+
+    @classmethod
+    def _reference_matches_identity(cls, reference: str, *identity_values: str) -> bool:
+        wanted = cls._name_tokens(reference)
+        hay = cls._name_tokens(" ".join(value for value in identity_values if value))
+        return bool(wanted) and all(any(cls._token_equivalent(w, h) for h in hay) for w in wanted)
 
     def _team_candidates(self, reference: str):
         """Resolve a natural reference against the configured authorized roster.
@@ -109,51 +135,48 @@ class ReliableAgentCoreV4Runtime(AgentCoreV4Runtime):
             raise V4NeedsClarification(f"Не удалось подтвердить пользователя «{reference}» в AS21.")
         return external_id
 
-    async def _member_resolve(self, args: dict[str, str]) -> CapabilityResult:
-        reference = str(args.get("reference") or "").strip()
-        if not reference:
-            raise V4NeedsClarification("Кого именно нужно найти?")
+    async def _resolve_identity_in_task_context(
+        self,
+        reference: str,
+        *,
+        sprint_id: str = "",
+        space: str = "",
+    ) -> str | None:
+        """Resolve a person from source rows already bounded by user context.
 
-        # First use the authorized team roster only as a scope/disambiguation hint.
-        # If exactly one team member matches the natural wording, validate that
-        # member's canonical login against REAL AS21. No surname is hardcoded.
-        team_matches = self._team_candidates(reference)
-        if len(team_matches) == 1:
-            expected_login = team_matches[0].login
-            external_id = await self._resolve_source_login(expected_login)
-            if external_id.casefold() != expected_login.casefold():
-                raise V4NeedsClarification(
-                    f"Источник AS21 не подтвердил ожидаемый login для «{reference}».",
-                    options=(external_id,),
-                )
-            return CapabilityResult(
-                answer=f"Пользователь подтверждён: {external_id}.",
-                data={
-                    "reference": reference,
-                    "member_login": external_id,
-                    "external_id": external_id,
-                    "source": "REAL_AS21",
-                    "resolution_scope": "AUTHORIZED_TEAM_ROSTER",
-                },
-                evidence=[
-                    Evidence(
-                        type="member_identity",
-                        source="as21",
-                        entity_id=external_id,
-                        label=reference,
-                        value=external_id,
-                    )
-                ],
-            )
-        if len(team_matches) > 1:
+        This is the generalized PVM-Guru-style behavior: when global user search is
+        ambiguous but the question contains a sprint/space, inspect the authoritative
+        task context and accept the identity only when exactly one canonical assignee
+        in that context matches the natural reference. No names or ids are hardcoded.
+        """
+        sprint = str(sprint_id or "").strip().upper()
+        product = str(space or "").strip().upper()
+        if product and product not in APPROVED_PRODUCT_SPACES:
+            raise V4NeedsClarification(f"Пространство «{product}» не подтверждено.")
+        if not sprint:
+            return None
+
+        tasks = list(await self.adapter.get_sprint_tasks(sprint, product or None))
+        matches: set[str] = set()
+        for task in tasks:
+            display = str(getattr(task, "assignee", None) or "").strip()
+            login = str(getattr(task, "assignee_login", None) or "").strip()
+            external_id = str(getattr(task, "assignee_id", None) or "").strip()
+            if self._reference_matches_identity(reference, display, login, external_id):
+                canonical = login or external_id
+                if canonical:
+                    matches.add(canonical)
+        if len(matches) == 1:
+            return next(iter(matches))
+        if len(matches) > 1:
             raise V4NeedsClarification(
-                f"Нашёл несколько участников команды для «{reference}». Кого выбрать?",
-                options=tuple(item.login for item in team_matches),
+                f"В контексте {sprint} найдено несколько исполнителей для «{reference}». Кого выбрать?",
+                options=tuple(sorted(matches)),
             )
+        return None
 
-        # People outside the configured team remain source-resolvable; the roster
-        # is not a hard allow-list for natural-language identity lookup.
-        external_id = await self._resolve_source_login(reference)
+    @staticmethod
+    def _member_result(reference: str, external_id: str, resolution_scope: str) -> CapabilityResult:
         return CapabilityResult(
             answer=f"Пользователь подтверждён: {external_id}.",
             data={
@@ -161,7 +184,7 @@ class ReliableAgentCoreV4Runtime(AgentCoreV4Runtime):
                 "member_login": external_id,
                 "external_id": external_id,
                 "source": "REAL_AS21",
-                "resolution_scope": "AS21_GLOBAL",
+                "resolution_scope": resolution_scope,
             },
             evidence=[
                 Evidence(
@@ -173,6 +196,44 @@ class ReliableAgentCoreV4Runtime(AgentCoreV4Runtime):
                 )
             ],
         )
+
+    async def _member_resolve(self, args: dict[str, str]) -> CapabilityResult:
+        reference = str(args.get("reference") or "").strip()
+        sprint_id = str(args.get("sprint_id") or "").strip()
+        space = str(args.get("space") or "").strip()
+        if not reference:
+            raise V4NeedsClarification("Кого именно нужно найти?")
+
+        # 1) Authorized team scope is a fast disambiguation hint, not source truth.
+        team_matches = self._team_candidates(reference)
+        if len(team_matches) == 1:
+            expected_login = team_matches[0].login
+            external_id = await self._resolve_source_login(expected_login)
+            if external_id.casefold() != expected_login.casefold():
+                raise V4NeedsClarification(
+                    f"Источник AS21 не подтвердил ожидаемый login для «{reference}».",
+                    options=(external_id,),
+                )
+            return self._member_result(reference, external_id, "AUTHORIZED_TEAM_ROSTER")
+        if len(team_matches) > 1:
+            raise V4NeedsClarification(
+                f"Нашёл несколько участников команды для «{reference}». Кого выбрать?",
+                options=tuple(item.login for item in team_matches),
+            )
+
+        # 2) Context-scoped source resolution before global source search. This is
+        # critical for names that are globally ambiguous but unique in a sprint.
+        contextual = await self._resolve_identity_in_task_context(
+            reference,
+            sprint_id=sprint_id,
+            space=space,
+        )
+        if contextual:
+            return self._member_result(reference, contextual, "REAL_AS21_TASK_CONTEXT")
+
+        # 3) Fall back to global REAL AS21 identity resolution.
+        external_id = await self._resolve_source_login(reference)
+        return self._member_result(reference, external_id, "AS21_GLOBAL")
 
     @staticmethod
     def _trusted_identity_values(observations: list[V4Observation]) -> set[str]:
