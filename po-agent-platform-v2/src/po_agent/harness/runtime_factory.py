@@ -11,6 +11,7 @@ from .agent_core_v3_h1b import AgentCoreV3H1BProcessor
 from .agent_core_v3_typed_planner import TypedAgentLoopPlannerV3
 from .agent_core_v3_pilot import AgentCoreV3PilotSelector
 from .agent_core_v4 import AgentCoreV4Runtime
+from .agent_core_v4_reliable import ReliableAgentCoreV4Runtime
 from .core8_semantic_precision import Core8SemanticPrecisionInterpreter
 from .core8_hardening import enable_core8_hardened_composite
 from .correction_runtime import CorrectionAwareHarnessRuntime
@@ -76,9 +77,10 @@ def _build_runtime_with_adapter(adapter:AS21Adapter,*,mode:RuntimeMode,team_conf
 
     v4_runtime=None
     if mode=="task-api" and agent_core_v4_enabled and planner_client is not None:
-        # V4 reuses the proven deterministic/source capability handlers but does
-        # not consume selected_interpreter/semantic frames at all.
-        v4_runtime=AgentCoreV4Runtime(
+        # V4 bypasses the legacy semantic frame. Reliability policy is generalized:
+        # team-scoped source-backed identity resolution, observation lineage binding,
+        # and source-safe current-sprint resolution. No surname/phrase rules.
+        v4_runtime=ReliableAgentCoreV4Runtime(
             adapter,
             llm=planner_client,
             model=planner_model,
