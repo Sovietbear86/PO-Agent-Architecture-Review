@@ -370,6 +370,21 @@ Do not mention internal planner machinery unless the user asks."""
 class AgentCoreV4Runtime:
     """Additive POC runtime for the first skill-native vertical slice."""
 
+    _PLANNER_FREE_TEXT_LIMIT = 384
+    _PLANNER_UNSTRUCTURED_FIELDS = frozenset({
+        "description",
+        "comment",
+        "comments",
+        "body",
+        "details",
+        "stacktrace",
+        "stack_trace",
+        "log",
+        "logs",
+        "raw",
+        "raw_text",
+    })
+
     def __init__(
         self,
         adapter: AS21Adapter,
@@ -677,11 +692,36 @@ class AgentCoreV4Runtime:
             if key in {"reference", "space", "sprint_id", "release_id", "task_key", "product"} and not _literal_is_query_derived(raw, query):
                 raise V4ContractError(f"planner literal is not grounded in user query: {key}={raw}")
 
-    @staticmethod
-    def _compact_data(capability_id: str, data: Any) -> dict[str, Any]:
+    @classmethod
+    def _compact_planner_value(cls, value: Any, *, field_name: str | None = None) -> Any:
+        """Bound unstructured observation text without changing source truth.
+
+        Planner observations are control-plane context, not the authoritative
+        result payload.  Long descriptions/logs can hijack the next planning turn,
+        so only known free-text fields are bounded.  Structured identity, task,
+        sprint, status and count fields remain exact and untouched.
+        """
+        if isinstance(value, Mapping):
+            return {
+                str(key): cls._compact_planner_value(item, field_name=str(key))
+                for key, item in value.items()
+            }
+        if isinstance(value, list):
+            return [cls._compact_planner_value(item, field_name=field_name) for item in value]
+        if (
+            isinstance(value, str)
+            and field_name is not None
+            and field_name.casefold() in cls._PLANNER_UNSTRUCTURED_FIELDS
+            and len(value) > cls._PLANNER_FREE_TEXT_LIMIT
+        ):
+            return value[: cls._PLANNER_FREE_TEXT_LIMIT].rstrip() + "…"
+        return value
+
+    @classmethod
+    def _compact_data(cls, capability_id: str, data: Any) -> dict[str, Any]:
         if not isinstance(data, Mapping):
             return {"value": data}
-        result = dict(data)
+        result = cls._compact_planner_value(dict(data))
         tasks = result.pop("tasks", None)
         if isinstance(tasks, list):
             keys = []
