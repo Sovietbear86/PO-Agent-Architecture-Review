@@ -3,7 +3,9 @@ from __future__ import annotations
 import asyncio
 from types import SimpleNamespace
 
-from po_agent.harness.agent_core_v4 import CapabilitySpecV4, SkillCatalogV4, SkillSpecV4
+import pytest
+
+from po_agent.harness.agent_core_v4 import CapabilitySpecV4, SkillCatalogV4, SkillSpecV4, V4ContractError
 from po_agent.harness.agent_core_v4_robust import RobustSkillNativePlannerV4
 
 
@@ -76,14 +78,24 @@ def test_dsl_rejects_multiple_decisions() -> None:
     ) is None
 
 
-def test_dsl_ready_decodes() -> None:
-    decision = RobustSkillNativePlannerV4._decode_dsl("READY Данных достаточно для ответа")
+def test_primary_dsl_ready_remains_decodable() -> None:
+    decision = RobustSkillNativePlannerV4._decode_dsl(
+        "READY Данных достаточно для ответа",
+        allow_ready=True,
+    )
     assert decision is not None
     assert decision.kind == "ready"
     assert decision.answer == "Данных достаточно для ответа"
 
 
-def test_planner_recovers_from_malformed_json_to_dsl() -> None:
+def test_recovery_dsl_ready_is_not_decodable() -> None:
+    assert RobustSkillNativePlannerV4._decode_dsl(
+        "READY Данных достаточно для ответа",
+        allow_ready=False,
+    ) is None
+
+
+def test_planner_recovers_from_malformed_json_to_dsl_action() -> None:
     planner = RobustSkillNativePlannerV4(
         StubClient(
             '{"load_skill":{"skill_id":"task-search"',
@@ -125,3 +137,46 @@ def test_planner_recovers_second_step_call_without_trajectory_hardcode() -> None
         "assignee": "$obs.1.assignee_login",
         "status": "not_completed",
     }
+
+
+def test_repair_ready_cannot_turn_malformed_action_into_completed_answer() -> None:
+    planner = RobustSkillNativePlannerV4(
+        StubClient(
+            "free-form analysis instead of a decision",
+            "READY premature answer",
+            '{"load_skill":null,"call":null,"ready":{"answer":"still premature"},"rationale":"repair"}',
+            "CALL task.search assignee=$obs.1.assignee_login",
+        ),
+        model="test",
+    )
+    decision = asyncio.run(
+        planner.next_decision(
+            user_query="Покажи задачу и затем задачи её исполнителя",
+            catalog=_catalog(),
+            loaded_skills=("task-search",),
+            observations=[],
+        )
+    )
+    assert decision.kind == "call"
+    assert decision.capability_id == "task.search"
+
+
+def test_repair_only_ready_fails_closed() -> None:
+    planner = RobustSkillNativePlannerV4(
+        StubClient(
+            "not a decision",
+            "READY premature one",
+            '{"load_skill":null,"call":null,"ready":{"answer":"premature two"},"rationale":"repair"}',
+            "READY premature three",
+        ),
+        model="test",
+    )
+    with pytest.raises(V4ContractError):
+        asyncio.run(
+            planner.next_decision(
+                user_query="Покажи задачу и затем задачи её исполнителя",
+                catalog=_catalog(),
+                loaded_skills=("task-search",),
+                observations=[],
+            )
+        )
