@@ -20,6 +20,7 @@ class DummyLegacyCapabilities:
 class SprintAdapter:
     def __init__(self):
         self.calls = []
+        self.context_tasks = []
 
     async def search_tasks(self, query, **kwargs):
         self.calls.append((query, kwargs))
@@ -29,6 +30,10 @@ class SprintAdapter:
         two = Task()
         two.sprint_id = "DMS-SPRNT-7"
         return [one, two]
+
+    async def get_sprint_tasks(self, sprint_id, space=None):
+        del sprint_id, space
+        return list(self.context_tasks)
 
 
 def _team():
@@ -65,8 +70,9 @@ def test_canonical_assignee_literal_is_accepted_only_when_present_in_trusted_obs
         V4Observation(
             step=1,
             capability_id="member.resolve",
+            arguments={"reference": "Андрея Моисеева"},
+            answer="Пользователь подтверждён: Moiseev.A.N.",
             data={"member_login": "Moiseev.A.N", "source": "REAL_AS21"},
-            summary="source-backed identity",
         )
     ]
 
@@ -84,6 +90,31 @@ def test_canonical_assignee_literal_is_accepted_only_when_present_in_trusted_obs
             "Открытые задачи Андрея Моисеева в DMS",
             observations,
         )
+
+
+def test_context_scoped_identity_resolution_can_disambiguate_unseen_person_from_sprint_rows() -> None:
+    adapter = SprintAdapter()
+    Task = type("Task", (), {})
+    first = Task()
+    first.assignee = "Александра Гончарова"
+    first.assignee_login = "goncharova.a.s"
+    first.assignee_id = "goncharova.a.s"
+    second = Task()
+    second.assignee = "Матвей Кузнецов"
+    second.assignee_login = "kuznetsov.m.se"
+    second.assignee_id = "kuznetsov.m.se"
+    adapter.context_tasks = [first, second]
+    runtime = _runtime(adapter)
+
+    resolved = asyncio.run(
+        runtime._resolve_identity_in_task_context(
+            "Гончарова",
+            sprint_id="OLP-SPRNT-5",
+            space="OLP",
+        )
+    )
+
+    assert resolved == "goncharova.a.s"
 
 
 def test_current_sprint_uses_quoted_space_and_full_collection() -> None:
