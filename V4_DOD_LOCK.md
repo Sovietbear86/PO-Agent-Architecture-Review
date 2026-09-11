@@ -89,6 +89,18 @@ Rules:
 - If V4 repeatedly cannot satisfy unseen-entity composition, exact source parity, governed execution, or progressive skill loading after bounded architectural fixes, pause migration and review against this checkpoint before further investment.
 - Do not delete the rollback point or legacy reference path before V4 full-catalog certification.
 
+### POC reliability stop-rule
+Assignment 181 moved the mandatory `task -> assignee -> tasks` benchmark to 8/10 exact REAL-AS21 parity and proved the previous fail-open recovery defect closed. The remaining failure boundary is planner attention being distracted by an unbounded source description.
+
+Therefore the next generalized observation-hygiene change is the **last focused POC reliability fix before an architecture/model decision gate**:
+- allowed: entity-agnostic bounding/compaction of planner-facing unstructured observation fields while preserving exact structured source identity/status/sprint/count values;
+- forbidden: DMS-380-specific logic, surname/phrase routers, deterministic trajectory routing, semantic-prepass reintroduction, or capability-specific next-step hardcode;
+- after that fix, run a mixed reliability gate rather than another narrow endless sequence of the same benchmark;
+- if the mixed gate is stable/GREEN, stop backend POC remediation and proceed to `V4-BROWSER` then `V4-CATALOG`;
+- if a new fundamental planner/control-plane reliability defect of the same class remains, STOP focused patching and explicitly review planner model/tool-calling strategy (including whether the current Qwen planner is suitable) before any further Assignment 18x remediation.
+
+This rule exists specifically to prevent an infinite fix/test loop from being mistaken for architectural progress.
+
 ## 3. Mandatory milestone gates
 
 ### Gate V4-P0C
@@ -130,7 +142,8 @@ If the answer to any relevant question is no, the work must be treated as local 
 ```text
 V4_ARCHITECTURE_DIRECTION = PRIMARY
 V3_H1B = ROLLBACK_REFERENCE
-V4_REPRESENTATIVE_POC = IN_PROGRESS
+V4_REPRESENTATIVE_POC = FINAL_RELIABILITY_GATE_IN_PROGRESS
+V4_POC_FOCUSED_FIX_BUDGET = ONE_GENERALIZED_OBSERVATION_HYGIENE_FIX_REMAINING
 V4_BROWSER_C = NOT_YET_WIRED
 V4_FULL_54_SKILL_MIGRATION = NOT_DONE
 V4_FULL_54_ABC = NOT_DONE
