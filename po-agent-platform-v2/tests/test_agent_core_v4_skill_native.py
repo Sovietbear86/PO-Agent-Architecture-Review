@@ -92,3 +92,46 @@ def test_loaded_skill_exposes_only_its_governed_capabilities() -> None:
     assert allowed == frozenset({"task.quality"})
     assert "member.resolve" not in allowed
     assert "task.search" not in allowed
+
+
+def test_planner_observation_bounds_unstructured_text_and_preserves_identity() -> None:
+    runtime = _runtime(ScriptedLLM([]))
+    long_description = "TLS stack trace " + ("x" * 2000)
+    data = {
+        "task": {
+            "key": "DMS-380",
+            "description": long_description,
+            "assignee_login": "semavin.m.m",
+            "assignee_id": "Semavin.M.M",
+            "status": "Тестирование",
+            "sprint_id": "DMS-SPRNT-2",
+        },
+        "source": "REAL_AS21",
+    }
+
+    compact = runtime._compact_data("task.lookup", data)
+
+    assert compact["task"]["key"] == "DMS-380"
+    assert compact["task"]["assignee_login"] == "semavin.m.m"
+    assert compact["task"]["assignee_id"] == "Semavin.M.M"
+    assert compact["task"]["status"] == "Тестирование"
+    assert compact["task"]["sprint_id"] == "DMS-SPRNT-2"
+    assert compact["task"]["description"].endswith("…")
+    assert len(compact["task"]["description"]) <= runtime._PLANNER_FREE_TEXT_LIMIT + 1
+    assert compact["capability"] == "task.lookup"
+
+
+def test_planner_observation_hygiene_is_generic_for_nested_free_text_fields() -> None:
+    runtime = _runtime(ScriptedLLM([]))
+    payload = {
+        "details": "a" * 1000,
+        "nested": {"comments": "b" * 1000, "member_login": "source.login"},
+        "count": 17,
+    }
+
+    compact = runtime._compact_data("task.quality", payload)
+
+    assert compact["details"].endswith("…")
+    assert compact["nested"]["comments"].endswith("…")
+    assert compact["nested"]["member_login"] == "source.login"
+    assert compact["count"] == 17
