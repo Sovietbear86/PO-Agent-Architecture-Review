@@ -21,15 +21,14 @@ class SprintAdapter:
     def __init__(self):
         self.calls = []
         self.context_tasks = []
+        self.current_sprint = "DMS-SPRNT-7"
 
     async def search_tasks(self, query, **kwargs):
-        self.calls.append((query, kwargs))
-        Task = type("Task", (), {})
-        one = Task()
-        one.sprint_id = "DMS-SPRNT-1"
-        two = Task()
-        two.sprint_id = "DMS-SPRNT-7"
-        return [one, two]
+        raise AssertionError("sprint.current must never use generic/local-cache search_tasks")
+
+    async def get_current_sprint_id(self, space):
+        self.calls.append(("get_current_sprint_id", space))
+        return self.current_sprint
 
     async def get_sprint_tasks(self, sprint_id, space=None):
         del sprint_id, space
@@ -117,12 +116,24 @@ def test_context_scoped_identity_resolution_can_disambiguate_unseen_person_from_
     assert resolved == "goncharova.a.s"
 
 
-def test_current_sprint_uses_quoted_space_and_full_collection() -> None:
+def test_current_sprint_uses_authoritative_live_method_and_never_generic_search() -> None:
     adapter = SprintAdapter()
     runtime = _runtime(adapter)
 
     result = asyncio.run(runtime._sprint_current_source_backed({"product": "DMS"}))
 
-    assert adapter.calls == [('project = "DMS"', {"max_results": 10000})]
+    assert adapter.calls == [("get_current_sprint_id", "DMS")]
     assert result.data["sprint_id"] == "DMS-SPRNT-7"
     assert result.data["source"] == "REAL_AS21"
+
+
+def test_current_sprint_not_found_remains_explicit_real_source_empty_state() -> None:
+    adapter = SprintAdapter()
+    adapter.current_sprint = None
+    runtime = _runtime(adapter)
+
+    result = asyncio.run(runtime._sprint_current_source_backed({"product": "DMS"}))
+
+    assert adapter.calls == [("get_current_sprint_id", "DMS")]
+    assert result.data["sprint_id"] is None
+    assert result.warnings == ["current_sprint_not_found"]
