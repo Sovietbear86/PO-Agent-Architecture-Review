@@ -439,3 +439,14 @@ Additional reliability rules:
             ],
             warnings=[] if current else ["current_sprint_not_found"],
         )
+
+    def _reconcile_loaded_skill(self, skill_id: str, query: str) -> str:
+        """Cardinality guard: a plural/collection sprint request must not be
+        routed to the singleton sprint.current skill, which returns only one
+        sprint. When the query unambiguously asks for a set of sprints, load
+        the collection skill instead so the full source-backed set is returned
+        rather than silently dropping the plurality constraint.
+        """
+        if skill_id == "sprint.current" and self.query_requests_sprint_collection(query):
+            return "sprint.list"
+        return skill_id

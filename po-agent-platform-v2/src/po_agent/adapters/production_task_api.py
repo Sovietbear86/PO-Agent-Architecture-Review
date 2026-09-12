@@ -116,6 +116,56 @@ class ProductionTaskApiAS21Adapter(TaskApiAS21Adapter):
             raise AS21SourceError("task-api current sprint endpoint returned malformed payload")
         return self._find_identifier(payload.get("sprint"))
 
+    async def list_sprints(self, space: str) -> list[dict[str, Any]]:
+        """Return the source-backed sprint directory for one approved space.
+
+        Reads the live ``/api/v1/swtr-read/spaces/{space}/sprints`` facade
+        (MCP-SWTR search_sprints), never a local cache. Each row carries the
+        canonical sprint code, source status and period so downstream
+        capabilities can match a human period reference or list active sprints
+        with the identity proven from source data.
+        """
+        normalized = (space or "").upper().strip()
+        if not normalized:
+            return []
+        try:
+            response = await self._get_resilient(f"/api/v1/swtr-read/spaces/{normalized}/sprints")
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 404:
+                return []
+            raise AS21SourceUnavailable(f"task-api sprint directory read failed: HTTP {exc.response.status_code}") from exc
+        except httpx.HTTPError as exc:
+            raise AS21SourceUnavailable(f"task-api sprint directory read failed: {type(exc).__name__}") from exc
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            raise AS21SourceError("task-api sprint directory returned invalid JSON") from exc
+        if not isinstance(payload, dict):
+            raise AS21SourceError("task-api sprint directory returned malformed payload")
+        rows = payload.get("sprints")
+        if not isinstance(rows, list):
+            raise AS21SourceError("task-api sprint directory did not provide sprint rows")
+        sprints: list[dict[str, Any]] = []
+        for row in rows:
+            if not isinstance(row, dict):
+                raise AS21SourceError("task-api sprint directory row is not an object")
+            code = str(row.get("code") or "").strip()
+            if not code:
+                continue
+            sprints.append(
+                {
+                    "code": code,
+                    "name": str(row.get("name") or ""),
+                    "status": str(row.get("status") or ""),
+                    "start_at": row.get("start_at"),
+                    "finish_at": row.get("finish_at"),
+                    "deleted": bool(row.get("deleted", False)),
+                    "space": normalized,
+                    "source": "REAL_AS21",
+                }
+            )
+        return sprints
+
     async def search_tasks(self, jql: str, max_results: int = 50, fields: Optional[list[str]] = None) -> list[Task]:
         """Use the authoritative live assignee route and never a local task cache."""
         del fields

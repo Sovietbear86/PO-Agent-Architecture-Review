@@ -19,19 +19,49 @@ from dataclasses import dataclass
 from typing import Any, Awaitable, Callable, Mapping
 
 from po_agent.adapters.as21 import AS21Adapter
-from po_agent.adapters.task_api import AS21SourceError, AS21SourceUnavailable
+from po_agent.adapters.task_api import (
+    AS21SourceError,
+    AS21SourceUnavailable,
+)
 from po_agent.llm.client import LLMClient, LLMMessage
 
 from .contracts import CapabilityResult, Evidence, HarnessRequest, HarnessResponse, ResponseStatus
 from .entity_grounding import TeamDirectory
 from .production_entity_grounding_v2 import APPROVED_PRODUCT_SPACES
+from .sprint_period import parse_period, sprint_overlaps_period
 
 
 CapabilityHandlerV4 = Callable[[dict[str, str]], Awaitable[CapabilityResult]]
 
+# Generic cardinality detection for sprint collection requests (grammar only,
+# no entity/phrase routing). A plural sprint form, or the sprint noun next to a
+# collection marker, signals a request for a set of sprints — which a
+# singleton capability such as sprint.current must not silently satisfy.
+_SPRINT_PLURAL_TOKENS = frozenset(
+    {
+        "спринты", "спринтов", "спринтам", "спринтами", "спринтах",
+        "sprints",
+    }
+)
+_COLLECTION_MARKERS = frozenset(
+    {
+        "несколько", "все", "какие", "каждый", "каждые", "список", "перечисли", "перечислите",
+        "all", "how", "many", "list", "which",
+    }
+)
+
 
 class V4ContractError(RuntimeError):
     pass
+
+
+class V4CapabilityUnavailable(V4ContractError):
+    """A loaded capability needs a source-backed surface the adapter lacks.
+
+    Raised fail-closed when a capability (e.g. sprint.search / sprint.list)
+    cannot be proven from source data because the adapter does not expose the
+    required read path. Never degrades to a fabricated or empty collection.
+    """
 
 
 class V4NeedsClarification(RuntimeError):
@@ -408,6 +438,8 @@ class AgentCoreV4Runtime:
             "member.resolve": self._member_resolve,
             "space.resolve": self._space_resolve,
             "sprint.resolve": self._sprint_resolve,
+            "sprint.search": self._sprint_search,
+            "sprint.list": self._sprint_list,
             "release.resolve": self._release_resolve,
             "task.search": self._task_search,
             "task.lookup": self._legacy("task.lookup"),
@@ -426,6 +458,8 @@ class AgentCoreV4Runtime:
             "member.resolve": CapabilitySpecV4("member.resolve", "Resolve a human reference against REAL AS21 search_users.", {"reference": "required raw human reference"}),
             "space.resolve": CapabilitySpecV4("space.resolve", "Validate an approved product space.", {"reference": "required space text"}),
             "sprint.resolve": CapabilitySpecV4("sprint.resolve", "Validate a sprint id against REAL AS21 and return canonical id/space.", {"reference": "required sprint id", "space": "optional canonical space"}),
+            "sprint.search": CapabilitySpecV4("sprint.search", "Resolve a human period reference (month/year/period) to source-backed sprint(s) in a space; typed ambiguity if several match.", {"space": "required approved space", "period": "required human period reference, e.g. a month name or YYYY-MM"}),
+            "sprint.list": CapabilitySpecV4("sprint.list", "List source-backed sprints in a space (optionally only active ones) as a complete collection.", {"space": "required approved space", "active_only": "optional 'true' to keep only non-closed sprints"}),
             "release.resolve": CapabilitySpecV4("release.resolve", "Validate a release/version id against REAL AS21 tasks.", {"reference": "required release id", "space": "optional canonical space"}),
             "task.search": CapabilitySpecV4("task.search", "Search REAL AS21 tasks by any resolved assignee/space/sprint/status combination.", {"assignee": "optional canonical login from member.resolve", "space": "optional approved space", "sprint_id": "optional canonical sprint", "status": "optional status; not_completed is supported"}),
             "task.lookup": CapabilitySpecV4("task.lookup", "Read one REAL AS21 task by key.", {"task_key": "required task key"}),
@@ -445,10 +479,29 @@ class AgentCoreV4Runtime:
                 "Find/filter tasks by person, product space, sprint and status.",
                 (
                     "Resolve only the entities needed by the user's filters.",
-                    "For a human reference call member.resolve; for a sprint call sprint.resolve.",
+                    "For a human reference call member.resolve.",
+                    "For a sprint given by id call sprint.resolve; for a sprint given by a month/period call sprint.search.",
                     "Call task.search with every resolved user constraint and validate the returned collection.",
                 ),
-                ("member.resolve", "space.resolve", "sprint.resolve", "task.search"),
+                ("member.resolve", "space.resolve", "sprint.resolve", "sprint.search", "task.search"),
+            ),
+            SkillSpecV4(
+                "sprints.discover",
+                "Find a sprint by a human month/period reference in a product space.",
+                (
+                    "Validate the product space, then call sprint.search with the space and the period reference.",
+                    "If sprint.search returns typed ambiguity, surface the options instead of guessing.",
+                ),
+                ("space.resolve", "sprint.search"),
+            ),
+            SkillSpecV4(
+                "sprints.list",
+                "List the sprints (or the active sprints) of a product space as a complete collection.",
+                (
+                    "Validate the product space, then call sprint.list for the full source-backed collection.",
+                    "Do not answer a request for several/active sprints with sprint.current, which returns only one sprint.",
+                ),
+                ("space.resolve", "sprint.list"),
             ),
             SkillSpecV4(
                 "tasks.lookup_then_assignee",
@@ -590,6 +643,103 @@ class AgentCoreV4Runtime:
             data={"sprint_id": reference, "space": canonical_space, "count": len(tasks), "source": "REAL_AS21"},
             evidence=[Evidence(type="sprint", source="as21", entity_id=reference, label="validated sprint", value=len(tasks))],
         )
+
+    async def _sprint_search(self, args: dict[str, str]) -> CapabilityResult:
+        space = str(args.get("space") or "").strip().upper()
+        period = str(args.get("period") or "").strip()
+        if space not in APPROVED_PRODUCT_SPACES:
+            raise V4NeedsClarification(
+                f"Не удалось подтвердить пространство «{space or '?'}».",
+                options=tuple(sorted(APPROVED_PRODUCT_SPACES)),
+            )
+        if not period:
+            raise V4NeedsClarification("Укажите период спринта (месяц, месяц+год или YYYY-MM).")
+        month, year = parse_period(period)
+        if month is None:
+            raise V4NeedsClarification(
+                f"Не удалось распознать период «{period}». Укажите месяц и при необходимости год.",
+            )
+        list_sprints = getattr(self.adapter, "list_sprints", None)
+        if list_sprints is None:
+            raise V4CapabilityUnavailable("sprint.search requires a source-backed sprint directory")
+        sprints = await list_sprints(space)
+        matched = [
+            item for item in sprints
+            if not item.get("deleted") and sprint_overlaps_period(item, month, year)
+        ]
+        if not matched:
+            raise V4NeedsClarification(
+                f"В REAL AS21 не найдено спринтов пространства {space} за период «{period}».",
+            )
+        if len(matched) > 1:
+            options = tuple(str(item["code"]) for item in matched)
+            raise V4NeedsClarification(
+                f"Несколько спринтов {space} пересекают период «{period}». Какой использовать?",
+                options=options,
+            )
+        sprint = matched[0]
+        return CapabilityResult(
+            answer=f"Спринт {space} за период «{period}»: {sprint['code']} (статус: {sprint.get('status') or '—'}).",
+            data={
+                "sprint_id": sprint["code"],
+                "space": space,
+                "status": sprint.get("status"),
+                "start_at": sprint.get("start_at"),
+                "finish_at": sprint.get("finish_at"),
+                "period": period,
+                "source": "REAL_AS21",
+            },
+            evidence=[Evidence(type="sprint", source="as21", entity_id=sprint["code"], label="period-matched sprint", value=str(sprint.get("status") or ""))],
+        )
+
+    async def _sprint_list(self, args: dict[str, str]) -> CapabilityResult:
+        space = str(args.get("space") or "").strip().upper()
+        active_only = str(args.get("active_only") or "").strip().casefold() in {"1", "true", "yes", "y"}
+        if space not in APPROVED_PRODUCT_SPACES:
+            raise V4NeedsClarification(
+                f"Не удалось подтвердить пространство «{space or '?'}».",
+                options=tuple(sorted(APPROVED_PRODUCT_SPACES)),
+            )
+        list_sprints = getattr(self.adapter, "list_sprints", None)
+        if list_sprints is None:
+            raise V4CapabilityUnavailable("sprint.list requires a source-backed sprint directory")
+        sprints = [item for item in await list_sprints(space) if not item.get("deleted")]
+        if active_only:
+            sprints = [item for item in sprints if self._sprint_status_active(item.get("status"))]
+        if not sprints:
+            scope = "активных" if active_only else ""
+            raise V4NeedsClarification(f"В REAL AS21 не найдено {scope} спринтов пространства {space}.")
+        rows = [
+            {
+                "code": item["code"],
+                "name": item.get("name") or "",
+                "status": item.get("status") or "",
+                "start_at": item.get("start_at"),
+                "finish_at": item.get("finish_at"),
+            }
+            for item in sprints
+        ]
+        label = "активные спринты" if active_only else "спринты"
+        summary = ", ".join(f"{row['code']} ({row['status'] or '—'})" for row in rows)
+        return CapabilityResult(
+            answer=f"{space}: {label} — {summary}.",
+            data={
+                "space": space,
+                "active_only": active_only,
+                "sprints": rows,
+                "count": len(rows),
+                "source": "REAL_AS21",
+            },
+            evidence=[Evidence(type="sprint", source="as21", entity_id=row["code"], label=label, value=row["status"]) for row in rows],
+        )
+
+    @staticmethod
+    def _sprint_status_active(status: Any) -> bool:
+        """A source sprint counts as active unless the source marks it closed/cancelled."""
+        value = str(status or "").strip().upper()
+        if not value:
+            return True
+        return value not in {"FINISHED", "FINISH", "CLOSED", "CANCELLED", "DONE", "ARCHIVED"}
 
     async def _release_resolve(self, args: dict[str, str]) -> CapabilityResult:
         reference = str(args.get("reference") or "").strip().upper()
@@ -750,6 +900,30 @@ class AgentCoreV4Runtime:
         result["capability"] = capability_id
         return result
 
+    @staticmethod
+    def query_requests_sprint_collection(query: str) -> bool:
+        """Generic cardinality detection: does the query ask for a sprint set?
+
+        Grammar-only signal — a plural sprint form, or the sprint noun next to
+        a collection marker ("несколько", "все", "список", "all", "list", ...).
+        No entity/phrase routing: singular forms ("текущий спринт", "в спринте
+        DMS-SPRNT-2") do not match.
+        """
+        tokens = [token.casefold() for token in re.findall(r"[a-zа-яё']+", str(query or ""))]
+        has_sprint_noun = any(token.startswith("спринт") or token.startswith("sprint") for token in tokens)
+        has_plural = any(token in _SPRINT_PLURAL_TOKENS for token in tokens)
+        has_marker = any(token in _COLLECTION_MARKERS for token in tokens)
+        return has_plural or (has_sprint_noun and has_marker)
+
+    def _reconcile_loaded_skill(self, skill_id: str, query: str) -> str:
+        """Deterministic capability-cardinality guard for skill loading.
+
+        Default is identity; runtimes may map a singleton skill to a
+        collection skill when the user query unambiguously requests a
+        collection (e.g. several/active sprints instead of the current one).
+        """
+        return skill_id
+
     async def process(self, request: HarnessRequest) -> HarnessResponse:
         started = time.perf_counter()
         trace_id = str(uuid.uuid4())
@@ -782,6 +956,10 @@ class AgentCoreV4Runtime:
 
                 if decision.kind == "load_skill":
                     skill_id = decision.skill_id or ""
+                    reconciled = self._reconcile_loaded_skill(skill_id, query)
+                    if reconciled != skill_id:
+                        trajectory[-1]["skill_adjustment"] = {"requested": skill_id, "selected": reconciled}
+                        skill_id = reconciled
                     if skill_id not in loaded:
                         self.catalog.load(skill_id)
                         loaded.append(skill_id)
@@ -866,6 +1044,17 @@ class AgentCoreV4Runtime:
                 data={"_agent_core_v4": {"runtime": "Agent Core v4", "semantic_prepass_used": False, "loaded_skills": loaded, "trajectory": trajectory}},
                 evidence=all_evidence,
                 warnings=["v4_capability_clarification"],
+                latency_ms=(time.perf_counter() - started) * 1000,
+            )
+        except V4CapabilityUnavailable as exc:
+            return HarnessResponse(
+                status=ResponseStatus.FAILED,
+                trace_id=trace_id,
+                session_id=session_id,
+                answer="Необходимая возможность не подтверждена источником данных и не выполняется.",
+                intent="skill_native_v4",
+                data={"_agent_core_v4": {"runtime": "Agent Core v4", "semantic_prepass_used": False, "loaded_skills": loaded, "trajectory": trajectory, "error": str(exc)}},
+                warnings=["v4_capability_unavailable"],
                 latency_ms=(time.perf_counter() - started) * 1000,
             )
         except AS21SourceUnavailable:

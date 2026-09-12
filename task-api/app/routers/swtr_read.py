@@ -280,7 +280,9 @@ async def swtr_read_health():
         "tool_count": len(tools),
         "read_unit": "read_unit" in tools,
         "get_unit_files": "get_unit_files" in tools,
+        "get_current_sprint": "get_current_sprint" in tools,
         "get_sprint_tasks": "get_sprint_tasks" in tools,
+        "search_sprints": "search_sprints" in tools,
         "search_versions": "search_versions" in tools,
     }
 
@@ -312,6 +314,51 @@ async def get_task_files(task_code: str):
     return {"task_code": normalized, "files": files}
 
 
+async def _schema_aware_search_sprints_arguments(
+    client: SWTRMCPClient,
+    *,
+    space: str,
+    page: int,
+    limit: int,
+) -> dict[str, Any]:
+    """Build search_sprints arguments from the live MCP schema (nested request DTO)."""
+    schema = await client.tool_input_schema("search_sprints")
+    properties = schema.get("properties") if isinstance(schema, dict) else None
+    top = properties if isinstance(properties, dict) else {}
+
+    request_schema = top.get("request")
+    if isinstance(request_schema, dict):
+        request_type = request_schema.get("type")
+        nested = request_schema.get("properties")
+        nested_props = nested if isinstance(nested, dict) else {}
+        if request_type == "object" or nested_props:
+            request: dict[str, Any] = {}
+            _put_declared(request, nested_props, ("space", "project", "projectCode", "spaceCode", "project_code"), space)
+            _put_declared(request, nested_props, ("page", "page_number", "pageNumber"), page)
+            _put_declared(request, nested_props, ("offset", "start"), page * limit)
+            _put_declared(request, nested_props, ("size", "limit", "page_size", "pageSize"), limit)
+            return {"request": request}
+
+    result: dict[str, Any] = {}
+    _put_declared(result, top, ("space", "project", "projectCode", "spaceCode", "project_code"), space)
+    _put_declared(result, top, ("page", "page_number", "pageNumber"), page)
+    _put_declared(result, top, ("size", "limit", "page_size", "pageSize"), limit)
+    return result
+
+
+def _normalize_sprint_row(row: dict[str, Any]) -> dict[str, Any]:
+    ident = row.get("id") if isinstance(row.get("id"), dict) else {}
+    code = str(ident.get("code") or "").strip() or str(row.get("code") or "").strip()
+    return {
+        "code": code,
+        "name": str(row.get("name") or ""),
+        "status": str(row.get("status") or ""),
+        "start_at": row.get("startAt"),
+        "finish_at": row.get("finishAt"),
+        "deleted": bool(row.get("deleted", False)),
+    }
+
+
 @router.get("/spaces/{space}/current-sprint")
 async def get_current_sprint(space: str):
     normalized = space.upper().strip()
@@ -323,6 +370,56 @@ async def get_current_sprint(space: str):
     except (SWTRMCPUnavailable, SWTRMCPProtocolError) as exc:
         raise _transport_http_error(exc) from exc
     return {"space": normalized, "sprint": _parse_tool_content(content)}
+
+
+@router.get("/spaces/{space}/sprints")
+async def list_space_sprints(
+    space: str,
+    page: int = Query(0, ge=0),
+    limit: int = Query(50, ge=1, le=100),
+    max_pages: int = Query(10, ge=1, le=100),
+):
+    """Source-backed sprint directory for one space via MCP-SWTR search_sprints.
+
+    Returns the complete (bounded by max_pages) set of source sprints with their
+    canonical code, status and period — no local cache, no synthetic sprints.
+    """
+    normalized = space.upper().strip()
+    if not re.fullmatch(r"^[A-Z][A-Z0-9_-]*$", normalized):
+        raise HTTPException(status_code=400, detail="Invalid SWTR space")
+
+    client = SWTRMCPClient()
+    accumulated: list[dict[str, Any]] = []
+    has_next = True
+    pages_read = 0
+    while has_next and pages_read < max_pages:
+        try:
+            arguments = await _schema_aware_search_sprints_arguments(
+                client, space=normalized, page=page + pages_read, limit=limit
+            )
+            content = await client.call_tool("search_sprints", arguments)
+        except (SWTRMCPUnavailable, SWTRMCPProtocolError) as exc:
+            raise _transport_http_error(exc) from exc
+        payload = _parse_tool_content(content)
+        accumulated.extend(_page_content(payload))
+        has_next = _page_meta(payload)["has_next"]
+        pages_read += 1
+
+    seen: set[str] = set()
+    sprints: list[dict[str, Any]] = []
+    for row in accumulated:
+        item = _normalize_sprint_row(row)
+        if item["code"] and item["code"] not in seen:
+            seen.add(item["code"])
+            sprints.append(item)
+
+    return {
+        "space": normalized,
+        "source": "REAL_AS21",
+        "sprints": sprints,
+        "complete": not has_next,
+        "pages_read": pages_read,
+    }
 
 
 @router.get("/sprints/{sprint_id}/tasks")
