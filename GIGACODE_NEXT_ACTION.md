@@ -1,210 +1,201 @@
 # GigaCode — Current Action
 
 ## Status
-`ACTIVE_QA_ASSIGNMENT_184_V4_REPRESENTATIVE_POC_RECHECK`
+`ACTIVE_OWNER_ASSIGNMENT_185_V4_BOUNDED_SOURCE_CORRECTNESS_HARDENING`
 
 ## Mission
-Assignment 183 was an **owner** hardening pass. It is now complete. This is a **QA-only**
-re-run of the representative Agent Core v4 POC decision gate that Assignment 182 left
-`BLOCKED_BY_PROVEN_SOURCE_OUTAGE`, plus the three live user scenarios that exposed generic
-capability/governance gaps. **Do not restart or modify the V4 POC. Do not edit production.**
+Continue from Assignment 184. **Do not restart the V4 POC and do not change planner/model strategy.**
 
-Assignment 183 shipped three generalized owner fixes on the current V4 architecture:
-1. **Source transport reliability** — bounded resilient read-through for
-   `/api/v1/swtr-read/` paths (`90 s` timeout + `3` bounded attempts + backoff + client
-   refresh on transient timeout/connection failure), preserving exact source results and
-   fail-closed behavior. This is the direct remediation for the 182 `assignee-tasks`
-   read-through 30 s ceiling.
-2. **Generic sprint discovery/list** — new `sprint.search` (human period → source-backed
-   canonical sprint, typed ambiguity on multi-match) and `sprint.list` (source-backed
-   active sprint collection), plus plural governance so a plural/list request is not
-   silently satisfied by the `sprint.current` singleton.
-3. **Source-authority identity governance** — a REAL/source-backed `member.resolve`
-   identity is trusted downstream and the local roster no longer vetoes an unambiguous
-   non-roster source identity, while anti-invention (no invented logins/ids) is preserved.
+Assignment 184 certified the important architecture points:
+- Assignment 183 transport fix works: DMS-380 benchmark is now **10/10 exact** against fresh REAL AS21;
+- the three user-discovered capability/governance gaps are fixed (`sprint.search`, `sprint.list`, source-authority identity);
+- safety remains fail-closed;
+- planner is clean: zero recovery turns across the live matrix, JSON-primary trajectories, no semantic prepass;
+- final verdict was `V4_BOUNDED_RED` only because of **two concrete pre-existing non-planner source/correctness defects**.
 
-Your job: prove — on a fresh runtime against the freshest REAL AS21 — that (a) the blocked
-10× DMS-380 decision gate now completes with exact source parity, (b) the mixed
-representative generalization matrix passes, (c) the three previously failing user
-scenarios are fixed and correct, and (d) safety/governance (fail-closed, no fabrication)
-is preserved. Then deliver a final architecture verdict.
+Your job is to fix **only those two bounded defects generically**, add regression coverage, prove them live against REAL AS21, then write the next QA-only Assignment 186 into this file and STOP. Do not run Assignment 186 in the same session.
 
-## Absolute rules (QA role)
-- First: `git pull --ff-only origin feat/core8-real-query-hardening-v2`.
-- Read, in order, before running anything:
-  - `po-agent-platform-v2/qa_reports/AGENT_CORE_V4_FINAL_POC_DECISION_182.md`
-  - `AGENT_CORE_V4_SKILL_NATIVE_SPEC.md` and `po-agent-platform-v2/docs/v4_dod/V4_DOD_LOCK.md`
-  - Assignment 183 owner artifacts: `qa_183_phase4_results.json`, `qa_183_phase4_runner.py`
-- **QA-only.** Do NOT modify: production code (`src/`), prompts, adapters, tests,
-  fixtures, runtime config, model/provider, skill catalog, learning data, or AS21/SWTR
-  data. Do NOT commit anything except the single QA report file below.
-- **No full tenant-wide task sync.**
-- **Stale-runtime rule:** do not reuse stale PO Agent ports `8004–8019`. Start a **fresh**
-  PO Agent from test base HEAD on a **fresh port** (recommended `8020`+, next free).
-- Concurrency `1`. Fresh session per run. Long agent call ≤ `600 s`.
-- **REAL AS21 is authoritative.** Refresh every expected value (task counts, sprint ids,
-  member logins) from a fresh Oracle B at run time. **Do not hardcode** `306`, `DMS-SPRNT-1/2`,
-  `semavin.m.m`, `Ivanov.P.Se`, or any prior-run count as an assertion — compare the agent
-  against a freshly built Oracle B in the same run.
-- Preserve fail-closed semantics; never treat a source outage as an empty/fabricated result.
+## Mandatory pre-read
+First:
+```bash
+git pull --ff-only origin feat/core8-real-query-hardening-v2
+```
+Then read:
+- `po-agent-platform-v2/qa_reports/AGENT_CORE_V4_REPRESENTATIVE_POC_184.md`
+- `po-agent-platform-v2/docs/v4_dod/V4_DOD_LOCK.md`
+- current V4 source adapter/task-api code relevant to the two defects below.
 
-## Test environment (expected, verify at runtime)
-- **Test base HEAD:** `8903db3` (Assignment 183 complete; groups 1–4 committed).
-- **Owner commits under test (must be ancestors of HEAD):**
-  - `796c466` — Phase 1: bounded resilient transport (`_get_resilient`, `_refresh_client`)
-  - `a4fce91` — Phase 2: sprint discovery/list + plural governance + `V4CapabilityUnavailable`
-  - `7be4e6b` — Phase 3: source-authority identity governance
-  - `814ab44` — Assignment 183 spec (context only)
-- **Model/provider:** `Qwen/Qwen3.8-27B` (unchanged).
-- **Env:** `PO_AGENT_AGENT_CORE_V4_ENABLED=true`, `PO_AGENT_AS21_MODE=task-api`,
-  `PO_AGENT_TASK_API_BASE_URL=http://127.0.0.1:<task-api-port>`.
-- **Services:** Task API (SSE → MCP-SWTR) + MCP-SWTR (`http://127.0.0.1:3000/sse`, 48 tools)
-  → REAL AS21. Confirm `agent_core_v4_ready=true` and `adapter=task-api`, `source_status=healthy`
-  from the fresh agent `/health` before running gates.
-- **Reference (optional):** Assignment 183 left a fresh agent on `8019` (task-api `8013`,
-  MCP-SWTR `3000`) built from `8903db3`. You MAY reuse it **only** if you verify its
-  `agent_core_v4_ready=true` and that it was started from `8903db3`; otherwise start your own
-  fresh instance on a fresh port.
+## Absolute rules
+- Keep current branch: `feat/core8-real-query-hardening-v2`.
+- Keep current model/provider (`Qwen/Qwen3.8-27B`) unchanged.
+- No surname/entity/query-specific hardcodes.
+- No prompt-only workaround for source correctness defects.
+- No local DB/fake/frozen truth for REAL-backed answers.
+- Preserve fail-closed semantics.
+- Do not loosen acceptance criteria.
+- Do not broadly refactor unrelated code.
+- Each fix must be generic and source-schema-driven.
 
 ---
 
-## Phase 0 — Focused build/protocol gate (regression net)
-1. Run the V4 + transport + sprint + identity focused suites and confirm GREEN:
-   ```
-   cd po-agent-platform-v2
-   ./.venv/bin/python -m pytest -q \
-     tests/test_adapter_transport_resilience.py \
-     tests/test_agent_core_v4_sprint_discovery.py \
-     tests/test_agent_core_v4_identity_governance.py \
-     tests/test_agent_core_v4_skill_native.py \
-     tests/test_agent_core_v4_robust_protocol.py \
-     tests/test_agent_core_v4_reliable.py
-   ```
-   (All should pass; record counts.)
-2. Static invariants (script or direct inspection):
-   - Production V4 runtime uses the robust/action-only planner path.
-   - `semantic_prepass_used` is always `false` on the V4 path (no prepass call-site).
-   - The three owner fixes introduce **no** entity/phrase/person/surname/trajectory
-     hardcode in production `src/` (diff `814ab44..8903db3`).
-   - `sprint.search`/`sprint.list` are present in the V4 catalog (16 capabilities expected:
-     prior 14 + `sprint.search` + `sprint.list`).
-   - Action-only recovery still rejects a recovery-minted terminal `READY`
-     (`_decode_dsl("READY…", allow_ready=False)` → None).
-3. Run the broader po-agent suite and record failures. Any failure must be shown to be
-   **pre-existing** (present before `8903db3`) and not introduced by the 183 owner changes.
+## B1 — Fix REAL sprint-task collection for >100 tasks
+
+### Proven defect from Assignment 184
+For current DMS sprint, REAL TQL Oracle contains **104** tasks, but the task-api route:
+`GET /api/v1/swtr-read/sprints/{id}/tasks?complete=true&limit=100&max_pages=100`
+accumulates the same first page repeatedly because the live MCP `get_sprint_tasks` schema does not expose a page argument and row identity is nested under `unit.code`.
+
+Observed failure signature:
+- 10,000 accumulated rows;
+- only 100 unique tasks;
+- ~25 MB response;
+- `complete=false`;
+- agent exhausts bounded transport retries and fails closed after ~3×90 s.
+
+### Required owner fix
+Implement a **generic bounded collection strategy** for sprint tasks that cannot loop on an unpageable source.
+
+Required properties:
+1. `_source_task_code` / equivalent canonical identity extraction must understand the REAL nested task-code shape (including `unit.code`) generically.
+2. A repeated source page that contributes **zero new canonical task identities** must terminate accumulation — never append the same page until `max_pages`.
+3. If the live source cannot actually paginate beyond the first page, do **not** falsely claim a complete collection.
+4. Prefer a source-backed way to obtain the true complete sprint set if available (e.g. TQL/search path using the sprint constraint) rather than silently returning 100/104.
+5. If complete truth genuinely cannot be obtained, return a typed/incomplete condition rather than a fabricated complete set.
+6. Preserve bounded latency and fail-closed behavior for a true source outage.
+
+The desired production outcome for a source-valid sprint with >100 tasks is **exact full collection parity with fresh Oracle B**, not merely avoiding the timeout.
+
+Add focused regression tests covering at least:
+- nested `unit.code` identity extraction;
+- repeated identical page stops immediately;
+- >100 task sprint gets complete exact data through the chosen supported source path;
+- no infinite/repeated-page amplification;
+- incomplete source cannot be mislabeled complete.
 
 ---
 
-## Phase 1 — Mandatory 10× DMS-380 multi-step gate (the 182 blocker)
-Query: `Покажи DMS-380 и затем задачи его исполнителя`.
+## B2 — Fix terminal/open status correctness for encoded status keys
 
-1. **Oracle B (fresh, REAL AS21/MCP-SWTR only):**
-   - `task.lookup(DMS-380)` → canonical `assignee_login` / `assignee_id`.
-   - Canonical source assignee task collection (MCP-SWTR TQL `assigned_to = "<assignee_id>"`)
-     → the **parity target count** (do not assume a prior number).
-2. **10× gate** (fresh session, concurrency 1): run the query 10×.
-   - Each run: turn 2 `task.lookup(DMS-380)` → turn 3 `task.search assignee=<canonical login>`
-     → `ready`. Assert the final collection is **exact parity** with Oracle B (same key set /
-     same count).
-   - **Transport check:** the turn-3 `task.search` → `/api/v1/swtr-read/assignee-tasks`
-     read-through must complete within the new bounded policy and **not** fail closed merely
-     because the old 30 s ceiling was exceeded. Record per-run latency and whether the
-     resilient path (retry/refresh) was exercised.
-   - **Bounded-exhaustion check:** confirm the resilient path is bounded (no infinite
-     retry) and that a genuine source outage still fails closed (typed
-     `source_unavailable`, never an empty/fabricated collection).
-3. **Gate result:** `PASS` only if **10/10 exact parity** (with zero wrong `task.lookup`
-   recovery, zero recovery-time `READY`, zero fabricated facts).
+### Proven defect from Assignment 184
+For STS assignee rows, the assignee-tasks route can expose encoded workflow status keys such as:
+- `CNCLLD_...`
+- `CLSD_...`
+- other opaque workflow ids
 
----
+The adapter currently maps many of these to `TaskStatus.UNKNOWN`, so `is_completed=False` and a `not_completed` query keeps terminal tasks.
 
-## Phase 2 — Mixed representative generalization matrix (from Assignment 182)
-Execute the mixed matrix on the fresh runtime, concurrency 1, comparing every factual
-collection against a fresh Oracle B where feasible:
-- `3×` person (a single team member, e.g. `Задачи <Full Name>` — exact assignee collection);
-- `3×` person + space (`Открытые задачи <Full Name> в <Space>`);
-- `3×` PVM-Guru (the representative multi-step / lookup-then-collection pattern);
-- `3×` current sprint (`Задачи в текущем спринте <Space>`);
-- `2×` lookup-long-desc (a task with a long description, verify bounded observation but exact
-  authoritative data);
-- `2×` analytical (`sprint.health` / `task.quality` style);
-- `2×` unseen (natural phrasings not seen in prior assignments);
-- the **three saved defect cases** (re-listed as mandatory in Phase 3 below).
+Assignment 184 example:
+- query family: open tasks for a person in STS;
+- agent returned **2609**;
+- fresh REAL oracle showed **404 true non-terminal**;
+- 2205 terminal rows were incorrectly counted as open.
 
-Record per-case status, key count, and parity vs Oracle B. Any non-parity or fail-open
-result is a RED signal (attribute to the correct boundary: planner vs capability vs
-source/transport vs governance).
+### Required owner fix
+Make task completion classification **source-schema-aware and generic**.
+
+Required properties:
+1. Prefer authoritative decoded workflow/status semantics from source (`workflow_status.name`, status type/category, or equivalent) when available.
+2. Do not maintain an entity/person/query-specific mapping.
+3. Do not rely on brittle matching of one exact opaque status id if the source exposes a semantic field.
+4. `is_completed` must correctly classify at least terminal categories equivalent to resolved/closed/cancelled/done and keep active/progress/pause/open categories non-terminal.
+5. Unknown truly undecodable statuses must remain explicit/typed; do not arbitrarily classify them as open if doing so would corrupt an `open/not_completed` factual collection.
+6. Preserve existing behavior for product spaces whose normal human-readable statuses already map correctly.
+
+Add focused regression tests with mixed task rows proving:
+- encoded terminal status + authoritative semantic metadata -> completed;
+- active encoded status -> non-completed;
+- ordinary human-readable statuses unchanged;
+- `not_completed` filtering returns exact expected keys/count;
+- unknown-without-semantic-evidence cannot silently inflate an "open tasks" result.
 
 ---
 
-## Phase 3 — The three previously failing user scenarios (MANDATORY)
-These three were the generic capability/governance gaps that 182/181 surfaced. Each MUST
-pass now (source-backed and correct), verified against fresh Oracle B:
+## Phase 3 — Focused regression + integration proof
 
-| # | Query | Expected after 183 fix | Class now covered |
-|---|---|---|---|
-| 1 | `Открытые задачи Александра Жданова в августовском спринте DMS` | `sprint.search` resolves the "августовский" period to the source-backed canonical sprint (e.g. the August `DMS` sprint); then the member's open tasks in that sprint. COMPLETED with a source-correct count (may legitimately be `0` if the source has none — assert parity, not a specific number). | `sprint.search` (period → sprint) |
-| 2 | `Активные спринты в DMS` | `sprint.list` returns the **complete** source-backed active sprint set for `DMS` (e.g. both active `DMS` sprints), NOT a silent singleton. Assert the returned set equals the fresh Oracle B active-sprint set. | `sprint.list` + plural governance |
-| 3 | `Покажи открытые задачи Петра Иванова в спринте DMS-SPRNT-2` | `member.resolve` returns the REAL source identity for Ivanov; downstream `task.search` uses the source-backed login and COMPLETES (count may be `0` — assert parity). No `V4ContractError` / roster veto on a valid non-roster source identity. | source-authority identity governance |
+Run focused tests for B1/B2 plus existing V4/transport/sprint/identity regression suites affected by the changes.
 
-**Negative control for case 3 (anti-invention preserved):** a person the source does **not**
-resolve (e.g. an invented name with no REAL identity) must still fail closed / clarify —
-the 183 identity fix must not have opened an invented-identity path.
+Then run broader po-agent tests and compare failures against the Assignment-184 baseline. No new regression is acceptable.
 
-**Ambiguity control for case 1:** a period that matches **multiple** source-valid sprints
-must return typed ambiguity/clarification, not a silent single choice.
+Static checks:
+- no semantic prepass introduced;
+- no planner/model/prompt strategy change;
+- no entity/person/space-specific production branch for B1/B2;
+- REAL AS21 remains authoritative;
+- action-only recovery/fail-closed behavior unchanged.
 
 ---
 
-## Phase 4 — Safety / governance regression
-Source-independent negative probes (all must fail closed with **zero fabricated facts**):
-- Invented task (`Покажи DMS-999999`) → "not found", no data.
-- Invented person (a name with no REAL identity) → fail-closed / clarify, no data.
-- Invented sprint (`... в спринте DMS-SPRNT-999`) → typed clarification / fail-closed.
-- Source unavailable (if it occurs) → typed `source_unavailable`, not empty/fabricated.
-- Fake `CALL`/`LOAD`/`READY` decode safety (action-only recovery; a bad turn ends in
-  `V4ContractError`, fail-closed) — confirm retained.
+## Phase 4 — REAL AS21 live owner verification
 
-Also confirm: no local `/api/v1/tasks`/SQLite/frozen/fake fallback was used for any
-REAL-backed answer; `semantic_prepass_used=false` throughout.
+Use a fresh runtime/session, concurrency 1, fresh Oracle B. Do not hardcode prior counts.
+
+### B1 live proof
+Choose at least one REAL sprint whose fresh Oracle contains >100 tasks (DMS current sprint is acceptable if still source-valid).
+
+Verify:
+- direct production source path returns the **complete exact task-key set** vs fresh TQL/source Oracle;
+- no duplicate-page amplification;
+- no 3×90 s timeout pattern;
+- natural query `Задачи в текущем спринте DMS` (or equivalent source-valid current-sprint query) completes with exact parity.
+
+### B2 live proof
+Choose a REAL assignee+space collection containing encoded statuses (STS case is acceptable if still source-valid).
+
+Verify:
+- fresh Oracle computes terminal/non-terminal from authoritative source semantics;
+- production adapter maps status semantics correctly;
+- natural `Открытые задачи <person> в <space>` returns the **exact non-terminal key set**, not merely the same count.
+
+### Retained smoke checks
+Also smoke-check, once each:
+- `Покажи DMS-380 и затем задачи его исполнителя` — exact source-backed completion;
+- `Активные спринты в DMS` — complete set, no singleton loss;
+- `Открытые задачи Александра Жданова в августовском спринте DMS` — source-backed period resolution;
+- valid non-roster REAL identity case (e.g. Пётр Иванов if still source-valid) — no roster veto;
+- invented identity — fail closed.
+
+Owner live checks are confidence checks, **not** the final QA certification.
 
 ---
 
-## Phase 5 — Final architecture decision gate
-Deliver exactly one verdict:
+## Phase 5 — Commit discipline
 
-- **`AGENT_CORE_V4_REPRESENTATIVE_POC_GREEN`** — Phase 0 GREEN, Phase 1 `10/10` exact parity,
-  Phase 2 matrix passing (or all discrepancies attributed to pre-existing, non-183 causes
-  with evidence), Phase 3 all three scenarios pass with anti-invention preserved, Phase 4
-  fail-closed preserved. This re-opens the V4 POC for Browser C / 54-skill migration.
-- **`V4_PLANNER_STRATEGY_REVIEW_REQUIRED`** — the owner fixes are correct but a fundamental
-  model/control-plane **planner** defect persists (attribute precisely to the planner, with
-  the failing turn and trajectory evidence).
-- **Bounded RED** — a concrete, bounded, non-planner code/capability/governance defect is
-  the blocker; name the exact failing boundary and provide an owner recommendation.
-- **`BLOCKED_BY_PROVEN_SOURCE_OUTAGE`** — only if a proven REAL source/transport boundary is
-  the **sole** blocker (record the exact failed boundary, the in-isolation success evidence,
-  and the owner action). Do not use this if the agent itself is misbehaving.
+Commit the bounded production/test fixes in logical commits. Keep QA scratch artifacts untracked unless they are explicitly intended as durable regression fixtures/scripts.
 
-Rationale for the verdict must cite per-phase evidence (counts, parities, latencies,
-trajectories). If the verdict is not GREEN, do **not** recommend proceeding to Browser C /
-UI or 54-skill migration.
+After fixes and owner verification are GREEN, update this same `GIGACODE_NEXT_ACTION.md` with **Assignment 186 — QA-only V4 representative POC re-gate**.
 
-## Deliverable
-- Write the report to:
-  `po-agent-platform-v2/qa_reports/AGENT_CORE_V4_REPRESENTATIVE_POC_184.md`
-- Include: test base HEAD, owner commits under test, runtime (ports, `agent_core_v4_ready`,
-  adapter, source_status), concurrency, Oracle B values (fresh), per-phase results with
-  counts/parities/latencies/trajectories, the decision verdict + rationale, and a
-  reproduction section (scripts/commands + artifact names).
-- Commit and push **only** the QA report:
-  ```
-  git add -- po-agent-platform-v2/qa_reports/AGENT_CORE_V4_REPRESENTATIVE_POC_184.md
-  git commit -m "qa: add AGENT_CORE_V4_REPRESENTATIVE_POC_184.md report"
-  git push
-  ```
+Assignment 186 must require at minimum:
+1. fresh build/protocol/static gate;
+2. fresh REAL Oracle B;
+3. B1 regression family: current-sprint/downstream task collection including a >100-task sprint, exact key parity;
+4. B2 regression family: person+space+not_completed with encoded workflow statuses, exact key parity;
+5. 10× DMS-380 benchmark retained;
+6. the three previously fixed user scenarios retained;
+7. mixed representative matrix + unseen combinations;
+8. safety/governance/fail-closed checks;
+9. final verdict exactly one of:
+   - `AGENT_CORE_V4_REPRESENTATIVE_POC_GREEN`
+   - `V4_PLANNER_STRATEGY_REVIEW_REQUIRED`
+   - bounded RED with exact boundary
+   - `BLOCKED_BY_PROVEN_SOURCE_OUTAGE`
+10. if GREEN: explicit recommendation to **STOP backend POC remediation and proceed to Browser C/UI, then progressive 54-skill catalog migration**.
+
+QA 186 must be QA-only and must not edit production.
+
+## Completion criteria for Assignment 185
+Assignment 185 is complete only when:
+- B1 is fixed generically and proven exact live;
+- B2 is fixed generically and proven exact live;
+- focused tests are GREEN;
+- no new broader regression is introduced;
+- safety/source-authority invariants remain intact;
+- all owner changes are committed and pushed;
+- `GIGACODE_NEXT_ACTION.md` contains the complete Assignment 186 QA instructions and is pushed.
+
+Then **STOP**. Do not execute Assignment 186 in this run.
 
 ## Final response
-Return: report commit SHA, the final verdict, and the complete report contents.
-
-**STOP.** Do not start any further assignment in this run.
+Return:
+- commit SHAs for B1, B2 and Assignment-186 spec;
+- concise owner-verification results;
+- confirmation that Assignment 186 is prepared but not started.
