@@ -54,8 +54,7 @@ class ProductionTaskApiAS21Adapter(TaskApiAS21Adapter):
         if not re.fullmatch(r"[A-Z][A-Z0-9]*-\d+", normalized):
             return None
         try:
-            response = await self._client.get(f"/api/v1/swtr-read/tasks/{normalized}")
-            response.raise_for_status()
+            response = await self._get_resilient(f"/api/v1/swtr-read/tasks/{normalized}")
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code == 404:
                 return None
@@ -102,8 +101,7 @@ class ProductionTaskApiAS21Adapter(TaskApiAS21Adapter):
         if not normalized:
             return None
         try:
-            response = await self._client.get(f"/api/v1/swtr-read/spaces/{normalized}/current-sprint")
-            response.raise_for_status()
+            response = await self._get_resilient(f"/api/v1/swtr-read/spaces/{normalized}/current-sprint")
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code == 404:
                 return None
@@ -137,8 +135,7 @@ class ProductionTaskApiAS21Adapter(TaskApiAS21Adapter):
             params["space"] = project_space
 
         try:
-            response = await self._client.get("/api/v1/swtr-read/assignee-tasks", params=params)
-            response.raise_for_status()
+            response = await self._get_resilient("/api/v1/swtr-read/assignee-tasks", params=params)
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code == 404:
                 return []
@@ -180,11 +177,10 @@ class ProductionTaskApiAS21Adapter(TaskApiAS21Adapter):
         if not normalized:
             return []
         try:
-            response = await self._client.get(
+            response = await self._get_resilient(
                 f"/api/v1/swtr-read/sprints/{normalized}/tasks",
                 params={"complete": "true", "limit": 100, "max_pages": 100},
             )
-            response.raise_for_status()
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code == 404:
                 return []
@@ -241,9 +237,10 @@ class ProductionTaskApiAS21Adapter(TaskApiAS21Adapter):
         if space:
             params["space"] = space
         try:
-            response = await self._client.get("/api/v1/swtr-read/versions", params=params)
-            response.raise_for_status()
-        except httpx.HTTPError:
+            response = await self._get_resilient("/api/v1/swtr-read/versions", params=params)
+        except (httpx.HTTPError, AS21SourceUnavailable):
+            # Versions is a best-effort read: keep the documented task-backed
+            # fallback (flagged fallback=True) instead of failing the request.
             return await self._task_backed_versions(query=query, space=space)
         try:
             payload = response.json()

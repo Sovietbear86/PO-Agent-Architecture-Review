@@ -7,6 +7,7 @@ clauses fail closed; they are never sent as ignored parameters.
 """
 from __future__ import annotations
 
+import asyncio
 from datetime import datetime
 import re
 from pathlib import Path
@@ -36,6 +37,19 @@ class AS21SourceUnavailable(AS21SourceError):
 
 class AS21CapabilityUnavailable(AS21SourceError):
     pass
+
+
+# Bounded transport resilience for REAL source reads. Paths under
+# /api/v1/swtr-read/ are live MCP-SWTR read-throughs whose latency can exceed the
+# standard client ceiling under sequential agent load (Assignment 182). They get
+# an operation-aware source-read budget plus a small bounded retry with backoff;
+# every other operation keeps the standard single-shot behavior so ordinary fast
+# reads are not slowed.
+_READ_THROUGH_PREFIX = "/api/v1/swtr-read/"
+_READ_THROUGH_TIMEOUT_SECONDS = 90.0
+_READ_THROUGH_ATTEMPTS = 3
+_RETRY_BACKOFF_SECONDS = (1.0, 2.5)
+_TRANSIENT_HTTP_STATUS = frozenset({502, 503, 504})
 
 
 def _parse_datetime(value: Any) -> datetime | None:
@@ -212,15 +226,70 @@ class TaskApiAS21Adapter(AS21Adapter):
         base_url: str = "http://localhost:8003",
         *,
         timeout_seconds: float = 30.0,
+        read_through_timeout_seconds: float = _READ_THROUGH_TIMEOUT_SECONDS,
+        read_through_attempts: int = _READ_THROUGH_ATTEMPTS,
         client: httpx.AsyncClient | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self._owns_client = client is None
-        self._client = client or httpx.AsyncClient(
+        self._base_timeout_seconds = float(timeout_seconds)
+        self._read_through_timeout_seconds = float(read_through_timeout_seconds)
+        self._read_through_attempts = max(1, int(read_through_attempts))
+        self._client = client or self._new_client()
+
+    def _new_client(self) -> httpx.AsyncClient:
+        return httpx.AsyncClient(
             base_url=self.base_url,
-            timeout=httpx.Timeout(timeout_seconds),
+            timeout=httpx.Timeout(self._base_timeout_seconds),
             follow_redirects=True,
         )
+
+    async def _refresh_client(self) -> None:
+        """Reset the owned HTTP client so an unhealthy pooled connection is discarded."""
+        if not self._owns_client:
+            return
+        old, self._client = self._client, self._new_client()
+        try:
+            await old.aclose()
+        except Exception:
+            pass
+
+    async def _get_resilient(self, path: str, *, params: dict[str, Any] | None = None) -> httpx.Response:
+        """Bounded-resilient GET for task-api reads.
+
+        Live ``/api/v1/swtr-read/`` read-throughs reach REAL AS21 via MCP-SWTR and
+        may exceed the standard client ceiling, so they use an operation-aware
+        source-read budget and a small bounded retry with backoff. Every other
+        path keeps the standard single-shot behavior. Transient failures
+        (timeouts, connection errors, 502/503/504) are retried after a client
+        refresh; non-transient HTTP errors are re-raised immediately for the
+        caller's typed handling. Budget exhaustion raises the typed
+        ``AS21SourceUnavailable`` — never an empty or fabricated result.
+        """
+        if path.startswith(_READ_THROUGH_PREFIX):
+            attempts = self._read_through_attempts
+            timeout = httpx.Timeout(self._read_through_timeout_seconds)
+        else:
+            attempts = 1
+            timeout = None
+        last_exc: Exception | None = None
+        for attempt in range(attempts):
+            if attempt:
+                await asyncio.sleep(_RETRY_BACKOFF_SECONDS[min(attempt - 1, len(_RETRY_BACKOFF_SECONDS) - 1)])
+                await self._refresh_client()
+            try:
+                response = await self._client.get(path, params=params, timeout=timeout)
+                response.raise_for_status()
+                return response
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code not in _TRANSIENT_HTTP_STATUS:
+                    raise
+                last_exc = exc
+            except httpx.HTTPError as exc:
+                last_exc = exc
+        raise AS21SourceUnavailable(
+            f"task-api {path} read failed after {attempts} attempts: {type(last_exc).__name__}"
+        ) from last_exc
 
     @staticmethod
     def _map(data: dict) -> Task | None:
@@ -284,8 +353,7 @@ class TaskApiAS21Adapter(AS21Adapter):
         if source:
             params["source"] = source
         try:
-            response = await self._client.get("/api/v1/tasks", params=params)
-            response.raise_for_status()
+            response = await self._get_resilient("/api/v1/tasks", params=params)
         except httpx.HTTPError as exc:
             raise AS21SourceUnavailable(f"task-api request failed: {type(exc).__name__}") from exc
         try:
@@ -352,11 +420,10 @@ class TaskApiAS21Adapter(AS21Adapter):
         if not re.fullmatch(r"[A-Z]+-\d+", normalized):
             raise AS21SourceError(f"Invalid task key: {task_key}")
         try:
-            response = await self._client.get(f"/api/v1/swtr-read/tasks/{normalized}/history")
-            response.raise_for_status()
+            response = await self._get_resilient(f"/api/v1/swtr-read/tasks/{normalized}/history")
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code == 404:
-                raise AS21SourceError(f"Task {task_key} not found in SWTR history")
+                raise AS21SourceError(f"Task {task_key} not found in SWTR history") from exc
             if exc.response.status_code in (502, 503):
                 raise AS21SourceUnavailable(
                     f"Task API history endpoint unavailable: HTTP {exc.response.status_code}"
@@ -410,8 +477,7 @@ class TaskApiAS21Adapter(AS21Adapter):
         if not re.fullmatch(r"[A-Z]+-\d+", normalized):
             return []
         try:
-            response = await self._client.get(f"/api/v1/swtr-read/tasks/{normalized}/files")
-            response.raise_for_status()
+            response = await self._get_resilient(f"/api/v1/swtr-read/tasks/{normalized}/files")
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code == 404:
                 return []

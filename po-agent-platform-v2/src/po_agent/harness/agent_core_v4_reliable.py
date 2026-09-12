@@ -16,6 +16,7 @@ Rules:
 """
 from __future__ import annotations
 
+import json
 import os
 import re
 from typing import Any, Mapping
@@ -111,8 +112,8 @@ Additional reliability rules:
         return tuple(matches)
 
     async def _resolve_source_login(self, reference: str) -> str:
-        client = getattr(self.adapter, "_client", None)
-        if client is None:
+        resilient_get = getattr(self.adapter, "_get_resilient", None)
+        if resilient_get is None:
             matches = self._team_candidates(reference)
             if len(matches) != 1:
                 raise V4NeedsClarification(
@@ -122,25 +123,33 @@ Additional reliability rules:
             return matches[0].login
 
         try:
-            response = await client.get(
+            response = await resilient_get(
                 "/api/v1/swtr-read/assignees/resolve",
                 params={"reference": reference},
             )
-            if response.status_code == 409:
-                payload = response.json() if response.content else {}
-                detail = payload.get("detail") if isinstance(payload, dict) else None
+            payload = response.json()
+        except V4NeedsClarification:
+            raise
+        except AS21SourceUnavailable:
+            raise
+        except Exception as exc:
+            http_response = getattr(exc, "response", None)
+            status = getattr(http_response, "status_code", None)
+            if status == 409:
+                detail: dict = {}
+                try:
+                    parsed = json.loads(http_response.content.decode())
+                    parsed_detail = parsed.get("detail") if isinstance(parsed, dict) else None
+                    if isinstance(parsed_detail, dict):
+                        detail = parsed_detail
+                except Exception:
+                    detail = {}
                 matches = detail.get("matches") if isinstance(detail, dict) else []
                 raise V4NeedsClarification(
                     f"Не удалось однозначно определить пользователя «{reference}».",
                     options=tuple(str(item) for item in matches if item),
-                )
-            response.raise_for_status()
-            payload = response.json()
-        except V4NeedsClarification:
-            raise
-        except Exception as exc:
-            status = getattr(getattr(exc, "response", None), "status_code", None)
-            if status in {502, 503}:
+                ) from exc
+            if status in {502, 503, 504}:
                 raise AS21SourceUnavailable("REAL AS21 identity resolver unavailable") from exc
             raise AS21SourceError("REAL AS21 identity resolver failed") from exc
         external_id = str(payload.get("external_id") or "").strip() if isinstance(payload, dict) else ""

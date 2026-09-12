@@ -506,27 +506,35 @@ class AgentCoreV4Runtime:
         if not reference:
             raise V4NeedsClarification("Кого именно нужно найти?")
 
-        # Production task-api adapters expose the underlying HTTP client.  Use a
-        # governed read-only facade that delegates to REAL MCP-SWTR search_users.
-        client = getattr(self.adapter, "_client", None)
-        if client is not None:
+        # Production task-api adapters expose a governed resilient HTTP read path.
+        # Use it for the REAL MCP-SWTR search_users facade.
+        resilient_get = getattr(self.adapter, "_get_resilient", None)
+        if resilient_get is not None:
             try:
-                response = await client.get("/api/v1/swtr-read/assignees/resolve", params={"reference": reference})
-                if response.status_code == 409:
-                    payload = response.json() if response.content else {}
-                    detail = payload.get("detail") if isinstance(payload, dict) else None
-                    matches = detail.get("matches") if isinstance(detail, dict) else []
-                    raise V4NeedsClarification(
-                        f"Не удалось однозначно определить пользователя «{reference}».",
-                        options=tuple(str(item) for item in matches if item),
-                    )
-                response.raise_for_status()
+                response = await resilient_get("/api/v1/swtr-read/assignees/resolve", params={"reference": reference})
                 payload = response.json()
             except V4NeedsClarification:
                 raise
+            except AS21SourceUnavailable:
+                raise
             except Exception as exc:
-                status = getattr(getattr(exc, "response", None), "status_code", None)
-                if status in {502, 503}:
+                http_response = getattr(exc, "response", None)
+                status = getattr(http_response, "status_code", None)
+                if status == 409:
+                    detail_payload: dict = {}
+                    try:
+                        parsed = json.loads(http_response.content.decode())
+                        detail = parsed.get("detail") if isinstance(parsed, dict) else None
+                        if isinstance(detail, dict):
+                            detail_payload = detail
+                    except Exception:
+                        detail_payload = {}
+                    matches = detail_payload.get("matches") if isinstance(detail_payload, dict) else []
+                    raise V4NeedsClarification(
+                        f"Не удалось однозначно определить пользователя «{reference}».",
+                        options=tuple(str(item) for item in matches if item),
+                    ) from exc
+                if status in {502, 503, 504}:
                     raise AS21SourceUnavailable("REAL AS21 identity resolver unavailable") from exc
                 raise AS21SourceError("REAL AS21 identity resolver failed") from exc
             external_id = str(payload.get("external_id") or "").strip() if isinstance(payload, dict) else ""

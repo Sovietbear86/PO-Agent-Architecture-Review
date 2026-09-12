@@ -133,8 +133,7 @@ class HardenedProductionTaskApiAS21Adapter(ProductionTaskApiAS21Adapter):
         if key in self._raw_unit_cache:
             return self._raw_unit_cache[key]
         try:
-            response = await self._client.get(f"/api/v1/swtr-read/tasks/{key}")
-            response.raise_for_status()
+            response = await self._get_resilient(f"/api/v1/swtr-read/tasks/{key}")
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code == 404:
                 self._raw_unit_cache[key] = None
@@ -233,8 +232,7 @@ class HardenedProductionTaskApiAS21Adapter(ProductionTaskApiAS21Adapter):
             return []
         params = {"complete": "true", "limit": 100, "max_pages": 500}
         try:
-            response = await self._client.get(f"/api/v1/swtr-read/sprints/{normalized}/tasks", params=params)
-            response.raise_for_status()
+            response = await self._get_resilient(f"/api/v1/swtr-read/sprints/{normalized}/tasks", params=params)
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code == 404:
                 return []
