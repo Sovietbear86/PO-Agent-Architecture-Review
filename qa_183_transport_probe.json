@@ -1,0 +1,37 @@
+[
+  {
+    "run": 1,
+    "http": 200,
+    "count": 306,
+    "pages": 4,
+    "latency_s": 2.2
+  },
+  {
+    "run": 2,
+    "http": 200,
+    "count": 306,
+    "pages": 4,
+    "latency_s": 1.8
+  },
+  {
+    "run": 3,
+    "http": 200,
+    "count": 306,
+    "pages": 4,
+    "latency_s": 1.8
+  },
+  {
+    "run": 4,
+    "http": 200,
+    "count": 306,
+    "pages": 4,
+    "latency_s": 1.7
+  },
+  {
+    "run": 5,
+    "http": 200,
+    "count": 306,
+    "pages": 4,
+    "latency_s": 1.8
+  }
+]

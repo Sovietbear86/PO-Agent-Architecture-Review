@@ -1,0 +1,69 @@
+{
+  "assignment": 183,
+  "phase": "4 integration validation (fresh REAL AS21, concurrency 1)",
+  "runtime": "PO Agent 8019 (fresh, agent_core_v4_ready=true) -> task-api 8013 (fresh) -> MCP-SWTR SSE :3000 -> REAL AS21",
+  "oracle_b": {
+    "semavin_total": 306,
+    "dms_sprints": ["DMS-SPRNT-1", "DMS-SPRNT-2"],
+    "dms_active_sprints": ["DMS-SPRNT-1", "DMS-SPRNT-2"],
+    "zhdanov_open_DMS-SPRNT-2": 0,
+    "ivanov_open_DMS-SPRNT-2": 0,
+    "petr_ivanov_resolves": "Ivanov.P.Se (REAL /assignees/resolve 200)",
+    "ivanov_alone": "409 ambiguous (fail-closed)"
+  },
+  "results": {
+    "transport_phase1": {
+      "direct_sequential_assignee_route": [
+        {"run": 1, "count": 306, "status": 200, "seconds": 2.2},
+        {"run": 2, "count": 306, "status": 200, "seconds": 1.8},
+        {"run": 3, "count": 306, "status": 200, "seconds": 2.2},
+        {"run": 4, "count": 306, "status": 200, "seconds": 1.8},
+        {"run": 5, "count": 306, "status": 200, "seconds": 2.0}
+      ],
+      "canonical_182_gate_agent": [
+        {"run": 1, "status": "COMPLETED", "count": 306, "caps": ["tasks.lookup_then_assignee", "task.lookup", "task.search"], "seconds": 47.2},
+        {"run": 2, "status": "COMPLETED", "count": 306, "caps": ["tasks.lookup_then_assignee", "task.lookup", "task.search"], "seconds": 33.8},
+        {"run": 3, "status": "COMPLETED", "count": 306, "caps": ["tasks.lookup_then_assignee", "task.lookup", "task.search"], "seconds": 20.8}
+      ],
+      "verdict": "PASS — the 182 boundary (0/10 source_unavailable) is now 5/5 direct + 3/3 agent @ 306"
+    },
+    "zhdanov_august_sprint": {
+      "query": "Открытые задачи Александра Жданова в августовском спринте DMS",
+      "status": "COMPLETED",
+      "resolved_sprint": "DMS-SPRNT-2",
+      "task_count": 0,
+      "caps": ["sprints.discover", "space.resolve", "sprint.search", "tasks.search", "member.resolve", "task.search"],
+      "answer": "В августовском спринте DMS-SPRNT-2 (16–30 августа 2026) у Александра Жданова (Zhdanov.A.Ni) открытых задач нет — по запросу с фильтром «не завершены» найдено 0 задач.",
+      "note": "0 is a real source fact (Zhdanov has no DMS-SPRNT-2 tasks); the period correctly resolved to DMS-SPRNT-2",
+      "verdict": "PASS — period -> canonical sprint (Phase 2 sprint.search)"
+    },
+    "active_sprints": {
+      "query": "Активные спринты в DMS",
+      "status": "COMPLETED",
+      "sprints": ["DMS-SPRNT-1", "DMS-SPRNT-2"],
+      "caps": ["sprints.list", "space.resolve", "sprint.list"],
+      "answer": "В пространстве DMS найдено 2 активных спринта: DMS-SPRNT-1 (NEW), DMS-SPRNT-2 (NEW)",
+      "verdict": "PASS — full collection returned, not a silent singleton (Phase 2 sprint.list + plural governance)"
+    },
+    "petr_ivanov_non_roster": {
+      "query": "Покажи открытые задачи Петра Иванова в спринте DMS-SPRNT-2",
+      "status": "COMPLETED",
+      "resolved_login": "Ivanov.P.Se",
+      "sprint": "DMS-SPRNT-2",
+      "task_count": 0,
+      "caps": ["tasks.search", "sprint.resolve", "member.resolve", "task.search"],
+      "answer": "У Петра Иванова (Ivanov.P.Se) в спринте DMS-SPRNT-2 нет открытых задач. Всего в спринте 39 задач, но ни одна не назначена на данного исполнителя со статусом «не завершена».",
+      "note": "Ivanov.P.Se is absent from the local roster but uniquely resolved by REAL AS21; 0 is a real source fact",
+      "verdict": "PASS — non-roster REAL identity flows end-to-end (Phase 3 identity governance)"
+    },
+    "anti_invention_preserved": {
+      "observed": "query 'Задачи Семавина' where the LLM mis-transcribed the person as 'Семанин' (not in the query) was rejected fail-closed (V4ContractError) — anti-invention guard working, not a transport/defect issue",
+      "verdict": "PASS — anti-invention safeguard intact"
+    },
+    "ambiguity_fail_closed": {
+      "observed": "/assignees/resolve?reference=Иванов -> 409 ambiguous; member.resolve raises typed clarification",
+      "verdict": "PASS — ambiguity fails closed"
+    }
+  },
+  "focused_regression_suite": "GREEN — 58 V4/transport tests + 11 identity + 15 sprint-discovery + 9 transport + 4 task-api sprint; no new failures vs base (pre-existing CRUD/test failures unchanged)"
+}
