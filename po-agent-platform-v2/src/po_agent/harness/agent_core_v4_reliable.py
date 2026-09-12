@@ -357,8 +357,36 @@ Additional reliability rules:
             visit(observation.data)
         return values
 
+    def _reference_is_query_derived_person(self, reference: str, query: str) -> bool:
+        """True when a person reference is grounded in the user's own text.
+
+        Every name token of the reference must match a query token under the
+        conservative morphology equivalence (covers inflected Russian names such
+        as a genitive mention "Петра Иванова" vs a nominative reference
+        "Петр Иванов"). This is not a surname rule and not a lookup in any
+        directory: it only requires the reference to be derivable from what the
+        user actually wrote, so the planner cannot invent an arbitrary identity.
+        The REAL AS21 resolver remains the authority for the canonical login.
+        """
+        wanted = self._name_tokens(reference)
+        if not wanted:
+            return False
+        available = self._name_tokens(query)
+        if not available:
+            return False
+        return all(
+            any(self._token_equivalent(want, have) for have in available)
+            for want in wanted
+        )
+
     def _reference_is_safe_normalization(self, raw: str, query: str) -> bool:
         if _literal_is_query_derived(raw, query):
+            return True
+        # A person reference grounded in the query (possibly inflected) may go to
+        # the governed REAL member.resolve resolver. The local roster is a
+        # non-production hint and must NOT veto a REAL-AS21 identity that the
+        # source can uniquely resolve.
+        if self._reference_is_query_derived_person(raw, query):
             return True
         # A morphology-normalized person reference is safe only if it resolves to
         # exactly one authorized roster entry; REAL AS21 validation still happens
