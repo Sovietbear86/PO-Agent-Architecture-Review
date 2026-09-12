@@ -169,12 +169,63 @@ mixed generalization matrix (3× person, 3× person+space, 3× PVM-Guru, 3× cur
 2× lookup-long-desc, 2× analytical, 2× unseen, plus the three saved defect cases) is **not
 executed** for this assignment. The three 181 defect cases (sprint-by-period, enumerate all
 active sprints, non-roster person morphology) are pre-existing **capability/catalog gaps**
-documented in memory `GIGACODE-PO-AGENT-182-CASES` and are orthogonal to the observation
-fix; they remain open items for a post-source-stability re-run.
+documented in memory `GIGACODE-PO-AGENT-182-CASES`, orthogonal to the observation fix; they
+are **re-verified below** (Section 4) rather than carried on prior observation alone.
 
 ---
 
-## 4. Phase 3 — Safety / governance regression → **fail-closed preserved** (subset)
+## 4. Pre-existing capability/gap cases (carried from 181 discovery; re-verified on c482ff6)
+
+Three ad-hoc prompt findings (memory `GIGACODE-PO-AGENT-182-CASES`, first observed on the 181
+base `0cf2ee2`) are **pre-existing capability/catalog gaps**, orthogonal to the 182
+observation-hygiene fix. All three were **re-verified live on the 182 base `c482ff6`** (fresh
+8009 runtime, concurrency 1; output `qa_182_cases_182re.json`). None touches the flaky
+`assignee-tasks` read-through, so they run fast and reproducible. They confirm the V4 catalog
+boundaries documented in `V4_DOD_LOCK.md`.
+
+| # | Query | Status | Keys | First failing / limiting boundary | Class |
+|---|---|---|---|---|---|
+| 1 | `Открытые задачи Александра Жданова в августовском спринте DMS` | FAILED (`v4_runtime_failure`) | 0 | turn-3 `sprint.resolve("августовский спринт", space=DMS)` — no period→ID bridge | capability gap: no `sprint.search`/`find_by_period` |
+| 2 | `Активные спринты в DMS` | COMPLETED (silent subset) | 0 | `sprint.current(product=DMS)` → **one** sprint `DMS-SPRNT-1` only | capability gap: no `sprint.list`/`sprint.search` |
+| 3 | `Покажи открытые задачи Петра Иванова в спринте DMS-SPRNT-2` | FAILED (`v4_runtime_failure`) | 0 | turn-3 `member.resolve("Петр Иванов", sprint_id=$obs.1.sprint_id)` | person-morphology/roster gap (A172/174 class) |
+
+**Case 1 — "августовский спринт" (human period reference).** Trajectory: `load tasks.search`
+→ `space.resolve(DMS)` → `sprint.resolve("августовский спринт", space=DMS)` → FAILED.
+`sprint.resolve` expects a **canonical sprint ID**, but the planner (correctly) passes the
+user's natural-language period phrase. The V4 catalog has only `sprint.current` (single current
+sprint) and `sprint.resolve` (validate a known ID) — **no capability bridges a human
+date/period reference to a sprint ID** (`sprint.search`/`find_by_period` absent). Fail-closed, 0
+keys, no fabrication.
+
+**Case 2 — "несколькими активными спринтами" (enumerate all active sprints).** Trajectory:
+`load sprint.current` → `space.resolve(DMS)` → `sprint.current(product=DMS)` → `ready`,
+COMPLETED with answer "Текущий активный спринт в DMS: **DMS-SPRNT-1**." This is the subtle
+case: it returns **success but only one sprint**, because `sprint.current` returns a single
+"current" sprint. If a space has multiple active/overlapping sprints, the user gets a **silent
+subset**, not all active sprints. The planner's own turn-4 rationale acknowledges: *"No
+capability exists to list multiple active sprints."* The V4 catalog has **no
+`sprint.list`/`sprint.search`** to enumerate all active sprints in a space.
+
+**Case 3 — "Петр Иванов" (non-roster person morphology).** Trajectory: `load tasks.search`
+→ `sprint.resolve(DMS-SPRNT-2)` → `member.resolve("Петр Иванов", sprint_id=$obs.1.sprint_id)`
+→ FAILED. Root cause: `_literal_is_query_derived` requires an exact substring or single-token
+prefix; the two-token full name in different case/inflection (query genitive "Петра Иванова"
+vs. planner nominative "Петр Иванов") fails both checks, and the `_reference_is_safe_normalization`
+(team-roster) fallback also fails because **Ivanov is not in `team_members.yaml`** (unlike
+Zhdanov.A.Ni, who is). The source `/assignees/resolve` does correctly return `Ivanov.P.Se`
+(200), so this is a **guard/catalog** defect, not a source one — the same person-morphology class
+as A172/174, now on the V4 path for **non-roster** members. (On the 181 base the same case
+surfaced as `V4ContractError "planner person reference is neither query-derived nor uniquely
+team-scoped: Петр Иванов"`; on the 182 base the runtime wraps the identical `member.resolve`
+failure as `v4_runtime_failure`.)
+
+All three are **open items** for a post-source-stability re-run and are **orthogonal to the
+observation-hygiene fix** (which does not touch `sprint.resolve`, `sprint.current`, or
+`member.resolve`).
+
+---
+
+## 5. Phase 3 — Safety / governance regression → **fail-closed preserved** (subset)
 
 Executed the source-independent negative probes (the `assignee-tasks`-dependent ones are
 unavailable under the outage). Script/probe results (`qa_182_p3_safety.json`):
@@ -195,7 +246,7 @@ fabrication), and possibly influenced by the concurrent source outage.
 
 ---
 
-## 5. Phase 4 — POC architecture evidence summary
+## 6. Phase 4 — POC architecture evidence summary
 
 - **Raw-query / progressive-skill V4 loop** active and end-to-end: load generic skill
   `tasks.lookup_then_assignee` → `task.lookup` (REAL AS21, canonical assignee) →
@@ -216,7 +267,7 @@ fabrication), and possibly influenced by the concurrent source outage.
 
 ---
 
-## 6. Phase 5 — Mandatory architecture decision gate
+## 7. Phase 5 — Mandatory architecture decision gate
 
 Decision framework (from the assignment): A = GREEN (all phases pass); B =
 `V4_PLANNER_STRATEGY_REVIEW_REQUIRED` (fix correct but a fundamental model/control-plane
@@ -259,13 +310,15 @@ decision gate after the source-boundary fix + a clean 10× (and Phase 2) re-run.
 
 ---
 
-## 7. Reproduction
+## 8. Reproduction
 
 - Oracle B: `python3 qa_182_p1_oracle.py` (global `python3`, has `fastmcp`)
 - Observation probe + source probes: `po-agent-platform-v2/.venv/bin/python qa_182_p1_*.py`
 - 10× gate: `po-agent-platform-v2/.venv/bin/python qa_182_p1_runner.py` (and
   `qa_182_p1_runner_gap.py` for the 8 s-gap control)
 - Safety probes: `qa_182_p3_safety.json`
+- Capability/gap cases (Section 4): `qa_182_cases_182re.json`
 - Artifacts: `qa_182_p1_oracle.json`, `qa_182_p1_observation.json`, `qa_182_p1_results.json`,
   `qa_182_p1_results_gap.json`, `qa_182_p1_sourceprobe.json`, `qa_182_p1_lookup_search.json`,
-  `qa_182_p3_safety.json`, `qa_182_agent.log` (all untracked QA artifacts, not committed).
+  `qa_182_p3_safety.json`, `qa_182_cases_182re.json`, `qa_182_agent.log` (all untracked QA
+  artifacts, not committed).
