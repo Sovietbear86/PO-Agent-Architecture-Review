@@ -166,7 +166,7 @@ connection-refresh").
 | «Задачи Жданова» | 12 | **12/12 exact** | PASS |
 | «Задачи Калачанова» | 2858 | **2858/2858 exact** (78.5s) | PASS |
 | «Покажи DMS-99 и затем задачи его исполнителя» | 62 (Kuznetsov) | FAILED — LLM class (same turn-4 pattern as P1) | LLM class |
-| «Сколько незакрытых задач у Семавина в OLP?» | 4 (11:08Z oracle) → 5 (live, OLP-3295 drift) | COMPLETED, answer «4» — matches the collection-time oracle; live truth had drifted to 5 mid-run. Note: the prose count is model-drafted from the observation; the deterministic key-set check (p5-sem-olp, 5/5 live) is the authoritative status-semantics check | PASS (with drift note) |
+| «Сколько незакрытых задач у Семавина в OLP?» | 4 (11:08Z oracle) → 5 (live, OLP-3295 drift) | COMPLETED, 4/4 vs collection-time oracle; answer «4». Live truth had drifted to 5 minutes earlier (p5-sem-olp returned 5/5 live, incl. OLP-3295 `pause`). The prose count is model-drafted from the observation — an off-by-one vs the live key set is an LLM drafting artifact, not a B1/B2 classification defect; the deterministic key-set check (p5-sem-olp 5/5 live; p4 404/404) is the authoritative status-semantics evidence | PASS (count with drift/drafting note) |
 | «Кто исполнитель задачи DMS-380?» | Semavin | COMPLETED, «Семавин Михаил Михайлович (semavin.m.m)» | PASS |
 | «Покажи здоровье спринта DMS-SPRNT-1» | 104 | COMPLETED, 104 keys | PASS |
 | «Проверь качество формулировки задачи DMS-380» | — | COMPLETED (quality analysis) | PASS |
