@@ -30,6 +30,25 @@ class StatusCategory(str,Enum):
     BACKLOG="backlog"; WAITING="waiting"; ACTIVE_WORK="active_work"; REVIEW_QUEUE="review_queue"; REVIEW="review"; QA_QUEUE="qa_queue"; TESTING="testing"; COMPLETED_PENDING="completed_pending"; COMPLETED="completed"; CANCELLED="cancelled"; UNKNOWN="unknown"
 class TaskStatus(str,Enum):
     UNKNOWN="Unknown"; OPEN="Open"; NEED_INFO="Need info"; IN_PROGRESS="In progress"; READY_FOR_REVIEW="Ready for review"; IN_REVIEW="In review"; READY_FOR_QA="Ready for QA"; QA="QA"; REOPENED="Reopened"; RESOLVED="Resolved"; CLOSED="Closed"; CANCELLED="Cancelled"
+
+# Authoritative workflow status categories exposed by the source
+# (``workflow_status.statusType``). Terminal categories mark finished work;
+# active categories are non-terminal (including explicitly paused work).
+# A category outside both sets is left to name-based classification and is
+# never silently treated as open.
+TERMINAL_STATUS_TYPES = frozenset({
+    "done", "closed", "cancelled", "finished", "resolved", "completed", "complete",
+})
+NONTERMINAL_STATUS_TYPES = frozenset({
+    "open", "todo", "backlog", "registered", "progress", "in_progress", "active",
+    "pause", "paused", "waiting", "blocked", "need_info", "reopened",
+    "qa", "testing", "review", "in_review", "ready_for_review", "ready_for_qa",
+})
+_NONTERMINAL_TASK_STATUSES = frozenset({
+    TaskStatus.OPEN, TaskStatus.IN_PROGRESS, TaskStatus.NEED_INFO,
+    TaskStatus.READY_FOR_REVIEW, TaskStatus.IN_REVIEW, TaskStatus.READY_FOR_QA,
+    TaskStatus.QA, TaskStatus.REOPENED,
+})
 class StatusTransition(BaseModel):
     from_status: TaskStatus; to_status: TaskStatus; timestamp: datetime; author: Optional[str]=None; transition_type: Optional[str]=None
 class AttachmentType(str,Enum):
@@ -44,7 +63,7 @@ class Task(BaseModel):
     # AS21 is authoritative for task titles. Valid source tasks may exceed 200 chars;
     # presentation layers may truncate, but the canonical model must preserve source facts.
     title:str=Field(...,min_length=1); description:Optional[str]=None
-    status:TaskStatus; status_category:StatusCategory; status_raw:Optional[str]=None; status_transitions:list[StatusTransition]=[]
+    status:TaskStatus; status_category:StatusCategory; status_raw:Optional[str]=None; status_type:Optional[str]=None; status_transitions:list[StatusTransition]=[]
     assignee:Optional[str]=None; assignee_id:Optional[str]=None; assignee_login:Optional[str]=None
     created_at:datetime; updated_at:datetime; due_date:Optional[datetime]=None; resolved_at:Optional[datetime]=None; closed_at:Optional[datetime]=None
     priority:Optional[TaskPriority]=None; estimate_hours:Optional[float]=None; time_spent_hours:Optional[float]=None
@@ -52,7 +71,36 @@ class Task(BaseModel):
     labels:list[str]=[]; components:list[str]=[]; attachments:list[Attachment]=[]
     source:str="swtr"; source_url:Optional[str]=None; source_data:dict[str,Any]=Field(default_factory=dict,repr=False)
     @property
-    def is_completed(self): return self.status in (TaskStatus.RESOLVED,TaskStatus.CLOSED,TaskStatus.CANCELLED)
+    def _status_type_category(self) -> int:
+        """0 = terminal, 1 = active, 2 = undecodable by status type."""
+        if self.status_type:
+            t = self.status_type.casefold().strip()
+            if t in TERMINAL_STATUS_TYPES:
+                return 0
+            if t in NONTERMINAL_STATUS_TYPES:
+                return 1
+        return 2
+    @property
+    def is_completed(self):
+        category = self._status_type_category
+        if category == 0:
+            return True
+        if category == 1:
+            return False
+        return self.status in (TaskStatus.RESOLVED,TaskStatus.CLOSED,TaskStatus.CANCELLED)
+    @property
+    def is_open(self):
+        """Explicitly non-terminal (active or paused) work.
+
+        Undecodable statuses are NOT open: an unknown status must never
+        inflate an open/not_completed factual collection.
+        """
+        category = self._status_type_category
+        if category == 0:
+            return False
+        if category == 1:
+            return True
+        return self.status in _NONTERMINAL_TASK_STATUSES
     @property
     def is_blocked(self): return self.status==TaskStatus.NEED_INFO
     @property

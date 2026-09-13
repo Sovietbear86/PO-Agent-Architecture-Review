@@ -20,6 +20,7 @@ from po_agent.domain.models import (
     AttachmentType,
     StatusTransition,
     Task,
+    TaskStatus,
     get_status_category,
     normalize_task_status,
 )
@@ -67,8 +68,18 @@ def _attributes(source_data: dict) -> dict[str, Any]:
     if not isinstance(raw, list):
         return result
     for item in raw:
-        if isinstance(item, dict) and isinstance(item.get("code"), str):
-            result[item["code"]] = item.get("value")
+        if not isinstance(item, dict):
+            continue
+        code = item.get("code")
+        if not isinstance(code, str):
+            # The live MCP surface also encodes attributes nested as
+            # ``{"attribute": {"code": ...}, "value": ...}``. Accept both so a
+            # source shape change never silently drops decoded workflow
+            # semantics (e.g. ``workflow_status.statusType``).
+            descriptor = item.get("attribute")
+            code = descriptor.get("code") if isinstance(descriptor, dict) else None
+        if isinstance(code, str):
+            result[code] = item.get("value")
     return result
 
 
@@ -98,6 +109,22 @@ def _identifier(value: Any) -> str | None:
             if candidate:
                 return candidate
     return None
+
+
+def _workflow_semantics(value: Any) -> tuple[str | None, str | None]:
+    """Extract (status_type, status_name) from a decoded workflow_status value.
+
+    The source exposes the authoritative workflow category (``statusType``)
+    and the human name. Both are generic schema fields; nothing here depends
+    on a particular space, person or task.
+    """
+    if not isinstance(value, dict):
+        return None, None
+    stype = value.get("statusType")
+    sname = value.get("name")
+    status_type = stype.strip() if isinstance(stype, str) and stype.strip() else None
+    status_name = sname.strip() if isinstance(sname, str) and sname.strip() else None
+    return status_type, status_name
 
 
 def _query_value(raw: str) -> str:
@@ -203,6 +230,30 @@ def _attachment_type(name: str, content_type: str | None) -> AttachmentType:
     return AttachmentType.OTHER
 
 
+def _status_from_type(status_type: str) -> TaskStatus:
+    """Map a source workflow status category to the canonical status enum.
+
+    Only semantic categories with an unambiguous canonical equivalent are
+    mapped; anything else stays UNKNOWN so callers can keep it explicit.
+    """
+    t = status_type.casefold().strip()
+    if t == "cancelled":
+        return TaskStatus.CANCELLED
+    if t == "resolved":
+        return TaskStatus.RESOLVED
+    if t in {"done", "closed", "finished", "completed", "complete"}:
+        return TaskStatus.CLOSED
+    if t == "open":
+        return TaskStatus.OPEN
+    if t in {"progress", "in_progress", "active"}:
+        return TaskStatus.IN_PROGRESS
+    if t == "qa":
+        return TaskStatus.QA
+    if t == "review" or t == "in_review":
+        return TaskStatus.IN_REVIEW
+    return TaskStatus.UNKNOWN
+
+
 def _attachment_fields(raw: dict[str, Any]) -> tuple[Any, Any, Any, Any, Any]:
     """Normalize both legacy facade metadata and the real MCP get_unit_files shape."""
     file_path = raw.get("filePathParsedDto") if isinstance(raw.get("filePathParsedDto"), dict) else {}
@@ -301,6 +352,14 @@ class TaskApiAS21Adapter(AS21Adapter):
         status_raw = source_data.get("workflow_status") or data.get("status") or ""
         original_status_raw = status_raw
         original_status = normalize_task_status(str(status_raw))
+        status_type, status_name = _workflow_semantics(attrs.get("workflow_status"))
+        if original_status == TaskStatus.UNKNOWN and status_name:
+            # The row-level status is an opaque encoded workflow key; prefer
+            # the decoded source value (workflow_status.name) for matching.
+            original_status_raw = status_name
+            original_status = normalize_task_status(status_name)
+        if original_status == TaskStatus.UNKNOWN and status_type:
+            original_status = _status_from_type(status_type)
         injected_status, injected_status_raw, fault_metadata = apply_qa_fault_if_applicable(
             source_data=source_data,
             original_status=original_status,
@@ -310,6 +369,7 @@ class TaskApiAS21Adapter(AS21Adapter):
         if fault_metadata:
             status_raw = injected_status_raw
             status = injected_status
+            status_type = None  # injected status supersedes source semantics
             consume_qa_fault(source_id)
         else:
             status = original_status
@@ -330,6 +390,7 @@ class TaskApiAS21Adapter(AS21Adapter):
             description=data.get("description"),
             status=status,
             status_raw=str(status_raw) or None,
+            status_type=status_type,
             status_category=get_status_category(status),
             created_at=created,
             updated_at=updated,

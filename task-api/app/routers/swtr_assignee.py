@@ -28,20 +28,42 @@ router = APIRouter(prefix="/api/v1/swtr-read", tags=["swtr-read"])
 _ALLOWED_SPACES = frozenset({"WMB", "STS", "OLP", "DMS", "CRPV"})
 
 
+def _raw_attribute_entries(row: dict[str, Any]) -> list[tuple[str, Any]]:
+    """Attribute ``(code, value)`` pairs from a source row.
+
+    The live MCP surface uses two attribute encodings: flat
+    ``{"code": ..., "value": ...}`` and nested
+    ``{"attribute": {"code": ...}, "value": ...}``. Attributes may sit at the
+    row top level or under the nested ``unit`` object. Both encodings and both
+    locations are accepted so the canonical row never silently drops decoded
+    workflow semantics (``workflow_status.statusType``) that downstream
+    classification depends on.
+    """
+    entries: list[tuple[str, Any]] = []
+    containers = [row]
+    nested_unit = row.get("unit")
+    if isinstance(nested_unit, dict):
+        containers.append(nested_unit)
+    for container in containers:
+        raw = container.get("attributes")
+        if not isinstance(raw, list):
+            continue
+        for item in raw:
+            if not isinstance(item, dict):
+                continue
+            code = item.get("code")
+            if not isinstance(code, str):
+                descriptor = item.get("attribute")
+                code = descriptor.get("code") if isinstance(descriptor, dict) else None
+            if isinstance(code, str):
+                entries.append((code, item.get("value")))
+    return entries
+
+
 def _attrs(row: dict[str, Any]) -> dict[str, Any]:
     result: dict[str, Any] = {}
-    raw = row.get("attributes")
-    if not isinstance(raw, list):
-        return result
-    for item in raw:
-        if not isinstance(item, dict):
-            continue
-        code = item.get("code")
-        if not isinstance(code, str):
-            descriptor = item.get("attribute")
-            code = descriptor.get("code") if isinstance(descriptor, dict) else None
-        if isinstance(code, str):
-            result[code] = item.get("value")
+    for code, value in _raw_attribute_entries(row):
+        result[code] = value
     return result
 
 
@@ -55,6 +77,18 @@ def _value_id(value: Any) -> str | None:
             if isinstance(candidate, (str, int)) and str(candidate).strip():
                 return str(candidate).strip()
     return None
+
+
+def _status_identifier(value: Any) -> str:
+    """Decoded workflow status value, preferring the human name over opaque ids."""
+    if isinstance(value, str):
+        return value.strip()
+    if isinstance(value, dict):
+        for key in ("name", "value", "code", "id"):
+            candidate = value.get(key)
+            if isinstance(candidate, (str, int)) and str(candidate).strip():
+                return str(candidate).strip()
+    return ""
 
 
 def _row_value(row: dict[str, Any], attrs: dict[str, Any], *names: str) -> Any:
@@ -93,9 +127,15 @@ def _canonical_row(row: dict[str, Any]) -> dict[str, Any] | None:
     status_value = _row_value(unit, attrs, "workflow_status", "status")
     if status_value is None:
         status_value = _row_value(row, attrs, "workflow_status", "status")
-    status = _value_id(status_value)
+    status = _status_identifier(status_value)
 
-    swtr_attributes = row.get("attributes") if isinstance(row.get("attributes"), list) else []
+    # Normalize to the flat ``{"code","value"}`` contract that downstream
+    # readers (agent ``_attributes``) expect. The live TQL surface encodes
+    # attributes nested (``{"attribute": {"code":...}, "value": {...}}``) with
+    # the decoded workflow object (name + statusType) as the value; passing
+    # that raw shape through would silently drop the workflow semantics that
+    # terminal/open classification depends on.
+    swtr_attributes = [{"code": c, "value": v} for c, v in _raw_attribute_entries(row)]
     if not swtr_attributes:
         swtr_attributes = []
         if assigned is not None:

@@ -15,7 +15,7 @@ from typing import Any
 
 import httpx
 
-from po_agent.domain.models import Task, get_status_category, normalize_task_status
+from po_agent.domain.models import Task, TaskStatus, get_status_category, normalize_task_status
 
 from .production_task_api import ProductionTaskApiAS21Adapter
 from .qa_fault_injection import apply_qa_fault_if_applicable, consume_qa_fault, is_qa_fault_consumed
@@ -27,6 +27,7 @@ from .task_api import (
     _identifier,
     _parse_datetime,
     _parse_query,
+    _status_from_type,
     _task_matches,
     _user_identity,
 )
@@ -182,8 +183,16 @@ class HardenedProductionTaskApiAS21Adapter(ProductionTaskApiAS21Adapter):
         attrs = _attributes(source_data)
         status_value = source_data.get("workflow_status") or attrs.get("workflow_status") or unit.get("workflow_status") or ""
         status_raw = (status_value.get("name") or status_value.get("code") or "") if isinstance(status_value, dict) else str(status_value or "")
+        status_type = None
+        if isinstance(status_value, dict) and isinstance(status_value.get("statusType"), str):
+            candidate = str(status_value.get("statusType")).strip()
+            status_type = candidate or None
         original_status_raw = status_raw
         original_status = normalize_task_status(status_raw)
+        if original_status == TaskStatus.UNKNOWN and status_type:
+            # Opaque encoded workflow ids: fall back to the source's
+            # authoritative workflow category, never to an arbitrary id match.
+            original_status = _status_from_type(status_type)
         injected_status, injected_status_raw, fault_metadata = apply_qa_fault_if_applicable(source_data=source_data, original_status=original_status, original_status_raw=original_status_raw, task_code=code)
         if fault_metadata:
             status_raw = injected_status_raw
@@ -199,7 +208,7 @@ class HardenedProductionTaskApiAS21Adapter(ProductionTaskApiAS21Adapter):
         updated = _parse_datetime(unit.get("updatedAt")) or created
         grounded_sprint = sprint_id or _identifier(attrs.get("scrum_board_plugin_sprint"))
         release_id = _identifier(attrs.get("fix_version_s"))
-        task = Task(key=code, id=code, title=title, description=unit.get("description") if isinstance(unit.get("description"), str) else None, status=status, status_raw=status_raw or None, status_category=get_status_category(status), created_at=created, updated_at=updated, assignee=display, assignee_id=external_id, assignee_login=login, project_space=source_data["swtr_space"], sprint_id=grounded_sprint, release_id=release_id, source="swtr", source_data=source_data)
+        task = Task(key=code, id=code, title=title, description=unit.get("description") if isinstance(unit.get("description"), str) else None, status=status, status_raw=status_raw or None, status_type=None if fault_metadata else status_type, status_category=get_status_category(status), created_at=created, updated_at=updated, assignee=display, assignee_id=external_id, assignee_login=login, project_space=source_data["swtr_space"], sprint_id=grounded_sprint, release_id=release_id, source="swtr", source_data=source_data)
         if fault_metadata:
             task.source_data["_qa_fault"] = fault_metadata
         return task

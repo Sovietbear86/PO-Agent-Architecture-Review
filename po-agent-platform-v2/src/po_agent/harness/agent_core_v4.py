@@ -796,7 +796,9 @@ class AgentCoreV4Runtime:
             tasks = [task for task in tasks if assignee.casefold() in identity_values(task)]
 
         if status == "not_completed":
-            tasks = [task for task in tasks if not task.is_completed]
+            # Explicitly non-terminal only: an undecodable status must never
+            # inflate an open-task factual collection.
+            tasks = [task for task in tasks if task.is_open]
         elif status == "completed":
             tasks = [task for task in tasks if task.is_completed]
         elif status:
