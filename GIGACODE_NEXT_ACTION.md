@@ -1,240 +1,184 @@
 # GigaCode — Current Action
 
 ## Status
-`ACTIVE_QA_ASSIGNMENT_186_V4_REPRESENTATIVE_POC_REGATE`
-
-## Role
-**QA / tester only.** Do NOT edit production code, prompts, adapters, tests,
-config, or AS21/SWTR data. Do NOT run a full tenant-wide task sync. Do NOT commit
-`.env`, credentials, or secrets. You may run tests, collect a fresh REAL Oracle
-B, run the live agent, and commit/push only the allowed QA report file.
+`ACTIVE_OWNER_ASSIGNMENT_187_V4_STRUCTURED_COMPLETION_RELIABILITY`
 
 ## Mission
-Re-gate the V4 representative POC after the Assignment 185 bounded
-source-correctness hardening. Assignment 185 fixed the two pre-existing
-non-planner defects that held Assignment 184 at `V4_BOUNDED_RED`:
+Assignment 186 certified the A185 B1/B2 fixes and proved the remaining blocker is **not source correctness and not an A185 regression**. The remaining V4 POC blocker is a recurring Qwen3.8 control-plane reliability defect on **post-observation completion** of multi-step trajectories:
 
-- **B1** — REAL sprint-task collection for >100-task sprints (the live MCP
-  `get_sprint_tasks` has no page input; the old loop amplified one 100-row page
-  into ~10,000 duplicates and failed closed at 3×90 s). Now: canonical
-  `unit.code` identity, zero-new-page stop, source-backed TQL fallback, typed
-  `complete=false`, and the production adapter fails closed on incomplete.
-- **B2** — terminal/open status classification for opaque encoded workflow keys
-  (`CNCLLD_…`, `PN_…`, `CLSD_…`). Now: the assignee route emits the decoded
-  `workflow_status` (name + `statusType`) in the flat `swtr_attributes`
-  contract, the agent `_attributes` parser is tolerant of both encodings, and
-  `Task.is_open`/`is_completed` are driven by the source's authoritative
-  `statusType` category (terminal vs non-terminal), with undecodable statuses
-  explicitly neither open nor completed.
+- `task.lookup -> task.search` reaches the correct source-backed collection;
+- the planner then intermittently fails to emit a valid terminal `READY` JSON decision;
+- bounded repair may hallucinate a new action (for example count-as-task-key), repeat a capability without required arguments, or otherwise fail closed;
+- A/B on the old A184 HEAD reproduces the same failure against today's shared Qwen endpoint, proving endpoint/model-output instability rather than a code regression.
 
-Assignment 185 owner verification (confidence only, not certification) already
-showed, against fresh REAL AS21 through the production adapter
-(`EvidenceValidatedProductionTaskApiAS21Adapter`):
-- B1: DMS-SPRNT-1 → **104/104** exact key parity vs fresh TQL (~3 s, no timeout);
-  DMS-SPRNT-2 → 39/39.
-- B2: Kalachanov.V.V assignee → 2858 rows, **open=490 / terminal=2368 /
-  undecodable=0**, exactly matching the source-fact `statusType` ground truth.
-- Retained smoke: DMS-380 (QA / progress / open, space DMS, sprint DMS-SPRNT-2);
-  invented identity → fail-closed (`AS21SourceUnavailable`, zero fabrication).
+Assignment 187 is a **bounded V4 production reliability hardening**. Do not redesign V4, do not change the model/provider, and do not introduce multi-agent/GVS5H orchestration. GVS5H-style orchestration is explicitly deferred to the **V5 milestone**.
 
-Your job: independently re-run the full gate against a **fresh** REAL AS21
-Oracle, confirm B1/B2 hold, confirm the previously-fixed scenarios and safety
-invariants are retained, and return exactly one final verdict. **Stop after the
-report.**
+## Product priority / roadmap lock
+V4 priority is now:
+1. reliable governed backend;
+2. Browser/UI with all required widgets/states;
+3. progressive migration of the complete 54-skill catalog;
+4. full V4 E2E gate.
+
+`DEFERRED_TO_V5`: GVS5H-inspired multi-agent orchestration (fresh workers + typed shared ledger + verifier) must NOT be implemented during V4. Preserve this note in durable planning docs you touch.
 
 ## Mandatory pre-read
+First:
 ```bash
 git pull --ff-only origin feat/core8-real-query-hardening-v2
 ```
 Then read:
-- `po-agent-platform-v2/qa_reports/AGENT_CORE_V4_REPRESENTATIVE_POC_184.md` (the
-  prior gate, baseline failure set, and Oracle B method)
+- `po-agent-platform-v2/qa_reports/AGENT_CORE_V4_REPRESENTATIVE_POC_REGATE_186.md`
 - `po-agent-platform-v2/docs/v4_dod/V4_DOD_LOCK.md`
-- `GIGACODE.md` (A182/A184 memories: environment, transport budget, Oracle facts)
-- The two Assignment 185 commits for the exact fix surface:
-  - B1: `git show e997e3a --stat` (task-api `swtr_read.py`, adapter
-    `production_task_api.py`, `test_swtr_read_sprint_collection.py`,
-    `test_sprint_collection_b1.py`)
-  - B2: `git show cc39e18 --stat` (models.py, `task_api.py`,
-    `hardened_production_task_api.py`, `agent_core_v4.py`, task-api
-    `swtr_assignee.py`, `test_status_semantics_b2.py`,
-    `test_swtr_assignee_canonical.py`)
+- `AGENT_CORE_V4_SKILL_NATIVE_SPEC.md`
+- current robust planner/runtime implementation and the A179-A182/A186 reliability lineage in `GIGACODE.md` / QA reports.
 
-## Environment
-- Branch: `feat/core8-real-query-hardening-v2` (record `START_HEAD = git rev-parse HEAD`).
-- Python: `po-agent-platform-v2/.venv/bin/python` (agent + tests); global
-  `python3` (task-api).
-- Task API: SSE to MCP-SWTR `http://127.0.0.1:3000/sse`. Resilient transport
-  budget is 90 s × 3 on read-through routes. Use **fresh** task-api + agent
-  instances on **free** ports (stale agents from prior runs are common — probe
-  `/health` and prefer a fresh port). A fresh task-api needs no token in SSE
-  mode (the running MCP-SWTR is already authenticated).
-- Blocked operations (per tooling): `curl`, `ps aux`, `lsof`, process `kill`,
-  reading `.env`, `$()` / `<(...)` command substitution. Use the Python venv
-  `httpx` for HTTP diagnostics.
+## Scope
+Implement the **smallest generalized reliability mechanism** that removes dependence on a stochastic model successfully minting terminal `READY` after the runtime already has sufficient trusted observations to satisfy the loaded skill.
 
-## Known pre-existing failures (NOT regressions)
-The A184 baseline failure set is **16 failed + 11 errors** (real-LLM integration
-env, SWTR live-integration, and order-dependent isolation cases such as
-`test_skill_registry::test_get_active_skills`). A185 added 15 po-agent tests and
-introduced **zero** new failures (1349 passed = 1334 + 15). Any failure you see
-must be cross-checked against the A184 report's 27-node set; a byte-identical
-set (plus the new passing tests) = no regression. A *new* node ID = report it.
+Preferred direction:
+- deterministic / contract-driven completion from **skill procedure state + validated observations**;
+- optional structured-output hardening only where generic and model-agnostic;
+- preserve the LLM for planning/reasoning where a further action is actually needed.
 
----
+This must be a generic control-plane rule, not a query-specific fallback.
 
-## Phase 1 — Fresh build / protocol / static gate
+## Non-negotiable invariants
+- Keep `Qwen/Qwen3.8-27B` and current provider unchanged.
+- No semantic prepass.
+- No surname/person/task/sprint/query-phrase hardcode.
+- No DMS-380/DMS-99-specific branch.
+- No fabricated source facts.
+- REAL AS21 remains authoritative.
+- Recovery-time `READY` remains forbidden unless the new completion mechanism is **runtime-generated from verified completion state**, not model-recovered text.
+- Existing fail-closed behavior for missing/ambiguous source facts remains intact.
+- Do not weaken capability governance or literal grounding.
+- Do not silently terminate a trajectory when required user constraints are not satisfied.
+- Do not introduce GVS5H/multi-agent orchestration in V4.
 
-1. `git pull --ff-only`, record `START_HEAD`.
-2. Run the focused B1/B2 regression suites (all must be GREEN):
-   ```bash
-   # task-api
-   cd task-api && python3 -m pytest \
-     tests/test_swtr_read_sprint_collection.py \
-     tests/test_swtr_assignee_canonical.py \
-     tests/test_swtr_read_facade.py -q
-   # po-agent
-   cd po-agent-platform-v2 && .venv/bin/python -m pytest \
-     tests/test_sprint_collection_b1.py \
-     tests/test_status_semantics_b2.py -q
-   ```
-3. Broader po-agent suite — compare the FAILED/ERROR node-ID set to the A184
-   27-node baseline. **No new node ID is acceptable.**
-   ```bash
-   cd po-agent-platform-v2 && .venv/bin/python -m pytest -q
-   ```
-4. task-api swtr suite (guard the `swtr_assignee.py` change):
-   ```bash
-   cd task-api && python3 -m pytest \
-     tests/test_swtr_read_facade.py tests/test_swtr_read_sprint_collection.py \
-     tests/test_swtr_assignee_canonical.py tests/test_swtr_health_guard.py \
-     tests/test_swtr_mcp_client.py tests/test_task_api_freshness.py -q
-   ```
-5. Static invariants (all must hold):
-   - No semantic prepass on the V4 path (no `prepass(` call-site; all
-     `semantic_prepass_used` emissions `false`).
-   - No surname/entity/space/task-code/sprint-id hardcode introduced in the
-     owner-changed production files (executable code, not docstrings/comments).
-   - No planner/model/prompt-strategy change (model/provider still
-     `Qwen/Qwen3.8-27B`).
-   - Action-only recovery / fail-closed behavior unchanged.
+## Required design
+Create a generic notion of **skill completion contract / satisfaction state** for V4.
 
-**GATE 1:** all focused suites GREEN + no new broader failure node + all static
-invariants hold. Any failure → bounded RED (stop and report the exact boundary).
+At minimum it must support the currently loaded representative skills without encoding user-specific examples. For example:
+- a task lookup skill is complete after its required authoritative task observation exists;
+- `tasks.lookup_then_assignee` is complete only after the authoritative lookup observation exists **and** a downstream assignee-bound task collection exists;
+- person/space/sprint task-search skills are complete only after a `task.search` observation satisfying all resolved user constraints exists;
+- sprint list/search/current and analytical skills must not be prematurely auto-completed before their required observation exists.
 
-## Phase 2 — Fresh REAL Oracle B (collect live; hardcode nothing)
+The runtime may synthesize/return after the contract is satisfied without another planner terminal turn. The completion rule must inspect typed trajectory/observations, not natural-language entity literals.
 
-Against a fresh task-api (SSE to MCP-SWTR), collect and record, all source-backed:
-- **B1:** a REAL sprint with >100 tasks (DMS current sprint is acceptable if
-  still source-valid) — the true complete key set via the source-backed TQL
-  sprint-constraint query (pageable), plus a smaller sprint for the singleton
-  case. Record the exact key sets.
-- **B2:** a REAL assignee+space collection containing encoded workflow statuses
-  (STS is acceptable if still source-valid) — for every row, the authoritative
-  `statusType` (from the decoded `workflow_status`), and the resulting
-  non-terminal (open) vs terminal split. Record the exact open/terminal key sets.
-- **Retained:** DMS-380 single-task facts (space, sprint, status name/type,
-  assignee); the DMS active-sprint set; the August-2026 DMS sprint resolution;
-  a valid non-roster REAL identity (e.g. Пётр Иванов if still source-valid);
-  a few assignee collections for the mixed matrix (e.g. Semavin, Zhdanov,
-  Kalachanov) with their exact task counts and open/terminal splits.
-- Confirm `PVM-Guru` is (still) not a source entity (A184 finding).
+If a skill cannot be safely proven complete from typed state, retain normal planner behavior.
 
-Save Oracle artifacts under the repo root as `qa_186_oracle_*` (untracked is
-fine unless intended as a durable fixture).
+## Phase 1 — Design and tests first
+Before production edits, add focused tests that prove at least:
+1. `tasks.lookup_then_assignee` becomes complete after the correct lookup + assignee-bound `task.search` observation.
+2. It does **not** complete after lookup alone.
+3. It does **not** complete after a `task.search` for the wrong/unbound assignee.
+4. It does **not** complete when an additional user constraint (space/sprint/status) is not represented in the downstream observation.
+5. Single-step skills complete only after their required authoritative observation.
+6. Analytical skills are not auto-completed before their analytical capability result exists.
+7. Invented/ambiguous/source-failure paths never auto-complete.
+8. Runtime-generated completion does not use model `READY` recovery and cannot fabricate an answer without observations.
+9. Existing action-only recovery safety remains intact.
+10. No semantic-prepass or entity-specific routing appears.
 
-## Phase 3 — B1 regression family (exact key parity)
+Tests must be generic fixtures, not DMS-380-only tests.
 
-Through the **production** source path (route and/or
-`EvidenceValidatedProductionTaskApiAS21Adapter`):
-- The >100-task sprint returns the **complete exact task-key set** == fresh
-  Oracle B (no missing, no extra).
-- No duplicate-page amplification (unique == total; no 10,000-row blowup).
-- No 3×90 s timeout pattern; bounded latency.
-- The small sprint returns its exact complete set (no singleton loss).
-- Natural query `Задачи в текущем спринте DMS` (or equivalent source-valid
-  current-sprint query) completes with exact parity.
+## Phase 2 — Implement bounded completion hardening
+Implement the minimum production changes needed for the completion contract.
 
-## Phase 4 — B2 regression family (exact key parity)
+Expected shape (names may differ if a cleaner design exists):
+- typed `SkillCompletionState` / `is_skill_satisfied(...)` helper;
+- generic constraint-satisfaction check against resolved call arguments + observations;
+- runtime short-circuit **after a successful capability observation** when the active skill is provably satisfied;
+- deterministic final synthesis using the existing validated observation path.
 
-Through the **production** source path:
-- For the encoded-status assignee+space collection, the production adapter maps
-  `statusType` correctly; `not_completed`/open returns the **exact non-terminal
-  key set** (not merely the same count) == fresh Oracle B.
-- Terminal keys are excluded; undecodable keys are excluded from "open"
-  (never silently inflated).
-- Human-readable statuses (product spaces already correct) are unchanged.
-- Natural `Открытые задачи <person> в <space>` returns the exact non-terminal set.
+Do NOT create a new semantic interpreter or query router.
 
-## Phase 5 — Retained scenarios (from A183/A184)
+## Phase 3 — Focused regression
+Run at minimum:
+- V4 robust protocol/reliable/skill-native suites;
+- new completion-contract tests;
+- B1/B2 regression suites from A185;
+- identity/sprint discovery suites from A183.
 
-Each must still pass against fresh source:
-1. **10× DMS-380 benchmark** — `Покажи DMS-380 и затем задачи его исполнителя`
-   → exact source-backed completion, 10/10.
-2. **Three previously-fixed user scenarios** (A183):
-   - `Открытые задачи Александра Жданова в августовском спринте DMS` (source-backed
-     period resolution via `sprint.search`);
-   - `Активные спринты в DMS` (complete active set, no singleton loss, via
-     `sprint.list`);
-   - source-authority identity (no stale local-roster veto).
-3. Valid non-roster REAL identity (e.g. Пётр Иванов) — no roster veto.
-4. Invented identity — **fail closed** (zero fabricated tasks).
+Then run the broader po-agent suite and prove no new failure node IDs versus the A186 baseline.
 
-## Phase 6 — Mixed representative matrix + unseen combinations
+## Phase 4 — Live owner verification against fresh REAL AS21
+Use fresh task-api + fresh PO Agent runtime, concurrency 1, fresh session per run.
 
-A matrix across people × spaces × sprints × status (including unseen
-combinations not used in A183/A184/A185), each with exact source-backed
-parity. Include at least one >100-task sprint and at least one encoded-status
-STS collection in the mix.
+Refresh Oracle B live; hardcode no counts.
 
-## Phase 7 — Safety / governance / fail-closed
+Mandatory owner verification:
+1. `10x` `Покажи DMS-380 и затем задачи его исполнителя` — **10/10 exact key parity**.
+2. `5x` another lookup→assignee→tasks case discovered live (DMS-99 may be used only if still source-valid) — **5/5 exact parity**.
+3. `5x` person collection and `5x` person+space/status queries — exact parity.
+4. current-sprint task query on a source-valid sprint — exact parity.
+5. three A183 scenarios remain green:
+   - human-period sprint resolution;
+   - plural active-sprint list;
+   - source-authority non-roster identity.
+6. negative controls:
+   - invented task/person/sprint;
+   - ambiguous identity;
+   - source unavailable path if practical.
 
-- Invented task / person / sprint → fail closed, zero fabrication.
-- Source outage (optional dead-source probe) → typed fail-closed, not empty.
-- No empty/fabricated "complete" sprint (B1 typed `complete=false` respected).
-- No semantic prepass; action-only recovery intact.
+For every multi-step lookup→collection run record:
+- trajectory;
+- whether completion was runtime-generated or model `READY`;
+- exact Oracle parity;
+- latency;
+- zero extra model terminal-repair turns after the satisfaction boundary.
 
----
+Owner acceptance for the new mechanism:
+- 10/10 + 5/5 multi-step exact parity;
+- no count→task-key hallucination;
+- no post-satisfaction planner repair loop;
+- zero fabricated facts;
+- safety/fail-closed retained.
 
-## Final verdict (exactly ONE)
-- `AGENT_CORE_V4_REPRESENTATIVE_POC_GREEN` — all gates green, B1/B2 exact
-  parity live, retained scenarios + safety intact.
-- `V4_PLANNER_STRATEGY_REVIEW_REQUIRED` — a planner/model/protocol (not
-  source-correctness) issue is the binding boundary.
-- A **bounded RED** with the exact first-failing boundary (name the node,
-  the query, the expected vs observed, and the source fact).
-- `BLOCKED_BY_PROVEN_SOURCE_OUTAGE` — a proven, reproducible REAL source
-  outage blocks the mandatory gate (not a code defect).
+If the completion contract itself causes a new correctness/safety defect, STOP and report the exact boundary instead of layering another fallback.
 
-**If GREEN:** include an explicit recommendation to **STOP backend POC
-remediation and proceed to Browser C/UI**, then the **progressive 54-skill
-catalog migration**.
+## Phase 5 — Documentation / roadmap
+Update the durable V4 planning/DoD documentation as needed to record:
+- the generic deterministic post-observation completion rule;
+- that V4 remains single-planner / skill-native / governed;
+- `DEFERRED_TO_V5`: GVS5H-inspired multi-agent orchestration POC after V4 is fully working (54 skills + UI/widgets + E2E).
 
-## Deliverable
-Write the report to:
-`po-agent-platform-v2/qa_reports/AGENT_CORE_V4_REPRESENTATIVE_POC_REGATE_186.md`
+Do not claim full 54-skill completion yet.
 
-Include: START_HEAD, Oracle B facts (fresh), per-phase results with exact
-counts/keys, the failure-set comparison to A184, static-invariant results, and
-the single final verdict (+ GREEN recommendation if applicable).
+## Phase 6 — Prepare Assignment 188 QA-only re-gate
+After owner verification is GREEN, replace this file with a **QA-only Assignment 188** specification that independently re-tests:
+- build/static invariants;
+- 10x DMS-380 multi-step exact parity;
+- at least one second lookup→assignee→tasks family;
+- mixed matrix / unseen combinations;
+- B1/B2 retained exactness;
+- A183 scenarios;
+- safety/fail-closed;
+- proof that satisfied trajectories no longer depend on stochastic model terminal `READY`.
+
+Final QA verdict must allow:
+- `AGENT_CORE_V4_REPRESENTATIVE_POC_GREEN` only if all mandatory gates pass;
+- otherwise a precisely attributed bounded RED / source block / planner strategy review.
+
+If Assignment 188 is GREEN, recommendation must be:
+**STOP backend POC remediation → proceed to Browser C/UI → progressively migrate all 54 skills → full V4 E2E gate.**
+
+Do not run Assignment 188 in this same session.
 
 ## Commit discipline
-Commit **only** the allowed report file:
-```bash
-git add -- po-agent-platform-v2/qa_reports/AGENT_CORE_V4_REPRESENTATIVE_POC_REGATE_186.md
-git commit -m "qa: add AGENT_CORE_V4_REPRESENTATIVE_POC_REGATE_186.md report"
-git push
-```
-Keep QA scratch artifacts untracked unless intended as durable fixtures.
+Commit production changes/tests/docs in coherent commits. Then commit the Assignment 188 `GIGACODE_NEXT_ACTION.md` update separately.
 
-## Completion criteria for Assignment 186
-Assignment 186 is complete only when:
-- the fresh build/protocol/static gate is green (or a bounded RED boundary is named);
-- the fresh REAL Oracle B is collected and cited (nothing hardcoded);
-- B1 and B2 exact key parity is proven live;
-- the 10× DMS-380 benchmark and the three previously-fixed scenarios are retained;
-- the mixed matrix + unseen combinations pass;
-- safety/governance/fail-closed checks pass;
-- exactly one final verdict is returned (with the GREEN recommendation if GREEN);
-- the report is committed and pushed;
-- then **STOP**. Do not start any further assignment in the same session.
+Never commit secrets, `.env`, QA scratch outputs, or unrelated changes.
+
+## Completion response
+Return:
+- commit SHAs;
+- focused/broader test results;
+- live owner verification matrix;
+- confirmation that the runtime completion rule is generic and source-safe;
+- confirmation that V5/GVS5H is deferred and not implemented;
+- confirmation that Assignment 188 is prepared but **not started**.
+
+Then **STOP**.
