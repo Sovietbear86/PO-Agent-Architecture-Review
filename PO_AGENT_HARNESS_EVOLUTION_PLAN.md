@@ -640,3 +640,78 @@ Release-ready requires:
 - unauthorized AS21 writes = 0;
 - secret leakage = 0;
 - final release-readiness gate GREEN.
+
+---
+
+## 14. V4 execution amendment — plugin extensibility lock (2026-09-13)
+
+This section is authoritative for the current V4 execution order and **supersedes any older roadmap wording that would allow bulk skill migration before plugin extensibility is proven**.
+
+### 14.1 Hard architectural invariant
+
+**Adding a new V4 skill MUST NOT require changes to Agent Core, planner logic, or runtime orchestration.**
+
+The remaining 54-skill migration must use a pluginized/declarative extension model. Agent Core must remain domain-agnostic: it orchestrates discovery, planning, governed execution, observations, completion and synthesis, but it must not accumulate concrete `task.*`, `sprint.*`, `release.*`, team or portfolio wiring.
+
+The stable extension surface must provide the semantics of:
+
+```text
+SkillSpec
+CapabilitySpec
+CapabilityHandler
+CompletionContract
+UIContract
+```
+
+Names may vary, but responsibilities must remain separated and registry-driven.
+
+Required behavior:
+- skill discovery/registration is dynamic and produces the compact progressive catalog;
+- capability handlers are resolved through a governed capability registry, not a hardcoded Agent Core `_handlers` map;
+- procedures/steps belong to the skill artifact;
+- completion conditions belong to `CompletionContract`, not `if skill_id == ...` branches in runtime;
+- UI/widget/state metadata belongs to `UIContract`, so frontend rendering needs can evolve without changing orchestration core;
+- adding/removing a plugin must not alter planner architecture or core execution flow;
+- source authority, typed constraints, postconditions and fail-closed rules remain mandatory for every plugin.
+
+### 14.2 Mandatory extensibility acceptance test
+
+Before progressive bulk migration of the remaining catalog, add a synthetic **55th dummy skill** using only the extension/plugin surface.
+
+It must pass all of the following with **zero edits to Agent Core/planner/runtime code**:
+
+```text
+plugin artifact added
+ -> registry discovers it
+ -> compact catalog exposes it
+ -> planner can load/select it
+ -> registered capability executes
+ -> completion contract terminates correctly
+ -> UI contract is propagated to the presentation layer
+```
+
+If this requires editing `agent_core_v4.py` or equivalent core orchestration, the plugin gate is RED and 54-skill migration must not begin.
+
+### 14.3 Current V4 priority order
+
+The current implementation order is:
+
+```text
+1. V4 representative reliability GREEN
+2. Pluginized Skill/Capability Registry + dummy-55 extensibility gate
+3. Browser/UI integration with all required states and working widgets
+4. Progressive migration of all 54 production user-facing skills in domain waves
+5. Full 54-skill Agent A / REAL Oracle B / Browser C certification
+6. Full UI/widget E2E + release hardening
+7. RELEASE_READY=YES only after complete DoD
+```
+
+UI work may proceed in parallel where it does not couple the frontend to hardcoded skills, but **bulk 54-skill migration is blocked until step 2 is GREEN**.
+
+### 14.4 V5 milestone — explicitly deferred
+
+`DEFERRED_TO_V5 — DO NOT IMPLEMENT DURING V4`.
+
+GVS5H-inspired analytical orchestration is recorded as a V5 research/POC milestone only: fresh workers, typed shared ledger, verifier, and A/B evaluation against V4 on complex analytical PO scenarios. It must not expand V4 scope or delay delivery of the fully working V4 agent with all 54 skills and all UI widgets.
+
+V4 remains focused on a stable single-agent skill-native architecture, complete catalog coverage, source correctness and production UI readiness.
