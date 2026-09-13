@@ -25,6 +25,11 @@ from po_agent.adapters.task_api import (
 )
 from po_agent.llm.client import LLMClient, LLMMessage
 
+from .agent_core_v4_completion import (
+    CompletionRequirement,
+    SkillCompletionContract,
+    all_loaded_skills_satisfied,
+)
 from .contracts import CapabilityResult, Evidence, HarnessRequest, HarnessResponse, ResponseStatus
 from .entity_grounding import TeamDirectory
 from .production_entity_grounding_v2 import APPROVED_PRODUCT_SPACES
@@ -87,6 +92,10 @@ class SkillSpecV4:
     summary: str
     procedure: tuple[str, ...]
     capabilities: tuple[str, ...]
+    # Typed completion contract (Assignment 187): the validated observations
+    # that deterministically prove this skill's goal is source-satisfied.
+    # Empty means "no auto-completion contract" — normal planner behavior.
+    completion: tuple[CompletionRequirement, ...] = ()
 
     def compact(self) -> dict[str, str]:
         return {"id": self.id, "summary": self.summary}
@@ -119,6 +128,9 @@ class SkillCatalogV4:
 
     def compact(self) -> tuple[dict[str, str], ...]:
         return tuple(self._skills[key].compact() for key in sorted(self._skills))
+
+    def skills(self) -> tuple[SkillSpecV4, ...]:
+        return tuple(self._skills[key] for key in sorted(self._skills))
 
     def load(self, skill_id: str) -> dict[str, Any]:
         if skill_id not in self._skills:
@@ -434,6 +446,7 @@ class AgentCoreV4Runtime:
         self.synthesizer = ResponseSynthesizerV4(llm, model=model)
         self._capability_specs = self._build_capability_specs()
         self.catalog = self._build_skill_catalog()
+        self._skill_contracts = self._build_skill_contracts()
         self._handlers: dict[str, CapabilityHandlerV4] = {
             "member.resolve": self._member_resolve,
             "space.resolve": self._space_resolve,
@@ -484,6 +497,13 @@ class AgentCoreV4Runtime:
                     "Call task.search with every resolved user constraint and validate the returned collection.",
                 ),
                 ("member.resolve", "space.resolve", "sprint.resolve", "sprint.search", "task.search"),
+                completion=(
+                    CompletionRequirement(
+                        "task.search",
+                        data_keys=("count",),
+                        covers_resolved_constraints=True,
+                    ),
+                ),
             ),
             SkillSpecV4(
                 "sprints.discover",
@@ -493,6 +513,9 @@ class AgentCoreV4Runtime:
                     "If sprint.search returns typed ambiguity, surface the options instead of guessing.",
                 ),
                 ("space.resolve", "sprint.search"),
+                completion=(
+                    CompletionRequirement("sprint.search", data_keys=("sprint_id",)),
+                ),
             ),
             SkillSpecV4(
                 "sprints.list",
@@ -502,6 +525,9 @@ class AgentCoreV4Runtime:
                     "Do not answer a request for several/active sprints with sprint.current, which returns only one sprint.",
                 ),
                 ("space.resolve", "sprint.list"),
+                completion=(
+                    CompletionRequirement("sprint.list", data_keys=("sprints",)),
+                ),
             ),
             SkillSpecV4(
                 "tasks.lookup_then_assignee",
@@ -512,17 +538,113 @@ class AgentCoreV4Runtime:
                     "Call task.search for that assignee and preserve any additional user filters.",
                 ),
                 ("task.lookup", "task.search"),
+                completion=(
+                    CompletionRequirement("task.lookup", data_keys=("task", "assignee_login")),
+                    CompletionRequirement(
+                        "task.search",
+                        data_keys=("count",),
+                        bound_argument=(
+                            "assignee",
+                            "task.lookup",
+                            ("assignee_login", "task.assignee_login", "assignee_id", "task.assignee_id"),
+                        ),
+                        covers_resolved_constraints=True,
+                    ),
+                ),
             ),
-            SkillSpecV4("task.lookup", "Read one task by key.", ("Call task.lookup with the literal task key.",), ("task.lookup",)),
-            SkillSpecV4("task.summary", "Explain/summarize one task.", ("Call task.summary with the literal task key.",), ("task.summary",)),
-            SkillSpecV4("task.quality", "Assess task statement quality/completeness.", ("Call task.quality with the literal task key.",), ("task.quality",)),
-            SkillSpecV4("task.acceptance", "Assess acceptance criteria/testability of a task.", ("Call task.acceptance with the literal task key.",), ("task.acceptance",)),
-            SkillSpecV4("task.blockers", "Inspect blockers/dependencies of a task.", ("Call task.blockers with the literal task key.",), ("task.blockers",)),
-            SkillSpecV4("sprint.health", "Show health/progress of a sprint.", ("Resolve/validate the sprint if needed, then call sprint.health.",), ("sprint.resolve", "sprint.health")),
-            SkillSpecV4("sprint.current", "Find the current sprint for a product space.", ("Validate the product space, then call sprint.current.",), ("space.resolve", "sprint.current")),
-            SkillSpecV4("release.health", "Show release health/progress.", ("Validate the release if useful, then call release.health.",), ("release.resolve", "release.health")),
+            SkillSpecV4("task.lookup", "Read one task by key.", ("Call task.lookup with the literal task key.",), ("task.lookup",),
+                completion=(CompletionRequirement("task.lookup", data_keys=("task",)),)),
+            SkillSpecV4("task.summary", "Explain/summarize one task.", ("Call task.summary with the literal task key.",), ("task.summary",),
+                completion=(CompletionRequirement("task.summary", data_keys=("task_key",), data_absent_keys=("found",)),)),
+            SkillSpecV4("task.quality", "Assess task statement quality/completeness.", ("Call task.quality with the literal task key.",), ("task.quality",),
+                completion=(CompletionRequirement("task.quality", data_keys=("task_key",), data_absent_keys=("found",)),)),
+            SkillSpecV4("task.acceptance", "Assess acceptance criteria/testability of a task.", ("Call task.acceptance with the literal task key.",), ("task.acceptance",),
+                completion=(CompletionRequirement("task.acceptance", data_keys=("task_key",), data_absent_keys=("found",)),)),
+            SkillSpecV4("task.blockers", "Inspect blockers/dependencies of a task.", ("Call task.blockers with the literal task key.",), ("task.blockers",),
+                completion=(CompletionRequirement("task.blockers", data_keys=("task_key",), data_absent_keys=("found",)),)),
+            SkillSpecV4("sprint.health", "Show health/progress of a sprint.", ("Resolve/validate the sprint if needed, then call sprint.health.",), ("sprint.resolve", "sprint.health"),
+                completion=(CompletionRequirement("sprint.health", data_keys=("sprint_id", "total")),)),
+            SkillSpecV4("sprint.current", "Find the current sprint for a product space.", ("Validate the product space, then call sprint.current.",), ("space.resolve", "sprint.current"),
+                completion=(CompletionRequirement("sprint.current", data_keys=("sprint_id",)),)),
+            SkillSpecV4("release.health", "Show release health/progress.", ("Validate the release if useful, then call release.health.",), ("release.resolve", "release.health"),
+                completion=(CompletionRequirement("release.health", data_keys=("release_id", "total")),)),
         )
         return SkillCatalogV4(skills, self._capability_specs)
+
+    def _build_skill_contracts(self) -> dict[str, SkillCompletionContract]:
+        """Typed completion contracts declared on the catalog skills.
+
+        Skills without a declared contract are absent from this map: their
+        trajectories keep normal planner behavior (model READY / repair).
+        """
+        return {
+            skill.id: SkillCompletionContract(skill.id, skill.completion)
+            for skill in self.catalog.skills()
+            if skill.completion
+        }
+
+    def _trajectory_completion_satisfied(
+        self, loaded_skills: tuple[str, ...], observations: list[V4Observation]
+    ) -> bool:
+        """Deterministic post-observation completion predicate (Assignment 187).
+
+        True only when every loaded skill has a declared completion contract
+        and the validated typed observations satisfy all of them.  The check
+        inspects capability ids, resolved arguments and observation data only
+        — no query text, no entity literals — and fails closed to the normal
+        planner path otherwise.
+        """
+        return all_loaded_skills_satisfied(self._skill_contracts, loaded_skills, observations)
+
+    async def _completed_response(
+        self,
+        *,
+        trace_id: str,
+        session_id: str,
+        query: str,
+        loaded: list[str],
+        observations: list[V4Observation],
+        full_results: list[dict[str, Any]],
+        evidence: list[Evidence],
+        trajectory: list[dict[str, Any]],
+        started: float,
+        completion: str,
+    ) -> HarnessResponse:
+        """Shared COMPLETED response for both completion paths.
+
+        Final synthesis always uses the existing validated-observation path
+        (ResponseSynthesizerV4 over compact observations, deterministic
+        fallback to observation answers).  ``completion`` distinguishes the
+        runtime-generated contract completion from a model-emitted READY.
+        """
+        try:
+            answer = await self.synthesizer.synthesize(query, observations)
+        except Exception:
+            answer = "\n".join(item.answer for item in observations if item.answer)
+        return HarnessResponse(
+            status=ResponseStatus.COMPLETED,
+            trace_id=trace_id,
+            session_id=session_id,
+            answer=answer,
+            intent="skill_native_v4",
+            skill_id=loaded[-1] if loaded else "skill-native-v4",
+            skill_version="4.0.0-poc",
+            data={
+                "_agent_core_v4": {
+                    "runtime": "Agent Core v4",
+                    "semantic_prepass_used": False,
+                    "progressive_skill_loading": True,
+                    "loaded_skills": loaded,
+                    "trajectory": trajectory,
+                    "observation_count": len(observations),
+                    "completion": completion,
+                },
+                "results": full_results,
+            },
+            evidence=evidence,
+            warnings=[],
+            latency_ms=(time.perf_counter() - started) * 1000,
+        )
 
     def _legacy(self, capability_id: str) -> CapabilityHandlerV4:
         async def execute(args: dict[str, str]) -> CapabilityResult:
@@ -981,32 +1103,17 @@ class AgentCoreV4Runtime:
                             warnings=["v4_ready_without_source_observation"],
                             latency_ms=(time.perf_counter() - started) * 1000,
                         )
-                    try:
-                        answer = await self.synthesizer.synthesize(query, observations)
-                    except Exception:
-                        answer = "\n".join(item.answer for item in observations if item.answer)
-                    return HarnessResponse(
-                        status=ResponseStatus.COMPLETED,
+                    return await self._completed_response(
                         trace_id=trace_id,
                         session_id=session_id,
-                        answer=answer,
-                        intent="skill_native_v4",
-                        skill_id=loaded[-1] if loaded else "skill-native-v4",
-                        skill_version="4.0.0-poc",
-                        data={
-                            "_agent_core_v4": {
-                                "runtime": "Agent Core v4",
-                                "semantic_prepass_used": False,
-                                "progressive_skill_loading": True,
-                                "loaded_skills": loaded,
-                                "trajectory": trajectory,
-                                "observation_count": len(observations),
-                            },
-                            "results": full_results,
-                        },
+                        query=query,
+                        loaded=loaded,
+                        observations=observations,
+                        full_results=full_results,
                         evidence=all_evidence,
-                        warnings=[],
-                        latency_ms=(time.perf_counter() - started) * 1000,
+                        trajectory=trajectory,
+                        started=started,
+                        completion="planner_ready",
                     )
 
                 capability_id = decision.capability_id or ""
@@ -1030,6 +1137,36 @@ class AgentCoreV4Runtime:
                     answer=result.answer,
                     data=self._compact_data(capability_id, result.data),
                 ))
+
+                # Deterministic post-observation completion (Assignment 187):
+                # when the validated typed observations already prove every
+                # loaded skill's completion contract satisfied, terminate the
+                # trajectory without asking the planner to mint a terminal
+                # READY.  This is runtime-generated from verified completion
+                # state — never model-recovered text — and fails closed to the
+                # normal planner path whenever any contract is unmet.
+                if self._trajectory_completion_satisfied(tuple(loaded), observations):
+                    trajectory.append({
+                        "planner_turn": len(trajectory) + 1,
+                        "decision": "ready",
+                        "skill_id": None,
+                        "capability_id": None,
+                        "arguments": {},
+                        "rationale": "deterministic skill completion contract satisfied",
+                        "completion": "runtime_contract",
+                    })
+                    return await self._completed_response(
+                        trace_id=trace_id,
+                        session_id=session_id,
+                        query=query,
+                        loaded=loaded,
+                        observations=observations,
+                        full_results=full_results,
+                        evidence=all_evidence,
+                        trajectory=trajectory,
+                        started=started,
+                        completion="runtime_contract",
+                    )
 
             raise V4ContractError("v4 planner step budget exhausted without READY")
 
