@@ -20,6 +20,12 @@ PO Agent is NOT done until all of the following are true:
    - Every skill is terminally classified; no silent skip.
    - Every source-supported skill is GREEN through Agent A / independent Oracle B / real Browser C.
    - Certification covers applicable combinations of approved spaces `WMB`, `STS`, `OLP`, `DMS`, `CRPV` and authoritative team/source identities.
+   - **Skill extensibility is pluginized before bulk migration:** adding a new skill MUST NOT require edits to Agent Core, planner logic, or runtime orchestration.
+   - Skills/capabilities are discovered through registries and stable extension contracts, not hardcoded `_handlers`, `_build_skill_catalog()` branches or domain-specific runtime conditionals.
+   - The stable extension surface includes at minimum `SkillSpec`, `CapabilitySpec`, `CapabilityHandler`, `CompletionContract`, and `UIContract` (names may vary, semantics may not).
+   - Completion conditions belong to the skill/procedure contract; they MUST NOT be implemented as `if skill_id == ...` logic inside Agent Core.
+   - UI/widget metadata belongs to the skill/UI contract so a new skill can expose its presentation needs without editing core orchestration.
+   - **Mandatory extensibility proof:** a synthetic 55th dummy skill is added only as a plugin/artifact, with **zero Agent Core/planner/runtime code changes**; it must be discovered in the compact catalog, loadable by the planner, able to invoke a registered capability, honor its completion contract, and expose its UI contract. This gate must be GREEN before progressive migration of the remaining 54-skill catalog.
 
 3. **REAL AS21/SWTR remains authoritative.**
    - No local DB, sync snapshot, cache, fixture, fake/frozen source, remembered count or previous answer can become production truth or Oracle B.
@@ -96,7 +102,7 @@ Therefore the next generalized observation-hygiene change is the **last focused 
 - allowed: entity-agnostic bounding/compaction of planner-facing unstructured observation fields while preserving exact structured source identity/status/sprint/count values;
 - forbidden: DMS-380-specific logic, surname/phrase routers, deterministic trajectory routing, semantic-prepass reintroduction, or capability-specific next-step hardcode;
 - after that fix, run a mixed reliability gate rather than another narrow endless sequence of the same benchmark;
-- if the mixed gate is stable/GREEN, stop backend POC remediation and proceed to `V4-BROWSER` then `V4-CATALOG`;
+- if the mixed gate is stable/GREEN, stop backend POC remediation and proceed to `V4-PLUGIN`, then `V4-BROWSER`, then `V4-CATALOG`;
 - if a new fundamental planner/control-plane reliability defect of the same class remains, STOP focused patching and explicitly review planner model/tool-calling strategy (including whether the current Qwen planner is suitable) before any further Assignment 18x remediation.
 
 This rule exists specifically to prevent an infinite fix/test loop from being mistaken for architectural progress.
@@ -106,11 +112,23 @@ This rule exists specifically to prevent an infinite fix/test loop from being mi
 ### Gate V4-P0C
 Prove representative skill-native operation across task/sprint/identity/multi-step/safety scenarios using REAL AS21. This proves architecture viability only; it is NOT product DoD.
 
+### Gate V4-PLUGIN
+Before mass migration of the 54-skill catalog, remove concrete skill/capability wiring from Agent Core and prove a pluginized registry/discovery model.
+
+Required GREEN evidence:
+- adding/removing a skill does not require Agent Core, planner-logic or runtime-orchestration edits;
+- capability handlers are resolved from a governed registry rather than a core hardcoded mapping;
+- skill procedure, completion contract and UI/widget contract are loadable artifacts;
+- compact catalog discovery remains progressive;
+- the synthetic **55th dummy skill** passes discovery -> load -> capability execution -> completion -> UI-contract propagation with **zero core-code edits**.
+
+This gate is a hard prerequisite for bulk `V4-CATALOG` migration. Do not migrate dozens of skills into hardcoded core structures and plan to refactor later.
+
 ### Gate V4-BROWSER
-Wire V4 to the real UI and prove Browser C parity on the same natural-language scenarios that exposed V3 weaknesses.
+Wire V4 to the real UI and prove Browser C parity on the same natural-language scenarios that exposed V3 weaknesses, including complete widget/state handling through `UIContract` metadata where applicable.
 
 ### Gate V4-CATALOG
-Migrate the full 54-skill catalog to progressive/composable V4 skills and reusable capabilities.
+Migrate the full 54-skill catalog to progressive/composable V4 skills and reusable capabilities through the pluginized registry. Adding each migrated skill must not change Agent Core architecture.
 
 ### Gate V4-54-ABC
 No-skip full catalog certification: Agent A vs independent REAL AS21 Oracle B vs real Browser C across applicable approved spaces/team identities.
@@ -124,6 +142,11 @@ Complete UI lineage/state/interaction certification on V4.
 ### Gate V4-RELEASE
 Security, source authority, session isolation, performance, recovery, P0=0, full DoD audit. Only this gate may set `RELEASE_READY=YES`.
 
+### Deferred milestone — V5 analytical orchestration
+`DEFERRED_TO_V5 — DO NOT IMPLEMENT DURING V4`.
+
+GVS5H-inspired multi-agent analytical orchestration (fresh workers + typed shared ledger + verifier/A-B evaluation) is explicitly deferred until V4 is fully operational with all 54 skills and working UI/widgets. It must not expand V4 scope or delay V4 release readiness.
+
 ## 4. Anti-regression rule for future assignments
 
 Every future owner/QA assignment after the current V4 POC must answer these questions before claiming a milestone GREEN:
@@ -132,6 +155,8 @@ Every future owner/QA assignment after the current V4 POC must answer these ques
 - Is source truth REAL AS21 and independently verifiable?
 - Is the behavior reusable for an unseen person/sprint/space/release?
 - Does it preserve progressive skill loading and typed capability governance?
+- **Could the same new skill be added as a plugin without editing Agent Core/planner/runtime?**
+- **Are completion and UI behavior declared in skill contracts rather than hardcoded into orchestration?**
 - Does it keep the path open for Learning Reviewer to modify generalized procedural artifacts later?
 - Has anything been done that would make the 54-skill A/B/C gate harder or less meaningful?
 
@@ -143,12 +168,15 @@ If the answer to any relevant question is no, the work must be treated as local 
 V4_ARCHITECTURE_DIRECTION = PRIMARY
 V3_H1B = ROLLBACK_REFERENCE
 V4_REPRESENTATIVE_POC = FINAL_RELIABILITY_GATE_IN_PROGRESS
-V4_POC_FOCUSED_FIX_BUDGET = ONE_GENERALIZED_OBSERVATION_HYGIENE_FIX_REMAINING
+V4_POC_FOCUSED_FIX_BUDGET = BOUNDED_RELIABILITY_ONLY
+V4_PLUGINIZED_SKILL_CAPABILITY_REGISTRY = REQUIRED_BEFORE_54_SKILL_MIGRATION
+V4_PLUGIN_DUMMY_55_GATE = NOT_DONE
 V4_BROWSER_C = NOT_YET_WIRED
 V4_FULL_54_SKILL_MIGRATION = NOT_DONE
 V4_FULL_54_ABC = NOT_DONE
 V4_LEARNING_REVIEWER = NOT_DONE
 V4_GOVERNED_SKILL_SELF_MODIFICATION = NOT_DONE
 V4_FULL_UI_ACCEPTANCE = NOT_DONE
+V5_GVS5H_ANALYTICAL_ORCHESTRATION = DEFERRED_TO_V5
 RELEASE_READY = NO
 ```
