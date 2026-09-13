@@ -243,6 +243,15 @@ class ProductionTaskApiAS21Adapter(TaskApiAS21Adapter):
             raise AS21SourceError("task-api sprint task endpoint returned invalid JSON") from exc
         if not isinstance(payload, dict):
             raise AS21SourceError("task-api sprint task endpoint returned malformed payload")
+        # The route distinguishes a proven-complete collection from a bounded
+        # partial view (source cannot paginate and no fallback produced a
+        # complete set). A partial view must fail closed, never masquerade as
+        # an empty or complete sprint.
+        if payload.get("complete") is False:
+            raise AS21SourceError(
+                f"task-api sprint task collection is incomplete for {normalized}: "
+                "the source could not prove a complete set"
+            )
         rows = payload.get("complete_tasks")
         if not isinstance(rows, list):
             tasks_payload = payload.get("tasks")
