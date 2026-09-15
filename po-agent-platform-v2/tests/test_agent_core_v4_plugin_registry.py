@@ -4,8 +4,8 @@ import types
 
 import pytest
 
-from po_agent.harness.agent_core_v4 import CapabilitySpecV4, SkillSpecV4
-from po_agent.harness.agent_core_v4_completion import CompletionRequirement
+from po_agent.harness.agent_core_v4 import CapabilitySpecV4, SkillCatalogV4, SkillSpecV4
+from po_agent.harness.agent_core_v4_completion import CompletionRequirement, SkillCompletionContract
 from po_agent.harness.v4_plugin_registry import (
     CapabilityBindingV4,
     UIContractV4,
@@ -68,8 +68,6 @@ def test_builtin_plugins_discover_deterministically():
 def test_builtin_registry_has_complete_handler_bindings():
     registry = discover_v4_plugins()
     specs = registry.capability_specs()
-    # Binding validation happens at registry construction; cardinality additionally
-    # guards against a capability that silently disappeared from the A188 catalog.
     assert len(specs) == 15
     assert {"member.resolve", "task.search", "task.lookup", "sprint.current"} <= set(specs)
 
@@ -78,18 +76,28 @@ def test_dummy_55_can_be_added_without_agent_core_change():
     before = discover_v4_plugins()
     after = before.with_plugin(_dummy_plugin())
 
-    skill_ids = {skill.id for skill in after.skills()}
-    assert "dummy.55" in skill_ids
-    assert "dummy.55.execute" in after.capability_specs()
-    assert after.ui_contracts()["dummy.55"].preferred_widget == "dummy_widget"
+    # Registry -> compact catalog -> detailed skill contract.
+    catalog = SkillCatalogV4(after.skills(), after.capability_specs())
+    assert "dummy.55" in {item["id"] for item in catalog.compact()}
+    detail = catalog.load("dummy.55")
+    assert detail["id"] == "dummy.55"
+    assert [item["id"] for item in detail["capabilities"]] == ["dummy.55.execute"]
 
+    # Registry -> typed handler binding.
     handlers = after.bind_handlers(_RuntimeStub())
     assert callable(handlers["dummy.55.execute"])
 
+    # Registry -> deterministic completion contract declaration.
     dummy_skill = next(skill for skill in after.skills() if skill.id == "dummy.55")
     assert dummy_skill.completion == (
         CompletionRequirement("dummy.55.execute", data_keys=("ok",)),
     )
+    completion = SkillCompletionContract(dummy_skill.id, dummy_skill.completion)
+    assert completion.skill_id == "dummy.55"
+
+    # Registry -> presentation metadata, with no Agent Core source edit.
+    assert after.ui_contracts()["dummy.55"].preferred_widget == "dummy_widget"
+    assert after.ui_contracts()["dummy.55"].required_fields == ("ok",)
 
 
 def test_duplicate_skill_fails_closed():
