@@ -1,149 +1,292 @@
 # GigaCode — Current Action
 
 ## Status
-`ACTIVE_QA_ASSIGNMENT_188_V4_COMPLETION_CONTRACT_REGATE`
+`ACTIVE_OWNER_ASSIGNMENT_189_V4_PLUGIN_REGISTRY_EXTRACTION`
 
 ## Mission
-Assignment 187 implemented the **deterministic post-observation skill completion contract**
-(`agent_core_v4_completion.py`) and the owner has completed live verification against fresh
-REAL AS21. This is the **QA-only re-gate**: independently re-test the full verification matrix
-and confirm the runtime completion mechanism is generic, safe, and source-authoritative.
+Assignment 188 closed the representative backend POC with verdict:
 
-## QA role
-- GigaCode is **QA/tester only**.
-- Do NOT modify production code, prompts, adapters, tests, or config.
-- Do NOT modify `GIGACODE.md`, `V4_DOD_LOCK.md`, or this file.
-- Do NOT start Assignment 189 or any next milestone.
-- Commit/push only the allowed QA report file.
+`AGENT_CORE_V4_REPRESENTATIVE_POC_GREEN`
+
+The next milestone is **V4-PLUGIN**: make skills/capabilities plug-in/discoverable **without changing the already-proven V4 behavior**.
+
+This is an extraction/refactoring milestone, **not a rewrite of the planner/runtime**.
+
+## Mandatory rollback checkpoint
+Before doing anything, read:
+
+`V4_POC_GREEN_CHECKPOINT.md`
+
+The exact known-good pre-plugin baseline is:
+
+- commit: `0f03fca14fe078c86dca961362915e10cc985401`
+- rollback/reference branch: `checkpoint/v4-poc-green-a188`
+- QA proof: `po-agent-platform-v2/qa_reports/AGENT_CORE_V4_COMPLETION_CONTRACT_REGATE_188.md`
+
+**If this assignment causes an unbounded regression, STOP and compare against that checkpoint. Do not stack speculative fixes.**
 
 ## Mandatory pre-read
 ```bash
 git pull --ff-only origin feat/core8-real-query-hardening-v2
+git rev-parse HEAD
 ```
-Record `git rev-parse HEAD` as `START_HEAD`.
 
-Then read:
-- `po-agent-platform-v2/qa_reports/` (latest A186 report for lineage)
-- `V4_DOD_LOCK.md` §6 (completion contract properties)
+Read:
+- `V4_POC_GREEN_CHECKPOINT.md`
+- `V4_DOD_LOCK.md`
 - `AGENT_CORE_V4_SKILL_NATIVE_SPEC.md`
-- A187 owner verification results in `qa_187_live_*.json` and `qa_187_oracle_b.json`
+- `PO_AGENT_HARNESS_EVOLUTION_PLAN.md`
+- `po-agent-platform-v2/src/po_agent/harness/agent_core_v4.py`
 - `po-agent-platform-v2/src/po_agent/harness/agent_core_v4_completion.py`
-- `po-agent-platform-v2/src/po_agent/harness/agent_core_v4.py` (completion contract integration)
+- existing V4 tests
+- A188 QA report
 
-## Scope
-Independently re-verify the A187 completion contract against fresh REAL AS21.
-No production code changes allowed.
+Record `START_HEAD`.
 
-## Invariants to verify
-- `Qwen/Qwen3.8-27B` is the active model (check `.env`).
-- No semantic prepass (`semantic_prepass_used=false` in all responses).
-- No surname/person/task/sprint/query-phrase hardcode in the completion mechanism.
-- No fabricated source facts.
-- REAL AS21 remains authoritative.
-- Recovery-time `READY` remains forbidden.
-- Fail-closed for missing/ambiguous/source-failure.
-- No GVS5H/multi-agent orchestration in V4.
+## Non-negotiable principle
 
-## Phase 0 — Build / static invariants
-1. Run full test suite: `cd po-agent-platform-v2 && source .venv/bin/activate && python -m pytest tests/ -q`
-   - Record total passed/failed/error.
-   - No NEW failures beyond the A186 baseline (document known pre-existing failures).
-2. Focused suites must be GREEN:
-   - `python -m pytest tests/test_agent_core_v4_completion_contract.py -v` (20/20)
-   - `python -m pytest tests/ -k "v4" -v` (all V4 tests)
-   - B1/B2 regression: `python -m pytest tests/ -k "sprint or identity or task_api" -v`
-3. Static invariants in `agent_core_v4_completion.py`:
-   - No `if` branching on entity names, task keys, sprint IDs, or query phrases.
-   - No `DMS-380`, `Semavin`, `Kalachanov`, `SPRNT` literal in production logic.
-   - All completion requirements declared in `SkillSpecV4` tuples (not ad-hoc runtime checks).
+> Adding a new V4 skill must not require changing Agent Core orchestration, planner logic, or runtime trajectory code.
 
-## Phase 1 — P1 gate: 10x DMS-380 multistep exact parity
-Start fresh task-api + fresh PO Agent (new ports, record them).
-Refresh Oracle B live (no hardcoded counts).
+Preserve the current working flow:
 
-Run: `10x` `Покажи DMS-380 и затем задачи его исполнителя`
+```text
+raw user query
+→ progressive skill selection/loading
+→ governed typed capability
+→ REAL AS21 observation
+→ deterministic completion contract
+→ result
+```
 
-Mandatory per run:
-- status=COMPLETED
-- `completion=runtime_contract` (NOT `planner_ready`)
-- exact key-set parity with Oracle B
-- `semantic_prepass_used=false`
-- last trajectory entry is the runtime marker (no extra model terminal-repair turns after satisfaction)
-- record: trajectory, latency, keys, completion type
+Do **not** redesign this flow.
 
-Gate: **10/10 exact parity** required.
+## Required target contracts
+Introduce/refine stable plugin-facing contracts equivalent to:
 
-## Phase 2 — Second lookup→assignee→tasks family
-Run: `5x` a second lookup→assignee→tasks case discovered live (DMS-99 if still source-valid,
-or another valid task key).
+```text
+SkillSpec
+CapabilitySpec
+CapabilityHandler
+CompletionContract
+UIContract
+```
 
-Gate: **5/5 exact parity**, `completion=runtime_contract`.
+Names may differ if the existing code has better canonical names, but the separation of responsibilities must be explicit and typed.
 
-## Phase 3 — Mixed matrix / unseen combinations
+### SkillSpec
+Must carry at least:
+- stable skill id/version
+- compact discovery summary
+- procedural instructions/steps
+- required/optional capabilities
+- completion contract reference/declaration
+- optional UI contract reference
+
+### CapabilitySpec
+Must carry at least:
+- stable capability id/version
+- argument/constraint contract
+- source authority / read-only semantics
+- handler binding
+- postcondition/evidence metadata where applicable
+
+### CapabilityHandler
+- existing proven handlers should be reused/wrapped, not behaviorally rewritten;
+- handler lookup must come from registry, not a central Agent Core hardcoded map.
+
+### CompletionContract
+- keep the A187/A188 generic deterministic completion mechanism;
+- completion remains structural/typed and entity-agnostic;
+- do not reintroduce stochastic terminal READY dependence;
+- do not add query/entity-specific completion branches.
+
+### UIContract
+Provide a stable optional metadata contract for later Browser/UI work, e.g. preferred widget/type, result shape, required fields/state hints.
+Do **not** build/redesign the Browser UI in this assignment.
+
+## Architecture requirement — registry/discovery
+Create a trusted V4 plugin registry/discovery layer outside Agent Core.
+
+Required properties:
+- Agent Core consumes a registry interface; it does not enumerate concrete task/sprint/release skill ids itself.
+- Existing V4 skills/capabilities are registered through that layer.
+- Existing handlers are registered through that layer.
+- New trusted skill plugin can be added under the approved V4 plugin namespace/path and discovered without editing Agent Core.
+- Discovery is bounded to trusted application/plugin locations; do not load arbitrary user filesystem code.
+- Duplicate skill/capability ids fail closed at startup with an explicit error.
+- Invalid plugin schema/contract fails closed and identifies the offending plugin.
+- deterministic ordering for catalog/discovery.
+
+## Critical compatibility rule
+Do the **smallest possible extraction** around the A188-certified runtime.
+
+Forbidden in Assignment 189:
+- rewriting `RobustSkillNativePlannerV4` strategy;
+- changing the model;
+- semantic prepass;
+- phrase/surname/entity routers;
+- new task/sprint business semantics;
+- changing REAL AS21/source behavior;
+- altering B1/B2 logic;
+- changing identity governance;
+- changing completion semantics beyond the minimum wiring needed to obtain contracts from registry;
+- Browser/UI feature implementation;
+- GVS5H/multi-agent/V5 work;
+- fixing `Задачи Семавина` with entity-specific logic.
+
+The known Cyrillic issue remains a separate generic reliability/catalog regression item.
+
+## Phase 1 — Inventory current registration seams
+Before editing, document in the final report:
+- where current `SkillSpecV4` instances are created;
+- where capability specs are declared;
+- where `_handlers`/handler mapping is built;
+- how completion requirements are attached;
+- which pieces can move behind registry without changing behavior.
+
+Do not start with a broad rewrite.
+
+## Phase 2 — Implement V4 plugin registry
+Implement a minimal production registry/discovery layer.
+
+Expected shape (adapt to repository conventions):
+
+```text
+v4_plugins/
+  __init__.py
+  registry.py
+  contracts.py
+  builtins/
+    tasks.py
+    sprints.py
+    releases.py
+    ...
+```
+
+A different layout is acceptable if cleaner, but Agent Core must depend on registry abstractions rather than concrete plugin modules.
+
+Migrate the **existing V4 catalog only**. Do not add the remaining 54 skills yet.
+
+## Phase 3 — Preserve existing semantics
+After extraction, prove that existing V4 behavior is unchanged:
+- same skill ids exposed;
+- same compact catalog semantics;
+- same handler/capability arguments;
+- same completion requirements;
+- same source authority;
+- same fail-closed behavior;
+- same observation/result shape for existing tests unless a purely internal metadata field is added.
+
+Where practical, add compatibility assertions comparing pre-extraction fixture/catalog snapshots with registry-produced output.
+
+## Phase 4 — Mandatory 55th dummy-skill proof
+Add a **test-only** dummy plugin proving extensibility.
+
+The test must demonstrate that a new 55th-style skill can be:
+1. placed in/configured through the supported plugin discovery mechanism;
+2. discovered by the registry;
+3. included in compact skill metadata;
+4. loaded as a full skill contract;
+5. bound to a typed test capability/handler;
+6. satisfy its completion contract;
+7. expose optional UI metadata;
+
+**without changing any Agent Core source file.**
+
+This is the hard acceptance criterion for V4-PLUGIN extensibility.
+
+Do not ship the dummy as a real production business skill.
+
+## Phase 5 — Regression tests
+Add focused tests for:
+- built-in skill discovery;
+- capability discovery;
+- handler resolution;
+- completion contract preservation;
+- UI contract metadata;
+- duplicate id rejection;
+- malformed plugin rejection;
+- deterministic ordering;
+- trusted-path/namespace boundary;
+- 55th dummy skill no-Agent-Core-change proof.
+
 Run at minimum:
-- `5x` person collection (roster member, e.g. Зhdanov)
-- `5x` person + space + status
-- `3x` current-sprint task query on a source-valid sprint
-- `3x` sprint period resolution (human period → canonical sprint)
-- `2x` plural active-sprint list
-- `2x` non-roster identity (source-authority resolution)
 
-Gate: exact parity for each.
-
-## Phase 4 — B1/B2 retained exactness
-Verify the A185 B1/B2 fixes remain effective:
-- Sprint with >100 tasks (if available) returns complete collection
-- Status classification (terminal vs open) is source-accurate
-- Run at least one case from each
-
-## Phase 5 — A183 scenarios
-Three scenarios remain green:
-1. Human-period sprint resolution
-2. Plural active-sprint list
-3. Source-authority non-roster identity
-
-## Phase 6 — Safety / fail-closed
-Negative controls:
-- Invented task (e.g. DMS-999999) → typed not-found, 0 keys
-- Invented person → fail-closed, 0 keys
-- Invented sprint → typed not-found/clarification, 0 keys
-- Ambiguous identity → NEEDS_CLARIFICATION, 0 keys
-- (Optional) source unavailable → bounded typed failure
-
-## Phase 7 — Proof of deterministic completion
-For ALL multi-step lookup→collection runs, record:
-- Whether completion was `runtime_contract` or `planner_ready`
-- That NO post-satisfaction planner repair loop occurred
-- That the last trajectory step is the runtime marker (no extra LLM calls after the satisfying observation)
-
-This proves the trajectory no longer depends on stochastic model terminal `READY`.
-
-## Allowed report file
-`po-agent-platform-v2/qa_reports/AGENT_CORE_V4_COMPLETION_CONTRACT_REGATE_188.md`
-
-## Report structure
-```
-# Assignment 188 — V4 Completion Contract Re-Gate
-## Verdict
-## Environment (HEAD, ports, model, Oracle B timestamp)
-## Phase 0: Build / static
-## Phase 1: P1 10x gate
-## Phase 2: Second lookup family
-## Phase 3: Mixed matrix
-## Phase 4: B1/B2 retained
-## Phase 5: A183 scenarios
-## Phase 6: Safety / fail-closed
-## Phase 7: Deterministic completion proof
-## Known issues / pre-existing defects
-## Recommendation
+```bash
+cd po-agent-platform-v2
+source .venv/bin/activate
+python -m pytest tests/test_agent_core_v4_completion_contract.py -v
+python -m pytest tests/ -k "v4" -v
+python -m pytest tests/ -q
 ```
 
-## Verdict rules
-- `AGENT_CORE_V4_REPRESENTATIVE_POC_GREEN` only if ALL mandatory gates pass:
-  - P1 10/10, P2 5/5, P3 exact, P4/P5/P6/P7 all pass
-- Otherwise: precisely attributed bounded RED / source block / model-reliability finding
-- If GREEN, recommendation MUST be:
-  **STOP backend POC remediation → proceed to V4-PLUGIN gate → then V4-BROWSER → progressive 54-skill migration → full V4 E2E gate.**
+No new failures beyond the A188 baseline are allowed.
+
+## Phase 6 — Live owner smoke against fresh REAL AS21
+Do a bounded owner verification after tests. This is **not** the independent QA gate.
+
+Refresh Oracle B live and run at minimum one fresh successful case from each retained family:
+- lookup → assignee → tasks (DMS-380 or another live-valid case);
+- person collection;
+- person + space + status;
+- current-sprint tasks;
+- period → sprint;
+- plural active sprints;
+- source-backed non-roster identity;
+- invented entity fail-closed.
+
+For factual collections compare exact key sets, not only counts.
+
+Mandatory invariants:
+- `semantic_prepass_used=false`;
+- REAL AS21 authoritative;
+- deterministic completion still `runtime_contract` where contracted;
+- zero new hardcode;
+- no planner strategy change;
+- no fabricated facts.
+
+If an A188-certified path regresses, do not call V4-PLUGIN complete. Diagnose first failing boundary and compare to `checkpoint/v4-poc-green-a188`.
+
+## Phase 7 — Documentation / plan status
+Update architecture docs only as needed to reflect the implemented registry contracts and plugin discovery mechanism.
+
+Preserve these plan facts:
+- A188 checkpoint remains permanent rollback/reference state;
+- V4-PLUGIN precedes Browser/UI and broad 54-skill migration;
+- current goal is all 54 skills + full working UI/widgets + E2E;
+- GVS5H/multi-agent is deferred to V5.
+
+## Deliverables
+Production/test changes for V4-PLUGIN plus a concise implementation report:
+
+`po-agent-platform-v2/qa_reports/AGENT_CORE_V4_PLUGIN_REGISTRY_OWNER_189.md`
+
+Report must include:
+- START_HEAD / END_HEAD;
+- file/change inventory;
+- before/after registration architecture;
+- proof Agent Core no longer enumerates concrete built-in skill/handler map;
+- 55th dummy-skill proof;
+- test results and baseline delta;
+- bounded live REAL-AS21 smoke results;
+- explicit regression comparison to A188;
+- known issues;
+- recommendation for independent QA.
+
+## Prepare next QA assignment, do not execute it
+At the end, replace this file with **Assignment 190 — QA-only V4-PLUGIN re-gate**.
+
+A190 must independently verify:
+- plugin discovery/contracts;
+- no Agent Core edit required for a dummy/new skill;
+- exact retained A188 regression parity against fresh REAL AS21;
+- no new full-suite regressions;
+- no semantic-prepass/entity hardcode/planner rewrite;
+- completion contract remains deterministic;
+- duplicate/malformed plugin fail-closed;
+- recommendation to proceed to V4-BROWSER only if GREEN.
+
+Do **not** execute Assignment 190.
 
 ## STOP
-After report creation and commit/push, do NOT continue to the next assignment.
+After production changes, tests, bounded live smoke, report, commit/push, and preparation of Assignment 190 in `GIGACODE_NEXT_ACTION.md`, STOP and return the result.
