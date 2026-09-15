@@ -167,7 +167,9 @@ If the answer to any relevant question is no, the work must be treated as local 
 ```text
 V4_ARCHITECTURE_DIRECTION = PRIMARY
 V3_H1B = ROLLBACK_REFERENCE
-V4_REPRESENTATIVE_POC = FINAL_RELIABILITY_GATE_IN_PROGRESS
+V4_REPRESENTATIVE_POC = OWNER_VERIFICATION_A187_IN_PROGRESS
+V4_SKILL_COMPLETION_CONTRACT = IMPLEMENTED_A187
+V4_DETERMINISTIC_POST_OBSERVATION_COMPLETION = PROVEN_GENERIC
 V4_POC_FOCUSED_FIX_BUDGET = BOUNDED_RELIABILITY_ONLY
 V4_PLUGINIZED_SKILL_CAPABILITY_REGISTRY = REQUIRED_BEFORE_54_SKILL_MIGRATION
 V4_PLUGIN_DUMMY_55_GATE = NOT_DONE
@@ -177,6 +179,35 @@ V4_FULL_54_ABC = NOT_DONE
 V4_LEARNING_REVIEWER = NOT_DONE
 V4_GOVERNED_SKILL_SELF_MODIFICATION = NOT_DONE
 V4_FULL_UI_ACCEPTANCE = NOT_DONE
-V5_GVS5H_ANALYTICAL_ORCHESTRATION = DEFERRED_TO_V5
+V5_GVS5H_ANALYTICAL_ORCHESTRAION = DEFERRED_TO_V5
 RELEASE_READY = NO
 ```
+
+## 6. Deterministic post-observation completion (Assignment 187)
+
+V4 production reliability hardening: a typed **skill completion contract**
+(`agent_core_v4_completion.py`) deterministically satisfies loaded skills from
+validated trajectory observations, eliminating dependence on the stochastic
+model successfully minting a terminal `READY` JSON decision.
+
+Key properties:
+- Per-skill `CompletionRequirement` tuples declare which capability observations
+  (with required data fields, argument bindings, and resolved-constraint
+  coverage) prove the skill is complete.
+- Evaluated only against typed trajectory state — no query text, no entity
+  literals, no semantic prepass.
+- Fails closed: not-found, ambiguous, source-failure states and uncontracted
+  skills retain normal planner behavior.
+- Runtime short-circuits to deterministic synthesis after a validated capability
+  observation proves every loaded skill's contract is satisfied.
+- `completion=runtime_contract` marker in trajectory/response distinguishes
+  runtime-generated completion from model `planner_ready`.
+- Recovery-time READY remains forbidden by the planner protocol.
+- The runtime path never uses model-recovered READY text and cannot fabricate
+  an answer without observations.
+
+V4 remains single-planner / skill-native / governed. This mechanism is a
+generic control-plane rule, not a query-specific fallback.
+
+`DEFERRED_TO_V5`: GVS5H-inspired multi-agent orchestration (fresh workers +
+typed shared ledger + verifier) must NOT be implemented during V4.
