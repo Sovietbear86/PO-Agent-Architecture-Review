@@ -489,14 +489,15 @@ class AgentCoreV4Runtime:
         skills = (
             SkillSpecV4(
                 "tasks.search",
-                "Find/filter tasks by person, product space, sprint and status.",
+                "Find/filter tasks by person, product space, sprint (including current sprint) and status. Use this when the user asks for tasks in a sprint, current sprint, or by any combination of filters.",
                 (
                     "Resolve only the entities needed by the user's filters.",
                     "For a human reference call member.resolve.",
                     "For a sprint given by id call sprint.resolve; for a sprint given by a month/period call sprint.search.",
+                    "For 'current sprint' call sprint.current to obtain the canonical sprint id before searching.",
                     "Call task.search with every resolved user constraint and validate the returned collection.",
                 ),
-                ("member.resolve", "space.resolve", "sprint.resolve", "sprint.search", "task.search"),
+                ("member.resolve", "space.resolve", "sprint.resolve", "sprint.search", "sprint.current", "task.search"),
                 completion=(
                     CompletionRequirement(
                         "task.search",
@@ -564,8 +565,8 @@ class AgentCoreV4Runtime:
                 completion=(CompletionRequirement("task.blockers", data_keys=("task_key",), data_absent_keys=("found",)),)),
             SkillSpecV4("sprint.health", "Show health/progress of a sprint.", ("Resolve/validate the sprint if needed, then call sprint.health.",), ("sprint.resolve", "sprint.health"),
                 completion=(CompletionRequirement("sprint.health", data_keys=("sprint_id", "total")),)),
-            SkillSpecV4("sprint.current", "Find the current sprint for a product space.", ("Validate the product space, then call sprint.current.",), ("space.resolve", "sprint.current"),
-                completion=(CompletionRequirement("sprint.current", data_keys=("sprint_id",)),)),
+            SkillSpecV4("sprint.current", "Report which sprint is currently active in a product space (identity only; use tasks.search to list tasks within it).", ("Validate the product space, then call sprint.current.",), ("space.resolve", "sprint.current"),
+                completion=()),
             SkillSpecV4("release.health", "Show release health/progress.", ("Validate the release if useful, then call release.health.",), ("release.resolve", "release.health"),
                 completion=(CompletionRequirement("release.health", data_keys=("release_id", "total")),)),
         )
