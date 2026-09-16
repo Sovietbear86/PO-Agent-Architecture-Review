@@ -53,6 +53,8 @@ export interface HarnessQueryResponse {
 export interface HarnessQueryRequest {
   query: string
   session_id?: string
+  clarification_id?: string
+  clarification_option?: string
 }
 
 export interface RuntimeHealth {
