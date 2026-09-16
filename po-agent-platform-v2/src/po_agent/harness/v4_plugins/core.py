@@ -1,13 +1,15 @@
 """A188-certified V4 catalog expressed as a declarative built-in plugin.
 
-Business behavior intentionally mirrors the pre-plugin runtime. This module owns
-registration only; source handlers remain the already-proven runtime methods.
+Business behavior intentionally mirrors the pre-plugin runtime. Source handlers
+are attached through the plugin registry so task/source evolution does not require
+editing Agent Core or planner/runtime orchestration.
 """
 from __future__ import annotations
 
 from ..agent_core_v4 import CapabilitySpecV4, SkillSpecV4
 from ..agent_core_v4_completion import CompletionRequirement
 from ..v4_plugin_registry import CapabilityBindingV4, UIContractV4, V4SkillPlugin
+from ._task_live_handlers import build_task_lookup
 
 CAPABILITIES = (
     CapabilitySpecV4("member.resolve", "Resolve a human reference against REAL AS21, optionally inside a source-backed sprint/space context when global identity search is ambiguous.", {"reference": "required raw human reference", "sprint_id": "optional sprint id or prior sprint.resolve observation", "space": "optional approved product space"}),
@@ -17,7 +19,7 @@ CAPABILITIES = (
     CapabilitySpecV4("sprint.list", "List source-backed sprints in a space (optionally only active ones) as a complete collection.", {"space": "required approved space", "active_only": "optional 'true' to keep only non-closed sprints"}),
     CapabilitySpecV4("release.resolve", "Validate a release/version id against REAL AS21 tasks.", {"reference": "required release id", "space": "optional canonical space"}),
     CapabilitySpecV4("task.search", "Search REAL AS21 tasks by any resolved assignee/space/sprint/status combination.", {"assignee": "optional canonical login from member.resolve", "space": "optional approved space", "sprint_id": "optional canonical sprint", "status": "optional status; not_completed is supported"}),
-    CapabilitySpecV4("task.lookup", "Read one REAL AS21 task by key.", {"task_key": "required task key"}),
+    CapabilitySpecV4("task.lookup", "Read one REAL AS21 task by key, including live attachment metadata and canonical assignee identity.", {"task_key": "required task key"}),
     CapabilitySpecV4("task.summary", "Summarize one REAL AS21 task.", {"task_key": "required task key"}),
     CapabilitySpecV4("task.quality", "Analyze one task's formulation quality.", {"task_key": "required task key"}),
     CapabilitySpecV4("task.acceptance", "Analyze acceptance criteria/testability for one task.", {"task_key": "required task key"}),
@@ -99,7 +101,7 @@ BINDINGS = (
     CapabilityBindingV4("sprint.list", handler_method="_sprint_list"),
     CapabilityBindingV4("release.resolve", handler_method="_release_resolve"),
     CapabilityBindingV4("task.search", handler_method="_task_search"),
-    CapabilityBindingV4("task.lookup", handler_method="_task_lookup_source_backed"),
+    CapabilityBindingV4("task.lookup", handler_builder=build_task_lookup),
     CapabilityBindingV4("task.summary", legacy_capability_id="task.summary"),
     CapabilityBindingV4("task.quality", legacy_capability_id="task.quality"),
     CapabilityBindingV4("task.acceptance", legacy_capability_id="task.acceptance_analysis"),
@@ -120,10 +122,4 @@ UI = {
     "release.health": UIContractV4("analysis", preferred_widget="release_health"),
 }
 
-PLUGIN = V4SkillPlugin(
-    plugin_id="builtin.core.a188",
-    skills=SKILLS,
-    capabilities=CAPABILITIES,
-    bindings=BINDINGS,
-    ui=UI,
-)
+PLUGIN = V4SkillPlugin(plugin_id="builtin.core.a188", skills=SKILLS, capabilities=CAPABILITIES, bindings=BINDINGS, ui=UI)
