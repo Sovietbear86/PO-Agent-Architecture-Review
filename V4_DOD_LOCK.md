@@ -27,10 +27,15 @@ PO Agent is NOT done until all of the following are true:
    - UI/widget metadata belongs to the skill/UI contract so a new skill can expose its presentation needs without editing core orchestration.
    - **Mandatory extensibility proof:** a synthetic 55th dummy skill is added only as a plugin/artifact, with **zero Agent Core/planner/runtime code changes**; it must be discovered in the compact catalog, loadable by the planner, able to invoke a registered capability, honor its completion contract, and expose its UI contract. This gate must be GREEN before progressive migration of the remaining 54-skill catalog.
 
-3. **REAL AS21/SWTR remains authoritative.**
-   - No local DB, sync snapshot, cache, fixture, fake/frozen source, remembered count or previous answer can become production truth or Oracle B.
-   - Source unavailable is explicit and never converted to an empty result.
+3. **REAL AS21/SWTR remains authoritative — live-read only for production facts.**
+   - No local DB, SQLite/local task store, sync snapshot, cache, fixture, fake/frozen source, remembered count or previous answer can become production truth or Oracle B.
+   - **A production factual capability MUST NOT read `/api/v1/tasks` or any equivalent local-store collection as its source of truth.**
+   - The accepted factual path is `V4 capability -> governed live Task API read facade -> MCP-SWTR -> REAL AS21` (or another explicitly certified live REAL-AS21 read facade).
+   - Local storage may exist for technical/runtime purposes only; it MUST NOT be used as a production fallback when a live route is unavailable or empty.
+   - If the required live source/read surface is unavailable, return typed `SOURCE_UNAVAILABLE` / `SOURCE_CONDITIONAL`; never fall back to local storage and never convert an outage into a legitimate zero/empty result.
+   - `REAL_EMPTY` is valid only when the live authoritative source proves an empty result.
    - Collections require exact task-key parity, not only count/prose parity.
+   - Future QA must statically and dynamically prove that factual skills did not touch local task-store reads.
 
 4. **Agentic composition works for unseen combinations.**
    Mandatory benchmark families include:
@@ -88,6 +93,10 @@ Pre-V4 rollback checkpoint remains:
 
 `1a87e3e3ea5da14ef44da6c4515dbf2961df0423`
 
+The independently certified V4 POC rollback checkpoint is:
+
+`0f03fca14fe078c86dca961362915e10cc985401` / `checkpoint/v4-poc-green-a188`
+
 Rules:
 - V3/H1B remains a rollback/reference path until V4 proves the full 54-skill A/B/C gate.
 - V4 is the primary architectural direction because it removes the mandatory semantic-prepass bottleneck.
@@ -96,14 +105,7 @@ Rules:
 - Do not delete the rollback point or legacy reference path before V4 full-catalog certification.
 
 ### POC reliability stop-rule
-Assignment 181 moved the mandatory `task -> assignee -> tasks` benchmark to 8/10 exact REAL-AS21 parity and proved the previous fail-open recovery defect closed. The remaining failure boundary is planner attention being distracted by an unbounded source description.
-
-Therefore the next generalized observation-hygiene change is the **last focused POC reliability fix before an architecture/model decision gate**:
-- allowed: entity-agnostic bounding/compaction of planner-facing unstructured observation fields while preserving exact structured source identity/status/sprint/count values;
-- forbidden: DMS-380-specific logic, surname/phrase routers, deterministic trajectory routing, semantic-prepass reintroduction, or capability-specific next-step hardcode;
-- after that fix, run a mixed reliability gate rather than another narrow endless sequence of the same benchmark;
-- if the mixed gate is stable/GREEN, stop backend POC remediation and proceed to `V4-PLUGIN`, then `V4-BROWSER`, then `V4-CATALOG`;
-- if a new fundamental planner/control-plane reliability defect of the same class remains, STOP focused patching and explicitly review planner model/tool-calling strategy (including whether the current Qwen planner is suitable) before any further Assignment 18x remediation.
+A188 closed the representative backend POC GREEN; A190 proved plugin extensibility; A191 proved Browser C/UI cutover. Backend POC remediation is closed. Future REDs inside V4-CATALOG are bounded catalog/capability defects unless evidence proves an architectural regression.
 
 This rule exists specifically to prevent an infinite fix/test loop from being mistaken for architectural progress.
 
@@ -128,7 +130,7 @@ This gate is a hard prerequisite for bulk `V4-CATALOG` migration. Do not migrate
 Wire V4 to the real UI and prove Browser C parity on the same natural-language scenarios that exposed V3 weaknesses, including complete widget/state handling through `UIContract` metadata where applicable.
 
 ### Gate V4-CATALOG
-Migrate the full 54-skill catalog to progressive/composable V4 skills and reusable capabilities through the pluginized registry. Adding each migrated skill must not change Agent Core architecture.
+Migrate the full 54-skill catalog to progressive/composable V4 skills and reusable capabilities through the pluginized registry. Adding each migrated skill must not change Agent Core architecture. Every factual skill must also pass the live-source-only invariant: no `/api/v1/tasks`/local-store truth or fallback.
 
 ### Gate V4-54-ABC
 No-skip full catalog certification: Agent A vs independent REAL AS21 Oracle B vs real Browser C across applicable approved spaces/team identities.
@@ -149,10 +151,12 @@ GVS5H-inspired multi-agent analytical orchestration (fresh workers + typed share
 
 ## 4. Anti-regression rule for future assignments
 
-Every future owner/QA assignment after the current V4 POC must answer these questions before claiming a milestone GREEN:
+Every future owner/QA assignment must answer these questions before claiming a milestone GREEN:
 
 - Does this move us toward skill-native composition rather than add another phrase/entity special case?
 - Is source truth REAL AS21 and independently verifiable?
+- Does every factual production read stay on a certified live source path, with **zero local-store fallback**?
+- Is a reported `REAL_EMPTY` proven by the live authoritative source rather than by an empty local cache/store?
 - Is the behavior reusable for an unseen person/sprint/space/release?
 - Does it preserve progressive skill loading and typed capability governance?
 - **Could the same new skill be added as a plugin without editing Agent Core/planner/runtime?**
@@ -167,47 +171,36 @@ If the answer to any relevant question is no, the work must be treated as local 
 ```text
 V4_ARCHITECTURE_DIRECTION = PRIMARY
 V3_H1B = ROLLBACK_REFERENCE
-V4_REPRESENTATIVE_POC = OWNER_VERIFICATION_A187_IN_PROGRESS
-V4_SKILL_COMPLETION_CONTRACT = IMPLEMENTED_A187
+V4_REPRESENTATIVE_POC = GREEN_A188
+V4_SKILL_COMPLETION_CONTRACT = GREEN_A188
 V4_DETERMINISTIC_POST_OBSERVATION_COMPLETION = PROVEN_GENERIC
-V4_POC_FOCUSED_FIX_BUDGET = BOUNDED_RELIABILITY_ONLY
-V4_PLUGINIZED_SKILL_CAPABILITY_REGISTRY = REQUIRED_BEFORE_54_SKILL_MIGRATION
-V4_PLUGIN_DUMMY_55_GATE = NOT_DONE
-V4_BROWSER_C = NOT_YET_WIRED
-V4_FULL_54_SKILL_MIGRATION = NOT_DONE
+V4_PLUGINIZED_SKILL_CAPABILITY_REGISTRY = GREEN_A190
+V4_PLUGIN_DUMMY_55_GATE = GREEN_A190
+V4_BROWSER_C = GREEN_A191
+V4_LIVE_SOURCE_ONLY_INVARIANT = LOCKED_AFTER_A192
+V4_CATALOG_TASK_WAVE_1_20 = RED_A192_BOUNDED_3_DEFECTS
+V4_FULL_54_SKILL_MIGRATION = IN_PROGRESS
 V4_FULL_54_ABC = NOT_DONE
 V4_LEARNING_REVIEWER = NOT_DONE
 V4_GOVERNED_SKILL_SELF_MODIFICATION = NOT_DONE
 V4_FULL_UI_ACCEPTANCE = NOT_DONE
-V5_GVS5H_ANALYTICAL_ORCHESTRAION = DEFERRED_TO_V5
+V5_GVS5H_ANALYTICAL_ORCHESTRATION = DEFERRED_TO_V5
 RELEASE_READY = NO
 ```
 
 ## 6. Deterministic post-observation completion (Assignment 187)
 
-V4 production reliability hardening: a typed **skill completion contract**
-(`agent_core_v4_completion.py`) deterministically satisfies loaded skills from
-validated trajectory observations, eliminating dependence on the stochastic
-model successfully minting a terminal `READY` JSON decision.
+V4 production reliability hardening: a typed **skill completion contract** (`agent_core_v4_completion.py`) deterministically satisfies loaded skills from validated trajectory observations, eliminating dependence on the stochastic model successfully minting a terminal `READY` JSON decision.
 
 Key properties:
-- Per-skill `CompletionRequirement` tuples declare which capability observations
-  (with required data fields, argument bindings, and resolved-constraint
-  coverage) prove the skill is complete.
-- Evaluated only against typed trajectory state — no query text, no entity
-  literals, no semantic prepass.
-- Fails closed: not-found, ambiguous, source-failure states and uncontracted
-  skills retain normal planner behavior.
-- Runtime short-circuits to deterministic synthesis after a validated capability
-  observation proves every loaded skill's contract is satisfied.
-- `completion=runtime_contract` marker in trajectory/response distinguishes
-  runtime-generated completion from model `planner_ready`.
+- Per-skill `CompletionRequirement` tuples declare which capability observations (with required data fields, argument bindings, and resolved-constraint coverage) prove the skill is complete.
+- Evaluated only against typed trajectory state — no query text, no entity literals, no semantic prepass.
+- Fails closed: not-found, ambiguous, source-failure states and uncontracted skills retain normal planner behavior.
+- Runtime short-circuits to deterministic synthesis after a validated capability observation proves every loaded skill's contract is satisfied.
+- `completion=runtime_contract` marker in trajectory/response distinguishes runtime-generated completion from model `planner_ready`.
 - Recovery-time READY remains forbidden by the planner protocol.
-- The runtime path never uses model-recovered READY text and cannot fabricate
-  an answer without observations.
+- The runtime path never uses model-recovered READY text and cannot fabricate an answer without observations.
 
-V4 remains single-planner / skill-native / governed. This mechanism is a
-generic control-plane rule, not a query-specific fallback.
+V4 remains single-planner / skill-native / governed. This mechanism is a generic control-plane rule, not a query-specific fallback.
 
-`DEFERRED_TO_V5`: GVS5H-inspired multi-agent orchestration (fresh workers +
-typed shared ledger + verifier) must NOT be implemented during V4.
+`DEFERRED_TO_V5`: GVS5H-inspired multi-agent orchestration (fresh workers + typed shared ledger + verifier) must NOT be implemented during V4.
