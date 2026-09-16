@@ -81,6 +81,7 @@ function Evidence({ result }: { result: HarnessQueryResponse }) {
         <div className="evidence-panel">
           <div className="trace">trace_id: {result.trace_id}</div>
           <div className="trace">session_id: {result.session_id}</div>
+          {result.clarification_id && <div className="trace">clarification_id: {result.clarification_id}</div>}
           {result.skill && <div className="trace">skill: {result.skill.id}@{result.skill.version}</div>}
           {v4 && <div className="trace">runtime: Agent Core v4 · completion={String(v4.completion ?? 'planner')} · semantic_prepass={String(v4.semantic_prepass_used ?? 'unknown')}</div>}
           {!v4 && v3 && <div className="trace">runtime: Agent Core v3 · stage={String(v3.stage ?? 'unknown')} · llm_used={String(v3.llm_used ?? 'unknown')}</div>}
@@ -125,7 +126,7 @@ function AgentChat({ open, onClose }: { open: boolean; onClose(): void }) {
     }])
   }
 
-  async function send(textOverride?: string) {
+  async function send(textOverride?: string, clarification?: HarnessQueryResponse) {
     const text = (textOverride ?? input).trim()
     if (!text || busy) return
 
@@ -136,7 +137,12 @@ function AgentChat({ open, onClose }: { open: boolean; onClose(): void }) {
     setInput('')
     setBusy(true)
     try {
-      const result = await agent.query({ query: text, session_id: requestSessionId })
+      const result = await agent.query({
+        query: text,
+        session_id: requestSessionId,
+        clarification_id: clarification?.clarification_id ?? undefined,
+        clarification_option: clarification?.clarification_id ? text : undefined,
+      })
       const textResult = result.status === 'NEEDS_CLARIFICATION'
         ? result.question ?? 'Нужно уточнение.'
         : result.answer ?? 'Запрос выполнен.'
@@ -202,7 +208,7 @@ function AgentChat({ open, onClose }: { open: boolean; onClose(): void }) {
             {message.result?.status === 'NEEDS_CLARIFICATION' && message.result.options.length > 0 && (
               <div className="option-row">
                 {message.result.options.map(option => (
-                  <button key={option} onClick={() => void send(option)}>{option}</button>
+                  <button key={option} onClick={() => void send(option, message.result)}>{option}</button>
                 ))}
               </div>
             )}
