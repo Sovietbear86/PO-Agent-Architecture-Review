@@ -30,8 +30,9 @@ CAPABILITIES = (
 SKILLS = (
     SkillSpecV4(
         "tasks.search",
-        "Find/filter tasks by person, product space, sprint (including current sprint) and status. Use this when the user asks for tasks in a sprint, current sprint, or by any combination of filters.",
+        "Compose task search when the request has multiple filters, a current/period sprint, or another multi-step constraint combination. For a single canonical assignee/status/explicit-sprint filter prefer the dedicated task catalog skill when available.",
         (
+            "Use this composition helper when several constraints or current/period sprint resolution must be combined; prefer a dedicated canonical single-filter skill when it directly matches the whole request.",
             "Resolve only the entities needed by the user's filters.",
             "For a human reference call member.resolve.",
             "For a sprint given by id call sprint.resolve; for a sprint given by a month/period call sprint.search.",
