@@ -81,7 +81,7 @@ def build_task_search_status(runtime: Any):
         if not status:
             raise ValueError("status is required")
         space = str(args.get("space") or "").strip() or None
-        assignee = str(args.get("assignee") or "").strip() or None
+        assignee = str(args.get("assignee") or args.get("reference") or "").strip() or None
         tasks = await _live_rows(runtime, space=space, assignee=assignee)
         if status in {"not_completed", "open", "active", "открытые", "незавершенные", "незавершённые"}:
             tasks = [task for task in tasks if task.is_open]
