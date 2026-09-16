@@ -57,19 +57,31 @@ def test_builtin_plugins_discover_deterministically():
     registry = discover_v4_plugins()
     assert registry.plugin_ids == tuple(sorted(registry.plugin_ids))
     assert "builtin.core.a188" in registry.plugin_ids
+    assert "builtin.catalog.tasks" in registry.plugin_ids
     skill_ids = tuple(skill.id for skill in registry.skills())
     assert skill_ids == tuple(sorted(skill_ids))
     assert "tasks.search" in skill_ids
     assert "tasks.lookup_then_assignee" in skill_ids
     assert "sprints.list" in skill_ids
     assert "task.lookup" in skill_ids
+    assert "task.search_text" in skill_ids
 
 
 def test_builtin_registry_has_complete_handler_bindings():
     registry = discover_v4_plugins()
     specs = registry.capability_specs()
-    assert len(specs) == 15
-    assert {"member.resolve", "task.search", "task.lookup", "sprint.current"} <= set(specs)
+    # The A190 baseline had 15 capabilities. The catalog is intentionally
+    # extensible, so the assertion protects the baseline instead of freezing the
+    # registry size and blocking every future plugin wave.
+    assert len(specs) >= 15
+    assert {
+        "member.resolve",
+        "task.search",
+        "task.lookup",
+        "sprint.current",
+        "task.search_text",
+        "task.search_attachments",
+    } <= set(specs)
 
 
 def test_dummy_55_can_be_added_without_agent_core_change():
