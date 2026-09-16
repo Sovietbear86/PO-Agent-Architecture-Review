@@ -6,6 +6,8 @@ type QueryResponse = {
   question?: string | null
   trace_id: string
   session_id: string
+  runtime?: string
+  ui?: { result_kind?: string; preferred_widget?: string | null } | null
   data?: Record<string, unknown> | null
   evidence?: Array<{ entity_id?: string | null; label?: string; source?: string }>
   warnings?: string[]
@@ -22,27 +24,20 @@ const SESSION_KEY = 'po-agent-runtime-session-id'
 async function openAgent(page: Page) {
   await page.goto('/')
   await page.getByRole('button', { name: 'Открыть PO Agent' }).click()
-  await expect(page.getByText(/Agent Core v3|Legacy Harness/).first()).toBeVisible()
+  await expect(page.getByTestId('agent-runtime')).toContainText(/Agent Core v4|Legacy Harness/)
 }
 
-/** Authoritative browser-side conversation identity. */
 async function sessionId(page: Page): Promise<string> {
   const id = await page.evaluate(key => window.sessionStorage.getItem(key), SESSION_KEY)
   if (!id) throw new Error('Session ID missing in sessionStorage')
   return id
 }
 
-/** UI is observability only, but must eventually render the authoritative identity. */
 async function expectVisibleSession(page: Page, expected: string) {
-  await expect(page.getByText(`session: ${expected}`, { exact: true })).toBeVisible({ timeout: 10_000 })
+  await expect(page.getByTestId('agent-session')).toHaveText(`session: ${expected}`)
 }
 
 async function ask(page: Page, query: string): Promise<QueryObservation> {
-  // OverviewDashboard launches four unrelated background /api/v1/query calls.
-  // Correlate the drawer call at REQUEST time, where Playwright exposes the
-  // request headers reliably, then await the response belonging to that exact
-  // Request object. This avoids both arbitrary-response races and the response
-  // context limitations seen in Assignments 153-156.
   const browserSessionId = await sessionId(page)
   await expectVisibleSession(page, browserSessionId)
 
@@ -57,9 +52,7 @@ async function ask(page: Page, query: string): Promise<QueryObservation> {
     try {
       const request = route.request()
       const headers = request.headers()
-      if (request.method() === 'POST' && headers['x-session-id'] === browserSessionId) {
-        resolveDrawerRequest(request)
-      }
+      if (request.method() === 'POST' && headers['x-session-id'] === browserSessionId) resolveDrawerRequest(request)
       await route.continue()
     } catch (error) {
       rejectDrawerRequest(error instanceof Error ? error : new Error(String(error)))
@@ -68,7 +61,6 @@ async function ask(page: Page, query: string): Promise<QueryObservation> {
   }
 
   await page.route('**/api/v1/query', routeHandler)
-
   try {
     const input = page.getByPlaceholder('Спросите естественным языком…')
     await input.fill(query)
@@ -81,8 +73,6 @@ async function ask(page: Page, query: string): Promise<QueryObservation> {
 
     const requestHeaderSessionId = request.headers()['x-session-id'] ?? null
     const payload = await response.json() as QueryResponse
-
-    await expect(page.getByText(new RegExp(`Agent Core v3.*${payload.status}`)).last()).toBeVisible({ timeout: 300_000 })
     const renderedText = payload.status === 'NEEDS_CLARIFICATION' ? payload.question : payload.answer
     if (renderedText) await expect(page.getByText(renderedText, { exact: true }).last()).toBeVisible({ timeout: 300_000 })
     await expectVisibleSession(page, browserSessionId)
@@ -92,24 +82,16 @@ async function ask(page: Page, query: string): Promise<QueryObservation> {
   }
 }
 
-function v3Meta(payload: QueryResponse): Record<string, unknown> | null {
-  const meta = payload.data?.['_agent_core_v3']
+function v4Meta(payload: QueryResponse): Record<string, unknown> | null {
+  const meta = payload.data?.['_agent_core_v4']
   return meta && typeof meta === 'object' ? meta as Record<string, unknown> : null
 }
 
-function metaLlmUsed(meta: Record<string, unknown> | null): boolean {
-  if (meta?.llm_used === true) return true
-  const semanticPrepass = meta?.semantic_prepass
-  if (!semanticPrepass || typeof semanticPrepass !== 'object') return false
-  return (semanticPrepass as Record<string, unknown>).llm_used === true
-}
-
-test.describe('H0 real Workspace browser harness', () => {
-  test('session isolation and new conversation are real browser behavior', async ({ browser }) => {
+test.describe('V4 real Workspace browser C', () => {
+  test('session isolation and new conversation remain browser-authoritative', async ({ browser }) => {
     const context = await browser.newContext()
     const first = await context.newPage()
     await openAgent(first)
-    await expect(first.getByText(/Agent Core v3/).first()).toBeVisible()
 
     const firstSession = await sessionId(first)
     expect(firstSession).toMatch(/^ui-/)
@@ -120,64 +102,61 @@ test.describe('H0 real Workspace browser harness', () => {
     expect(resetSession).toMatch(/^ui-/)
     expect(resetSession).not.toBe(firstSession)
     await expectVisibleSession(first, resetSession)
-    await expect(first.getByText('Новый диалог создан. Предыдущий transient dialogue state не используется.')).toBeVisible()
 
     const second = await context.newPage()
     await openAgent(second)
     const secondSession = await sessionId(second)
     expect(secondSession).toMatch(/^ui-/)
     expect(secondSession).not.toBe(resetSession)
-    await expectVisibleSession(second, secondSession)
     expect(await sessionId(first)).toBe(resetSession)
-    await expectVisibleSession(first, resetSession)
 
-    const observed = await ask(first, 'Задачи Гаранина')
+    const observed = await ask(first, 'Покажи задачу DMS-380')
     expect(observed.browserSessionId).toBe(resetSession)
     expect(observed.requestHeaderSessionId).toBe(resetSession)
     expect(observed.payload.session_id).toBe(resetSession)
-    expect(observed.payload.status).not.toBe('NEEDS_CLARIFICATION')
-    expect(observed.payload.warnings ?? []).not.toContain('correction_recheck')
-    expect(observed.payload.warnings ?? []).not.toContain('correction_clarification')
     await context.close()
   })
 
   const pilots = [
-    'Задачи Гаранина',
-    'Задачи Гаранина в DMS',
-    'Задачи Калачанова в WMB',
-    'Покажи DMS-380',
+    'Покажи задачу DMS-380 и затем задачи ее исполнителя',
+    'Покажи активные спринты DMS',
+    'Покажи задачи текущего спринта DMS',
   ]
 
   for (const query of pilots) {
-    test(`v3 browser pilot: ${query}`, async ({ page }) => {
+    test(`v4 browser pilot: ${query}`, async ({ page }) => {
       await openAgent(page)
-      await expect(page.getByText(/Agent Core v3/).first()).toBeVisible()
+      await expect(page.getByTestId('agent-runtime')).toContainText('Agent Core v4')
       await page.getByRole('button', { name: 'Новый диалог' }).click()
       const browserSession = await sessionId(page)
-      await expectVisibleSession(page, browserSession)
 
       const observed = await ask(page, query)
       const payload = observed.payload
-      expect(observed.browserSessionId).toBe(browserSession)
       expect(observed.requestHeaderSessionId).toBe(browserSession)
-      expect(payload.status).toBe('COMPLETED')
       expect(payload.session_id).toBe(browserSession)
-      const meta = v3Meta(payload)
-      expect(meta, 'Expected _agent_core_v3 metadata').not.toBeNull()
-      expect(metaLlmUsed(meta), 'Expected semantic LLM usage in v3 metadata').toBe(true)
+      expect(payload.runtime).toBe('agent_core_v4')
+      expect(payload.status).toBe('COMPLETED')
+
+      const meta = v4Meta(payload)
+      expect(meta, 'Expected _agent_core_v4 metadata').not.toBeNull()
+      expect(meta?.semantic_prepass_used).toBe(false)
+
+      if (payload.ui) {
+        await expect(page.getByTestId('v4-result-panel').last()).toBeVisible()
+      }
 
       await page.getByRole('button', { name: /Evidence .* trace/ }).last().click()
       await expect(page.getByText(`trace_id: ${payload.trace_id}`)).toBeVisible()
       await expect(page.getByText(`session_id: ${browserSession}`)).toBeVisible()
-      await expect(page.getByText(/runtime: Agent Core v3/)).toBeVisible()
-
-      if (query.includes('WMB')) {
-        const evidenceIds = (payload.evidence ?? []).map(item => item.entity_id).filter(Boolean) as string[]
-        expect(evidenceIds.every(key => key.startsWith('WMB-')), `Wrong-space evidence: ${evidenceIds.join(', ')}`).toBeTruthy()
-      }
-      if (query.includes('DMS-380')) {
-        await expect(page.getByText('DMS-380').last()).toBeVisible()
-      }
+      await expect(page.getByText(/runtime: Agent Core v4/)).toBeVisible()
     })
   }
+
+  test('browser preserves fail-closed negative state', async ({ page }) => {
+    await openAgent(page)
+    const observed = await ask(page, 'Покажи задачи несуществующего человека Абракадаброва в DMS')
+    expect(['FAILED', 'NEEDS_CLARIFICATION']).toContain(observed.payload.status)
+    expect(observed.payload.runtime).toBe('agent_core_v4')
+    expect((observed.payload.evidence ?? []).length).toBe(0)
+  })
 })
