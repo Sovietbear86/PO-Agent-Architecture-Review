@@ -13,16 +13,29 @@ from po_agent.domain.models import AttachmentType
 from ..contracts import CapabilityResult, Evidence
 
 
+def _attachment_dict(item: Any) -> dict[str, Any]:
+    return {"id": item.id, "name": item.name, "type": item.type.value, "size_bytes": item.size_bytes}
+
+
 def _task_dict(task: Any) -> dict[str, Any]:
-    attachments = []
-    for item in getattr(task, "attachments", None) or []:
-        attachments.append({"id": item.id, "name": item.name, "type": item.type.value, "size_bytes": item.size_bytes})
+    attachments = [_attachment_dict(item) for item in (getattr(task, "attachments", None) or [])]
     return {
-        "key": task.key, "id": task.id, "title": task.title, "description": task.description,
-        "status": task.status.value, "status_category": task.status_category.value,
-        "assignee": task.assignee, "priority": task.priority.value if task.priority else None,
-        "sprint_id": task.sprint_id, "release_id": task.release_id, "source": task.source,
-        "source_data": task.source_data, "attachments": attachments,
+        "key": task.key,
+        "id": task.id,
+        "title": task.title,
+        "description": task.description,
+        "status": task.status.value,
+        "status_category": task.status_category.value,
+        "assignee": task.assignee,
+        "assignee_id": getattr(task, "assignee_id", None),
+        "assignee_login": getattr(task, "assignee_login", None),
+        "priority": task.priority.value if task.priority else None,
+        "project_space": getattr(task, "project_space", None),
+        "sprint_id": task.sprint_id,
+        "release_id": task.release_id,
+        "source": task.source,
+        "source_data": task.source_data,
+        "attachments": attachments,
     }
 
 
@@ -50,6 +63,54 @@ async def _live_rows(runtime: Any, *, phrase: str | None = None, space: str | No
     return tasks
 
 
+def build_task_lookup(runtime: Any):
+    """Exact live lookup with canonical identity + attachments in the observation.
+
+    This preserves the A188 lookup->assignee contract while fixing A193 layer 2:
+    the production adapter already reads live attachment metadata, so the plugin
+    must not discard it when serializing the trusted task observation.
+    """
+    async def execute(args: dict[str, str]) -> CapabilityResult:
+        task_key = str(args.get("task_key") or "").strip().upper()
+        if not task_key:
+            raise ValueError("task_key is required")
+        task = await runtime.adapter.get_task(task_key)
+        if task is None:
+            return CapabilityResult(
+                answer=f"Задача {task_key} не найдена в REAL AS21.",
+                data={"task_key": task_key, "task": None, "source": "REAL_AS21"},
+                evidence=[],
+                warnings=["task_not_found"],
+            )
+        row = _task_dict(task)
+        attachment_count = len(row["attachments"])
+        attachment_suffix = f" Вложений: {attachment_count}." if attachment_count else " Вложений: 0."
+        return CapabilityResult(
+            answer=(
+                f"{task.key} — {task.title}. Статус: {task.status.value}."
+                + (f" Исполнитель: {task.assignee}." if task.assignee else "")
+                + attachment_suffix
+            ),
+            data={
+                "task_key": task.key,
+                "task": row,
+                "assignee_login": getattr(task, "assignee_login", None),
+                "assignee_id": getattr(task, "assignee_id", None),
+                "attachment_count": attachment_count,
+                "attachments": row["attachments"],
+                "source": "REAL_AS21",
+            },
+            evidence=[
+                Evidence(type="task", source="as21", entity_id=task.key, label=task.title, value=task.status.value),
+                *[
+                    Evidence(type="attachment", source="as21", entity_id=task.key, label=item["name"], value=item["type"])
+                    for item in row["attachments"]
+                ],
+            ],
+        )
+    return execute
+
+
 def build_task_search_text(runtime: Any):
     async def execute(args: dict[str, str]) -> CapabilityResult:
         phrase = str(args.get("phrase") or "").strip()
@@ -59,7 +120,11 @@ def build_task_search_text(runtime: Any):
         assignee = str(args.get("assignee") or args.get("reference") or "").strip() or None
         tasks = await _live_rows(runtime, phrase=phrase, space=space, assignee=assignee)
         rows = [_task_dict(task) for task in tasks]
-        return CapabilityResult(answer=f"Найдено задач по фразе «{phrase}»: {len(rows)}.", data={"count": len(rows), "tasks": rows, "task_keys": [row["key"] for row in rows], "phrase": phrase, "source": "REAL_AS21"}, evidence=[Evidence(type="task", source="as21", entity_id=row["key"], label=row["title"], value=row["status"]) for row in rows])
+        return CapabilityResult(
+            answer=f"Найдено задач по фразе «{phrase}»: {len(rows)}.",
+            data={"count": len(rows), "tasks": rows, "task_keys": [row["key"] for row in rows], "phrase": phrase, "source": "REAL_AS21"},
+            evidence=[Evidence(type="task", source="as21", entity_id=row["key"], label=row["title"], value=row["status"]) for row in rows],
+        )
     return execute
 
 
@@ -71,7 +136,11 @@ def build_task_search_assignee(runtime: Any):
         space = str(args.get("space") or "").strip() or None
         tasks = await _live_rows(runtime, space=space, assignee=reference)
         rows = [_task_dict(task) for task in tasks]
-        return CapabilityResult(answer=f"Для «{reference}» найдено задач: {len(rows)}.", data={"count": len(rows), "tasks": rows, "task_keys": [row["key"] for row in rows], "reference": reference, "space": space, "source": "REAL_AS21"}, evidence=[Evidence(type="task", source="as21", entity_id=row["key"], label=row["title"], value=row["status"]) for row in rows])
+        return CapabilityResult(
+            answer=f"Для «{reference}» найдено задач: {len(rows)}.",
+            data={"count": len(rows), "tasks": rows, "task_keys": [row["key"] for row in rows], "reference": reference, "space": space, "source": "REAL_AS21"},
+            evidence=[Evidence(type="task", source="as21", entity_id=row["key"], label=row["title"], value=row["status"]) for row in rows],
+        )
     return execute
 
 
@@ -93,7 +162,11 @@ def build_task_search_status(runtime: Any):
             tasks = [task for task in tasks if status in task.status.value.casefold() or status in task.status_category.value.casefold()]
             normalized = status
         rows = [_task_dict(task) for task in tasks]
-        return CapabilityResult(answer=f"Найдено задач по состоянию «{normalized}»: {len(rows)}.", data={"count": len(rows), "tasks": rows, "task_keys": [row["key"] for row in rows], "status": normalized, "space": space, "source": "REAL_AS21"}, evidence=[Evidence(type="task", source="as21", entity_id=row["key"], label=row["title"], value=row["status"]) for row in rows])
+        return CapabilityResult(
+            answer=f"Найдено задач по состоянию «{normalized}»: {len(rows)}.",
+            data={"count": len(rows), "tasks": rows, "task_keys": [row["key"] for row in rows], "status": normalized, "space": space, "source": "REAL_AS21"},
+            evidence=[Evidence(type="task", source="as21", entity_id=row["key"], label=row["title"], value=row["status"]) for row in rows],
+        )
     return execute
 
 
@@ -119,11 +192,18 @@ def build_task_search_attachments(runtime: Any):
                 items = [item for item in items if item.type == kind]
             if not items:
                 continue
-            attachments = [{"id": item.id, "name": item.name, "type": item.type.value, "size_bytes": item.size_bytes} for item in items]
+            attachments = [_attachment_dict(item) for item in items]
             task_payload = _task_dict(task)
             task_payload["attachments"] = attachments
             matches.append({"task": task_payload, "attachments": attachments})
-            evidence.extend(Evidence(type="attachment", source="as21", entity_id=task.key, label=item.name, value=item.type.value) for item in items)
+            evidence.extend(
+                Evidence(type="attachment", source="as21", entity_id=task.key, label=item.name, value=item.type.value)
+                for item in items
+            )
         label = kind.value.upper() if kind else "вложениями"
-        return CapabilityResult(answer=f"Найдено задач с {label}: {len(matches)}.", data={"attachment_type": kind.value if kind else None, "count": len(matches), "results": matches, "task_key": task_key, "space": space, "assignee": assignee, "source": "REAL_AS21"}, evidence=evidence)
+        return CapabilityResult(
+            answer=f"Найдено задач с {label}: {len(matches)}.",
+            data={"attachment_type": kind.value if kind else None, "count": len(matches), "results": matches, "task_key": task_key, "space": space, "assignee": assignee, "source": "REAL_AS21"},
+            evidence=evidence,
+        )
     return execute
