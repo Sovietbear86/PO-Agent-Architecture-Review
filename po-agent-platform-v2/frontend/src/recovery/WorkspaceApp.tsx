@@ -1,6 +1,7 @@
 import { FormEvent, useEffect, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { agent, HarnessQueryResponse, RuntimeHealth, system } from '../api/client'
+import { V4ResultPanel } from '../components/V4ResultPanel'
 import './workspace.css'
 
 type Message = {
@@ -40,6 +41,13 @@ function resetTabSessionId(): string {
   return created
 }
 
+function v4Meta(result?: HarnessQueryResponse): Record<string, unknown> | null {
+  const data = result?.data
+  if (!data || typeof data !== 'object') return null
+  const candidate = data['_agent_core_v4']
+  return candidate && typeof candidate === 'object' ? candidate as Record<string, unknown> : null
+}
+
 function v3Meta(result?: HarnessQueryResponse): Record<string, unknown> | null {
   const data = result?.data
   if (!data || typeof data !== 'object') return null
@@ -48,16 +56,21 @@ function v3Meta(result?: HarnessQueryResponse): Record<string, unknown> | null {
 }
 
 function runtimeLabel(health: RuntimeHealth | null, result?: HarnessQueryResponse): string {
-  const meta = v3Meta(result)
-  if (meta) return `Agent Core v3${meta.stage ? `/${String(meta.stage)}` : ''}`
+  const v4 = v4Meta(result)
+  if (result?.runtime === 'agent_core_v4' || v4) return 'Agent Core v4'
+  const v3 = v3Meta(result)
+  if (v3) return `Agent Core v3${v3.stage ? `/${String(v3.stage)}` : ''}`
+  if (health?.browser_runtime === 'agent_core_v4' && health.agent_core_v4_ready) return 'Agent Core v4 · ready'
   if (health?.agent_core_v3_enabled) return 'Agent Core v3 · ready'
   return 'Legacy Harness'
 }
 
 function Evidence({ result }: { result: HarnessQueryResponse }) {
   const [open, setOpen] = useState(false)
-  const meta = v3Meta(result)
-  const hasDetails = result.evidence.length > 0 || result.warnings.length > 0 || Boolean(meta)
+  const v4 = v4Meta(result)
+  const v3 = v3Meta(result)
+  const meta = v4 ?? v3
+  const hasDetails = result.evidence.length > 0 || result.warnings.length > 0 || Boolean(meta) || Boolean(result.ui)
   if (!hasDetails) return null
   return (
     <div className="chat-evidence">
@@ -69,7 +82,9 @@ function Evidence({ result }: { result: HarnessQueryResponse }) {
           <div className="trace">trace_id: {result.trace_id}</div>
           <div className="trace">session_id: {result.session_id}</div>
           {result.skill && <div className="trace">skill: {result.skill.id}@{result.skill.version}</div>}
-          {meta && <div className="trace">runtime: Agent Core v3 · stage={String(meta.stage ?? 'unknown')} · llm_used={String(meta.llm_used ?? 'unknown')}</div>}
+          {v4 && <div className="trace">runtime: Agent Core v4 · completion={String(v4.completion ?? 'planner')} · semantic_prepass={String(v4.semantic_prepass_used ?? 'unknown')}</div>}
+          {!v4 && v3 && <div className="trace">runtime: Agent Core v3 · stage={String(v3.stage ?? 'unknown')} · llm_used={String(v3.llm_used ?? 'unknown')}</div>}
+          {result.ui && <div className="trace">UIContract: {result.ui.result_kind} · widget={result.ui.preferred_widget ?? 'generic'}</div>}
           {result.warnings.map(w => <div key={w} className="warning">⚠ {w}</div>)}
           {result.evidence.slice(0, 12).map((item, idx) => (
             <div className="evidence-row" key={`${item.entity_id ?? item.label}-${idx}`}>
@@ -88,7 +103,7 @@ function AgentChat({ open, onClose }: { open: boolean; onClose(): void }) {
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
   const [messages, setMessages] = useState<Message[]>([{
-    id: 'hello', role: 'agent', text: 'Я PO Agent. Новый диалог изолирован от предыдущих turn/correction states. Факты проверяю по authoritative source.'
+    id: 'hello', role: 'agent', text: 'Я PO Agent. Новый диалог изолирован от предыдущих состояний. V4 использует plugin skills, governed capabilities и REAL AS21.'
   }])
 
   useEffect(() => {
@@ -114,9 +129,6 @@ function AgentChat({ open, onClose }: { open: boolean; onClose(): void }) {
     const text = (textOverride ?? input).trim()
     if (!text || busy) return
 
-    // sessionStorage is the authoritative transient session for this tab.
-    // Reading it at send-time removes any dependency on React state commit timing
-    // immediately after `Новый диалог` and guarantees UI/request/backend parity.
     const requestSessionId = getTabSessionId()
     if (requestSessionId !== sessionId) setSessionId(requestSessionId)
 
@@ -168,8 +180,8 @@ function AgentChat({ open, onClose }: { open: boolean; onClose(): void }) {
         <div>
           <div className="agent-kicker">PO AGENT</div>
           <strong>Помощник владельца продукта</strong>
-          <div className="trace" style={{ marginTop: 6 }}>{label}</div>
-          <div className="trace" style={{ marginTop: 2, maxWidth: 330, overflowWrap: 'anywhere' }}>session: {sessionId}</div>
+          <div className="trace" data-testid="agent-runtime" style={{ marginTop: 6 }}>{label}</div>
+          <div className="trace" data-testid="agent-session" style={{ marginTop: 2, maxWidth: 330, overflowWrap: 'anywhere' }}>session: {sessionId}</div>
         </div>
         <div style={{ display: 'flex', gap: 8, alignItems: 'flex-start' }}>
           <button className="link-button" onClick={newConversation} disabled={busy}>Новый диалог</button>
@@ -185,6 +197,7 @@ function AgentChat({ open, onClose }: { open: boolean; onClose(): void }) {
                 {runtimeLabel(health, message.result)} · {message.result.status} · {Math.round(message.result.latency_ms)} ms
               </div>
             )}
+            {message.result && <V4ResultPanel result={message.result} />}
             {message.result && <Evidence result={message.result} />}
             {message.result?.status === 'NEEDS_CLARIFICATION' && message.result.options.length > 0 && (
               <div className="option-row">
@@ -208,7 +221,7 @@ function AgentChat({ open, onClose }: { open: boolean; onClose(): void }) {
             )}
           </div>
         ))}
-        {busy && <div className="typing">Agent Core анализирует запрос и проверяет source facts…</div>}
+        {busy && <div className="typing" data-testid="agent-loading">Agent Core v4 анализирует запрос и проверяет source facts…</div>}
       </div>
       <form className="chat-compose" onSubmit={submit}>
         <textarea
@@ -247,7 +260,7 @@ export function WorkspaceApp() {
           ))}
         </nav>
         <div className="sidebar-footer">
-          <span className="status-dot" /> Agent Core entry
+          <span className="status-dot" /> Agent Core v4 entry
         </div>
       </aside>
       <main className="main-area">
