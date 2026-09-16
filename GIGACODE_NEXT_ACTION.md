@@ -1,236 +1,148 @@
 # GigaCode — Current Action
 
 ## Status
-`ACTIVE_QA_ASSIGNMENT_192_V4_CATALOG_TASK_WAVE`
+`ACTIVE_QA_ASSIGNMENT_193_ATTACHMENT_ORACLE_AND_UI_KEEPALIVE`
 
 ## Role lock
-GigaCode is **QA/adversarial tester only**.
+GigaCode is **QA/adversarial tester + service operator only** for this assignment.
 
-Do NOT implement, refactor, fix, improve, or rewrite production code, frontend code, plugin code, tests, prompts, adapters, config, or architecture docs. The owner has implemented the first V4-CATALOG wave independently.
+Do NOT implement, refactor, fix, improve, or rewrite production code, frontend code, plugin code, tests, prompts, adapters, config, or architecture docs. Do not start Wave S. The owner will implement production fixes after this bounded verification.
 
 ## Start state
 1. `git pull --ff-only origin feat/core8-real-query-hardening-v2`
 2. Record `git rev-parse HEAD` as `START_HEAD`.
-3. Run `git status --short` and record it. Pre-existing local QA-only/untracked artifacts may remain if they are clearly not production/test/source changes and were already present before A192; do not delete them. If any tracked production/test/config file is locally modified, or ownership is unclear, STOP and report.
+3. Read:
+   - `po-agent-platform-v2/qa_reports/AGENT_CORE_V4_CATALOG_TASK_WAVE_192.md`
+   - `V4_DOD_LOCK.md`
+   - `V4_54_SKILL_MIGRATION_PLAN.md`
 4. Permanent rollback remains `0f03fca14fe078c86dca961362915e10cc985401` / `checkpoint/v4-poc-green-a188`.
-5. A188, A190 and A191 are already GREEN. A192 must prove the Task Wave does not regress them.
 
-## Authoritative scope
-Read first:
-- `V4_54_SKILL_MIGRATION_PLAN.md`
-- `PO_AGENT_48_SKILL_MATRIX.md`
-- `V4_DOD_LOCK.md`
-- `po-agent-platform-v2/qa_reports/AGENT_CORE_V4_BROWSER_UI_REGATE_191.md`
+## Context from A192
+A192 is RED with three already-proven defects:
+- `task.search_text` scans the empty local `/api/v1/tasks` corpus instead of live SWTR;
+- `task.search_assignee` cannot resolve natural-language person names reliably;
+- `task.search_status` cannot execute status-only / space+status queries.
 
-The canonical production denominator is **54 = frozen 48 + six reconciled additions**. A192 covers canonical Task rows **#1–20** only. Helper/composition skills do not alter that denominator.
+A new manual Browser-C reproduction shows the attachment family is also suspect and A192's `SOURCE_CONDITIONAL` classification for rows #3–6 is not sufficient.
 
-## Owner changes to audit
-At minimum inspect:
-- `po-agent-platform-v2/src/po_agent/harness/v4_plugins/task_catalog.py`
-- `po-agent-platform-v2/src/po_agent/harness/v4_plugins/core.py`
-- `po-agent-platform-v2/src/po_agent/harness/v4_plugin_registry.py`
-- `po-agent-platform-v2/tests/test_agent_core_v4_task_catalog.py`
-- `po-agent-platform-v2/tests/test_agent_core_v4_plugin_registry.py`
-- `po-agent-platform-v2/frontend/src/components/V4ResultPanel.tsx`
-- `V4_54_SKILL_MIGRATION_PLAN.md`
+Observed manually in Browser C:
+- `Задачи Калачанова с вложениями в пространстве WMB` -> agent returned 0;
+- follow-up stating that such tasks do exist -> agent still returned 0;
+- `Проверь на наличие вложений задачу WMB-30000` -> task is found, but agent says attachment information is absent.
+
+Static inspection already shows legacy `PortfolioCapabilities.task_search_attachments()` obtains its candidate corpus via `self.a.search_tasks("")` before calling `get_attachment_metadata(task_key)`. A192 proved that the same unscoped `search_tasks("")` path can resolve to the empty local store. A193 must independently prove the live Oracle boundary for attachments and prevent a false REAL_EMPTY classification.
 
 ## Mission
-Independently certify the first progressive V4-CATALOG wave and answer all of the following:
+Perform a **bounded QA-only attachment-source investigation**, keep the service UI running for manual owner testing, and produce exact evidence needed for the owner fix.
 
-1. Are all canonical Task skills #1–20 explicitly represented in the V4 progressive catalog?
-2. Can the planner select/use the dedicated canonical skill for natural-language requests rather than relying on legacy phrase routing?
-3. Are new skills implemented through the plugin surface with zero Agent Core/planner/runtime-trajectory business hardcode?
-4. Do reused deterministic/source-backed legacy handlers preserve fresh REAL AS21 truth?
-5. Do CompletionContract and UIContract metadata match actual result shapes?
-6. Did any A188/A190/A191 GREEN scenario regress?
+Answer these questions:
+1. Does REAL AS21/SWTR expose attachments for `WMB-30000` or another fresh WMB task assigned to `Kalachanov.V.V`?
+2. Can attachment metadata be obtained through a direct live/source-backed route even when `task.search_attachments` returns 0?
+3. Is the defect the candidate-task corpus (`search_tasks("")` / local store), the attachment metadata route itself, source field mapping, or more than one layer?
+4. Should canonical rows #3 `task.search_attachments`, #4 `task.search_excel`, #5 `task.search_pdf`, #6 `task.search_msg` remain `SOURCE_CONDITIONAL`, or are one/more now definitively RED?
+5. Can Browser C be left running after QA so the owner can manually test the same live stack?
 
-## Canonical Task denominator #1–20
-The exact rows are:
+## Phase 0 — services and operational keepalive
+Start/reuse a **fresh live stack** with V4 enabled and REAL AS21/SWTR authoritative:
+- Task API on a free localhost port;
+- PO Agent backend on a free localhost port;
+- frontend/Browser C on a free localhost port.
 
-1. `task.lookup`
-2. `task.search_text`
-3. `task.search_attachments`
-4. `task.search_excel`
-5. `task.search_pdf`
-6. `task.search_msg`
-7. `task.search_assignee`
-8. `task.search_status`
-9. `task.search_sprint`
-10. `task.search_release`
-11. `task.summary`
-12. `task.quality`
-13. `task.missing_requirements`
-14. `task.acceptance`
-15. `task.dependencies`
-16. `task.history`
-17. `task.time_in_status`
-18. `task.aging`
-19. `task.blockers`
-20. `task.similar`
+Rules:
+- concurrency 1 for agent QA;
+- do not use fake/local source as Oracle;
+- do not kill unrelated processes;
+- if an existing project process is healthy, it may be reused only after verifying its branch/HEAD/config;
+- choose new free ports otherwise;
+- keep all three project services running after the assignment finishes unless they crash on their own.
 
-The exact V4 ids may share reusable capabilities, but every row above must be an explicit `SkillSpec` and terminally classified in the report.
+Record in the report and final response:
+- frontend URL;
+- backend URL;
+- Task API URL;
+- PID for each process;
+- health/status result for each service;
+- exact `START_HEAD`.
 
-## Phase 0 — architecture/static audit
-Compare `START_HEAD` with A191 QA commit `dca5a3d31419841b3d5d36aa56869ca531569a7d` and with permanent checkpoint `0f03fca...`.
+## Phase 1 — direct REAL Oracle for attachment-bearing tasks
+Use live source routes/capabilities, not the agent result itself, to discover attachment truth.
 
-Verify:
-- no edit to `agent_core_v4.py`, `agent_core_v4_reliable.py`, `agent_core_v4_robust.py`, planner strategy/model, or runtime trajectory/completion engine;
-- catalog additions are trusted plugin artifacts discovered by the registry;
-- no surname/person/task/sprint/release/query-phrase hardcode was added to production;
-- new fixed binding arguments are generic extension-surface behavior, not task/entity routing;
-- specialized Excel/PDF/MSG capabilities deterministically force their declared attachment type even if planner arguments conflict;
-- registry ordering/duplicate/malformed contracts still fail closed;
-- the 20 canonical Task ids are all present, while helper skills are not counted as extra denominator rows;
-- Browser UI remains presentation-only and does not choose capabilities/source routes.
+At minimum:
+1. Fetch `WMB-30000` from the live source.
+2. Query attachment metadata/content-list surface for `WMB-30000` directly.
+3. Fetch the live task collection for `Kalachanov.V.V` scoped to WMB using the proven source-backed assignee route and inspect candidates for attachment metadata.
+4. If `WMB-30000` truly has no attachments at test time, continue through the assignee WMB collection until either:
+   - at least one attachment-bearing task is found, or
+   - the live source itself proves attachment metadata is unavailable for the whole tested surface.
+5. Record exact task keys and attachment names/types/sizes when the source exposes them.
 
-Any architectural invariant violation => RED. Do not fix it.
+Do not infer source absence from `task.search_attachments=0`.
 
-## Phase 1 — build/contract gates
-Run at minimum:
+## Phase 2 — reproduce canonical attachment skills A/B
+Through public `/api/v1/query`, use fresh sessions and execute at minimum:
+- `Задачи Калачанова с вложениями в пространстве WMB`
+- `Проверь на наличие вложений задачу WMB-30000`
+- `Найди задачи с вложениями Excel в WMB`
+- `Найди задачи с PDF-вложениями в WMB`
+- `Найди задачи с MSG-вложениями в WMB`
 
-```bash
-cd po-agent-platform-v2
-source .venv/bin/activate
-python -m pytest tests/test_agent_core_v4_task_catalog.py -v
-python -m pytest tests/test_agent_core_v4_plugin_registry.py -v
-python -m pytest tests/test_agent_core_v4_completion_contract.py -v
-python -m pytest tests/test_v4_browser_api_contract.py -v
-python -m pytest tests/ -k "v4" -v
+Where the current skill contract cannot accept a space/person filter directly, record that separately; do not rewrite the query into a different semantic request merely to make it pass.
 
-cd frontend
-npm run build
-```
+For each case capture:
+- loaded skill id;
+- called capability and arguments;
+- source route(s) actually touched;
+- completion/status;
+- returned keys/attachment metadata;
+- exact Oracle B comparison.
 
-Known A191 hygiene: `npm ci` may still fail because of the pre-existing package-lock desync. Record it separately; do not modify package files in QA.
+Any source-proven attachment omitted by the skill => RED.
+Any `REAL_EMPTY` emitted while the direct Oracle contains matching attachments => RED and specifically classify as **false REAL_EMPTY / wrong-source defect**.
 
-Acceptance:
-- new Task Wave focused tests GREEN;
-- A190 plugin/dummy-55 tests GREEN;
-- completion tests GREEN;
-- V4-focused suite has no new failure;
-- frontend TypeScript/Vite build GREEN.
+## Phase 3 — code-path confirmation
+Without modifying code, inspect and cite the exact production path responsible for the result. At minimum trace:
+`task.search_attachments` SkillSpec -> plugin binding -> legacy capability -> adapter method(s) -> Task API route(s).
 
-## Phase 2 — fresh REAL AS21 Oracle discovery
-Start fresh Task API + PO Agent on fresh ports with V4 enabled. Concurrency 1.
+Explicitly determine whether the candidate corpus still uses local `/api/v1/tasks` / SQLite or another non-authoritative fallback.
 
-Immediately before Task Wave cases, independently discover fresh source examples rather than relying on remembered IDs/counts:
-- at least one existing task suitable for lookup/summary/quality;
-- a phrase from a live task title/description suitable for text search;
-- a live assignee identity;
-- a live sprint with tasks;
-- a live release/fix-version with tasks if source exposes one;
-- attachment-bearing tasks and attachment types if present;
-- a task with dependencies if present; otherwise source-prove a real zero-dependency task;
-- a task/history case if task history is supported;
-- aging/open tasks for an independently computed threshold case.
+Also check specialized Excel/PDF/MSG bindings: fixed attachment type is acceptable, but they are RED if they inherit the same wrong candidate corpus.
 
-If a source surface needed by one skill is genuinely unavailable, prove the unavailability and classify that individual skill `SOURCE_CONDITIONAL`; do not fabricate a GREEN result and do not fail the entire wave solely because the authoritative optional source does not exist.
+## Phase 4 — bounded retained checks
+Do not re-run the full 20-skill wave. Only confirm that the already-proven A192 defects still reproduce on current HEAD:
+- one `task.search_text` live phrase case;
+- one natural-language assignee case;
+- one space+open/status case.
 
-## Phase 3 — Agent A / Oracle B Task #1–20 certification
-Exercise natural-language requests for **every one of the 20 canonical Task skills**. For each row record:
-- natural-language query;
-- loaded/selected canonical skill id;
-- called capabilities and arguments;
-- status/completion marker;
-- source evidence;
-- Oracle B comparison;
-- terminal classification.
+This is for owner-fix bundling only; no production changes.
 
-Mandatory factual comparisons:
-- #1 lookup: exact source task identity/status/assignee;
-- #2 text search: exact task-key set for the discovered phrase;
-- #3 any attachments: exact task-key set + attachment metadata parity;
-- #4 Excel, #5 PDF, #6 MSG: exact type-constrained key sets; verify the executed handler received the correct fixed type regardless of planner formatting;
-- #7 assignee: exact key set vs fresh source identity query;
-- #8 status: exact key set for a source-valid status/open-state query;
-- #9 sprint: exact complete key set, including >100 if a current source sprint provides such a case;
-- #10 release: exact release task key set when release source is available;
-- #18 aging: independently calculate keys/ages from fresh source data for the same threshold.
-
-Mandatory analytical/source-input checks:
-- #11 summary uses only source task fields/evidence;
-- #12 quality deterministic score/rules are reproducible from the same task input;
-- #13 missing requirements matches deterministic quality inputs;
-- #14 acceptance criteria/testability is reproducible from source description;
-- #15 dependency rows match source links;
-- #16 history matches source status transitions or is explicitly SOURCE_CONDITIONAL;
-- #17 time-in-status uses source timestamps only or is explicitly SOURCE_CONDITIONAL;
-- #19 blocker result matches task/blocking/dependency facts;
-- #20 similar candidates and scores reproduce the declared deterministic similarity method over fresh source tasks.
-
-For collections, compare **exact key sets, not counts only**.
-
-For successful contracted runs require:
-- `semantic_prepass_used=false`;
-- REAL AS21 authoritative;
-- `completion=runtime_contract` unless the skill is intentionally uncontracted (none of the new Wave-T canonical skills should be);
-- zero fabricated source facts.
-
-### Dedicated skill reachability
-A correct result through a generic helper alone does not automatically certify the canonical row. The report must show the dedicated canonical SkillSpec is actually loadable/reachable by the planner for a natural request appropriate to that row. If a canonical skill is systematically shadowed by an overlapping helper, classify that row RED and report the exact overlap; do not add a phrase router.
-
-## Phase 4 — Browser C / UIContract
-Use the real Browser C through public `/api/v1/query` for a representative set covering every **new result shape**, at minimum:
-- task table/text search;
-- attachment table (one specialized type if source has it, otherwise proven real-empty);
-- task analysis (`missing_requirements` or `dependencies`);
-- history/timeline when supported;
-- similar-task list;
-- one real-empty case;
-- one negative/not-found/source-unavailable case.
-
-Verify:
-- runtime is Agent Core v4;
-- same browser session id reaches backend and response;
-- `ui.result_kind` / `preferred_widget` comes from registry UIContract;
-- structured rows correspond to the same backend response/evidence;
-- no local `/tasks`, MCP/SWTR, fake route, or client-side capability selection renders the result;
-- `REAL_EMPTY`, `SOURCE_UNAVAILABLE`/`ERROR`, and success are not conflated.
-
-## Phase 5 — retained A191/A190 regression
-After Task Wave testing, rerun a bounded retained sample unrelated to the new single-task skills:
-- 3x DMS-380 task→assignee→tasks exact Oracle parity;
-- 2x current-sprint task collection;
-- 2x active-sprint list;
-- 2x person+space+not_completed exact parity;
-- B2 open-status classification;
-- invented person/sprint negative controls;
-- dummy-55/plugin registry gate remains structurally GREEN.
-
-No new regression is allowed. If a new Task skill works but an A191 scenario breaks, A192 is RED.
-
-## Phase 6 — report classifications
-Create a 20-row table with exactly one terminal classification per canonical Task skill:
+## Classification
+For rows #3–6 use exactly one each:
 - `GREEN_SOURCE_SUPPORTED`
 - `SOURCE_CONDITIONAL`
-- `RED`
+- `RED_FALSE_REAL_EMPTY_WRONG_SOURCE`
+- `RED_ATTACHMENT_ROUTE_OR_MAPPING`
+- `RED_OTHER` (explain precisely)
 
-No `SKIPPED`, `NOT_TESTED`, or silent omission.
-
-Keep the known generic unscoped Cyrillic identity mutation (`Задачи Семавина`) tracked separately unless it appears as the first failing boundary of a tested canonical skill. Do not hardcode a surname fix.
+`SOURCE_CONDITIONAL` is allowed only if direct REAL Oracle proves the necessary source surface is genuinely unavailable. An empty local corpus or omitted attachment field is not source unavailability.
 
 ## Allowed output
 Create/commit/push **only**:
 
-`po-agent-platform-v2/qa_reports/AGENT_CORE_V4_CATALOG_TASK_WAVE_192.md`
+`po-agent-platform-v2/qa_reports/AGENT_CORE_V4_ATTACHMENT_ORACLE_193.md`
 
-Do not modify production code, frontend, tests, config, plans, or plugin artifacts.
+Do not modify production/frontend/tests/config/plans/plugins.
 
 ## Verdict
 Use exactly one:
-- `AGENT_CORE_V4_CATALOG_TASK_WAVE_GREEN`
-- `AGENT_CORE_V4_CATALOG_TASK_WAVE_RED`
+- `AGENT_CORE_V4_ATTACHMENT_ORACLE_CONFIRMED_DEFECT`
+- `AGENT_CORE_V4_ATTACHMENT_SOURCE_CONDITIONAL_PROVEN`
 - `BLOCKED_BY_PROVEN_SOURCE_OUTAGE`
 
-GREEN requires:
-- architecture/plugin gate GREEN;
-- all source-supported canonical Task rows #1–20 GREEN;
-- any source-conditional rows explicitly proven and fail-closed;
-- Browser C representative shapes GREEN;
-- no A188/A190/A191 regression.
+Expected recommendation if a live attachment exists but the skill returns 0:
+**Owner must fix the entire Task Wave source boundary together: text search + attachments + natural-language assignee + status search, then run one consolidated QA re-gate before Wave S.**
 
-If GREEN, recommendation:
-**Proceed to owner Wave S (#21–32 Sprint/flow) through the plugin surface.**
-
-## STOP
-After committing/pushing only the QA report, stop. Do not implement Wave S and do not change production code.
+## STOP / KEEP UI RUNNING
+After committing/pushing the QA report:
+- **do not stop the three project services**;
+- return their URLs, ports, PIDs and health statuses;
+- stop and wait for the owner.
