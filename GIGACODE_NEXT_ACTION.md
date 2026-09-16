@@ -1,159 +1,169 @@
 # GigaCode — Current Action
 
 ## Status
-`ACTIVE_QA_ASSIGNMENT_190_V4_PLUGIN_REGISTRY_REGATE`
+`ACTIVE_QA_ASSIGNMENT_191_V4_BROWSER_UI_REGATE`
 
 ## Role lock
 GigaCode is **QA/adversarial tester only**.
 
-Do NOT implement, refactor, fix, or improve production code, prompts, adapters, tests, config, architecture docs, or plugin code. The owner has implemented the V4-PLUGIN changes independently.
+Do NOT implement, refactor, fix, or improve production code, frontend code, tests, prompts, adapters, plugin code, config, or architecture docs. The owner has implemented the V4-BROWSER/UI cutover independently.
 
-## Mandatory local cleanup before testing
-Assignment 189 is cancelled as a GigaCode implementation task.
-
-1. Stop any A189 work/processes.
-2. Run `git status --short`.
-3. If the worktree contains only changes created by GigaCode for cancelled Assignment 189, discard those local tracked/untracked A189 changes.
-4. If there is any local change that may pre-date A189 or belongs to the user/owner, **STOP and report it instead of deleting it**.
-5. Fetch the owner branch and reset/sync the worktree to the remote owner HEAD of:
-   `feat/core8-real-query-hardening-v2`.
-6. Record `git rev-parse HEAD` as `START_HEAD` and do not change production files afterwards.
-
-The permanent pre-plugin rollback/reference point remains:
-- commit `0f03fca14fe078c86dca961362915e10cc985401`
-- branch `checkpoint/v4-poc-green-a188`
+## Start state
+1. `git pull --ff-only origin feat/core8-real-query-hardening-v2`
+2. Record `git rev-parse HEAD` as `START_HEAD`.
+3. Worktree must be clean before testing. If it is not clean, STOP and report rather than deleting unknown changes.
+4. Permanent rollback reference remains `0f03fca14fe078c86dca961362915e10cc985401` / `checkpoint/v4-poc-green-a188`.
+5. A190 plugin gate is already GREEN. Do not reopen plugin architecture unless Browser testing proves a regression.
 
 ## Mission
-Independently re-gate the owner's V4 pluginized Skill/Capability Registry and prove two things simultaneously:
+Independently certify the real Browser C path after the owner's V4 UI wiring.
 
-1. a new skill can be connected through the plugin extension surface without editing Agent Core/planner/runtime trajectory code;
-2. all A188-certified behavior remains regression-safe against fresh REAL AS21.
+The browser must use the public `/api/v1/query` entrypoint. When V4 is enabled/ready, the **server** selects the pluginized V4 runtime; the browser must never choose skills, capabilities, MCP routes, or source endpoints itself.
+
+Prove simultaneously:
+- Browser → public API → pluginized Agent Core V4 → governed capability → REAL AS21 → response → UI is real end-to-end;
+- `UIContract` presentation metadata is propagated without controlling source execution;
+- required UI states render safely;
+- session isolation remains correct;
+- A188/A190 backend behavior is not regressed.
 
 ## Files to inspect, not modify
-- `V4_POC_GREEN_CHECKPOINT.md`
-- `V4_DOD_LOCK.md`
-- `PO_AGENT_HARNESS_EVOLUTION_PLAN.md`
-- `po-agent-platform-v2/src/po_agent/harness/v4_plugin_registry.py`
-- `po-agent-platform-v2/src/po_agent/harness/v4_plugins/`
+- `po-agent-platform-v2/src/po_agent/api/v1/__init__.py`
 - `po-agent-platform-v2/src/po_agent/harness/agent_core_v4_pluginized.py`
-- `po-agent-platform-v2/src/po_agent/harness/runtime_factory.py`
-- `po-agent-platform-v2/tests/test_agent_core_v4_plugin_registry.py`
-- A188 report
+- `po-agent-platform-v2/src/po_agent/harness/v4_plugin_registry.py`
+- `po-agent-platform-v2/src/po_agent/harness/v4_plugins/core.py`
+- `po-agent-platform-v2/frontend/src/api/client.ts`
+- `po-agent-platform-v2/frontend/src/recovery/WorkspaceApp.tsx`
+- `po-agent-platform-v2/frontend/src/components/V4ResultPanel.tsx`
+- `po-agent-platform-v2/frontend/e2e/h0-workspace.spec.ts`
+- `po-agent-platform-v2/tests/test_v4_browser_api_contract.py`
+- A188 and A190 QA reports
 
-## Phase 0 — diff and architecture audit
-Compare `START_HEAD` with `0f03fca14fe078c86dca961362915e10cc985401`.
-
+## Phase 0 — architecture/static audit
 Verify:
-- planner strategy is not rewritten;
-- model is unchanged (`Qwen/Qwen3.8-27B`);
-- no semantic prepass is introduced;
-- source/identity/B1/B2/completion logic is not behaviorally rewritten;
-- production runtime entrypoint uses the pluginized robust runtime;
-- plugin discovery is limited to the trusted application namespace;
-- duplicate/malformed plugin contracts fail closed;
-- discovery/catalog ordering is deterministic;
-- handler bindings are registry-driven at the active production runtime seam;
-- no surname/person/task/sprint/query-phrase hardcode was added.
+- public `/query` selects V4 only when `agent_core_v4_enabled` and V4 runtime is ready;
+- V4-disabled path still preserves the legacy Harness fallback;
+- `/query-v4` remains available only as explicit QA/A-B endpoint;
+- frontend calls only `/api/v1/query`; no MCP/SWTR/direct capability endpoint from browser;
+- no new phrase/entity/person/task/sprint hardcode;
+- no planner/model/completion/source/identity behavior change;
+- UIContract remains presentation metadata only;
+- plugin registry remains the source of UI metadata;
+- `checkpoint/v4-poc-green-a188` remains untouched.
 
-If any architecture invariant is violated, report bounded RED; do not fix it.
+Architecture violation => bounded RED. Do not fix it.
 
-## Phase 1 — build and regression suites
-Run:
+## Phase 1 — backend/frontend build gates
+Run at minimum:
 
 ```bash
 cd po-agent-platform-v2
 source .venv/bin/activate
+python -m pytest tests/test_v4_browser_api_contract.py -v
 python -m pytest tests/test_agent_core_v4_plugin_registry.py -v
 python -m pytest tests/test_agent_core_v4_completion_contract.py -v
 python -m pytest tests/ -k "v4" -v
-python -m pytest tests/ -q
+
+cd frontend
+npm ci
+npm run build
 ```
 
 Acceptance:
-- plugin registry focused tests GREEN;
-- completion contract remains 20/20 GREEN;
-- all V4 tests GREEN;
-- no NEW full-suite failures/errors beyond A188 baseline (`16 failed + 11 errors`, pre-existing classes only).
+- new Browser API contract tests GREEN;
+- plugin registry tests fully GREEN after owner test fixes;
+- completion contract remains GREEN;
+- V4-focused suite has no new failure;
+- frontend TypeScript/build GREEN.
 
-Any import/syntax/runtime construction failure is immediate RED.
+Do not change test code to make a failure disappear.
 
-## Phase 2 — real dummy-55 extensibility proof
-Independently prove a synthetic 55th-style skill can be introduced using only the supported plugin contract/registry surface.
+## Phase 2 — public API cutover proof
+Start fresh Task API + PO Agent with V4 enabled. Use fresh REAL AS21 Oracle B.
 
-Required chain:
+For each selected factual scenario call **both**:
+- `/api/v1/query` (Browser production entrypoint)
+- `/api/v1/query-v4` (explicit V4 QA endpoint)
 
-```text
-plugin added/injected through supported extension surface
- -> registry accepts/discovers it
- -> compact catalog exposes it
- -> full skill contract loads
- -> typed capability handler resolves
- -> completion contract is available/satisfied structurally
- -> UIContract metadata is exposed
+Required proof:
+- both report `runtime=agent_core_v4`;
+- normalized facts and exact key sets are identical;
+- `_agent_core_v4.semantic_prepass_used=false`;
+- successful contracted trajectories retain `completion=runtime_contract` where applicable;
+- `ui` metadata matches the selected skill's registry `UIContract`;
+- no browser-specific semantic transformation changes the result.
+
+At minimum include:
+- DMS-380 lookup→assignee→tasks;
+- active sprints DMS;
+- current-sprint task collection DMS;
+- person collection;
+- person+space+not_completed;
+- one task lookup;
+- one negative invented person/sprint.
+
+## Phase 3 — real Browser C / Playwright
+Run the real browser UI against the fresh backend (no mocked API as acceptance truth):
+
+```bash
+cd po-agent-platform-v2/frontend
+npx playwright test e2e/h0-workspace.spec.ts
 ```
 
-Hard rule: this proof must require **zero edits** to:
-- `agent_core_v4.py`
-- `agent_core_v4_reliable.py`
-- `agent_core_v4_robust.py`
-- planner logic
-- runtime trajectory/completion logic
+Also manually/adversarially inspect the drawer for the representative cases.
 
-Do not commit the dummy business skill to production.
+Mandatory Browser C checks:
+- runtime visibly shows Agent Core v4;
+- request goes to `/api/v1/query` and carries the tab session id;
+- response `session_id` equals browser session id;
+- new conversation creates a new isolated session;
+- another browser tab has an independent session;
+- factual answer rendered exactly from backend response;
+- UIContract-backed result panel renders when contract exists;
+- evidence/trace can be opened and corresponds to the same response;
+- `NEEDS_CLARIFICATION` options remain clickable and stay in the same session;
+- `FAILED`/source-unavailable is not rendered as a legitimate empty/success state;
+- REAL empty collection is distinguishable from source failure;
+- loading state is visible during execution;
+- no hidden request to local `/tasks`, fake data, MCP/SWTR or another source is used to render the agent result.
 
-## Phase 3 — A188 retained REAL-AS21 regression
-Start fresh Task API and PO Agent on fresh ports. Refresh Oracle B from REAL AS21 immediately before the cases.
+## Phase 4 — retained regression sample
+Re-run a bounded retained sample from A190 through direct V4 API after Browser C testing:
+- 3x DMS-380 multistep exact Oracle parity;
+- 2x person collection exact parity;
+- 2x current-sprint tasks;
+- 2x active-sprint list;
+- B2 open-task classification;
+- negative person/sprint.
 
-Re-run at minimum:
-- 10x `Покажи DMS-380 и затем задачи его исполнителя` (or source-current same key if still valid): exact key-set parity, `runtime_contract`;
-- 5x second lookup→assignee→tasks family discovered live;
-- 5x person collection;
-- 5x person + space + `not_completed`;
-- 3x current-sprint task collection;
-- 3x human-period → sprint;
-- 2x plural active-sprint list;
-- 2x source-backed non-roster identity;
-- B1 complete sprint collection (prefer a >100 live sprint if available; otherwise document source state);
-- B2 source-accurate open/terminal classification;
-- invented task/person/sprint and ambiguous identity negative controls.
+This phase proves UI work did not mutate backend behavior.
 
-For factual collections compare **exact key sets**, not counts only.
+## Phase 5 — classify findings
+A UI defect is real if Browser C loses, changes, fabricates, hides, or misclassifies source-backed data/state even when backend A is correct.
 
-Mandatory all-run invariants:
-- `semantic_prepass_used=false`;
-- REAL AS21 authoritative;
-- contracted successful trajectories finish with `completion=runtime_contract`;
-- no post-satisfaction repair loop;
-- zero fabricated facts;
-- fail-closed on ambiguity/source failure.
+A backend defect is real if `/query` and `/query-v4` differ in normalized facts or A no longer matches fresh Oracle B.
 
-## Phase 4 — regression safety / checkpoint comparison
-Explicitly answer:
-- Did any A188 GREEN scenario regress after V4-PLUGIN?
-- Is there any behavior that works at checkpoint `0f03fca...` but fails at owner `START_HEAD`?
-- Are differences registration/metadata-only, or did runtime semantics change?
+Source drift is not a defect if fresh Oracle B proves the new state.
 
-If a regression exists, identify the first failing boundary and report RED. Do not patch it.
-
-Retain the known pre-existing generic model issue (`Задачи Семавина` unscoped Cyrillic mutation) as a tracked item; do not introduce entity-specific fixes.
+Known unscoped Cyrillic identity mutation (`Задачи Семавина`) remains tracked separately; do not hardcode around it.
 
 ## Allowed output
 Create/commit/push **only**:
 
-`po-agent-platform-v2/qa_reports/AGENT_CORE_V4_PLUGIN_REGISTRY_REGATE_190.md`
+`po-agent-platform-v2/qa_reports/AGENT_CORE_V4_BROWSER_UI_REGATE_191.md`
 
 Do not modify anything else.
 
 ## Verdict
 Use exactly one:
-- `AGENT_CORE_V4_PLUGIN_GATE_GREEN`
-- `AGENT_CORE_V4_PLUGIN_GATE_RED`
+- `AGENT_CORE_V4_BROWSER_UI_GREEN`
+- `AGENT_CORE_V4_BROWSER_UI_RED`
 - `BLOCKED_BY_PROVEN_SOURCE_OUTAGE`
 
-GREEN requires all mandatory architecture, focused test, dummy-55, and retained REAL-AS21 gates to pass with no new regression.
+GREEN requires architecture/build/public-API/Browser-C/session/state/regression gates all to pass.
 
 If GREEN, recommendation:
-**Proceed to V4-BROWSER/UI; keep checkpoint/v4-poc-green-a188 permanently; then migrate 54 skills progressively through the plugin surface.**
+**Begin progressive migration of the 54 production skills through the V4 plugin surface, in bounded domain waves, while retaining Browser C and A188 regression gates.**
 
 ## STOP
-After committing/pushing the QA report, stop. Do not start Browser/UI or any next assignment.
+After committing/pushing the QA report, stop. Do not start the 54-skill migration or modify production code.
