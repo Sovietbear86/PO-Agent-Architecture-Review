@@ -203,9 +203,10 @@ async def query_agent(payload: QueryRequest, request: Request):
     settings = get_settings()
     correlation_id = request.headers.get(settings.correlation_id_header, str(uuid.uuid4()))
     session_id = payload.session_id or request.headers.get("X-Session-Id") or str(uuid.uuid4())
-    bundle = get_runtime_bundle()
-    use_v4 = settings.agent_core_v4_enabled and bundle.v4_runtime is not None
+    use_v4 = False
     try:
+        bundle = get_runtime_bundle()
+        use_v4 = settings.agent_core_v4_enabled and bundle.v4_runtime is not None
         if use_v4:
             result = await bundle.v4_runtime.process(HarnessRequest(query=payload.query, session_id=session_id))
             response = _decorate_v4_response(result.to_dict(), bundle)
@@ -252,12 +253,14 @@ async def query_agent_v4(payload: QueryRequest, request: Request):
     settings = get_settings()
     correlation_id = request.headers.get(settings.correlation_id_header, str(uuid.uuid4()))
     session_id = payload.session_id or request.headers.get("X-Session-Id") or str(uuid.uuid4())
-    bundle = get_runtime_bundle()
-    if not settings.agent_core_v4_enabled or bundle.v4_runtime is None:
-        raise HTTPException(status_code=503, detail="Agent Core v4 POC is not enabled/ready")
     try:
+        bundle = get_runtime_bundle()
+        if not settings.agent_core_v4_enabled or bundle.v4_runtime is None:
+            raise HTTPException(status_code=503, detail="Agent Core v4 POC is not enabled/ready")
         result = await bundle.v4_runtime.process(HarnessRequest(query=payload.query, session_id=session_id))
         response = _decorate_v4_response(result.to_dict(), bundle)
+    except HTTPException:
+        raise
     except Exception as exc:
         logger.exception("Agent Core v4 query failed", extra={"correlation_id": correlation_id, "session_id": session_id})
         response = _v4_failure_response(session_id, exc)
