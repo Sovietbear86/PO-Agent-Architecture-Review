@@ -9,7 +9,7 @@ from __future__ import annotations
 from ..agent_core_v4 import CapabilitySpecV4, SkillSpecV4
 from ..agent_core_v4_completion import CompletionRequirement
 from ..v4_plugin_registry import CapabilityBindingV4, UIContractV4, V4SkillPlugin
-from .task_live_handlers import (
+from ._task_live_handlers import (
     build_task_search_assignee,
     build_task_search_attachments,
     build_task_search_status,
