@@ -1,6 +1,6 @@
 """Trusted plugin registry for the V4 skill-native runtime.
 
-This module is deliberately outside Agent Core orchestration.  It owns declarative
+This module is deliberately outside Agent Core orchestration. It owns declarative
 skill/capability registration, handler binding and optional presentation metadata.
 A new skill can be added through the trusted ``v4_plugins`` namespace without
 changing planner/runtime trajectory code.
@@ -11,11 +11,12 @@ import importlib
 import pkgutil
 from dataclasses import dataclass, field
 from types import ModuleType
-from typing import Any, Mapping
+from typing import Any, Callable, Mapping
 
 from .agent_core_v4 import CapabilityHandlerV4, CapabilitySpecV4, SkillSpecV4
 
 TRUSTED_PLUGIN_PACKAGE = "po_agent.harness.v4_plugins"
+HandlerBuilderV4 = Callable[[Any], CapabilityHandlerV4]
 
 
 class V4PluginError(RuntimeError):
@@ -48,11 +49,16 @@ class UIContractV4:
 
 @dataclass(frozen=True)
 class CapabilityBindingV4:
-    """Declarative binding from a V4 capability to a governed runtime handler.
+    """Declarative binding from a V4 capability to a governed handler.
+
+    ``handler_builder`` is a trusted plugin extension seam for capabilities that
+    need a source adapter but do not belong in Agent Core. This keeps per-skill
+    business/source logic outside planner/runtime orchestration while preserving
+    the same allow-listed registry boundary.
 
     ``fixed_arguments`` lets a plugin expose a narrower typed capability over a
     proven generic handler (for example Excel-only attachment search) without
-    adding a business-specific wrapper method to Agent Core. Fixed values are
+    adding a business-specific branch to Agent Core. Fixed values are
     authoritative contract arguments and overwrite planner-provided values at the
     binding seam before the governed handler is invoked.
     """
@@ -60,12 +66,13 @@ class CapabilityBindingV4:
     capability_id: str
     handler_method: str | None = None
     legacy_capability_id: str | None = None
+    handler_builder: HandlerBuilderV4 | None = None
     fixed_arguments: Mapping[str, str] = field(default_factory=dict)
 
     def validate(self) -> None:
         if not self.capability_id.strip():
             raise V4PluginError("empty capability binding id")
-        choices = int(bool(self.handler_method)) + int(bool(self.legacy_capability_id))
+        choices = int(bool(self.handler_method)) + int(bool(self.legacy_capability_id)) + int(self.handler_builder is not None)
         if choices != 1:
             raise V4PluginError(
                 f"capability {self.capability_id} must declare exactly one handler binding"
@@ -82,8 +89,8 @@ class V4SkillPlugin:
     """Stable plugin-facing contract.
 
     ``skills`` carry procedural/completion contracts, ``capabilities`` carry typed
-    capability metadata, ``bindings`` attach them to already governed handlers,
-    and ``ui`` carries optional frontend hints.
+    capability metadata, ``bindings`` attach them to governed handlers, and
+    ``ui`` carries optional frontend hints.
     """
 
     plugin_id: str
@@ -186,6 +193,12 @@ class V4PluginRegistry:
                     raise V4PluginError(
                         f"capability {capability_id} handler is unavailable: {binding.handler_method}"
                     )
+            elif binding.handler_builder is not None:
+                handler = binding.handler_builder(runtime)
+                if handler is None or not callable(handler):
+                    raise V4PluginError(
+                        f"capability {capability_id} handler builder returned no callable"
+                    )
             else:
                 handler = runtime._legacy(binding.legacy_capability_id)  # governed legacy facade
             if binding.fixed_arguments:
@@ -196,7 +209,6 @@ class V4PluginRegistry:
     def with_plugin(self, plugin: V4SkillPlugin) -> "V4PluginRegistry":
         """Return a new registry; useful for bounded tests and future controlled loading."""
         return V4PluginRegistry(self._plugins + (plugin,))
-
 
 
 def _load_plugin_from_module(module: ModuleType) -> V4SkillPlugin:
