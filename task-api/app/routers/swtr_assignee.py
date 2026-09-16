@@ -1,9 +1,10 @@
 """Live read-only assignee task facade over MCP-SWTR.
 
 This route deliberately bypasses the cached/local task repository. It resolves a
-team login to the authoritative AS21 user code, executes server-side TQL
-`assigned_to` filtering through `find_units_by_filter`, follows pagination, and
-returns canonical task-shaped rows for the Harness production adapter.
+team login or natural person reference to the authoritative AS21 user code,
+executes server-side TQL ``assigned_to`` filtering through find_units_by_filter,
+follows pagination, and returns canonical task-shaped rows for the Harness
+production adapter.
 """
 from __future__ import annotations
 
@@ -29,16 +30,6 @@ _ALLOWED_SPACES = frozenset({"WMB", "STS", "OLP", "DMS", "CRPV"})
 
 
 def _raw_attribute_entries(row: dict[str, Any]) -> list[tuple[str, Any]]:
-    """Attribute ``(code, value)`` pairs from a source row.
-
-    The live MCP surface uses two attribute encodings: flat
-    ``{"code": ..., "value": ...}`` and nested
-    ``{"attribute": {"code": ...}, "value": ...}``. Attributes may sit at the
-    row top level or under the nested ``unit`` object. Both encodings and both
-    locations are accepted so the canonical row never silently drops decoded
-    workflow semantics (``workflow_status.statusType``) that downstream
-    classification depends on.
-    """
     entries: list[tuple[str, Any]] = []
     containers = [row]
     nested_unit = row.get("unit")
@@ -80,7 +71,6 @@ def _value_id(value: Any) -> str | None:
 
 
 def _status_identifier(value: Any) -> str:
-    """Decoded workflow status value, preferring the human name over opaque ids."""
     if isinstance(value, str):
         return value.strip()
     if isinstance(value, dict):
@@ -129,12 +119,6 @@ def _canonical_row(row: dict[str, Any]) -> dict[str, Any] | None:
         status_value = _row_value(row, attrs, "workflow_status", "status")
     status = _status_identifier(status_value)
 
-    # Normalize to the flat ``{"code","value"}`` contract that downstream
-    # readers (agent ``_attributes``) expect. The live TQL surface encodes
-    # attributes nested (``{"attribute": {"code":...}, "value": {...}}``) with
-    # the decoded workflow object (name + statusType) as the value; passing
-    # that raw shape through would silently drop the workflow semantics that
-    # terminal/open classification depends on.
     swtr_attributes = [{"code": c, "value": v} for c, v in _raw_attribute_entries(row)]
     if not swtr_attributes:
         swtr_attributes = []
@@ -175,12 +159,6 @@ async def _search_user_rows(client: SWTRMCPClient, text: str) -> list[dict[str, 
 
 
 def _russian_nominative_retry(value: str) -> str | None:
-    """Return a conservative surname retry for common masculine genitive `-а`.
-
-    This is not fuzzy identity matching: it is only attempted for one Cyrillic
-    token ending in `а`, and the source still has to resolve the retry to exactly
-    one unique canonical code before it is accepted.
-    """
     text = value.strip()
     if not re.fullmatch(r"[А-Яа-яЁё]+", text):
         return None
@@ -190,14 +168,53 @@ def _russian_nominative_retry(value: str) -> str | None:
     return candidate if len(candidate) >= 3 else None
 
 
+def _tokens(value: str) -> frozenset[str]:
+    return frozenset(re.findall(r"[A-Za-zА-Яа-яЁё0-9]+", value.casefold()))
+
+
+def _row_strings(value: Any) -> list[str]:
+    out: list[str] = []
+    if isinstance(value, str):
+        if value.strip():
+            out.append(value.strip())
+    elif isinstance(value, dict):
+        for item in value.values():
+            out.extend(_row_strings(item))
+    elif isinstance(value, list):
+        for item in value:
+            out.extend(_row_strings(item))
+    return out
+
+
+def _unique_name_match(rows: list[dict[str, Any]], needle: str) -> str | None:
+    """Resolve a natural full name only when source rows make it unique.
+
+    This is source-backed token matching, not a roster/surname hardcode. It is
+    intentionally conservative: every meaningful token from the user's natural
+    reference must appear in at least one source string for the same row, and
+    exactly one canonical user code may satisfy that condition.
+    """
+    wanted = _tokens(needle)
+    if not wanted:
+        return None
+    matches: list[str] = []
+    for row in rows:
+        code = row.get("code")
+        if not isinstance(code, str) or not code.strip():
+            continue
+        haystack: set[str] = set()
+        for text in _row_strings(row):
+            haystack.update(_tokens(text))
+        if wanted <= haystack:
+            matches.append(code.strip())
+    unique = list(dict.fromkeys(matches))
+    return unique[0] if len(unique) == 1 else None
+
+
 async def _resolve_external_id(client: SWTRMCPClient, assignee: str) -> str:
     needle = assignee.strip()
     rows = await _search_user_rows(client, needle)
 
-    # Natural Russian task queries commonly contain a masculine surname in the
-    # genitive case (e.g. "Калачанова"). If the authoritative search returns no
-    # rows, retry only the conservative nominative variant; ambiguity still fails
-    # closed below.
     if not rows:
         retry = _russian_nominative_retry(needle)
         if retry and retry.casefold() != needle.casefold():
@@ -218,9 +235,10 @@ async def _resolve_external_id(client: SWTRMCPClient, assignee: str) -> str:
     if len(exact) == 1:
         return exact[0]
 
-    # The authoritative search endpoint already performs its own indexed name/
-    # login matching. A single unique code is safe to accept as a deterministic
-    # fallback; zero or multiple codes remain ambiguous and fail closed.
+    natural = _unique_name_match(rows, needle)
+    if natural:
+        return natural
+
     unique_codes = list(dict.fromkeys(all_codes))
     if not exact and len(unique_codes) == 1:
         return unique_codes[0]
