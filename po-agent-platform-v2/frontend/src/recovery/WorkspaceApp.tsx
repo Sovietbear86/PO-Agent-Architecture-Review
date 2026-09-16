@@ -133,6 +133,12 @@ function AgentChat({ open, onClose }: { open: boolean; onClose(): void }) {
     const requestSessionId = getTabSessionId()
     if (requestSessionId !== sessionId) setSessionId(requestSessionId)
 
+    // A typed answer to the latest clarification is the same continuation as an
+    // option-button click. Only the most recent result may provide pending state;
+    // older clarification turns are never resurrected after a completed turn.
+    const latestResult = [...messages].reverse().find(message => message.result)?.result
+    const pending = clarification ?? (latestResult?.status === 'NEEDS_CLARIFICATION' ? latestResult : undefined)
+
     setMessages(items => [...items, { id: crypto.randomUUID(), role: 'user', text }])
     setInput('')
     setBusy(true)
@@ -140,8 +146,8 @@ function AgentChat({ open, onClose }: { open: boolean; onClose(): void }) {
       const result = await agent.query({
         query: text,
         session_id: requestSessionId,
-        clarification_id: clarification?.clarification_id ?? undefined,
-        clarification_option: clarification?.clarification_id ? text : undefined,
+        clarification_id: pending?.clarification_id ?? undefined,
+        clarification_option: pending?.clarification_id ? text : undefined,
       })
       const textResult = result.status === 'NEEDS_CLARIFICATION'
         ? result.question ?? 'Нужно уточнение.'
