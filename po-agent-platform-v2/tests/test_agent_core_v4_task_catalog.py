@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import asyncio
+
 from po_agent.harness.agent_core_v4 import SkillCatalogV4
 from po_agent.harness.v4_plugin_registry import V4PluginRegistry, discover_v4_plugins
 from po_agent.harness.v4_plugins.task_catalog import CANONICAL_TASK_SKILL_IDS, PLUGIN
@@ -60,6 +62,9 @@ def test_task_wave_capabilities_bind_only_through_registry_contract():
     expected = {
         "task.search_text",
         "task.search_attachments",
+        "task.search_excel",
+        "task.search_pdf",
+        "task.search_msg",
         "task.search_release",
         "task.missing_requirements",
         "task.dependencies",
@@ -70,6 +75,18 @@ def test_task_wave_capabilities_bind_only_through_registry_contract():
     }
     assert set(handlers) == expected
     assert all(callable(handler) for handler in handlers.values())
+
+
+def test_specialized_attachment_bindings_enforce_fixed_type():
+    handlers = V4PluginRegistry((PLUGIN,)).bind_handlers(_LegacyRuntimeStub())
+    excel = asyncio.run(handlers["task.search_excel"]({"attachment_type": "pdf"}))
+    pdf = asyncio.run(handlers["task.search_pdf"]({}))
+    msg = asyncio.run(handlers["task.search_msg"]({"attachment_type": "excel"}))
+
+    assert excel["legacy_capability_id"] == "task.search_attachments"
+    assert excel["arguments"]["attachment_type"] == "excel"
+    assert pdf["arguments"]["attachment_type"] == "pdf"
+    assert msg["arguments"]["attachment_type"] == "msg"
 
 
 def test_task_wave_progressive_catalog_exposes_procedure_and_typed_capabilities():
@@ -91,6 +108,8 @@ def test_task_wave_progressive_catalog_exposes_procedure_and_typed_capabilities(
         "task.search",
     ]
 
+    assert [capability["id"] for capability in catalog.load("task.search_excel")["capabilities"]] == ["task.search_excel"]
+
 
 def test_task_wave_completion_contracts_are_declared_not_runtime_hardcoded():
     by_id = {skill.id: skill for skill in discover_v4_plugins().skills()}
@@ -102,10 +121,12 @@ def test_task_wave_completion_contracts_are_declared_not_runtime_hardcoded():
     assert by_id["task.search_release"].completion[0].covers_resolved_constraints is True
 
 
-def test_specialized_attachment_skills_share_one_typed_capability():
+def test_specialized_attachment_skills_use_narrow_typed_capabilities():
     by_id = {skill.id: skill for skill in discover_v4_plugins().skills()}
-    for skill_id in ("task.search_attachments", "task.search_excel", "task.search_pdf", "task.search_msg"):
-        assert by_id[skill_id].capabilities == ("task.search_attachments",)
+    assert by_id["task.search_attachments"].capabilities == ("task.search_attachments",)
+    assert by_id["task.search_excel"].capabilities == ("task.search_excel",)
+    assert by_id["task.search_pdf"].capabilities == ("task.search_pdf",)
+    assert by_id["task.search_msg"].capabilities == ("task.search_msg",)
     assert "attachment_type=excel" in " ".join(by_id["task.search_excel"].procedure)
     assert "attachment_type=pdf" in " ".join(by_id["task.search_pdf"].procedure)
     assert "attachment_type=msg" in " ".join(by_id["task.search_msg"].procedure)
