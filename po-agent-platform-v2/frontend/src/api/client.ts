@@ -23,6 +23,13 @@ export interface EvidenceItem {
   freshness?: string | null
 }
 
+export interface UIContract {
+  result_kind: string
+  preferred_widget?: string | null
+  required_fields: string[]
+  states: string[]
+}
+
 export interface HarnessQueryResponse {
   status: QueryStatus
   answer?: string | null
@@ -38,6 +45,9 @@ export interface HarnessQueryResponse {
   session_id: string
   correlation_id: string
   latency_ms: number
+  runtime?: 'agent_core_v4' | 'legacy_harness' | string
+  ui?: UIContract | null
+  plugin_ids?: string[]
 }
 
 export interface HarnessQueryRequest {
@@ -48,9 +58,13 @@ export interface HarnessQueryRequest {
 export interface RuntimeHealth {
   status: string
   runtime: string
+  browser_runtime?: string
   adapter: string
   semantic_mode: string
   agent_core_v3_enabled: boolean
+  agent_core_v4_enabled?: boolean
+  agent_core_v4_ready?: boolean
+  v4_plugin_ids?: string[]
   source_status: string
   runtime_init_error?: string | null
 }
