@@ -48,11 +48,19 @@ class UIContractV4:
 
 @dataclass(frozen=True)
 class CapabilityBindingV4:
-    """Declarative binding from capability id to an existing runtime handler."""
+    """Declarative binding from a V4 capability to a governed runtime handler.
+
+    ``fixed_arguments`` lets a plugin expose a narrower typed capability over a
+    proven generic handler (for example Excel-only attachment search) without
+    adding a business-specific wrapper method to Agent Core. Fixed values are
+    authoritative contract arguments and overwrite planner-provided values at the
+    binding seam before the governed handler is invoked.
+    """
 
     capability_id: str
     handler_method: str | None = None
     legacy_capability_id: str | None = None
+    fixed_arguments: Mapping[str, str] = field(default_factory=dict)
 
     def validate(self) -> None:
         if not self.capability_id.strip():
@@ -62,6 +70,11 @@ class CapabilityBindingV4:
             raise V4PluginError(
                 f"capability {self.capability_id} must declare exactly one handler binding"
             )
+        for key, value in self.fixed_arguments.items():
+            if not str(key).strip() or not str(value).strip():
+                raise V4PluginError(
+                    f"capability {self.capability_id} has empty fixed argument"
+                )
 
 
 @dataclass(frozen=True)
@@ -147,6 +160,22 @@ class V4PluginRegistry:
     def ui_contracts(self) -> dict[str, UIContractV4]:
         return {key: self._ui[key] for key in sorted(self._ui)}
 
+    @staticmethod
+    def _apply_fixed_arguments(
+        base_handler: CapabilityHandlerV4,
+        fixed_arguments: Mapping[str, str],
+    ) -> CapabilityHandlerV4:
+        fixed = {str(key): str(value) for key, value in fixed_arguments.items()}
+
+        async def execute(arguments: dict[str, str]):
+            # The plugin contract is authoritative for fixed semantic arguments;
+            # a stochastic planner cannot redirect a specialized capability to a
+            # different subtype by supplying a conflicting value.
+            merged = {**arguments, **fixed}
+            return await base_handler(merged)
+
+        return execute
+
     def bind_handlers(self, runtime: Any) -> dict[str, CapabilityHandlerV4]:
         handlers: dict[str, CapabilityHandlerV4] = {}
         for capability_id in sorted(self._bindings):
@@ -159,6 +188,8 @@ class V4PluginRegistry:
                     )
             else:
                 handler = runtime._legacy(binding.legacy_capability_id)  # governed legacy facade
+            if binding.fixed_arguments:
+                handler = self._apply_fixed_arguments(handler, binding.fixed_arguments)
             handlers[capability_id] = handler
         return handlers
 
