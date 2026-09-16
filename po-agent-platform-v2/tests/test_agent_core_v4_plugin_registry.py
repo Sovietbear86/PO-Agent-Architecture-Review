@@ -74,7 +74,8 @@ def test_builtin_registry_has_complete_handler_bindings():
 
 def test_dummy_55_can_be_added_without_agent_core_change():
     before = discover_v4_plugins()
-    after = before.with_plugin(_dummy_plugin())
+    dummy = _dummy_plugin()
+    after = before.with_plugin(dummy)
 
     # Registry -> compact catalog -> detailed skill contract.
     catalog = SkillCatalogV4(after.skills(), after.capability_specs())
@@ -83,8 +84,10 @@ def test_dummy_55_can_be_added_without_agent_core_change():
     assert detail["id"] == "dummy.55"
     assert [item["id"] for item in detail["capabilities"]] == ["dummy.55.execute"]
 
-    # Registry -> typed handler binding.
-    handlers = after.bind_handlers(_RuntimeStub())
+    # Handler resolution is an independent plugin contract. Bind only the
+    # synthetic extension so this minimal stub is not required to implement
+    # the built-in A188 production handler surface.
+    handlers = V4PluginRegistry((dummy,)).bind_handlers(_RuntimeStub())
     assert callable(handlers["dummy.55.execute"])
 
     # Registry -> deterministic completion contract declaration.
@@ -102,7 +105,23 @@ def test_dummy_55_can_be_added_without_agent_core_change():
 
 def test_duplicate_skill_fails_closed():
     first = _dummy_plugin("test.one", "dummy.same")
-    second = _dummy_plugin("test.two", "dummy.same")
+    second = V4SkillPlugin(
+        plugin_id="test.two",
+        skills=(
+            SkillSpecV4(
+                "dummy.same",
+                "second skill with duplicate id",
+                ("Call the second capability.",),
+                ("dummy.second.execute",),
+            ),
+        ),
+        capabilities=(
+            CapabilitySpecV4("dummy.second.execute", "Synthetic typed capability.", {}),
+        ),
+        bindings=(
+            CapabilityBindingV4("dummy.second.execute", handler_method="_dummy_handler"),
+        ),
+    )
     with pytest.raises(V4PluginError, match="duplicate skill id"):
         V4PluginRegistry((first, second))
 
