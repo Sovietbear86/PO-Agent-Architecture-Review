@@ -1,9 +1,9 @@
 """Live-only bounded task query facade for PO Agent V4.
 
 This route exists specifically to keep factual V4 task capabilities off the
-historical local /api/v1/tasks store. It reads REAL AS21 through MCP-SWTR
-find_units_by_filter, applies only deterministic post-filters, and fails closed
-on source/transport errors.
+historical local /api/v1/tasks store. It reads REAL AS21 through MCP-SWTR,
+applies only deterministic post-filters, and fails closed on source/transport
+errors.
 """
 from __future__ import annotations
 
@@ -16,6 +16,7 @@ from app.routers.swtr_assignee import (
     _attrs,
     _canonical_row,
     _resolve_external_id,
+    get_assignee_tasks,
 )
 from app.routers.swtr_read import (
     _page_content,
@@ -59,6 +60,7 @@ async def _fetch_space_rows(
         clauses.append(f'assigned_to = "{assignee_external_id}"')
     query = " AND ".join(clauses)
     rows: list[dict[str, Any]] = []
+    seen_codes: set[str] = set()
     for page in range(max_pages):
         try:
             content = await client.call_tool(
@@ -90,8 +92,18 @@ async def _fetch_space_rows(
             raise _transport_http_error(exc) from exc
         payload = _parse_tool_content(content)
         page_rows = _page_content(payload)
+        meta = _page_meta(payload)
+        new_codes: set[str] = set()
+        for row in page_rows:
+            mapped = _canonical_row(row)
+            code = str(mapped.get("source_id") or "").upper().strip() if mapped else ""
+            if code and code not in seen_codes:
+                new_codes.add(code)
+        if page > 0 and meta["has_next"] and page_rows and not new_codes:
+            raise HTTPException(status_code=502, detail=f"AS21 task query pagination repeated a page for {space}; collection completeness is unproven")
+        seen_codes.update(new_codes)
         rows.extend(page_rows)
-        if not _page_meta(payload)["has_next"]:
+        if not meta["has_next"]:
             return rows
     raise HTTPException(status_code=502, detail=f"AS21 task query pagination exceeded max_pages for {space}")
 
@@ -106,14 +118,34 @@ async def query_live_tasks(
 ):
     """Return source-backed task rows without consulting the local task store.
 
-    Unscoped queries are bounded to the approved PO Agent spaces. Natural-person
-    resolution is delegated to the same authoritative search_users path used by
-    the proven assignee facade. Text filtering is deterministic over source task
-    key/title/description after the live collection is read.
+    Pure assignee queries reuse the already-certified live assignee facade. This
+    avoids reimplementing identity/pagination semantics and lets a configured
+    canonical login be source-confirmed by REAL AS21. Text/scoped scans continue
+    through the bounded live task-query path.
     """
     normalized_space = space.upper().strip() if space else None
     if normalized_space and normalized_space not in _ALLOWED_SPACES:
         raise HTTPException(status_code=400, detail="Space is outside the approved PO Agent scope")
+
+    # Row #7 (assignee search) is a canonical identity query, not a generic
+    # multi-space scan. Reuse the proven source-backed assignee facade directly.
+    if assignee and not (phrase or "").strip():
+        result = await get_assignee_tasks(
+            assignee=assignee,
+            space=normalized_space,
+            limit=limit,
+            max_pages=max_pages,
+        )
+        return {
+            "source": "REAL_AS21",
+            "route": "assignee-tasks",
+            "space": normalized_space,
+            "assignee": assignee,
+            "external_id": result.get("external_id"),
+            "phrase": None,
+            "count": result.get("count", 0),
+            "tasks": result.get("tasks", []),
+        }
 
     client = SWTRMCPClient()
     external_id = await _resolve_external_id(client, assignee) if assignee else None
