@@ -15,6 +15,7 @@ from po_agent.harness.v4_plugin_registry import (
     V4SkillPlugin,
 )
 from po_agent.harness.agent_core_v4 import CapabilitySpecV4, SkillSpecV4
+from po_agent.harness.v4_plugins._task_live_handlers import _authorized_identity_hint
 
 
 @pytest.fixture(autouse=True)
@@ -59,6 +60,24 @@ def test_handler_builder_is_mutually_exclusive_with_core_or_legacy_binding():
     )
     with pytest.raises(V4PluginError, match="exactly one handler binding"):
         V4PluginRegistry((plugin,))
+
+
+def test_authorized_identity_hint_is_generic_unique_roster_bridge_only():
+    entry = type("Entry", (), {"login": "Canonical.Login"})()
+    team = type("Team", (), {"resolve_person": lambda self, reference: (entry,) if reference == "Natural Name" else ()})()
+    runtime = type("Runtime", (), {"team": team})()
+
+    assert _authorized_identity_hint(runtime, "Natural Name") == "Canonical.Login"
+    assert _authorized_identity_hint(runtime, "Unknown Person") == "Unknown Person"
+
+
+def test_authorized_identity_hint_does_not_guess_on_ambiguity():
+    first = type("Entry", (), {"login": "first"})()
+    second = type("Entry", (), {"login": "second"})()
+    team = type("Team", (), {"resolve_person": lambda self, reference: (first, second)})()
+    runtime = type("Runtime", (), {"team": team})()
+
+    assert _authorized_identity_hint(runtime, "Ambiguous Name") == "Ambiguous Name"
 
 
 def test_clarification_continuation_restores_original_query_and_option():
