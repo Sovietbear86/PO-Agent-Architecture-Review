@@ -63,23 +63,27 @@ async def _live_rows(runtime: Any, *, phrase: str | None = None, space: str | No
     return tasks
 
 
-def _authorized_identity_hint(runtime: Any, reference: str) -> str:
-    """Return a unique configured-team login as a hint, never as source truth.
+async def _resolve_assignee_identity(runtime: Any, reference: str, *, space: str | None = None) -> str:
+    """Resolve any natural person reference through the generic governed resolver.
 
-    REAL AS21 remains authoritative. The hint only bridges natural Russian full
-    names to the canonical login when the source search endpoint cannot perform
-    cross-script transliteration. The downstream live assignee route must still
-    resolve/confirm the hinted login against AS21 before returning tasks.
+    The configured team directory is only an optional fast disambiguation hint
+    inside ``member.resolve``. It MUST NOT define the searchable population. A
+    person outside the configured team is resolved against REAL AS21 in exactly
+    the same contract. Ambiguous identities propagate typed clarification instead
+    of being collapsed into a generic source error.
     """
-    team = getattr(runtime, "team", None)
-    resolver = getattr(team, "resolve_person", None)
+    resolver = getattr(runtime, "_member_resolve", None)
     if resolver is None:
-        return reference
-    matches = tuple(resolver(reference) or ())
-    if len(matches) != 1:
-        return reference
-    login = str(getattr(matches[0], "login", "") or "").strip()
-    return login or reference
+        raise RuntimeError("runtime does not expose governed member resolver")
+    args = {"reference": reference}
+    if space:
+        args["space"] = space
+    result = await resolver(args)
+    data = getattr(result, "data", {}) or {}
+    external_id = str(data.get("external_id") or data.get("member_login") or "").strip()
+    if not external_id:
+        raise RuntimeError("member resolver returned no canonical identity")
+    return external_id
 
 
 def build_task_lookup(runtime: Any):
@@ -148,8 +152,13 @@ def build_task_search_assignee(runtime: Any):
         if not reference:
             raise ValueError("reference is required")
         space = str(args.get("space") or "").strip().upper() or None
-        source_reference = _authorized_identity_hint(runtime, reference)
-        query = f'assignee = "{source_reference}"'
+
+        # Restore the generic identity contract that existed before the A194 fast
+        # path optimization: resolve any human reference first, then search only by
+        # the source-confirmed canonical identity. Team membership is never a
+        # population filter and ambiguity remains a clarification, not source error.
+        canonical_identity = await _resolve_assignee_identity(runtime, reference, space=space)
+        query = f'assignee = "{canonical_identity}"'
         if space:
             query += f' AND project = "{space}"'
         tasks = list(await runtime.adapter.search_tasks(query, max_results=10000))
@@ -161,7 +170,8 @@ def build_task_search_assignee(runtime: Any):
                 "tasks": rows,
                 "task_keys": [row["key"] for row in rows],
                 "reference": reference,
-                "source_reference": source_reference,
+                "source_reference": canonical_identity,
+                "member_login": canonical_identity,
                 "space": space,
                 "source": "REAL_AS21",
             },
