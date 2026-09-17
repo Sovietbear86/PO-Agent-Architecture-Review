@@ -14,8 +14,9 @@ from po_agent.harness.v4_plugin_registry import (
     V4PluginRegistry,
     V4SkillPlugin,
 )
-from po_agent.harness.agent_core_v4 import CapabilitySpecV4, SkillSpecV4
-from po_agent.harness.v4_plugins._task_live_handlers import _authorized_identity_hint
+from po_agent.harness.agent_core_v4 import CapabilitySpecV4, SkillSpecV4, V4NeedsClarification
+from po_agent.harness.contracts import CapabilityResult
+from po_agent.harness.v4_plugins._task_live_handlers import build_task_search_assignee
 
 
 @pytest.fixture(autouse=True)
@@ -62,22 +63,74 @@ def test_handler_builder_is_mutually_exclusive_with_core_or_legacy_binding():
         V4PluginRegistry((plugin,))
 
 
-def test_authorized_identity_hint_is_generic_unique_roster_bridge_only():
-    entry = type("Entry", (), {"login": "Canonical.Login"})()
-    team = type("Team", (), {"resolve_person": lambda self, reference: (entry,) if reference == "Natural Name" else ()})()
-    runtime = type("Runtime", (), {"team": team})()
+class _AssigneeAdapterStub:
+    def __init__(self):
+        self.queries = []
 
-    assert _authorized_identity_hint(runtime, "Natural Name") == "Canonical.Login"
-    assert _authorized_identity_hint(runtime, "Unknown Person") == "Unknown Person"
+    async def search_tasks(self, query, max_results=10000):
+        self.queries.append((query, max_results))
+        return []
 
 
-def test_authorized_identity_hint_does_not_guess_on_ambiguity():
-    first = type("Entry", (), {"login": "first"})()
-    second = type("Entry", (), {"login": "second"})()
-    team = type("Team", (), {"resolve_person": lambda self, reference: (first, second)})()
-    runtime = type("Runtime", (), {"team": team})()
+class _AssigneeRuntimeStub:
+    def __init__(self, resolved="External.Person"):
+        self.adapter = _AssigneeAdapterStub()
+        self.resolved = resolved
+        self.resolve_calls = []
 
-    assert _authorized_identity_hint(runtime, "Ambiguous Name") == "Ambiguous Name"
+    async def _member_resolve(self, args):
+        self.resolve_calls.append(dict(args))
+        return CapabilityResult(
+            answer=f"Пользователь подтверждён: {self.resolved}.",
+            data={"external_id": self.resolved, "member_login": self.resolved, "source": "REAL_AS21"},
+        )
+
+
+@pytest.mark.asyncio
+async def test_assignee_plugin_uses_generic_member_resolver_for_non_team_person():
+    runtime = _AssigneeRuntimeStub(resolved="External.Person")
+    handler = build_task_search_assignee(runtime)
+
+    result = await handler({"reference": "Внешний Пользователь", "space": "DMS"})
+
+    assert runtime.resolve_calls == [{"reference": "Внешний Пользователь", "space": "DMS"}]
+    assert runtime.adapter.queries == [('assignee = "External.Person" AND project = "DMS"', 10000)]
+    assert result.data["source_reference"] == "External.Person"
+    assert result.data["member_login"] == "External.Person"
+
+
+@pytest.mark.asyncio
+async def test_assignee_plugin_does_not_treat_team_directory_as_population_boundary():
+    runtime = _AssigneeRuntimeStub(resolved="Any.Source.Identity")
+    # No team/roster object exists on this runtime at all. The handler must still
+    # resolve through the governed source identity contract rather than fail early.
+    handler = build_task_search_assignee(runtime)
+
+    result = await handler({"reference": "Любой Человек"})
+
+    assert runtime.resolve_calls == [{"reference": "Любой Человек"}]
+    assert runtime.adapter.queries == [('assignee = "Any.Source.Identity"', 10000)]
+    assert result.data["count"] == 0
+
+
+@pytest.mark.asyncio
+async def test_assignee_plugin_propagates_identity_clarification_instead_of_source_error():
+    class AmbiguousRuntime(_AssigneeRuntimeStub):
+        async def _member_resolve(self, args):
+            self.resolve_calls.append(dict(args))
+            raise V4NeedsClarification(
+                "Нашёл несколько пользователей. Уточните ФИО или login.",
+                options=("person.one", "person.two"),
+            )
+
+    runtime = AmbiguousRuntime()
+    handler = build_task_search_assignee(runtime)
+
+    with pytest.raises(V4NeedsClarification) as exc:
+        await handler({"reference": "Неоднозначная Фамилия"})
+
+    assert exc.value.options == ("person.one", "person.two")
+    assert runtime.adapter.queries == []
 
 
 def test_clarification_continuation_restores_original_query_and_option():
