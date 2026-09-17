@@ -1,200 +1,257 @@
 # GigaCode — Current Action
 
 ## Status
-`ACTIVE_QA_ASSIGNMENT_195D_V4_UNIVERSAL_IDENTITY_RESOLVER_REGATE`
+`ACTIVE_QA_ASSIGNMENT_196_V4_FULL_EXISTING_CATALOG_REGRESSION`
 
 ## Role lock
 GigaCode is **QA/adversarial tester + service operator only**.
 
-Do NOT implement, refactor, fix, improve, or rewrite production code, frontend code, plugin code, tests, prompts, adapters, config, or architecture docs. Do not start Wave S until this gate is GREEN.
+Do NOT implement, refactor, fix, improve or rewrite production code, frontend, plugins, tests, prompts, adapters, config or architecture docs. Do not start Wave S implementation. If a defect is found, classify it, report it and stop production changes.
 
-## Why 195C is superseded
-A195B correctly found the morphology grounding defect, and the owner implemented its generic fix. Before 195C was run, manual Browser-C testing exposed a broader regression in `task.search_assignee`:
+## Why this gate exists
+A195D restored universal person resolution and returned `AGENT_CORE_V4_TASK_WAVE_GREEN`. Before adding the next skill batch, the owner requires one **full regression of every skill currently exposed by the V4 plugin catalog**, not merely a retained sample.
 
-- team member natural references can still collapse into generic `FAILED` instead of clarification/resolution;
-- a real person outside the configured PO-agent team must be searchable, but the A194/A195 fast path made the local team directory too influential;
-- ambiguous/not-found identities are surfacing as generic `AS21 returned invalid data` instead of typed `NEEDS_CLARIFICATION` / safe not-found behavior.
+This is the new clean checkpoint before Wave S #23–32.
 
-The owner traced this regression to commit `7cfbc5e` (`fix(v4): source-backed assignee hint without core edits`). That optimization changed `task.search_assignee` from the generic governed person-resolution contract to:
-
-`team hint if unique -> otherwise raw reference -> search_tasks`
-
-This worked for the narrow A195 cases but bypassed the previously proven generic `member.resolve` behavior for arbitrary AS21 users.
-
-## Owner fix under test
-Current owner fix restores the universal contract **inside the task plugin handler, without adding per-person or per-skill logic to Agent Core**:
-
-`task.search_assignee -> generic member.resolve -> canonical REAL AS21 identity -> live assignee task route`
-
-Properties that MUST hold:
-1. The configured team directory is an optional disambiguation/performance hint only. It is **not** the searchable population and may never veto a valid REAL AS21 identity.
-2. A person outside the local team can be resolved and queried if REAL AS21 can identify them.
-3. A team member and a non-team person go through the same governed identity contract.
-4. Ambiguous source identities produce `NEEDS_CLARIFICATION` with useful candidate/login options when available; they must not become generic source corruption errors.
-5. Unknown identities fail closed with a user-understandable clarification/not-found result, not fabricated zero tasks and not `AS21 invalid data` unless the source payload is genuinely malformed.
-6. Morphological normalization from A195B remains supported.
-7. REAL AS21 remains authoritative. No local `/api/v1/tasks`, SQLite, roster-only truth, or fake/snapshot fallback.
-8. Hermes/plugin invariant remains intact: no person-specific production hardcodes; no new Agent Core/planner/completion changes for this identity behavior.
-
-Owner commits after A195B:
-- `043823f7b7671b145fd8a49758f4d02ba9737fcb` — generic morphology grounding seam;
-- `e0fe3139b03e3d52f42f21d4f095426b36cbbd11` — morphology regression tests;
-- `ab71a8c4769a998ed5bcad6d709a0a75337da43a` — restore universal source-backed assignee resolution in plugin handler;
-- `f6e44ad0b883915b78c29a47923afa330eaad434` — focused universal resolver contract tests.
-
-Permanent rollback remains `0f03fca14fe078c86dca961362915e10cc985401` / `checkpoint/v4-poc-green-a188`.
+Permanent rollback remains:
+`0f03fca14fe078c86dca961362915e10cc985401` / `checkpoint/v4-poc-green-a188`.
 
 ## Mission
-Independently prove or reject that person resolution is again generic, source-authoritative, morphology-safe, clarification-safe and **not limited to configured team members**.
+Prove or reject the complete currently deployed V4 catalog on fresh REAL AS21 and Browser C, with no production edits.
 
-## Phase 0 — start / architecture audit
+The current plugin catalog contains **27 unique exposed skills** across `builtin.core.a188` and `builtin.catalog.tasks`.
+
+### Core/helper skills (12)
+1. `tasks.search`
+2. `sprints.discover`
+3. `sprints.list`
+4. `tasks.lookup_then_assignee`
+5. `task.lookup`
+6. `task.summary`
+7. `task.quality`
+8. `task.acceptance`
+9. `task.blockers`
+10. `sprint.health`
+11. `sprint.current`
+12. `release.health`
+
+### Task catalog additions (15)
+13. `task.search_text`
+14. `task.search_attachments`
+15. `task.search_excel`
+16. `task.search_pdf`
+17. `task.search_msg`
+18. `task.search_assignee`
+19. `task.search_status`
+20. `task.search_sprint`
+21. `task.search_release`
+22. `task.missing_requirements`
+23. `task.dependencies`
+24. `task.history`
+25. `task.time_in_status`
+26. `task.aging`
+27. `task.similar`
+
+No exposed skill may be silently omitted. If runtime discovery returns a different current set, record the exact set and classify the discrepancy before proceeding.
+
+## Phase 0 — start, inventory and architecture audit
 1. `git pull --ff-only origin feat/core8-real-query-hardening-v2`
 2. Record exact `START_HEAD`; tracked worktree must be clean.
-3. Read A195B report, A195 report, `V4_DOD_LOCK.md`, `V4_54_SKILL_MIGRATION_PLAN.md` and owner diff since `749e993d04dfe3f741eaf7f38afc02135869d858`.
-4. Confirm the assignee behavior change is in plugin/source boundary only. No new person-name hardcodes, surname routers, semantic-prepass, Agent Core skill branches, planner strategy changes, completion changes, or local-store fallback.
-5. Confirm `task.search_assignee` invokes the generic governed member resolver before factual task collection.
-6. Confirm the local team directory is only a hint inside resolution and cannot define/limit the AS21 person population.
+3. Read:
+   - `V4_54_SKILL_MIGRATION_PLAN.md`
+   - `V4_DOD_LOCK.md`
+   - A188, A190, A191 reports
+   - A195D report `AGENT_CORE_V4_UNIVERSAL_IDENTITY_RESOLVER_REGATE_195D.md`
+4. Programmatically enumerate the current plugin registry and capture:
+   - plugin ids;
+   - every skill id;
+   - capability ids per skill;
+   - completion contract;
+   - UIContract if present.
+5. Confirm the discovered unique skill set equals the expected 27 above, or explain the exact mismatch.
+6. Static invariants:
+   - Hermes/plugin architecture intact;
+   - no person/surname/entity-specific production routing;
+   - team directory is hint only, never searchable population;
+   - no local `/api/v1/tasks`, SQLite/snapshot/fake/frozen source truth;
+   - `semantic_prepass_used=false` production path remains available;
+   - no new planner/completion business-skill branches since A195D owner fixes.
 
-Any violation => RED. Do not fix it.
+Any architecture violation => RED. Do not fix it.
 
-## Phase 1 — focused tests
-Run at minimum:
+## Phase 1 — build and automated regression suites
+Run the relevant full V4 test surface, not only focused tests. At minimum:
 
 ```bash
 cd po-agent-platform-v2
 source .venv/bin/activate
-python -m pytest tests/test_v4_owner_fix_contracts.py -v
-python -m pytest tests/test_v4_pluginized_morphology_grounding.py -v
-python -m pytest tests/test_agent_core_v4_reliable.py -v
-python -m pytest tests/test_agent_core_v4_plugin_registry.py -v
-python -m pytest tests/ -k "v4 and (assignee or identity or ground or plugin or reliable)" -v
+python -m pytest tests/test_agent_core_v4*.py -v
+python -m pytest tests/test_v4*.py -v
 ```
 
-No code/test edits.
+Also run Task API tests relevant to current V4 live reads, identity, task query, sprint reads and attachments.
 
-## Phase 2 — fresh REAL AS21 identity Oracle B
-Use source routes directly; Agent output is never Oracle B.
+Record pass/fail/skip totals exactly. Pre-existing failures may be classified only with evidence that they predate START_HEAD and are unrelated; any newly introduced failure is RED.
 
-Build independent Oracle B for these identity classes:
+## Phase 2 — fresh REAL AS21 Oracle pack
+Build a fresh independent Oracle B immediately before agent runs. Agent output is never Oracle.
 
-### A. Configured team members
+At minimum capture source-backed ground truth for:
+- one exact task with rich data and known assignee (prefer DMS-380 if still present);
+- one task with attachments (prefer WMB-30000 if still present);
+- one known person in DMS (Garanin/Zhdanov or source-equivalent current person);
+- one non-team person and one ambiguous person from REAL AS21;
+- DMS current sprint;
+- September-period DMS sprint(s);
+- all active DMS sprints;
+- complete task key set for one sprint;
+- open-task set for DMS;
+- one release with source-visible tasks if available;
+- attachment metadata and file types available in the source;
+- task history/dependency/timestamp source availability for rows that may be SOURCE_CONDITIONAL.
+
+Record source drift rather than reusing old counts.
+
+## Phase 3 — complete 27-skill API matrix
+Use public `POST /api/v1/query`, fresh sessions, concurrency 1.
+
+Every one of the 27 skills must be deliberately exercised by at least one natural-language request and its actual loaded skill must be recorded. Do not infer coverage from unit tests.
+
+For each row record:
+- natural-language query;
+- expected skill id;
+- actual loaded skill id(s);
+- status;
+- capability trajectory;
+- completion mode/contract;
+- source route provenance;
+- Oracle parity when factual;
+- evidence count/keys;
+- `semantic_prepass_used`;
+- UIContract metadata;
+- classification: `GREEN_SOURCE_SUPPORTED`, `SOURCE_CONDITIONAL`, or `RED`.
+
+### Mandatory canonical scenarios
+Use these or source-equivalent current cases while still covering all 27 skills:
+
+- exact task lookup;
+- grounded task summary;
+- task quality;
+- acceptance/testability;
+- blockers;
+- multi-filter `tasks.search` person+sprint/space;
+- lookup then assignee tasks;
+- period sprint discovery;
+- active sprint list;
+- current sprint;
+- sprint health;
+- release health;
+- text search with a phrase independently proven in source;
+- all attachments for an exact task;
+- Excel, PDF and MSG attachment searches (if source lacks a type, prove SOURCE_CONDITIONAL/REAL_EMPTY from live source, never local data);
+- assignee search for team and non-team identity;
+- status search;
+- sprint task search;
+- release task search;
+- missing requirements;
+- dependencies;
+- history;
+- time in status;
+- aging;
+- similar/duplicate discovery.
+
+### Source-conditional semantics
+A skill may remain `SOURCE_CONDITIONAL` only when:
+1. the skill is actually reachable/loaded;
+2. its handler follows the correct live route;
+3. the authoritative source contract/data is proven unavailable or insufficient;
+4. it fails closed or returns a source-proven empty state;
+5. it does not fabricate success or silently use local data.
+
+A timeout caused by an avoidable implementation defect is RED, not SOURCE_CONDITIONAL.
+
+## Phase 4 — identity and clarification adversarial regression
+Retain A195D behavior as a hard gate:
+- inflected full-name team member -> exact factual completion;
+- non-team unique canonical identity -> factual completion;
+- ambiguous real surname -> `NEEDS_CLARIFICATION` with source candidates;
+- choose one clarification candidate -> same-session successful continuation;
+- invented person -> meaningful safe clarification/not-found;
+- no `AS21 вернул некорректные данные` for ordinary ambiguity/not-found;
+- no roster-only population restriction.
+
+Also repeat sprint clarification continuation (`задачи Гаранина в сентябрьском спринте` -> choose DMS or current equivalent) to ensure generic session continuation still works.
+
+## Phase 5 — stability / repeated representative cases
+Because earlier POC gates exposed stochastic planner regressions, repeat at minimum:
+- DMS-380 lookup -> assignee -> tasks: 5x;
+- one full-name assignee query: 5x;
+- one person+sprint multi-filter query: 5x;
+- current sprint query: 3x;
+- one attachment query: 3x.
+
+Require factual parity on every completed run. Any recurrent planner misrouting must be quantified and classified; do not hide it behind a single passing run.
+
+## Phase 6 — Browser C full result-shape regression
+Use the real UI. Browser C must cover every **currently used distinct UI result shape/widget**, and all high-risk flows.
+
 At minimum:
-- Александр Жданов / `Zhdanov.A.Ni`;
-- Родион Гаранин / `Garanin.R.V`;
-- Агатаева (use the actual configured team entry and canonical login from current config/source; do not guess the login).
+- task detail;
+- task table/collection;
+- attachment table;
+- task analysis;
+- task dependencies;
+- task history/timeline if source-supported;
+- similar-task list if source-supported;
+- sprint summary;
+- sprint list;
+- sprint health;
+- release health;
+- clarification options + click continuation;
+- safe zero/not-found/source-unavailable state.
 
-For each, prove the canonical REAL AS21 identity and, where practical, exact current task key set in one known space.
+For every browser case capture backend status, UI state/widget, evidence rendering and whether the UI preserves the factual count/key set from backend.
 
-### B. Real non-team person
-Use **Уткин** as the primary user-provided case. First establish from REAL AS21 whether the surname maps to:
-- exactly one person;
-- multiple people;
-- or requires fuller text/login.
+Also confirm no pre-query/runtime confusion causes the UI to silently execute Legacy Harness for the tested query. If the readiness-label issue remains cosmetic only, document it; if a query actually executes legacy path, RED.
 
-Do not treat local team configuration as authority. If `Уткин` is ambiguous, capture the real source candidates and use one source-proven full name/login as the unique follow-up control.
+## Phase 7 — plugin/extensibility regression
+Re-run the A190 plugin gate/dummy-55 acceptance.
 
-### C. Unknown identity
-Use one clearly invented person and prove how the source resolver responds.
+Require:
+`plugin added -> discovery -> compact catalog -> load/select -> capability executes -> completion contract terminates -> UIContract propagated`
 
-## Phase 3 — API identity matrix through public `/api/v1/query`
-Fresh sessions, concurrency 1.
+No Agent Core/planner/runtime business edit may be required.
 
-Run at minimum:
+## Phase 8 — final full-regression verdict
+Create an explicit table with all 27 discovered skills and final classification.
 
-### Team + morphology
-- `Задачи Александра Жданова в DMS`
-- `Задачи Родиона Гаранина в DMS`
-- `Задачи Жданова в DMS`
-- `Задачи Гаранина в DMS`
-- `Задачи Агатаевой`
-- natural full-name/case variant for the configured Агатаева entry (derive exact first name from config/source, not memory)
-
-### Non-team
-- `Задачи Уткина`
-- if ambiguous: select/provide one returned full identity/login and rerun the task query;
-- if unique: require exact task-key parity with Oracle B.
-
-### Unknown / negative
-- `Задачи Пупкина` or another invented identity verified absent from source;
-- one deliberately ambiguous real surname if available from Oracle B.
-
-For every case capture:
-- response status;
-- loaded skill;
-- person `reference` emitted by planner;
-- resolver call/result and canonical login/external id;
-- clarification id/options when applicable;
-- task collection call only after canonical identity is source-confirmed;
-- exact task-key parity for factual completions;
-- `semantic_prepass_used=false`;
-- no local task-store read.
-
-### Mandatory semantics
-- Unique REAL identity -> `COMPLETED` with exact source-backed tasks.
-- Ambiguous REAL identity -> `NEEDS_CLARIFICATION`, useful candidates when source exposes them; **never generic `FAILED: AS21 invalid data`**.
-- Unknown identity -> typed clarification/not-found/fail-closed; **never fabricated zero-as-fact and never source-corruption text unless payload is actually malformed**.
-
-## Phase 4 — source/route provenance
-For one team member and one non-team member prove the route conceptually and from logs:
-
-`task.search_assignee plugin -> generic member.resolve -> REAL AS21 identity resolver -> canonical identity -> live assignee task query -> MCP-SWTR -> REAL AS21`
-
-Team-directory participation, when present, must be recorded only as a hint. Repeat a non-team case where no roster entry exists to prove the route still works/clarifies entirely from REAL AS21.
-
-No `/api/v1/tasks`, SQLite, local snapshot, fake or frozen fallback is allowed.
-
-## Phase 5 — Browser C adversarial matrix
-Use the actual UI. At minimum run:
-- `Задачи Александра Жданова в DMS`
-- `Задачи Родиона Гаранина в DMS`
-- `Задачи Агатаевой`
-- `Задачи Уткина`
-- one invented person
-
-Requirements:
-- successful identities render factual V4 results;
-- ambiguity renders an actual clarification interaction, not a red generic error panel;
-- clarification choice/manual reply preserves context through the existing continuation mechanism;
-- unknown identity presents a meaningful safe result;
-- no stale `AS21 вернул некорректные данные` for ordinary ambiguity/not-found cases.
-
-Capture request/response/status/widget/evidence/clarification payloads.
-
-## Phase 6 — retained regression
-Run once each:
-- `Покажи DMS-380 и затем задачи его исполнителя` exact Oracle parity;
-- `Покажи открытые задачи в DMS` exact parity;
-- WMB-30000 attachment lookup exact live parity;
-- sprint clarification continuation once;
-- plugin/dummy-55 structural gate.
-
-No full 20-row Task Wave rerun unless a retained case fails.
-
-## Phase 7 — service keepalive
-After QA, leave the current-HEAD UI/backend/Task API running and return frontend/backend/Task API URLs, ports, PIDs, health and exact START_HEAD.
-
-## Allowed output
-Create/commit/push **only**:
-
-`po-agent-platform-v2/qa_reports/AGENT_CORE_V4_UNIVERSAL_IDENTITY_RESOLVER_REGATE_195D.md`
-
-## Verdict
-Use exactly one:
-- `AGENT_CORE_V4_TASK_WAVE_GREEN`
-- `AGENT_CORE_V4_TASK_WAVE_REOPENED_RED`
+Use exactly one overall verdict:
+- `AGENT_CORE_V4_EXISTING_CATALOG_REGRESSION_GREEN`
+- `AGENT_CORE_V4_EXISTING_CATALOG_REGRESSION_RED`
 - `BLOCKED_BY_PROVEN_SOURCE_OUTAGE`
 
-GREEN requires all of the following:
-- A195B morphology full-name failures fixed;
-- configured team members work through generic source-backed identity resolution;
-- at least one source-proven **non-team** identity works or, when surname is genuinely ambiguous, produces correct clarification followed by successful unique follow-up;
-- ambiguity/not-found never collapses into generic source-corruption messaging;
-- anti-invention and live-only invariants remain GREEN;
-- no retained regression;
-- Hermes/plugin extensibility intact.
+GREEN requires:
+- all 27 exposed skills explicitly tested;
+- zero `RED` rows;
+- every factual GREEN exact against fresh Oracle B;
+- every SOURCE_CONDITIONAL row proven live/fail-closed;
+- identity + clarification + Browser C GREEN;
+- repeated stability gate acceptable with no reproducible planner regression;
+- A190 dummy-55/plugin extensibility GREEN;
+- zero local-store source-of-truth reads;
+- A188/A190/A191/A195D invariants preserved.
 
-If GREEN, recommendation must be:
-**Re-close Wave T (#1-20) and proceed to owner Wave S (#21-32 Sprint/flow) through the existing plugin surface.**
+If any row is RED, stop and report the exact first bounded defect(s). Do **not** start Wave S.
 
-## STOP
-After committing/pushing only the QA report and leaving current-HEAD services running, stop and wait for the owner.
+If GREEN, recommendation must be exactly:
+**Freeze A196 as the pre-Wave-S regression checkpoint and proceed to owner implementation of Wave S #23–32 through the existing plugin surface; #21 sprint.health and #22 sprint.current remain retained existing skills.**
+
+## Allowed output
+Commit/push **only**:
+
+`po-agent-platform-v2/qa_reports/AGENT_CORE_V4_FULL_EXISTING_CATALOG_REGRESSION_196.md`
+
+No production/test/frontend/plugin/config/doc changes.
+
+## Service keepalive
+After committing/pushing only the QA report, leave the tested current-HEAD UI/backend/Task API/MCP stack running. Return URLs, ports, PIDs, health and exact START_HEAD. Then stop and wait for the owner.
