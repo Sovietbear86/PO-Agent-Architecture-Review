@@ -63,13 +63,27 @@ async def _live_rows(runtime: Any, *, phrase: str | None = None, space: str | No
     return tasks
 
 
-def build_task_lookup(runtime: Any):
-    """Exact live lookup with canonical identity + attachments in the observation.
+def _authorized_identity_hint(runtime: Any, reference: str) -> str:
+    """Return a unique configured-team login as a hint, never as source truth.
 
-    This preserves the A188 lookup->assignee contract while fixing A193 layer 2:
-    the production adapter already reads live attachment metadata, so the plugin
-    must not discard it when serializing the trusted task observation.
+    REAL AS21 remains authoritative. The hint only bridges natural Russian full
+    names to the canonical login when the source search endpoint cannot perform
+    cross-script transliteration. The downstream live assignee route must still
+    resolve/confirm the hinted login against AS21 before returning tasks.
     """
+    team = getattr(runtime, "team", None)
+    resolver = getattr(team, "resolve_person", None)
+    if resolver is None:
+        return reference
+    matches = tuple(resolver(reference) or ())
+    if len(matches) != 1:
+        return reference
+    login = str(getattr(matches[0], "login", "") or "").strip()
+    return login or reference
+
+
+def build_task_lookup(runtime: Any):
+    """Exact live lookup with canonical identity + attachments in the observation."""
     async def execute(args: dict[str, str]) -> CapabilityResult:
         task_key = str(args.get("task_key") or "").strip().upper()
         if not task_key:
@@ -133,12 +147,24 @@ def build_task_search_assignee(runtime: Any):
         reference = str(args.get("reference") or args.get("assignee") or "").strip()
         if not reference:
             raise ValueError("reference is required")
-        space = str(args.get("space") or "").strip() or None
-        tasks = await _live_rows(runtime, space=space, assignee=reference)
+        space = str(args.get("space") or "").strip().upper() or None
+        source_reference = _authorized_identity_hint(runtime, reference)
+        query = f'assignee = "{source_reference}"'
+        if space:
+            query += f' AND project = "{space}"'
+        tasks = list(await runtime.adapter.search_tasks(query, max_results=10000))
         rows = [_task_dict(task) for task in tasks]
         return CapabilityResult(
             answer=f"Для «{reference}» найдено задач: {len(rows)}.",
-            data={"count": len(rows), "tasks": rows, "task_keys": [row["key"] for row in rows], "reference": reference, "space": space, "source": "REAL_AS21"},
+            data={
+                "count": len(rows),
+                "tasks": rows,
+                "task_keys": [row["key"] for row in rows],
+                "reference": reference,
+                "source_reference": source_reference,
+                "space": space,
+                "source": "REAL_AS21",
+            },
             evidence=[Evidence(type="task", source="as21", entity_id=row["key"], label=row["title"], value=row["status"]) for row in rows],
         )
     return execute
