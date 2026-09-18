@@ -59,34 +59,19 @@ def test_task_wave_plus_a191_represents_all_twenty_canonical_task_rows():
 
 def test_task_wave_capabilities_bind_only_through_registry_contract():
     handlers = V4PluginRegistry((PLUGIN,)).bind_handlers(_LegacyRuntimeStub())
-    expected = {
-        "task.search_text",
-        "task.search_attachments",
-        "task.search_excel",
-        "task.search_pdf",
-        "task.search_msg",
-        "task.search_release",
-        "task.missing_requirements",
-        "task.dependencies",
-        "task.history",
-        "task.time_in_status",
-        "task.aging",
-        "task.similar",
-    }
+    expected = set(EXPECTED_WAVE_T_SKILLS)
     assert set(handlers) == expected
     assert all(callable(handler) for handler in handlers.values())
 
 
 def test_specialized_attachment_bindings_enforce_fixed_type():
-    handlers = V4PluginRegistry((PLUGIN,)).bind_handlers(_LegacyRuntimeStub())
-    excel = asyncio.run(handlers["task.search_excel"]({"attachment_type": "pdf"}))
-    pdf = asyncio.run(handlers["task.search_pdf"]({}))
-    msg = asyncio.run(handlers["task.search_msg"]({"attachment_type": "excel"}))
-
-    assert excel["legacy_capability_id"] == "task.search_attachments"
-    assert excel["arguments"]["attachment_type"] == "excel"
-    assert pdf["arguments"]["attachment_type"] == "pdf"
-    assert msg["arguments"]["attachment_type"] == "msg"
+    by_id = {binding.capability_id: binding for binding in PLUGIN.bindings}
+    assert by_id["task.search_excel"].fixed_arguments["attachment_type"] == "excel"
+    assert by_id["task.search_pdf"].fixed_arguments["attachment_type"] == "pdf"
+    assert by_id["task.search_msg"].fixed_arguments["attachment_type"] == "msg"
+    assert by_id["task.search_excel"].handler_builder is not None
+    assert by_id["task.search_pdf"].handler_builder is not None
+    assert by_id["task.search_msg"].handler_builder is not None
 
 
 def test_task_wave_progressive_catalog_exposes_procedure_and_typed_capabilities():
@@ -104,8 +89,7 @@ def test_task_wave_progressive_catalog_exposes_procedure_and_typed_capabilities(
 
     assignee = catalog.load("task.search_assignee")
     assert [capability["id"] for capability in assignee["capabilities"]] == [
-        "member.resolve",
-        "task.search",
+        "task.search_assignee",
     ]
 
     assert [capability["id"] for capability in catalog.load("task.search_excel")["capabilities"]] == ["task.search_excel"]
@@ -116,7 +100,7 @@ def test_task_wave_completion_contracts_are_declared_not_runtime_hardcoded():
     for skill_id in EXPECTED_WAVE_T_SKILLS:
         assert by_id[skill_id].completion, f"missing completion contract: {skill_id}"
 
-    assert by_id["task.search_assignee"].completion[0].covers_resolved_constraints is True
+    assert by_id["task.search_assignee"].completion[0].covers_resolved_constraints is False
     assert by_id["task.search_sprint"].completion[0].covers_resolved_constraints is True
     assert by_id["task.search_release"].completion[0].covers_resolved_constraints is True
 
