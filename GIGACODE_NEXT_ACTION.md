@@ -1,7 +1,7 @@
 # GigaCode — Current Action
 
 ## Status
-`ACTIVE_QA_ASSIGNMENT_198_V4_EXISTING_CATALOG_FINAL_REGRESSION_REGATE`
+`ACTIVE_QA_ASSIGNMENT_199_V4_PRE_WAVE_S_FINAL_REGRESSION`
 
 ## Role lock
 GigaCode is **QA/adversarial tester + service operator only**.
@@ -9,48 +9,59 @@ GigaCode is **QA/adversarial tester + service operator only**.
 Do NOT modify production/frontend/plugin/test/config/architecture code. Do not start Wave S. If a defect is found, classify/report only.
 
 ## Context
-A197 executed the complete 27-skill catalog and returned RED only because `task.aging` produced a false complete zero. Root cause was proven: SWTR raw TQL rows expose `unit.createdAt` / `unit.updatedAt`, while the source bridge only looked for snake_case `created_at` / `updated_at`.
+A198 returned `AGENT_CORE_V4_EXISTING_CATALOG_REGRESSION_RED` with one blocking functional defect:
 
-A197 also found a generic completion-safety issue in one person+sprint scenario: the planner could emit READY after only `member.resolve`, before the loaded skill's declared completion contract was satisfied.
+- multi-filter person+sprint(+status) queries could execute a legitimate `task.search` without repeating an already-resolved optional `space` argument;
+- `covers_resolved_constraints` therefore remained unmet;
+- the A198 READY safety guard correctly rejected premature READY;
+- the planner then looped until step-budget exhaustion / client timeout.
 
-Owner fixes after A197:
-- `3ab768ad4b4d6731d9377ba466dff88a22d9176e` — map SWTR camelCase timestamps into canonical task-query fields;
-- `5aeb5b3c108b1bb0a0761920314f80a15d686413` — preserve timestamp provenance in Task API adapter;
-- `4c79bc43be0256e0d47cbfd60c4446b72e2a8951` — aging ignores/fails closed on adapter fallback timestamps;
-- `630b536def8ffc22483fd618f656ee3a8cec052f` — generic runtime guard rejects planner READY when every loaded skill has a declared typed completion contract and the contract is still unmet;
-- `e30ec7ddeb1d80caa0ad63818e0aa98c1fed9516` — completion regression test;
-- `afaa7e048c45b5de33d7e43bd03eb8bfa2ad4fcd` — fix A197 F1 test logic to validate cross-plugin bindings against the full registry;
-- `a65eba6f10489d033ae4cde532545827eb336f9f` — timestamp-provenance aging test.
+A198 also proved:
+- task.aging is now exact against REAL AS21 timestamps;
+- attachment D2 and task.similar are closed;
+- no premature resolver-only completion;
+- 27/27 existing skills were exercised;
+- identity/clarification/browser/plugin gates remain healthy.
 
-The READY fix is **generic orchestration safety**, not a business-skill route: no surname/person/space/task hardcode and no semantic prepass.
+Owner fixes after A198:
+- `65f995150ab427afeadf400057618275fa7a9d6d` — generic typed resolved-constraint argument derivation;
+- `c01186dde22c5160192c0a0f5c7dfe62b3e8eda0` — runtime injects uniquely resolved constraints only when the target capability schema accepts the argument;
+- `f75f70a3739d1d2059590be9c68229b171908969` — regression proving omitted resolved space is injected and completes without an extra planner repair turn;
+- `83df8f87359975056f2c1f091087c22e6be312a6` — project+release searches fail closed instead of falling through to local `/api/v1/tasks`;
+- `9413702aebae22823b944b9f231f14b01167c1ee` — fixes A198 F1 composite-skill registry test.
+
+Architecture rule:
+The new injection is generic typed orchestration, not skill/entity hardcode:
+- no query parsing;
+- no surname/task/space literals;
+- only values from typed resolver observations;
+- only unique values;
+- only roles accepted by the target capability schema;
+- ambiguous/multiple values are never injected.
 
 Permanent rollback:
 `0f03fca14fe078c86dca961362915e10cc985401` / `checkpoint/v4-poc-green-a188`.
 
 ## Mission
-Deliver one final pre-Wave-S regression verdict for the entire existing 27-skill catalog. A198 is GREEN only if:
-- aging is exact against live timestamp Oracle;
-- no premature planner-ready completion remains in the tested contracted flows;
-- all previous A196/A197 protections remain intact;
-- zero RED rows remain.
+Produce the final clean pre-Wave-S verdict after the A198 sole RED fix. A199 may be GREEN only with zero RED rows and no local-store factual path.
 
 ## Phase 0 — start / architecture audit
 1. `git pull --ff-only origin feat/core8-real-query-hardening-v2`
 2. Record exact START_HEAD; tracked worktree clean.
-3. Read A196 and A197 reports plus owner diff since A197 START_HEAD.
+3. Read A198 report and owner diff since A198 START_HEAD.
 4. Confirm:
-   - camelCase timestamp fix is source-boundary only;
-   - timestamp provenance prevents fallback `datetime.now()` from becoming an aging fact;
-   - READY rejection is generic and applies only where all loaded skills have typed completion contracts;
-   - contractless skills retain normal planner READY behavior;
-   - no new business/entity hardcode;
-   - Hermes/plugin extension model remains intact;
-   - no local-store truth/fallback.
+   - resolved-constraint injection is generic and entity-free;
+   - only unique typed resolver values can be injected;
+   - target capability schema must explicitly accept the role;
+   - no semantic prepass/entity hardcode;
+   - READY guard remains intact;
+   - release project-only path no longer falls through to local `/api/v1/tasks`;
+   - Hermes/plugin/dummy-55 architecture remains intact.
 
-Any violation => RED.
+Any architecture violation => RED.
 
 ## Phase 1 — automated suites
-Run at minimum:
+Run:
 ```bash
 cd po-agent-platform-v2
 source .venv/bin/activate
@@ -61,105 +72,100 @@ python -m pytest tests/test_v4*.py -v
 Run relevant Task API tests.
 
 Require:
-- A197 F1 task-catalog test fixed;
-- completion-contract test proving premature READY is rejected until required capability executes;
-- aging source-timestamp provenance test GREEN;
+- composite task-catalog binding test GREEN;
+- deterministic resolved-constraint injection test GREEN;
+- premature READY guard tests GREEN;
+- aging timestamp-provenance tests GREEN;
 - dummy-55/plugin gate GREEN.
 
 Record exact totals.
 
-## Phase 2 — fresh Oracle B
-Refresh, do not reuse stale counts:
-- DMS raw/source rows with `unit.createdAt`;
-- canonical task-query rows with `created_at`;
-- open DMS tasks >=7 days old;
-- DMS-380;
-- current sprint and complete sprint task set;
-- assignee/identity cases;
-- WMB-30000 attachments;
-- release/history source availability.
+## Phase 2 — focused D1 multi-filter gate
+Build a fresh REAL AS21 Oracle immediately before runs.
 
-Mandatory timestamp proof:
-- show at least 3 concrete DMS task keys where raw `unit.createdAt` equals canonical `created_at`;
-- count how many DMS rows have source timestamp provenance;
-- if a source row lacks creation time, prove aging excludes/fails closed rather than assigning age=0 as a fact.
+Run at least 10x:
+- `Открытые задачи Жданова в текущем спринте DMS`
 
-## Phase 3 — task.aging final gate
-Run `Застоявшиеся открытые задачи в DMS` at least 5x, fresh sessions, concurrency 1.
+Run at least 10x:
+- `задачи Гаранина в сентябрьском спринте`
 
-Require each run:
-- skill `task.aging`;
-- live bounded `task-query?space=DMS`;
-- zero tenant-wide search;
-- exact count and key-set parity with the fresh Oracle using REAL source timestamps;
-- no adapter-fallback timestamp counted;
-- deterministic completion via runtime contract;
+For completed runs require:
+- actual loaded skill = `tasks.search`;
+- resolver observations may establish `space`, `member`, `sprint`;
+- terminal `task.search` must contain every uniquely resolved compatible constraint after runtime argument completion;
+- if planner omitted `space`, record proof that runtime injected `space=DMS` before capability execution;
+- completion = `runtime_contract`;
+- exact key-set parity vs fresh person+sprint(+status) Oracle;
+- no repeated rejected READY loop;
+- no step-budget exhaustion caused by missing optional resolved arguments;
 - practical bounded latency.
 
-Any false zero or key mismatch => RED.
+Typed NEEDS_CLARIFICATION remains valid only where source ambiguity genuinely exists.
 
-## Phase 4 — completion-gate adversarial
-Repeat at least 10x:
-- `задачи Гаранина в сентябрьском спринте`
-and at least 5x:
-- one equivalent full-name + current/period sprint multi-step query.
+Any false completion, missing constraint, 300s loop or step-budget regression => RED.
 
-For every run:
-- no `completion=planner_ready` before the primary factual capability required by the loaded completion contract executes;
-- typed clarification is acceptable when source/entity context is genuinely missing;
-- completed runs must end via `runtime_contract` when the loaded skills have declared contracts;
-- no answer may claim completion from resolver-only observations.
+## Phase 3 — local-store release-path audit
+Exercise:
+- `Задачи релиза Q3-2026 в DMS`
+- `Здоровье релиза Q3-2026 в DMS`
 
-Also run a control skill without a declared completion contract, if one exists, to prove normal READY semantics were not globally disabled.
+Audit Task API logs.
+Require:
+- zero `GET /api/v1/tasks` reads caused by these release queries;
+- if REAL AS21 release source remains unavailable, result is typed SOURCE_CONDITIONAL/fail-closed;
+- no local rows can be returned as REAL AS21 facts.
 
-## Phase 5 — full 27-skill API matrix
-Repeat **all 27** currently exposed skills from A197. No row skipped.
+Any release factual local-store path => RED.
+
+## Phase 4 — full 27-skill matrix
+Repeat all 27 existing V4 skills from A198. No row skipped.
 
 For each record:
 - NL query;
 - expected/actual skill;
-- capability trajectory;
-- status;
+- trajectory;
+- final executed arguments;
 - completion mode;
-- source provenance;
+- source route;
 - fresh Oracle parity;
 - evidence;
 - UIContract;
-- GREEN/SOURCE_CONDITIONAL/RED.
+- classification.
 
-Broad space-wide Excel/PDF/MSG may remain SOURCE_CONDITIONAL only if they fail closed quickly before N+1 fan-out exactly as A197 proved.
+Allowed:
+- GREEN_SOURCE_SUPPORTED
+- SOURCE_CONDITIONAL
+- RED
 
-Overall GREEN requires **zero RED rows**.
+Overall GREEN requires zero RED.
 
-## Phase 6 — retained high-risk regression
+## Phase 5 — retained regressions
 Repeat:
 - DMS-380 -> assignee tasks 5x exact;
-- inflected full-name assignee 5x exact;
+- full-name assignee 5x exact;
 - non-team identity exact;
-- ambiguous surname -> source candidates -> same-session continuation;
-- invented person safe;
-- person+sprint 5x;
+- ambiguous surname -> clarification -> same-session continuation;
+- invented identity safe;
+- task.aging DMS 3x exact against fresh timestamp oracle;
+- task.similar DMS-380 3x deterministic;
+- WMB-30000 attachments 3x exact;
 - current sprint 3x;
-- WMB-30000 attachments 3x;
-- similar DMS-380 3x deterministic bounded;
-- zero stale source-error text for normal ambiguity/not-found.
+- no stale source-error text.
 
-Explicitly audit task-api logs for local `/api/v1/tasks` reads during the matrix. Any factual path relying on local truth => RED. Incidental unexplained local reads must be traced/classified, not ignored.
-
-## Phase 7 — Browser C spot/full gate
+## Phase 6 — Browser C
 At minimum:
-- task.quality -> `task_analysis` widget;
-- aging DMS -> factual collection/count matching backend;
-- similar DMS-380 -> similar-task widget;
-- history source-unavailable;
-- identity clarification + continuation;
-- person+sprint multi-step query;
+- person+sprint multi-filter query;
+- aging DMS;
+- task.quality widget;
+- similar-task widget;
+- identity clarification continuation;
+- release SOURCE_CONDITIONAL;
 - safe not-found.
 
-No Legacy Harness execution for the tested query.
+For the person+sprint case, capture backend trajectory and prove the UI result matches the injected resolved constraints and Oracle.
 
-## Phase 8 — plugin/extensibility
-Re-run A190 dummy-55 gate. No new skill/core coupling.
+## Phase 7 — plugin/extensibility
+Re-run dummy-55 / A190 gate. No core changes required for adding a skill.
 
 ## Verdict
 Use exactly one:
@@ -168,21 +174,21 @@ Use exactly one:
 - `BLOCKED_BY_PROVEN_SOURCE_OUTAGE`
 
 GREEN requires:
-- 27/27 skills explicitly tested;
+- 27/27 skills tested;
 - zero RED;
-- aging exact and timestamp provenance proven;
-- no premature planner-ready completion in contracted trajectories;
-- factual GREEN rows exact;
+- multi-filter D1 closed;
+- no premature planner READY;
+- no local-store factual path;
+- factual rows exact;
 - SOURCE_CONDITIONAL rows truly source-limited and fail-closed;
-- Browser C, identity, clarification and dummy-55 GREEN;
-- zero local-store truth.
+- Browser C + identity + clarification + dummy-55 GREEN.
 
 If GREEN recommendation must be:
-**Freeze A198 as the clean pre-Wave-S checkpoint and proceed to owner Wave S #23–32 through the existing plugin surface.**
+**Freeze A199 as the clean pre-Wave-S checkpoint and proceed to owner Wave S #23–32 through the existing plugin surface.**
 
 ## Output
 Commit/push only:
-`po-agent-platform-v2/qa_reports/AGENT_CORE_V4_FULL_EXISTING_CATALOG_REGRESSION_198.md`
+`po-agent-platform-v2/qa_reports/AGENT_CORE_V4_FULL_EXISTING_CATALOG_REGRESSION_199.md`
 
 ## Service keepalive
 Leave tested current-HEAD UI/backend/Task API/MCP running. Return URLs, ports, PIDs, health and exact START_HEAD. Then stop.
