@@ -59,7 +59,7 @@ CAPABILITIES = (
     CapabilitySpecV4(
         "task.search_status",
         "Return live REAL AS21 tasks for a requested semantic/open/completed status.",
-        {"status": "required status or safe semantic state", "space": "optional grounded product space", "assignee": "optional source-derived assignee"},
+        {"status": "required status or safe semantic state", "space": "optional grounded product space", "reference": "optional natural person reference", "assignee": "optional source-derived canonical assignee"},
     ),
     CapabilitySpecV4("task.search_release", "Return the complete REAL AS21 task collection for a canonical release id.", {"release_id": "required canonical release id"}),
     CapabilitySpecV4("task.missing_requirements", "Deterministically identify missing/weak task-definition elements from source task content.", {"task_key": "required task key"}),
@@ -103,7 +103,7 @@ SKILLS = (
     ),
     SkillSpecV4(
         "task.search_status", "Find tasks by a requested task status/open-completed semantic state.",
-        ("Call task.search_status with the requested status and any grounded space. Safe semantic enums such as not_completed may be normalized by the planner.",),
+        ("Call task.search_status with the requested status and any grounded space/person constraint. Natural person references are resolved source-backed inside the capability. Safe semantic enums such as not_completed may be normalized by the planner.",),
         ("task.search_status",), completion=(CompletionRequirement("task.search_status", data_keys=("count",)),),
     ),
     SkillSpecV4(
@@ -120,7 +120,7 @@ SKILLS = (
     SkillSpecV4("task.dependencies", "Inspect dependencies/links of one task and whether dependencies are unresolved.", ("Call task.dependencies with the literal task key.",), ("task.dependencies",), completion=(CompletionRequirement("task.dependencies", data_keys=("task_key",), data_absent_keys=("found",)),)),
     SkillSpecV4("task.history", "Show lifecycle/status history of one task when the authoritative source exposes history.", ("Call task.history with the literal task key; if source history is unavailable, fail closed rather than invent a timeline.",), ("task.history",), completion=(CompletionRequirement("task.history", data_keys=("task_key",), data_absent_keys=("found",)),)),
     SkillSpecV4("task.time_in_status", "Calculate time spent in task statuses from authoritative history.", ("Call task.time_in_status with the literal task key; never infer durations without source timestamps.",), ("task.time_in_status",), completion=(CompletionRequirement("task.time_in_status", data_keys=("task_key",), data_absent_keys=("found",)),)),
-    SkillSpecV4("task.aging", "Find aging active tasks using a deterministic day threshold.", ("Call task.aging with a grounded space or person scope; pass threshold_days only when supplied by the user. Never request an unscoped tenant scan.",), ("task.aging",), completion=(CompletionRequirement("task.aging", data_keys=("count", "threshold_days")),)),
+    SkillSpecV4("task.aging", "Find aging active tasks using a deterministic day threshold.", ("Call task.aging with a grounded space or natural person scope; the capability resolves person identity against REAL AS21. Pass threshold_days only when supplied by the user. Never request an unscoped tenant scan.",), ("task.aging",), completion=(CompletionRequirement("task.aging", data_keys=("count", "threshold_days")),)),
     SkillSpecV4("task.similar", "Find bounded similar/duplicate candidates for one task.", ("Call task.similar with the literal task key and keep the declared deterministic similarity method visible.",), ("task.similar",), completion=(CompletionRequirement("task.similar", data_keys=("task_key", "method"), data_absent_keys=("found",)),)),
 )
 
