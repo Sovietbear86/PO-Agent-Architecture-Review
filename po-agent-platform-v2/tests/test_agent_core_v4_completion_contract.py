@@ -408,23 +408,34 @@ def test_unsatisfied_contract_fails_closed_when_planner_dies() -> None:
     assert response.data["_agent_core_v4"].get("completion") != "runtime_contract"
 
 
-def test_model_ready_path_still_works_when_contract_not_satisfied() -> None:
-    # The lookup succeeds but the downstream search never happens, so the
-    # tasks.lookup_then_assignee contract is not satisfied; the planner's own
-    # READY (with observations) must still complete the run through the normal
-    # model-READY path.
-    adapter = FakeV4Adapter(tasks_by_key={"ALPHA-101": _task("ALPHA-101", ALPHA_LOGIN)})
+def test_premature_model_ready_is_rejected_until_contract_is_satisfied() -> None:
+    # A planner READY after lookup alone must not bypass the declared
+    # lookup->assignee-search completion contract. The runtime rejects the
+    # premature READY, gives the planner another bounded turn, and completes
+    # only after the required source-backed search observation exists.
+    lookup_task = _task("ALPHA-101", ALPHA_LOGIN)
+    assignee_tasks = [_task("ALPHA-201", ALPHA_LOGIN)]
+    adapter = FakeV4Adapter(
+        tasks_by_key={"ALPHA-101": lookup_task},
+        search_results={f'assignee = "{ALPHA_LOGIN}"': assignee_tasks},
+    )
     llm = ScriptedLLM([
         _decision("load_skill", skill_id="tasks.lookup_then_assignee"),
         _decision("call", capability_id="task.lookup", arguments={"task_key": "ALPHA-101"}),
-        _decision("ready", answer="ALPHA-101 показана; исполнителя уточните отдельно."),
+        _decision("ready", answer="ALPHA-101 показана; остальное не нужно."),
+        _decision("call", capability_id="task.search", arguments={"assignee": ALPHA_LOGIN}),
     ])
     runtime = _robust_runtime(adapter, llm)
     response = _run(runtime, "Покажи ALPHA-101 и затем задачи его исполнителя")
 
     assert response.status is ResponseStatus.COMPLETED
-    assert response.data["_agent_core_v4"]["completion"] == "planner_ready"
-    assert llm.planner_calls == 3
+    assert response.data["_agent_core_v4"]["completion"] == "runtime_contract"
+    assert llm.planner_calls == 4
+    rejected = [
+        entry for entry in response.data["_agent_core_v4"]["trajectory"]
+        if entry.get("ready_rejected") == "unsatisfied_completion_contract"
+    ]
+    assert rejected
 
 
 def test_zero_row_search_is_a_legitimate_source_completion() -> None:
