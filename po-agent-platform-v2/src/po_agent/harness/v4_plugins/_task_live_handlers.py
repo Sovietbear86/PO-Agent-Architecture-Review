@@ -6,8 +6,10 @@ plugin registry and can evolve without editing planner/runtime orchestration.
 """
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
+from po_agent.adapters.task_api import AS21SourceUnavailable
 from po_agent.domain.models import AttachmentType
 
 from ..contracts import CapabilityResult, Evidence
@@ -207,6 +209,12 @@ def build_task_search_status(runtime: Any):
 
 
 def build_task_search_attachments(runtime: Any):
+    """Search attachments without an unbounded N+1 fan-out.
+
+    Exact-task and bounded person-scoped requests remain fully supported. A very
+    broad space-only scan is explicitly SOURCE_UNAVAILABLE until AS21 exposes a
+    batch/file-search contract; it must not launch thousands of per-task calls.
+    """
     async def execute(args: dict[str, str]) -> CapabilityResult:
         requested = str(args.get("attachment_type") or "").strip().casefold() or None
         kind = AttachmentType(requested) if requested else None
@@ -218,12 +226,30 @@ def build_task_search_attachments(runtime: Any):
             candidates = [task] if task is not None else []
         else:
             candidates = await _live_rows(runtime, space=space, assignee=assignee)
+
+        # A196 D2: 2k+ WMB tasks caused a 300s N+1 timeout. Until the source
+        # offers a batch attachment search, fail closed before fan-out instead of
+        # pretending a partial scan is complete.
+        max_fanout = 250
+        if len(candidates) > max_fanout and not task_key:
+            raise AS21SourceUnavailable(
+                f"REAL AS21 has no certified batch attachment-search surface for {len(candidates)} candidate tasks; "
+                f"bounded limit is {max_fanout}"
+            )
+
+        semaphore = asyncio.Semaphore(12)
+
+        async def files_for(task: Any):
+            items = list(getattr(task, "attachments", None) or [])
+            if items:
+                return task, items
+            async with semaphore:
+                return task, list(await runtime.adapter.get_attachment_metadata(task.key))
+
+        resolved = await asyncio.gather(*(files_for(task) for task in candidates))
         matches: list[dict[str, Any]] = []
         evidence: list[Evidence] = []
-        for task in candidates:
-            items = list(getattr(task, "attachments", None) or [])
-            if not items:
-                items = list(await runtime.adapter.get_attachment_metadata(task.key))
+        for task, items in resolved:
             if kind is not None:
                 items = [item for item in items if item.type == kind]
             if not items:
@@ -241,5 +267,102 @@ def build_task_search_attachments(runtime: Any):
             answer=f"Найдено задач с {label}: {len(matches)}.",
             data={"attachment_type": kind.value if kind else None, "count": len(matches), "results": matches, "task_key": task_key, "space": space, "assignee": assignee, "source": "REAL_AS21"},
             evidence=evidence,
+        )
+    return execute
+
+
+def build_task_aging(runtime: Any):
+    """Calculate aging only over an explicitly bounded live task collection."""
+    async def execute(args: dict[str, str]) -> CapabilityResult:
+        threshold_days = int(args.get("threshold_days") or "7")
+        if threshold_days < 0:
+            raise ValueError("threshold_days must be >= 0")
+        space = str(args.get("space") or "").strip().upper() or None
+        assignee = str(args.get("assignee") or args.get("reference") or "").strip() or None
+        if not space and not assignee:
+            raise AS21SourceUnavailable("task.aging requires a bounded space or assignee on the live source path")
+        tasks = await _live_rows(runtime, space=space, assignee=assignee)
+        active = [task for task in tasks if task.is_open and task.age_days >= threshold_days]
+        active.sort(key=lambda task: task.age_days, reverse=True)
+        rows = [
+            {
+                "key": task.key,
+                "title": task.title,
+                "status": task.status.value,
+                "assignee": task.assignee,
+                "age_days": task.age_days,
+            }
+            for task in active
+        ]
+        return CapabilityResult(
+            answer=f"Задач старше {threshold_days} дней: {len(rows)}.",
+            data={
+                "threshold_days": threshold_days,
+                "count": len(rows),
+                "tasks": rows,
+                "space": space,
+                "assignee": assignee,
+                "source": "REAL_AS21",
+            },
+            evidence=[
+                Evidence(type="task_age", source="as21", entity_id=row["key"], label=row["title"], value=row["age_days"])
+                for row in rows
+            ],
+        )
+    return execute
+
+
+def build_task_similar(runtime: Any):
+    """Compare one task only with the bounded live corpus of its own space."""
+    async def execute(args: dict[str, str]) -> CapabilityResult:
+        import re
+
+        task_key = str(args.get("task_key") or "").strip().upper()
+        if not task_key:
+            raise ValueError("task_key is required")
+        space = task_key.split("-", 1)[0] if "-" in task_key else ""
+        if not space:
+            raise ValueError("task_key must contain a product-space prefix")
+
+        # Resolve the source task through the live bounded task-query path rather
+        # than tenant-wide adapter.search_tasks("").
+        exact = await _live_rows(runtime, phrase=task_key, space=space)
+        source_task = next((task for task in exact if task.key.upper() == task_key), None)
+        if source_task is None:
+            return CapabilityResult(
+                answer=f"Задача {task_key} не найдена в REAL AS21.",
+                data={"task_key": task_key, "found": False, "matches": [], "method": "token_jaccard_v1", "source": "REAL_AS21"},
+                evidence=[],
+            )
+
+        candidates = await _live_rows(runtime, space=space)
+        stop = {"для", "the", "and", "или", "это", "with", "from", "create", "add", "user", "task"}
+
+        def tokens(text: str) -> set[str]:
+            return {token for token in re.findall(r"[A-Za-zА-Яа-я0-9]{3,}", text.casefold()) if token not in stop}
+
+        source_tokens = tokens(f"{source_task.title} {source_task.description or ''}")
+        rows: list[dict[str, Any]] = []
+        for other in candidates:
+            if other.key.upper() == task_key:
+                continue
+            other_tokens = tokens(f"{other.title} {other.description or ''}")
+            union = source_tokens | other_tokens
+            similarity = round(len(source_tokens & other_tokens) / len(union), 3) if union else 0.0
+            if similarity <= 0:
+                continue
+            rows.append({"key": other.key, "title": other.title, "similarity": similarity, "status": other.status.value})
+        rows.sort(key=lambda item: item["similarity"], reverse=True)
+        rows = rows[:5]
+        return CapabilityResult(
+            answer=f"Для {task_key} найдено похожих задач: {len(rows)}.",
+            data={"task_key": task_key, "matches": rows, "method": "token_jaccard_v1", "space": space, "source": "REAL_AS21"},
+            evidence=[
+                Evidence(type="task", source="as21", entity_id=source_task.key, label=source_task.title, value=source_task.status.value),
+                *[
+                    Evidence(type="similar_task", source="as21+deterministic", entity_id=item["key"], label=item["title"], value=item["similarity"])
+                    for item in rows
+                ],
+            ],
         )
     return execute
