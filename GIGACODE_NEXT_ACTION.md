@@ -149,12 +149,18 @@ Repeat:
 - task.aging DMS 3x exact against fresh timestamp oracle;
 - task.similar DMS-380 3x deterministic;
 - WMB-30000 attachments 3x exact;
+- **person-scoped attachments:** `Задачи Калачанова с вложениями в WMB` at least 5x;
+  - must resolve `Калачанов` through generic `member.resolve` to canonical REAL AS21 identity before attachment collection;
+  - no raw surname may be sent directly as the source assignee key;
+  - exact task/file parity against a fresh WMB+Kalachanov Oracle;
+  - no 180s/300s timeout and no generic V4 trajectory failure;
 - current sprint 3x;
 - no stale source-error text.
 
 ## Phase 6 — Browser C
 At minimum:
 - person+sprint multi-filter query;
+- **`Задачи Калачанова с вложениями в WMB`** — must complete with attachment table/result and exact backend parity;
 - aging DMS;
 - task.quality widget;
 - similar-task widget;
