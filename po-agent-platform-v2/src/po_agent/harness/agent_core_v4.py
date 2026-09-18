@@ -1104,6 +1104,21 @@ class AgentCoreV4Runtime:
                             warnings=["v4_ready_without_source_observation"],
                             latency_ms=(time.perf_counter() - started) * 1000,
                         )
+
+                    # A197 exposed a generic completion-gate hole: the planner
+                    # could emit READY after only a resolver observation even
+                    # though a loaded skill's declared completion contract was
+                    # still unmet. For trajectories where every loaded skill has
+                    # a typed completion contract, planner READY is advisory only:
+                    # reject it and give the planner another bounded turn until
+                    # the runtime contract is satisfied or the step budget fails
+                    # closed. Skills without contracts retain legacy READY
+                    # semantics.
+                    if loaded and all(skill_id in self._skill_contracts for skill_id in loaded):
+                        if not self._trajectory_completion_satisfied(tuple(loaded), observations):
+                            trajectory[-1]["ready_rejected"] = "unsatisfied_completion_contract"
+                            continue
+
                     return await self._completed_response(
                         trace_id=trace_id,
                         session_id=session_id,
