@@ -14,6 +14,8 @@ from ._task_live_handlers import (
     build_task_search_attachments,
     build_task_search_status,
     build_task_search_text,
+    build_task_aging,
+    build_task_similar,
 )
 
 CANONICAL_TASK_SKILL_IDS = (
@@ -64,7 +66,7 @@ CAPABILITIES = (
     CapabilitySpecV4("task.dependencies", "Inspect source-backed task dependency/link relationships.", {"task_key": "required task key"}),
     CapabilitySpecV4("task.history", "Read source-backed lifecycle/status history for one task.", {"task_key": "required task key"}),
     CapabilitySpecV4("task.time_in_status", "Calculate deterministic time intervals spent in task statuses from source history.", {"task_key": "required task key"}),
-    CapabilitySpecV4("task.aging", "Find active tasks at or above a deterministic age threshold.", {"threshold_days": "optional integer threshold"}),
+    CapabilitySpecV4("task.aging", "Find active tasks at or above a deterministic age threshold inside a bounded live source scope.", {"threshold_days": "optional integer threshold", "space": "required/strongly preferred grounded product space", "reference": "optional grounded person reference"}),
     CapabilitySpecV4("task.similar", "Find bounded similar/duplicate task candidates from the source-backed task corpus.", {"task_key": "required task key"}),
 )
 
@@ -118,7 +120,7 @@ SKILLS = (
     SkillSpecV4("task.dependencies", "Inspect dependencies/links of one task and whether dependencies are unresolved.", ("Call task.dependencies with the literal task key.",), ("task.dependencies",), completion=(CompletionRequirement("task.dependencies", data_keys=("task_key",), data_absent_keys=("found",)),)),
     SkillSpecV4("task.history", "Show lifecycle/status history of one task when the authoritative source exposes history.", ("Call task.history with the literal task key; if source history is unavailable, fail closed rather than invent a timeline.",), ("task.history",), completion=(CompletionRequirement("task.history", data_keys=("task_key",), data_absent_keys=("found",)),)),
     SkillSpecV4("task.time_in_status", "Calculate time spent in task statuses from authoritative history.", ("Call task.time_in_status with the literal task key; never infer durations without source timestamps.",), ("task.time_in_status",), completion=(CompletionRequirement("task.time_in_status", data_keys=("task_key",), data_absent_keys=("found",)),)),
-    SkillSpecV4("task.aging", "Find aging active tasks using a deterministic day threshold.", ("Call task.aging; pass threshold_days only when supplied by the user.",), ("task.aging",), completion=(CompletionRequirement("task.aging", data_keys=("count", "threshold_days")),)),
+    SkillSpecV4("task.aging", "Find aging active tasks using a deterministic day threshold.", ("Call task.aging with a grounded space or person scope; pass threshold_days only when supplied by the user. Never request an unscoped tenant scan.",), ("task.aging",), completion=(CompletionRequirement("task.aging", data_keys=("count", "threshold_days")),)),
     SkillSpecV4("task.similar", "Find bounded similar/duplicate candidates for one task.", ("Call task.similar with the literal task key and keep the declared deterministic similarity method visible.",), ("task.similar",), completion=(CompletionRequirement("task.similar", data_keys=("task_key", "method"), data_absent_keys=("found",)),)),
 )
 
@@ -135,8 +137,8 @@ BINDINGS = (
     CapabilityBindingV4("task.dependencies", legacy_capability_id="task.dependencies"),
     CapabilityBindingV4("task.history", legacy_capability_id="task.history"),
     CapabilityBindingV4("task.time_in_status", legacy_capability_id="task.time_in_status"),
-    CapabilityBindingV4("task.aging", legacy_capability_id="task.aging"),
-    CapabilityBindingV4("task.similar", legacy_capability_id="task.similar"),
+    CapabilityBindingV4("task.aging", handler_builder=build_task_aging),
+    CapabilityBindingV4("task.similar", handler_builder=build_task_similar),
 )
 
 UI = {
