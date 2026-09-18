@@ -14,9 +14,15 @@ from po_agent.harness.v4_plugin_registry import (
     V4PluginRegistry,
     V4SkillPlugin,
 )
+from po_agent.adapters.task_api import AS21SourceUnavailable
 from po_agent.harness.agent_core_v4 import CapabilitySpecV4, SkillSpecV4, V4NeedsClarification
 from po_agent.harness.contracts import CapabilityResult
-from po_agent.harness.v4_plugins._task_live_handlers import build_task_search_assignee
+from po_agent.harness.v4_plugins._task_live_handlers import (
+    build_task_aging,
+    build_task_search_assignee,
+    build_task_search_attachments,
+    build_task_similar,
+)
 
 
 @pytest.fixture(autouse=True)
