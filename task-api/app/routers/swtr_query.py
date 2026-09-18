@@ -79,6 +79,8 @@ async def _fetch_space_rows(
                             "fix_version_s",
                             "created_at",
                             "updated_at",
+                            "createdAt",
+                            "updatedAt",
                             "deadline",
                         ],
                         "query": query,
@@ -183,8 +185,13 @@ async def query_live_tasks(
         mapped["description"] = description or None
         # Preserve source timestamps needed by bounded aging/flow analytics.
         # Missing timestamps remain missing; the consumer must not fabricate them.
-        for field in ("created_at", "updated_at", "deadline"):
-            value = _row_text(raw, field)
+        timestamp_aliases = {
+            "created_at": ("created_at", "createdAt"),
+            "updated_at": ("updated_at", "updatedAt"),
+            "deadline": ("deadline", "dueDate", "due_date"),
+        }
+        for field, aliases in timestamp_aliases.items():
+            value = _row_text(raw, *aliases)
             if value:
                 mapped[field] = value
         mapped["source_data"] = source_data
