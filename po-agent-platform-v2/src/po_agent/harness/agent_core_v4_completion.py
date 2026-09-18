@@ -60,6 +60,35 @@ def _nonempty(value: Any) -> bool:
     return True
 
 
+def resolved_constraint_arguments(
+    observations: Iterable[Any],
+    allowed_arguments: Iterable[str],
+) -> dict[str, str]:
+    """Return uniquely resolved constraints that a capability can accept.
+
+    This is a generic typed bridge from resolver observations to downstream
+    capability arguments. It never parses query text and never guesses among
+    multiple values for the same role. A value is eligible only when:
+    - the role is explicitly present in the target capability schema; and
+    - exactly one canonical value for that role has been source-resolved.
+
+    The runtime may use these values to fill omitted optional arguments before
+    executing a terminal capability, eliminating stochastic planner dependence
+    while preserving fail-closed ambiguity semantics.
+    """
+    allowed = {str(item) for item in allowed_arguments}
+    grouped: dict[str, set[str]] = {}
+    for role, value in resolved_constraint_values(observations):
+        if role not in allowed:
+            continue
+        grouped.setdefault(role, set()).add(value)
+    return {
+        role: next(iter(values))
+        for role, values in grouped.items()
+        if len(values) == 1
+    }
+
+
 def resolved_constraint_values(observations: Iterable[Any]) -> list[tuple[str, str]]:
     """Typed user constraints resolved by resolver capabilities in the trajectory."""
     resolved: list[tuple[str, str]] = []
