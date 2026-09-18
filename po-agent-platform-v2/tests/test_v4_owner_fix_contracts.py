@@ -21,6 +21,8 @@ from po_agent.harness.v4_plugins._task_live_handlers import (
     build_task_aging,
     build_task_search_assignee,
     build_task_search_attachments,
+    build_task_search_status,
+    build_task_search_text,
     build_task_similar,
 )
 
@@ -350,4 +352,61 @@ async def test_person_scoped_attachment_search_uses_generic_member_resolver():
 
     assert runtime.resolve_calls == [{"reference": "Калачанов", "space": "WMB"}]
     assert result.data["assignee"] == "Калачанов"
+    assert result.data["source_assignee"] == "Kalachanov.V.V"
+
+
+class _PersonScopedRuntime:
+    def __init__(self, rows=None, resolved="Kalachanov.V.V"):
+        self.resolve_calls = []
+        self.resolved = resolved
+        self.adapter = _LiveTaskAdapterStub(rows or [])
+
+    async def _member_resolve(self, args):
+        self.resolve_calls.append(dict(args))
+        return CapabilityResult(
+            answer=f"Пользователь подтверждён: {self.resolved}.",
+            data={
+                "external_id": self.resolved,
+                "member_login": self.resolved,
+                "source": "REAL_AS21",
+            },
+        )
+
+
+@pytest.mark.asyncio
+async def test_person_scoped_text_search_uses_generic_member_resolver():
+    task = _task_stub("WMB-30000", space="WMB", title="Нужная фраза")
+    runtime = _PersonScopedRuntime([_live_row(task)])
+    result = await build_task_search_text(runtime)({
+        "phrase": "Нужная",
+        "reference": "Калачанов",
+        "space": "WMB",
+    })
+    assert runtime.resolve_calls == [{"reference": "Калачанов", "space": "WMB"}]
+    assert result.data["source_assignee"] == "Kalachanov.V.V"
+
+
+@pytest.mark.asyncio
+async def test_person_scoped_status_search_uses_generic_member_resolver():
+    task = _task_stub("WMB-30000", space="WMB")
+    runtime = _PersonScopedRuntime([_live_row(task)])
+    result = await build_task_search_status(runtime)({
+        "status": "open",
+        "reference": "Калачанов",
+        "space": "WMB",
+    })
+    assert runtime.resolve_calls == [{"reference": "Калачанов", "space": "WMB"}]
+    assert result.data["source_assignee"] == "Kalachanov.V.V"
+
+
+@pytest.mark.asyncio
+async def test_person_scoped_aging_uses_generic_member_resolver():
+    task = _task_stub("WMB-30000", space="WMB", age_days=12)
+    runtime = _PersonScopedRuntime([_live_row(task)])
+    result = await build_task_aging(runtime)({
+        "threshold_days": "7",
+        "reference": "Калачанов",
+        "space": "WMB",
+    })
+    assert runtime.resolve_calls == [{"reference": "Калачанов", "space": "WMB"}]
     assert result.data["source_assignee"] == "Kalachanov.V.V"
