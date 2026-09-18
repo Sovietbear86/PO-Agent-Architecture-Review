@@ -29,6 +29,7 @@ from .agent_core_v4_completion import (
     CompletionRequirement,
     SkillCompletionContract,
     all_loaded_skills_satisfied,
+    resolved_constraint_arguments,
 )
 from .contracts import CapabilityResult, Evidence, HarnessRequest, HarnessResponse, ResponseStatus
 from .entity_grounding import TeamDirectory
@@ -1143,6 +1144,25 @@ class AgentCoreV4Runtime:
                     key: self._resolve_observation_reference(value, observations)
                     for key, value in raw_args.items()
                 }
+
+                # Generic deterministic argument completion: when prior typed
+                # resolver observations have already established a unique
+                # canonical user constraint (space/assignee/sprint/release) and
+                # the target capability schema explicitly accepts that role,
+                # fill only omitted arguments from the typed trajectory state.
+                #
+                # This removes stochastic planner dependence without parsing the
+                # query, guessing entities or adding skill-specific branches.
+                # Ambiguous/multiple values are never injected.
+                spec = self._capability_specs.get(capability_id)
+                if spec is not None:
+                    inferred_args = resolved_constraint_arguments(
+                        observations,
+                        spec.arguments.keys(),
+                    )
+                    for key, value in inferred_args.items():
+                        resolved_args.setdefault(key, value)
+
                 result = await self._handlers[capability_id](resolved_args)
                 full_results.append({"step": len(observations) + 1, "capability_id": capability_id, "arguments": resolved_args, "answer": result.answer, "data": result.data})
                 all_evidence.extend(result.evidence)
