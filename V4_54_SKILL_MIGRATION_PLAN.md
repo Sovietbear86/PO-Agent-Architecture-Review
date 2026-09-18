@@ -172,11 +172,11 @@ A wave is GREEN only after owner implementation **and** independent GigaCode QA 
 
 ## 5. Full-regression checkpoint before Wave S
 
-Before implementing #23–32, run **A196 full existing-catalog regression** against current HEAD.
+Before implementing #23–32, run a clean **full existing-catalog regression checkpoint** against current HEAD. A196 found bounded D1/D2 implementation defects; after owner remediation, A197 is the mandatory re-gate.
 
 Scope is broader than the canonical 20 Task skills: it includes every currently exposed V4 skill in `builtin.core.a188` and `builtin.catalog.tasks`, including helper/composition skills (`tasks.search`, `tasks.lookup_then_assignee`, `sprints.discover`, `sprints.list`) and already-present `sprint.health`, `sprint.current`, `release.health`.
 
-A196 must prove:
+A197 must prove:
 - every exposed skill can be loaded/selected and terminates according to its contract;
 - every factual skill uses REAL AS21 only;
 - source-supported factual collections match fresh Oracle B exactly;
@@ -186,7 +186,7 @@ A196 must prove:
 - plugin registry/dummy-55 remains GREEN;
 - no regression to A188/A190/A191/A195D.
 
-Only after A196 GREEN may owner implementation of Wave S #23–32 begin.
+Only after A197 GREEN may owner implementation of Wave S #23–32 begin.
 
 ## 6. Current execution position
 
@@ -196,11 +196,13 @@ A190_PLUGIN_GATE = GREEN
 A191_BROWSER_UI = GREEN
 A195D_UNIVERSAL_IDENTITY = GREEN
 WAVE_T_TASK_1_20 = GREEN / RE-CLOSED
+A196_FULL_EXISTING_CATALOG = RED_D1_D2_BOUNDED_IMPLEMENTATION_DEFECTS
+OWNER_D1_D2_FIX = IMPLEMENTED_PENDING_A197
 V4_LIVE_SOURCE_ONLY_INVARIANT = LOCKED
 V4_IDENTITY_SOURCE_AUTHORITY = LOCKED
 V4_CATALOG_DENOMINATOR = 54_LOCKED
-CURRENT_GATE = A196_FULL_EXISTING_CATALOG_REGRESSION
-NEXT_AFTER_A196_GREEN = OWNER_WAVE_S_23_32
+CURRENT_GATE = A197_FULL_EXISTING_CATALOG_REGRESSION_REGATE
+NEXT_AFTER_A197_GREEN = OWNER_WAVE_S_23_32
 ALREADY_PRESENT_WAVE_S = #21 sprint.health, #22 sprint.current
 THEN = M_TEAM_33_40 -> R/P_RELEASE_PORTFOLIO_41_48 -> X_ADDITIONS_49_54
 FULL_54_ABC = NOT_DONE
