@@ -282,7 +282,13 @@ def build_task_aging(runtime: Any):
         if not space and not assignee:
             raise AS21SourceUnavailable("task.aging requires a bounded space or assignee on the live source path")
         tasks = await _live_rows(runtime, space=space, assignee=assignee)
-        active = [task for task in tasks if task.is_open and task.age_days >= threshold_days]
+        with_source_age = [
+            task for task in tasks
+            if bool((getattr(task, "source_data", None) or {}).get("_canonical_created_at_from_source"))
+        ]
+        if tasks and not with_source_age:
+            raise AS21SourceUnavailable("REAL AS21 task rows do not expose source creation timestamps required for task.aging")
+        active = [task for task in with_source_age if task.is_open and task.age_days >= threshold_days]
         active.sort(key=lambda task: task.age_days, reverse=True)
         rows = [
             {
