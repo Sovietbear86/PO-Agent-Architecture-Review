@@ -262,7 +262,7 @@ def _task_stub(key, *, space="DMS", age_days=10, is_open=True, title=None, descr
     task.sprint_id = None
     task.release_id = None
     task.source = "swtr"
-    task.source_data = {"swtr_space": space}
+    task.source_data = {"swtr_space": space, "_canonical_created_at_from_source": True}
     task.attachments = []
     task.age_days = age_days
     task.is_open = is_open
@@ -314,3 +314,12 @@ async def test_attachment_search_fails_closed_before_unbounded_n_plus_one():
     with pytest.raises(AS21SourceUnavailable):
         await build_task_search_attachments(runtime)({"space": "WMB", "attachment_type": "excel"})
     assert adapter.attachment_calls == 0
+
+
+@pytest.mark.asyncio
+async def test_aging_rejects_adapter_fallback_timestamps():
+    task = _task_stub("DMS-2", age_days=0)
+    task.source_data["_canonical_created_at_from_source"] = False
+    runtime = type("Runtime", (), {"adapter": _LiveTaskAdapterStub([_live_row(task)])})()
+    with pytest.raises(AS21SourceUnavailable):
+        await build_task_aging(runtime)({"space": "DMS", "threshold_days": "7"})
