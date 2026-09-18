@@ -378,8 +378,15 @@ class TaskApiAS21Adapter(AS21Adapter):
         title = data.get("title")
         if not isinstance(title, str) or not title.strip():
             return None
-        created = _parse_datetime(data.get("created_at")) or datetime.now()
-        updated = _parse_datetime(data.get("updated_at")) or created
+        source_created = _parse_datetime(data.get("created_at"))
+        source_updated = _parse_datetime(data.get("updated_at"))
+        created = source_created or datetime.now()
+        updated = source_updated or created
+        # Preserve provenance so age/flow analytics can fail closed instead of
+        # interpreting an adapter fallback timestamp as a source fact.
+        source_data = dict(source_data)
+        source_data["_canonical_created_at_from_source"] = source_created is not None
+        source_data["_canonical_updated_at_from_source"] = source_updated is not None
         project_space = source_data.get("swtr_space") if isinstance(source_data.get("swtr_space"), str) else None
         sprint_id = _identifier(data.get("sprint")) or _identifier(attrs.get("scrum_board_plugin_sprint"))
         release_id = _identifier(attrs.get("fix_version_s"))
