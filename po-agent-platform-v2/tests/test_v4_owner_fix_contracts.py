@@ -323,3 +323,31 @@ async def test_aging_rejects_adapter_fallback_timestamps():
     runtime = type("Runtime", (), {"adapter": _LiveTaskAdapterStub([_live_row(task)])})()
     with pytest.raises(AS21SourceUnavailable):
         await build_task_aging(runtime)({"space": "DMS", "threshold_days": "7"})
+
+
+@pytest.mark.asyncio
+async def test_person_scoped_attachment_search_uses_generic_member_resolver():
+    class AttachmentRuntime:
+        def __init__(self):
+            self.resolve_calls = []
+            task = _task_stub("WMB-30000", space="WMB")
+            self.adapter = _LiveTaskAdapterStub([_live_row(task)])
+
+        async def _member_resolve(self, args):
+            self.resolve_calls.append(dict(args))
+            return CapabilityResult(
+                answer="Пользователь подтверждён: Kalachanov.V.V.",
+                data={
+                    "external_id": "Kalachanov.V.V",
+                    "member_login": "Kalachanov.V.V",
+                    "source": "REAL_AS21",
+                },
+            )
+
+    runtime = AttachmentRuntime()
+    handler = build_task_search_attachments(runtime)
+    result = await handler({"reference": "Калачанов", "space": "WMB"})
+
+    assert runtime.resolve_calls == [{"reference": "Калачанов", "space": "WMB"}]
+    assert result.data["assignee"] == "Калачанов"
+    assert result.data["source_assignee"] == "Kalachanov.V.V"
