@@ -209,3 +209,102 @@ def test_invalid_clarification_option_does_not_replan_as_standalone_query():
     assert early["status"] == "NEEDS_CLARIFICATION"
     assert early["options"] == ["DMS", "WMB"]
     assert early["warnings"] == ["invalid_clarification_option"]
+
+
+class _LiveTaskAdapterStub:
+    def __init__(self, rows):
+        self.rows = rows
+        self.attachment_calls = 0
+
+    async def _get_resilient(self, path, params=None):
+        assert path == "/api/v1/swtr-read/task-query"
+        space = (params or {}).get("space")
+        phrase = (params or {}).get("phrase")
+        rows = list(self.rows)
+        if space:
+            rows = [row for row in rows if row.get("source_data", {}).get("swtr_space") == space]
+        if phrase:
+            needle = str(phrase).casefold()
+            rows = [row for row in rows if needle in str(row.get("source_id", "")).casefold() or needle in str(row.get("title", "")).casefold()]
+        return type("Response", (), {"json": lambda self: {"tasks": rows}})()
+
+    @staticmethod
+    def _map(row):
+        return row.get("_task")
+
+    async def get_attachment_metadata(self, task_key):
+        self.attachment_calls += 1
+        return []
+
+
+def _task_stub(key, *, space="DMS", age_days=10, is_open=True, title=None, description=""):
+    status = type("Status", (), {"value": "Open"})()
+    status_category = type("StatusCategory", (), {"value": "in_progress"})()
+    priority = type("Priority", (), {"value": "medium"})()
+    task = type("Task", (), {})()
+    task.key = key
+    task.id = key
+    task.title = title or key
+    task.description = description
+    task.status = status
+    task.status_category = status_category
+    task.assignee = None
+    task.assignee_id = None
+    task.assignee_login = None
+    task.priority = priority
+    task.project_space = space
+    task.sprint_id = None
+    task.release_id = None
+    task.source = "swtr"
+    task.source_data = {"swtr_space": space}
+    task.attachments = []
+    task.age_days = age_days
+    task.is_open = is_open
+    return task
+
+
+def _live_row(task):
+    return {
+        "source_id": task.key,
+        "title": task.title,
+        "description": task.description,
+        "source_data": {"swtr_space": task.project_space},
+        "_task": task,
+    }
+
+
+@pytest.mark.asyncio
+async def test_aging_uses_bounded_live_space_collection():
+    rows = [_live_row(_task_stub("DMS-1", age_days=12)), _live_row(_task_stub("WMB-1", space="WMB", age_days=30))]
+    runtime = type("Runtime", (), {"adapter": _LiveTaskAdapterStub(rows)})()
+    result = await build_task_aging(runtime)({"space": "DMS", "threshold_days": "7"})
+    assert result.data["count"] == 1
+    assert [item["key"] for item in result.data["tasks"]] == ["DMS-1"]
+
+
+@pytest.mark.asyncio
+async def test_aging_fails_closed_without_bounded_scope():
+    runtime = type("Runtime", (), {"adapter": _LiveTaskAdapterStub([])})()
+    with pytest.raises(AS21SourceUnavailable):
+        await build_task_aging(runtime)({"threshold_days": "7"})
+
+
+@pytest.mark.asyncio
+async def test_similar_limits_candidate_corpus_to_source_task_space():
+    source = _task_stub("DMS-380", title="OAuth auth", description="login token")
+    near = _task_stub("DMS-381", title="OAuth token", description="login")
+    other = _task_stub("WMB-1", space="WMB", title="OAuth token", description="login")
+    runtime = type("Runtime", (), {"adapter": _LiveTaskAdapterStub([_live_row(source), _live_row(near), _live_row(other)])})()
+    result = await build_task_similar(runtime)({"task_key": "DMS-380"})
+    assert [item["key"] for item in result.data["matches"]] == ["DMS-381"]
+    assert result.data["space"] == "DMS"
+
+
+@pytest.mark.asyncio
+async def test_attachment_search_fails_closed_before_unbounded_n_plus_one():
+    tasks = [_task_stub(f"WMB-{i}", space="WMB") for i in range(1, 252)]
+    adapter = _LiveTaskAdapterStub([_live_row(task) for task in tasks])
+    runtime = type("Runtime", (), {"adapter": adapter})()
+    with pytest.raises(AS21SourceUnavailable):
+        await build_task_search_attachments(runtime)({"space": "WMB", "attachment_type": "excel"})
+    assert adapter.attachment_calls == 0
