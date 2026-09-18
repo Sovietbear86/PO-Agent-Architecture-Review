@@ -65,13 +65,19 @@ def test_task_wave_plus_a191_represents_all_twenty_canonical_task_rows():
 
 
 def test_task_wave_capabilities_bind_only_through_registry_contract():
-    # Canonical task skills intentionally compose capabilities from the core
-    # plugin, so validate binding against the complete discovered registry
-    # rather than constructing an invalid task-plugin-only registry.
-    handlers = discover_v4_plugins().bind_handlers(_LegacyRuntimeStub())
-    expected = set(EXPECTED_WAVE_T_SKILLS)
-    assert expected <= set(handlers)
-    assert all(callable(handlers[capability_id]) for capability_id in expected)
+    # Canonical task skills may be composite: skill ids are not handler ids.
+    # Validate that every capability referenced by every Wave-T skill is bound
+    # by the complete registry.
+    registry = discover_v4_plugins()
+    handlers = registry.bind_handlers(_LegacyRuntimeStub())
+    by_id = {skill.id: skill for skill in registry.skills()}
+    referenced = {
+        capability_id
+        for skill_id in EXPECTED_WAVE_T_SKILLS
+        for capability_id in by_id[skill_id].capabilities
+    }
+    assert referenced <= set(handlers)
+    assert all(callable(handlers[capability_id]) for capability_id in referenced)
 
 
 def test_specialized_attachment_bindings_enforce_fixed_type():
