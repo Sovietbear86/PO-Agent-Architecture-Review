@@ -88,6 +88,26 @@ async def _resolve_assignee_identity(runtime: Any, reference: str, *, space: str
     return external_id
 
 
+async def _source_assignee_from_args(
+    runtime: Any,
+    args: dict[str, str],
+    *,
+    space: str | None = None,
+) -> tuple[str | None, str | None]:
+    """Return (user_reference, canonical_source_identity) for any person scope.
+
+    All plugin-owned person-scoped task capabilities share this seam. A natural
+    name, inflected form or even a planner-provided assignee token is confirmed
+    through the generic governed member resolver before it reaches a source
+    route that expects a canonical identity. Team membership is never a
+    population boundary.
+    """
+    reference = str(args.get("reference") or args.get("assignee") or "").strip() or None
+    if not reference:
+        return None, None
+    return reference, await _resolve_assignee_identity(runtime, reference, space=space)
+
+
 def build_task_lookup(runtime: Any):
     """Exact live lookup with canonical identity + attachments in the observation."""
     async def execute(args: dict[str, str]) -> CapabilityResult:
@@ -137,12 +157,12 @@ def build_task_search_text(runtime: Any):
         if not phrase:
             raise ValueError("phrase is required")
         space = str(args.get("space") or "").strip() or None
-        assignee = str(args.get("assignee") or args.get("reference") or "").strip() or None
-        tasks = await _live_rows(runtime, phrase=phrase, space=space, assignee=assignee)
+        assignee, source_assignee = await _source_assignee_from_args(runtime, args, space=space)
+        tasks = await _live_rows(runtime, phrase=phrase, space=space, assignee=source_assignee)
         rows = [_task_dict(task) for task in tasks]
         return CapabilityResult(
             answer=f"Найдено задач по фразе «{phrase}»: {len(rows)}.",
-            data={"count": len(rows), "tasks": rows, "task_keys": [row["key"] for row in rows], "phrase": phrase, "source": "REAL_AS21"},
+            data={"count": len(rows), "tasks": rows, "task_keys": [row["key"] for row in rows], "phrase": phrase, "assignee": assignee, "source_assignee": source_assignee, "source": "REAL_AS21"},
             evidence=[Evidence(type="task", source="as21", entity_id=row["key"], label=row["title"], value=row["status"]) for row in rows],
         )
     return execute
@@ -188,8 +208,8 @@ def build_task_search_status(runtime: Any):
         if not status:
             raise ValueError("status is required")
         space = str(args.get("space") or "").strip() or None
-        assignee = str(args.get("assignee") or args.get("reference") or "").strip() or None
-        tasks = await _live_rows(runtime, space=space, assignee=assignee)
+        assignee, source_assignee = await _source_assignee_from_args(runtime, args, space=space)
+        tasks = await _live_rows(runtime, space=space, assignee=source_assignee)
         if status in {"not_completed", "open", "active", "открытые", "незавершенные", "незавершённые"}:
             tasks = [task for task in tasks if task.is_open]
             normalized = "not_completed"
@@ -202,7 +222,7 @@ def build_task_search_status(runtime: Any):
         rows = [_task_dict(task) for task in tasks]
         return CapabilityResult(
             answer=f"Найдено задач по состоянию «{normalized}»: {len(rows)}.",
-            data={"count": len(rows), "tasks": rows, "task_keys": [row["key"] for row in rows], "status": normalized, "space": space, "source": "REAL_AS21"},
+            data={"count": len(rows), "tasks": rows, "task_keys": [row["key"] for row in rows], "status": normalized, "space": space, "assignee": assignee, "source_assignee": source_assignee, "source": "REAL_AS21"},
             evidence=[Evidence(type="task", source="as21", entity_id=row["key"], label=row["title"], value=row["status"]) for row in rows],
         )
     return execute
@@ -288,10 +308,10 @@ def build_task_aging(runtime: Any):
         if threshold_days < 0:
             raise ValueError("threshold_days must be >= 0")
         space = str(args.get("space") or "").strip().upper() or None
-        assignee = str(args.get("assignee") or args.get("reference") or "").strip() or None
+        assignee, source_assignee = await _source_assignee_from_args(runtime, args, space=space)
         if not space and not assignee:
             raise AS21SourceUnavailable("task.aging requires a bounded space or assignee on the live source path")
-        tasks = await _live_rows(runtime, space=space, assignee=assignee)
+        tasks = await _live_rows(runtime, space=space, assignee=source_assignee)
         with_source_age = [
             task for task in tasks
             if bool((getattr(task, "source_data", None) or {}).get("_canonical_created_at_from_source"))
@@ -318,6 +338,7 @@ def build_task_aging(runtime: Any):
                 "tasks": rows,
                 "space": space,
                 "assignee": assignee,
+                "source_assignee": source_assignee,
                 "source": "REAL_AS21",
             },
             evidence=[
