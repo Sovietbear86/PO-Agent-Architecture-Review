@@ -181,6 +181,12 @@ async def query_live_tasks(
         source_data = dict(source_data)
         source_data["live_task_query_route"] = True
         mapped["description"] = description or None
+        # Preserve source timestamps needed by bounded aging/flow analytics.
+        # Missing timestamps remain missing; the consumer must not fabricate them.
+        for field in ("created_at", "updated_at", "deadline"):
+            value = _row_text(raw, field)
+            if value:
+                mapped[field] = value
         mapped["source_data"] = source_data
         seen.add(code)
         canonical.append(mapped)
