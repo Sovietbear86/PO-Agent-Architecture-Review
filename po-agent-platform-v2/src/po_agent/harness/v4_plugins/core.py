@@ -117,6 +117,7 @@ UI = {
     "sprints.list": UIContractV4("sprint_collection", preferred_widget="sprint_list", required_fields=("sprints",)),
     "sprints.discover": UIContractV4("sprint", preferred_widget="sprint_summary", required_fields=("sprint_id",)),
     "task.lookup": UIContractV4("task", preferred_widget="task_detail", required_fields=("task",)),
+    "task.quality": UIContractV4("analysis", preferred_widget="task_analysis", required_fields=("task_key", "score")),
     "sprint.current": UIContractV4("sprint", preferred_widget="sprint_summary"),
     "sprint.health": UIContractV4("analysis", preferred_widget="sprint_health"),
     "release.health": UIContractV4("analysis", preferred_widget="release_health"),
