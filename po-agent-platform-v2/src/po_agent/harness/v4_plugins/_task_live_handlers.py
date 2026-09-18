@@ -246,15 +246,9 @@ def build_task_search_attachments(runtime: Any):
             task = await runtime.adapter.get_task(task_key)
             candidates = [task] if task is not None else []
         else:
-            # Person-scoped attachment search must use the same universal
-            # governed identity contract as task.search_assignee. Raw surnames
-            # or inflected names must never bypass member.resolve and go
-            # straight into a source route that expects a canonical identity.
-            source_assignee = (
-                await _resolve_assignee_identity(runtime, assignee, space=space)
-                if assignee
-                else None
-            )
+            # Reuse the same governed identity seam as every other person-scoped
+            # task capability.
+            assignee, source_assignee = await _source_assignee_from_args(runtime, args, space=space)
             candidates = await _live_rows(runtime, space=space, assignee=source_assignee)
 
         # A196 D2: 2k+ WMB tasks caused a 300s N+1 timeout. Until the source
