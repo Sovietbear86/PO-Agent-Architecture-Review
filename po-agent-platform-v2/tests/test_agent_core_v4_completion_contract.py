@@ -474,14 +474,14 @@ def test_person_collection_completes_at_search_with_exact_keys() -> None:
     assert llm.planner_calls == 3
 
 
-def test_missing_resolved_constraint_defers_to_planner_and_then_completes() -> None:
-    # The first search omits the resolved space constraint; the planner must
-    # get another turn (normal model behavior retained), and only the covering
-    # search may fire the runtime completion.
+def test_missing_resolved_constraint_is_injected_before_terminal_call() -> None:
+    # The planner omits the already-resolved space on task.search. The runtime
+    # deterministically fills the unique typed constraint because task.search
+    # explicitly accepts a space argument. No extra stochastic repair turn is
+    # required.
     person_tasks = [_task(f"ALPHA-{301 + i}", ALPHA_LOGIN, space="DMS") for i in range(2)]
     adapter = FakeV4Adapter(
         search_results={
-            f'assignee = "{ALPHA_LOGIN}"': person_tasks,
             f'assignee = "{ALPHA_LOGIN}" AND project = "DMS"': person_tasks,
         }
     )
@@ -490,16 +490,16 @@ def test_missing_resolved_constraint_defers_to_planner_and_then_completes() -> N
         _decision("call", capability_id="space.resolve", arguments={"reference": "DMS"}),
         _decision("call", capability_id="member.resolve", arguments={"reference": "Альфа"}),
         _decision("call", capability_id="task.search", arguments={"assignee": ALPHA_LOGIN}),
-        _decision("call", capability_id="task.search", arguments={"assignee": ALPHA_LOGIN, "space": "DMS"}),
     ])
     runtime = _robust_runtime(adapter, llm)
     response = _run(runtime, "Открытые задачи Альфы в DMS")
 
     assert response.status is ResponseStatus.COMPLETED
     assert response.data["_agent_core_v4"]["completion"] == "runtime_contract"
-    # load_skill + space.resolve + member.resolve + search + covering search.
-    assert llm.planner_calls == 5
-    last_search = response.data["results"][-1]["data"]
+    assert llm.planner_calls == 4
+    last_result = response.data["results"][-1]
+    assert last_result["arguments"]["space"] == "DMS"
+    last_search = last_result["data"]
     assert last_search["count"] == 2
     assert last_search["filters"]["space"] == "DMS"
 
