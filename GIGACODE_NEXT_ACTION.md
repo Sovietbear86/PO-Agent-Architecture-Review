@@ -1,87 +1,54 @@
 # GigaCode — Current Action
 
 ## Status
-`ACTIVE_QA_ASSIGNMENT_196_V4_FULL_EXISTING_CATALOG_REGRESSION`
+`ACTIVE_QA_ASSIGNMENT_197_V4_EXISTING_CATALOG_FULL_REGRESSION_REGATE`
 
 ## Role lock
 GigaCode is **QA/adversarial tester + service operator only**.
 
-Do NOT implement, refactor, fix, improve or rewrite production code, frontend, plugins, tests, prompts, adapters, config or architecture docs. Do not start Wave S implementation. If a defect is found, classify it, report it and stop production changes.
+Do NOT modify production/frontend/plugin/test/config/architecture code. Do not start Wave S. If a defect is found, classify/report only.
 
-## Why this gate exists
-A195D restored universal person resolution and returned `AGENT_CORE_V4_TASK_WAVE_GREEN`. Before adding the next skill batch, the owner requires one **full regression of every skill currently exposed by the V4 plugin catalog**, not merely a retained sample.
+## Context
+A196 executed all 27 currently exposed V4 skills and found:
+- 18 GREEN;
+- 4 SOURCE_CONDITIONAL;
+- 5 RED caused by two bounded implementation classes:
+  1. `task.aging` and `task.similar` used unscoped tenant-wide scans;
+  2. `task.search_excel/pdf/msg` performed unbounded per-task attachment N+1 scans for space-wide requests.
 
-This is the new clean checkpoint before Wave S #23–32.
+Owner fixes since A196:
+- `60933ca3687df8038bac179342b8aa23720237ea` — bounded live handlers for aging/similar + bounded attachment fan-out;
+- `01cc11df7ea63459b65f449598d5c003beafe9cd` — plugin bindings moved aging/similar off legacy tenant-wide handlers;
+- `ff02bd6c89d9cd73c37da304b4aa94aa5027001a` — live task-query preserves source timestamps for aging/flow analytics;
+- `088d6f74ec1594cc84190956bc38c671ef3373d9` — task.quality UIContract;
+- `eb13bfe35a600a45299e57145173f32eb6e44b33`, `f01f27ffd648a3079798ee797923b752bcb8bed4` — refreshed/focused tests.
 
-Permanent rollback remains:
+Important attachment semantics:
+- exact-task and bounded person-scoped attachment queries remain supported;
+- if a broad space-only query exceeds the bounded fan-out limit and AS21 exposes no batch attachment-search surface, the handler must fail closed quickly as SOURCE_UNAVAILABLE/SOURCE_CONDITIONAL;
+- it must never launch thousands of per-task file calls or fabricate a partial/empty complete result.
+
+Permanent rollback:
 `0f03fca14fe078c86dca961362915e10cc985401` / `checkpoint/v4-poc-green-a188`.
 
 ## Mission
-Prove or reject the complete currently deployed V4 catalog on fresh REAL AS21 and Browser C, with no production edits.
+Re-run the **complete 27-skill regression**, prove that A196 D1/D2 are closed or correctly source-conditional, and reject any new regression before Wave S.
 
-The current plugin catalog contains **27 unique exposed skills** across `builtin.core.a188` and `builtin.catalog.tasks`.
-
-### Core/helper skills (12)
-1. `tasks.search`
-2. `sprints.discover`
-3. `sprints.list`
-4. `tasks.lookup_then_assignee`
-5. `task.lookup`
-6. `task.summary`
-7. `task.quality`
-8. `task.acceptance`
-9. `task.blockers`
-10. `sprint.health`
-11. `sprint.current`
-12. `release.health`
-
-### Task catalog additions (15)
-13. `task.search_text`
-14. `task.search_attachments`
-15. `task.search_excel`
-16. `task.search_pdf`
-17. `task.search_msg`
-18. `task.search_assignee`
-19. `task.search_status`
-20. `task.search_sprint`
-21. `task.search_release`
-22. `task.missing_requirements`
-23. `task.dependencies`
-24. `task.history`
-25. `task.time_in_status`
-26. `task.aging`
-27. `task.similar`
-
-No exposed skill may be silently omitted. If runtime discovery returns a different current set, record the exact set and classify the discrepancy before proceeding.
-
-## Phase 0 — start, inventory and architecture audit
+## Phase 0 — start / architecture audit
 1. `git pull --ff-only origin feat/core8-real-query-hardening-v2`
-2. Record exact `START_HEAD`; tracked worktree must be clean.
-3. Read:
-   - `V4_54_SKILL_MIGRATION_PLAN.md`
-   - `V4_DOD_LOCK.md`
-   - A188, A190, A191 reports
-   - A195D report `AGENT_CORE_V4_UNIVERSAL_IDENTITY_RESOLVER_REGATE_195D.md`
-4. Programmatically enumerate the current plugin registry and capture:
-   - plugin ids;
-   - every skill id;
-   - capability ids per skill;
-   - completion contract;
-   - UIContract if present.
-5. Confirm the discovered unique skill set equals the expected 27 above, or explain the exact mismatch.
-6. Static invariants:
-   - Hermes/plugin architecture intact;
-   - no person/surname/entity-specific production routing;
-   - team directory is hint only, never searchable population;
-   - no local `/api/v1/tasks`, SQLite/snapshot/fake/frozen source truth;
-   - `semantic_prepass_used=false` production path remains available;
-   - no new planner/completion business-skill branches since A195D owner fixes.
+2. Record exact START_HEAD; tracked worktree clean.
+3. Read A196 report + owner diff after A196.
+4. Confirm:
+   - no Agent Core/planner/completion business-skill edit;
+   - aging/similar fixes live in plugin/source boundary;
+   - attachment wide-query guard is bounded/fail-closed, not timeout masking;
+   - zero local `/api/v1/tasks` truth;
+   - Hermes/plugin dummy-55 extensibility remains intact.
 
-Any architecture violation => RED. Do not fix it.
+Any violation => RED.
 
-## Phase 1 — build and automated regression suites
-Run the relevant full V4 test surface, not only focused tests. At minimum:
-
+## Phase 1 — automated suites
+Run:
 ```bash
 cd po-agent-platform-v2
 source .venv/bin/activate
@@ -89,169 +56,136 @@ python -m pytest tests/test_agent_core_v4*.py -v
 python -m pytest tests/test_v4*.py -v
 ```
 
-Also run Task API tests relevant to current V4 live reads, identity, task query, sprint reads and attachments.
+Run relevant Task API tests too.
 
-Record pass/fail/skip totals exactly. Pre-existing failures may be classified only with evidence that they predate START_HEAD and are unrelated; any newly introduced failure is RED.
+Specially confirm:
+- refreshed task-catalog tests no longer assert stale pre-A195D capability composition;
+- new bounded aging/similar/attachment tests pass;
+- task.quality UI contract is registered.
 
-## Phase 2 — fresh REAL AS21 Oracle pack
-Build a fresh independent Oracle B immediately before agent runs. Agent output is never Oracle.
+Record exact totals.
 
-At minimum capture source-backed ground truth for:
-- one exact task with rich data and known assignee (prefer DMS-380 if still present);
-- one task with attachments (prefer WMB-30000 if still present);
-- one known person in DMS (Garanin/Zhdanov or source-equivalent current person);
-- one non-team person and one ambiguous person from REAL AS21;
-- DMS current sprint;
-- September-period DMS sprint(s);
-- all active DMS sprints;
-- complete task key set for one sprint;
-- open-task set for DMS;
-- one release with source-visible tasks if available;
-- attachment metadata and file types available in the source;
-- task history/dependency/timestamp source availability for rows that may be SOURCE_CONDITIONAL.
+## Phase 2 — fresh REAL AS21 Oracle
+Refresh the same Oracle classes as A196:
+- DMS-380 + assignee;
+- WMB-30000 and known Excel/PDF attachment tasks;
+- DMS current sprint and complete sprint task set;
+- DMS open set;
+- identity cases from A195D;
+- release/history source availability;
+- source timestamps availability for aging.
 
-Record source drift rather than reusing old counts.
+Do not reuse A196 counts without refresh.
 
-## Phase 3 — complete 27-skill API matrix
-Use public `POST /api/v1/query`, fresh sessions, concurrency 1.
+## Phase 3 — mandatory D1/D2 focused re-gate
 
-Every one of the 27 skills must be deliberately exercised by at least one natural-language request and its actual loaded skill must be recorded. Do not infer coverage from unit tests.
-
-For each row record:
-- natural-language query;
-- expected skill id;
-- actual loaded skill id(s);
-- status;
-- capability trajectory;
-- completion mode/contract;
-- source route provenance;
-- Oracle parity when factual;
-- evidence count/keys;
-- `semantic_prepass_used`;
-- UIContract metadata;
-- classification: `GREEN_SOURCE_SUPPORTED`, `SOURCE_CONDITIONAL`, or `RED`.
-
-### Mandatory canonical scenarios
-Use these or source-equivalent current cases while still covering all 27 skills:
-
-- exact task lookup;
-- grounded task summary;
-- task quality;
-- acceptance/testability;
-- blockers;
-- multi-filter `tasks.search` person+sprint/space;
-- lookup then assignee tasks;
-- period sprint discovery;
-- active sprint list;
-- current sprint;
-- sprint health;
-- release health;
-- text search with a phrase independently proven in source;
-- all attachments for an exact task;
-- Excel, PDF and MSG attachment searches (if source lacks a type, prove SOURCE_CONDITIONAL/REAL_EMPTY from live source, never local data);
-- assignee search for team and non-team identity;
-- status search;
-- sprint task search;
-- release task search;
-- missing requirements;
-- dependencies;
-- history;
-- time in status;
-- aging;
-- similar/duplicate discovery.
-
-### Source-conditional semantics
-A skill may remain `SOURCE_CONDITIONAL` only when:
-1. the skill is actually reachable/loaded;
-2. its handler follows the correct live route;
-3. the authoritative source contract/data is proven unavailable or insufficient;
-4. it fails closed or returns a source-proven empty state;
-5. it does not fabricate success or silently use local data.
-
-A timeout caused by an avoidable implementation defect is RED, not SOURCE_CONDITIONAL.
-
-## Phase 4 — identity and clarification adversarial regression
-Retain A195D behavior as a hard gate:
-- inflected full-name team member -> exact factual completion;
-- non-team unique canonical identity -> factual completion;
-- ambiguous real surname -> `NEEDS_CLARIFICATION` with source candidates;
-- choose one clarification candidate -> same-session successful continuation;
-- invented person -> meaningful safe clarification/not-found;
-- no `AS21 вернул некорректные данные` for ordinary ambiguity/not-found;
-- no roster-only population restriction.
-
-Also repeat sprint clarification continuation (`задачи Гаранина в сентябрьском спринте` -> choose DMS or current equivalent) to ensure generic session continuation still works.
-
-## Phase 5 — stability / repeated representative cases
-Because earlier POC gates exposed stochastic planner regressions, repeat at minimum:
-- DMS-380 lookup -> assignee -> tasks: 5x;
-- one full-name assignee query: 5x;
-- one person+sprint multi-filter query: 5x;
-- current sprint query: 3x;
-- one attachment query: 3x.
-
-Require factual parity on every completed run. Any recurrent planner misrouting must be quantified and classified; do not hide it behind a single passing run.
-
-## Phase 6 — Browser C full result-shape regression
-Use the real UI. Browser C must cover every **currently used distinct UI result shape/widget**, and all high-risk flows.
-
-At minimum:
-- task detail;
-- task table/collection;
-- attachment table;
-- task analysis;
-- task dependencies;
-- task history/timeline if source-supported;
-- similar-task list if source-supported;
-- sprint summary;
-- sprint list;
-- sprint health;
-- release health;
-- clarification options + click continuation;
-- safe zero/not-found/source-unavailable state.
-
-For every browser case capture backend status, UI state/widget, evidence rendering and whether the UI preserves the factual count/key set from backend.
-
-Also confirm no pre-query/runtime confusion causes the UI to silently execute Legacy Harness for the tested query. If the readiness-label issue remains cosmetic only, document it; if a query actually executes legacy path, RED.
-
-## Phase 7 — plugin/extensibility regression
-Re-run the A190 plugin gate/dummy-55 acceptance.
-
+### D1 task.aging
+Run at least 3x:
+- `Застоявшиеся открытые задачи в DMS`
 Require:
-`plugin added -> discovery -> compact catalog -> load/select -> capability executes -> completion contract terminates -> UIContract propagated`
+- actual loaded skill `task.aging`;
+- bounded live `task-query?space=DMS` provenance;
+- no tenant-wide `search_tasks("")`;
+- deterministic count/keys against fresh Oracle built from live DMS rows and source timestamps;
+- no fabricated age when source timestamp is absent.
 
-No Agent Core/planner/runtime business edit may be required.
+### D1 task.similar
+Run at least 3x:
+- `Похожие на DMS-380`
+Require:
+- actual loaded skill `task.similar`;
+- source task resolved through live bounded route;
+- candidate corpus restricted to DMS/source task space;
+- no tenant-wide scan;
+- deterministic top matches/method;
+- completion under a practical bounded latency.
 
-## Phase 8 — final full-regression verdict
-Create an explicit table with all 27 discovered skills and final classification.
+### D2 attachments
+Run each at least 3x:
+- exact task attachment lookup (WMB-30000);
+- bounded person-scoped Excel search using a source-proven person;
+- broad `Excel-вложения в WMB`;
+- broad `PDF-вложения в WMB`;
+- broad `MSG-вложения в WMB`.
 
-Use exactly one overall verdict:
+Expected semantics for broad space-only cases:
+- if AS21 still has no certified batch attachment-search surface and candidate count exceeds the configured bound, classify `SOURCE_CONDITIONAL` only if it fails closed quickly with a typed source-unavailable result and **zero unbounded N+1 fan-out**;
+- a >200s/300s timeout is RED;
+- partial scan presented as complete/empty is RED.
+
+## Phase 4 — full 27-skill API matrix
+Repeat all 27 exposed V4 skills from A196. No row may be skipped.
+
+For each:
+- NL query;
+- expected/actual skill;
+- trajectory;
+- status;
+- completion mode;
+- source provenance;
+- exact Oracle parity where factual;
+- evidence;
+- UIContract;
+- final classification.
+
+Allowed row classifications:
+- GREEN_SOURCE_SUPPORTED
+- SOURCE_CONDITIONAL
+- RED
+
+Overall GREEN requires zero RED rows.
+
+## Phase 5 — retained high-risk regression
+Repeat:
+- DMS-380 -> assignee tasks 5x;
+- full-name assignee 5x;
+- non-team unique identity;
+- ambiguous surname -> clarification -> option continuation;
+- invented identity;
+- person+sprint 5x;
+- current sprint 3x;
+- WMB-30000 attachments 3x;
+- clarification continuation;
+- zero stale `AS21 вернул некорректные данные` for normal ambiguity/not-found.
+
+## Phase 6 — Browser C
+Cover current result shapes, including:
+- task_detail;
+- task_table;
+- attachment_table;
+- task_analysis (**task.quality must now render via UIContract, not raw trace JSON**);
+- dependencies;
+- history/source-unavailable;
+- similar-task list;
+- sprint summary/list/health;
+- release clarification/source conditional;
+- identity clarification continuation;
+- safe not-found/source-unavailable.
+
+## Phase 7 — plugin/extensibility
+Re-run A190 dummy-55 gate. No core edit may be needed.
+
+## Verdict
+Use exactly one:
 - `AGENT_CORE_V4_EXISTING_CATALOG_REGRESSION_GREEN`
 - `AGENT_CORE_V4_EXISTING_CATALOG_REGRESSION_RED`
 - `BLOCKED_BY_PROVEN_SOURCE_OUTAGE`
 
 GREEN requires:
-- all 27 exposed skills explicitly tested;
-- zero `RED` rows;
-- every factual GREEN exact against fresh Oracle B;
-- every SOURCE_CONDITIONAL row proven live/fail-closed;
-- identity + clarification + Browser C GREEN;
-- repeated stability gate acceptable with no reproducible planner regression;
-- A190 dummy-55/plugin extensibility GREEN;
-- zero local-store source-of-truth reads;
-- A188/A190/A191/A195D invariants preserved.
+- 27/27 skills tested;
+- zero RED rows;
+- D1 closed;
+- D2 either source-supported GREEN or explicitly SOURCE_CONDITIONAL with fast bounded fail-closed semantics;
+- exact Oracle parity for factual GREEN rows;
+- Browser C / identity / clarification / plugin gates GREEN;
+- zero local-store truth.
 
-If any row is RED, stop and report the exact first bounded defect(s). Do **not** start Wave S.
+If GREEN, recommendation:
+**Freeze A197 as the clean pre-Wave-S checkpoint and proceed to owner Wave S #23–32 through the existing plugin surface.**
 
-If GREEN, recommendation must be exactly:
-**Freeze A196 as the pre-Wave-S regression checkpoint and proceed to owner implementation of Wave S #23–32 through the existing plugin surface; #21 sprint.health and #22 sprint.current remain retained existing skills.**
-
-## Allowed output
-Commit/push **only**:
-
-`po-agent-platform-v2/qa_reports/AGENT_CORE_V4_FULL_EXISTING_CATALOG_REGRESSION_196.md`
-
-No production/test/frontend/plugin/config/doc changes.
+## Output
+Commit/push only:
+`po-agent-platform-v2/qa_reports/AGENT_CORE_V4_FULL_EXISTING_CATALOG_REGRESSION_197.md`
 
 ## Service keepalive
-After committing/pushing only the QA report, leave the tested current-HEAD UI/backend/Task API/MCP stack running. Return URLs, ports, PIDs, health and exact START_HEAD. Then stop and wait for the owner.
+Leave current-HEAD UI/backend/Task API/MCP running after QA and return URLs, ports, PIDs, health and exact START_HEAD. Then stop.
