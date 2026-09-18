@@ -56,7 +56,8 @@ Produce the final clean pre-Wave-S verdict after the A198 sole RED fix. A199 may
    - no semantic prepass/entity hardcode;
    - READY guard remains intact;
    - release project-only path no longer falls through to local `/api/v1/tasks`;
-   - Hermes/plugin/dummy-55 architecture remains intact.
+   - Hermes/plugin/dummy-55 architecture remains intact;
+   - audit every plugin-owned task capability that accepts a natural person/reference/assignee constraint: all must use the shared governed identity-resolution seam before canonical source filtering; flag any direct raw-person bypass as RED.
 
 Any architecture violation => RED.
 
@@ -149,11 +150,18 @@ Repeat:
 - task.aging DMS 3x exact against fresh timestamp oracle;
 - task.similar DMS-380 3x deterministic;
 - WMB-30000 attachments 3x exact;
-- **person-scoped attachments:** `Задачи Калачанова с вложениями в WMB` at least 5x;
-  - must resolve `Калачанов` through generic `member.resolve` to canonical REAL AS21 identity before attachment collection;
-  - no raw surname may be sent directly as the source assignee key;
-  - exact task/file parity against a fresh WMB+Kalachanov Oracle;
-  - no 180s/300s timeout and no generic V4 trajectory failure;
+- **cross-skill person-scope identity gate** using a fresh real person such as Kalachanov.V.V:
+  1. `Задачи Калачанова с вложениями в WMB` at least 5x;
+  2. person-scoped text search (phrase + Калачанов + WMB);
+  3. person-scoped status search (open/not_completed + Калачанов + WMB);
+  4. person-scoped aging (Калачанов + WMB + threshold).
+  For every case:
+  - the natural/inflected person reference must pass through generic `member.resolve`;
+  - no raw surname/full-name token may be sent directly to a source assignee filter that expects canonical identity;
+  - source assignee must be the confirmed canonical REAL AS21 identity;
+  - factual result must match a fresh scoped Oracle;
+  - ambiguity/non-team semantics remain source-driven, never roster-limited;
+  - no 180s/300s timeout and no generic trajectory failure.
 - current sprint 3x;
 - no stale source-error text.
 
