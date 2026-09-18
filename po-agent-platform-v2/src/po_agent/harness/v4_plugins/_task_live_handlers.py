@@ -221,11 +221,21 @@ def build_task_search_attachments(runtime: Any):
         task_key = str(args.get("task_key") or "").strip().upper() or None
         space = str(args.get("space") or "").strip() or None
         assignee = str(args.get("assignee") or args.get("reference") or "").strip() or None
+        source_assignee = None
         if task_key:
             task = await runtime.adapter.get_task(task_key)
             candidates = [task] if task is not None else []
         else:
-            candidates = await _live_rows(runtime, space=space, assignee=assignee)
+            # Person-scoped attachment search must use the same universal
+            # governed identity contract as task.search_assignee. Raw surnames
+            # or inflected names must never bypass member.resolve and go
+            # straight into a source route that expects a canonical identity.
+            source_assignee = (
+                await _resolve_assignee_identity(runtime, assignee, space=space)
+                if assignee
+                else None
+            )
+            candidates = await _live_rows(runtime, space=space, assignee=source_assignee)
 
         # A196 D2: 2k+ WMB tasks caused a 300s N+1 timeout. Until the source
         # offers a batch attachment search, fail closed before fan-out instead of
@@ -265,7 +275,7 @@ def build_task_search_attachments(runtime: Any):
         label = kind.value.upper() if kind else "вложениями"
         return CapabilityResult(
             answer=f"Найдено задач с {label}: {len(matches)}.",
-            data={"attachment_type": kind.value if kind else None, "count": len(matches), "results": matches, "task_key": task_key, "space": space, "assignee": assignee, "source": "REAL_AS21"},
+            data={"attachment_type": kind.value if kind else None, "count": len(matches), "results": matches, "task_key": task_key, "space": space, "assignee": assignee, "source_assignee": source_assignee, "source": "REAL_AS21"},
             evidence=evidence,
         )
     return execute
