@@ -28,7 +28,7 @@ from po_agent.llm.client import LLMClient, LLMMessage
 from .agent_core_v4_completion import (
     CompletionRequirement,
     SkillCompletionContract,
-    all_loaded_skills_satisfied,
+    completion_frontier_satisfied,
     resolved_constraint_arguments,
 )
 from .contracts import CapabilityResult, Evidence, HarnessRequest, HarnessResponse, ResponseStatus
@@ -596,7 +596,7 @@ class AgentCoreV4Runtime:
         — no query text, no entity literals — and fails closed to the normal
         planner path otherwise.
         """
-        return all_loaded_skills_satisfied(self._skill_contracts, loaded_skills, observations)
+        return completion_frontier_satisfied(self._skill_contracts, loaded_skills, observations)
 
     async def _completed_response(
         self,
