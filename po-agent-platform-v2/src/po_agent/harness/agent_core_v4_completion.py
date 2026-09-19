@@ -245,3 +245,64 @@ def all_loaded_skills_satisfied(
         for contract in contracts_for_loaded
         if contract is not None
     )
+
+def completion_frontier_skills(
+    contracts: Mapping[str, SkillCompletionContract],
+    loaded_skills: tuple[str, ...],
+    observations: Iterable[Any],
+) -> tuple[str, ...]:
+    """Return the generic set of loaded skills that still govern completion.
+
+    A planner may load a broad collection skill, resolve a few helper entities,
+    and then pivot to a more-specific skill before ever executing the broad
+    skill's terminal capability. Requiring the abandoned skill's contract
+    forever makes deterministic completion impossible even when the later
+    specialized capability succeeds.
+
+    Frontier rules are structural, not semantic:
+    - the latest loaded contracted skill is always required;
+    - any earlier contracted skill whose required capability has actually been
+      observed is "engaged" and remains required;
+    - earlier loaded skills with no observation of any of their required
+      capabilities are treated as superseded registration/planning attempts;
+    - if the latest loaded skill has no contract, deterministic completion is
+      unavailable (normal planner READY semantics remain).
+
+    No query text, entity literal or skill-specific branch is consulted.
+    """
+    if not loaded_skills:
+        return ()
+    latest = loaded_skills[-1]
+    if latest not in contracts:
+        return ()
+
+    typed_observations = list(observations)
+    observed_capabilities = {obs.capability_id for obs in typed_observations}
+    frontier: list[str] = []
+    for skill_id in loaded_skills:
+        contract = contracts.get(skill_id)
+        if contract is None:
+            continue
+        engaged = any(
+            requirement.capability_id in observed_capabilities
+            for requirement in contract.requirements
+        )
+        if engaged or skill_id == latest:
+            frontier.append(skill_id)
+    return tuple(frontier)
+
+
+def completion_frontier_satisfied(
+    contracts: Mapping[str, SkillCompletionContract],
+    loaded_skills: tuple[str, ...],
+    observations: Iterable[Any],
+) -> bool:
+    """True when every structurally active skill on the completion frontier is satisfied."""
+    typed_observations = list(observations)
+    frontier = completion_frontier_skills(contracts, loaded_skills, typed_observations)
+    if not frontier:
+        return False
+    return all(
+        is_skill_satisfied(contracts[skill_id], typed_observations)
+        for skill_id in frontier
+    )
