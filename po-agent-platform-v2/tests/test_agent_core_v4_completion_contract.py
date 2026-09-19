@@ -37,6 +37,8 @@ from po_agent.harness.agent_core_v4 import (
 from po_agent.harness.agent_core_v4_completion import (
     CompletionRequirement,
     SkillCompletionContract,
+    completion_frontier_skills,
+    completion_frontier_satisfied,
     is_skill_satisfied,
     resolved_constraint_values,
 )
@@ -571,3 +573,52 @@ def test_runtime_contract_completion_marker_and_prepass_flag() -> None:
     # not model-emitted.
     terminal = [entry for entry in meta["trajectory"] if entry.get("decision") == "ready"]
     assert terminal and terminal[-1].get("completion") == "runtime_contract"
+
+def test_completion_frontier_ignores_unengaged_superseded_skill() -> None:
+    broad = SkillCompletionContract(
+        "tasks.search",
+        (CompletionRequirement("task.search", data_keys=("count",), covers_resolved_constraints=True),),
+    )
+    specialized = SkillCompletionContract(
+        "task.search_text",
+        (CompletionRequirement("task.search_text", data_keys=("count",)),),
+    )
+    observations = [
+        _obs(1, "space.resolve", {"reference": "WMB"}, {"space": "WMB", "source": "PO_AGENT_SCOPE"}),
+        _obs(2, "member.resolve", {"reference": "Калачанов"}, {"member_login": ALPHA_LOGIN, "source": "REAL_AS21"}),
+        _obs(3, "task.search_text", {"phrase": "2027", "space": "WMB", "reference": "Калачанов"}, {"count": 4, "source": "REAL_AS21"}),
+    ]
+    contracts = {"tasks.search": broad, "task.search_text": specialized}
+    assert completion_frontier_skills(contracts, ("tasks.search", "task.search_text"), observations) == ("task.search_text",)
+    assert completion_frontier_satisfied(contracts, ("tasks.search", "task.search_text"), observations)
+
+
+def test_completion_frontier_retains_earlier_engaged_skill() -> None:
+    broad = SkillCompletionContract(
+        "tasks.search",
+        (CompletionRequirement("task.search", data_keys=("count",)),),
+    )
+    specialized = SkillCompletionContract(
+        "task.search_text",
+        (CompletionRequirement("task.search_text", data_keys=("count",)),),
+    )
+    observations = [
+        _obs(1, "task.search", {"space": "WMB"}, {"count": 3, "source": "REAL_AS21"}),
+        _obs(2, "task.search_text", {"phrase": "2027", "space": "WMB"}, {"count": 4, "source": "REAL_AS21"}),
+    ]
+    contracts = {"tasks.search": broad, "task.search_text": specialized}
+    assert completion_frontier_skills(contracts, ("tasks.search", "task.search_text"), observations) == ("tasks.search", "task.search_text")
+    assert completion_frontier_satisfied(contracts, ("tasks.search", "task.search_text"), observations)
+
+
+def test_completion_frontier_latest_unexecuted_skill_still_blocks() -> None:
+    specialized = SkillCompletionContract(
+        "task.search_attachments",
+        (CompletionRequirement("task.search_attachments", data_keys=("count",)),),
+    )
+    contracts = {"task.search_attachments": specialized}
+    observations = [
+        _obs(1, "member.resolve", {"reference": "Калачанов"}, {"member_login": ALPHA_LOGIN, "source": "REAL_AS21"}),
+    ]
+    assert completion_frontier_skills(contracts, ("task.search_attachments",), observations) == ("task.search_attachments",)
+    assert not completion_frontier_satisfied(contracts, ("task.search_attachments",), observations)
