@@ -1,65 +1,63 @@
 # GigaCode — Current Action
 
 ## Status
-`ACTIVE_QA_ASSIGNMENT_199_V4_PRE_WAVE_S_FINAL_REGRESSION`
+`ACTIVE_QA_ASSIGNMENT_200_V4_PRE_WAVE_S_ZERO_RED_REGRESSION`
 
 ## Role lock
 GigaCode is **QA/adversarial tester + service operator only**.
 
-Do NOT modify production/frontend/plugin/test/config/architecture code. Do not start Wave S. If a defect is found, classify/report only.
+Do NOT modify production/frontend/plugin/test/config/architecture code.
+Do NOT start Wave S.
+Do NOT add new skills.
+If any RED appears, classify/report only and stop progression.
 
 ## Context
-A198 returned `AGENT_CORE_V4_EXISTING_CATALOG_REGRESSION_RED` with one blocking functional defect:
+A199 tested 27/27 existing V4 skills. The canonical matrix itself was 20 GREEN / 7 SOURCE_CONDITIONAL / 0 RED, but the new cross-skill person-scope gate found one deterministic blocking defect:
 
-- multi-filter person+sprint(+status) queries could execute a legitimate `task.search` without repeating an already-resolved optional `space` argument;
-- `covers_resolved_constraints` therefore remained unmet;
-- the A198 READY safety guard correctly rejected premature READY;
-- the planner then looped until step-budget exhaustion / client timeout.
+- planner loaded broad `tasks.search`;
+- then pivoted to specialized `task.search_attachments` or `task.search_text`;
+- the specialized capability executed correctly with canonical REAL AS21 identity;
+- deterministic completion still required the abandoned broad skill contract because completion was scoped to every loaded skill;
+- result: READY rejection/repair loop and eventual failure.
 
-A198 also proved:
-- task.aging is now exact against REAL AS21 timestamps;
-- attachment D2 and task.similar are closed;
-- no premature resolver-only completion;
-- 27/27 existing skills were exercised;
-- identity/clarification/browser/plugin gates remain healthy.
+Owner fixes after A199:
+- `da24608e65be966a24d348c4d0f8c3fd6dcd14bd` — generic completion frontier: latest loaded contracted skill is required; earlier contracted skills remain required only after one of their required capabilities has actually executed; earlier loaded-but-unengaged skills are treated as superseded planner registration attempts;
+- `41569149d243bc2b4002500f466ce4cbaf2c6925` — Agent Core deterministic completion now uses the generic completion frontier;
+- `f359ae2843a44db7ff1c94acc9b47459a764fc97` — unit tests for superseded broad skill, engaged earlier skill retention, and latest-unexecuted skill fail-closed.
 
-Owner fixes after A198:
-- `65f995150ab427afeadf400057618275fa7a9d6d` — generic typed resolved-constraint argument derivation;
-- `c01186dde22c5160192c0a0f5c7dfe62b3e8eda0` — runtime injects uniquely resolved constraints only when the target capability schema accepts the argument;
-- `f75f70a3739d1d2059590be9c68229b171908969` — regression proving omitted resolved space is injected and completes without an extra planner repair turn;
-- `83df8f87359975056f2c1f091087c22e6be312a6` — project+release searches fail closed instead of falling through to local `/api/v1/tasks`;
-- `9413702aebae22823b944b9f231f14b01167c1ee` — fixes A198 F1 composite-skill registry test.
-
-Architecture rule:
-The new injection is generic typed orchestration, not skill/entity hardcode:
+The fix is generic and entity-free:
 - no query parsing;
-- no surname/task/space literals;
-- only values from typed resolver observations;
-- only unique values;
-- only roles accepted by the target capability schema;
-- ambiguous/multiple values are never injected.
+- no person/task/space literals;
+- no specific skill-id branch;
+- no source bypass;
+- no weakening of the premature-READY guard;
+- a latest skill with an unmet contract still blocks;
+- an earlier skill that has actually begun its required capability work still remains on the completion frontier.
 
-Permanent rollback:
+Permanent rollback checkpoint remains:
 `0f03fca14fe078c86dca961362915e10cc985401` / `checkpoint/v4-poc-green-a188`.
 
 ## Mission
-Produce the final clean pre-Wave-S verdict after the A198 sole RED fix. A199 may be GREEN only with zero RED rows and no local-store factual path.
+Prove **zero RED** across the entire existing V4 surface before any new skill is allowed.
 
-## Phase 0 — start / architecture audit
+A200 is the hard freeze gate. No Wave S until A200 GREEN.
+
+## Phase 0 — architecture audit
 1. `git pull --ff-only origin feat/core8-real-query-hardening-v2`
-2. Record exact START_HEAD; tracked worktree clean.
-3. Read A198 report and owner diff since A198 START_HEAD.
+2. Record exact START_HEAD; tracked worktree must be clean.
+3. Read A199 report and owner diff since A199 START_HEAD.
 4. Confirm:
-   - resolved-constraint injection is generic and entity-free;
-   - only unique typed resolver values can be injected;
-   - target capability schema must explicitly accept the role;
-   - no semantic prepass/entity hardcode;
-   - READY guard remains intact;
-   - release project-only path no longer falls through to local `/api/v1/tasks`;
-   - Hermes/plugin/dummy-55 architecture remains intact;
-   - audit every plugin-owned task capability that accepts a natural person/reference/assignee constraint: all must use the shared governed identity-resolution seam before canonical source filtering; flag any direct raw-person bypass as RED.
+   - completion frontier logic is generic and entity-free;
+   - no `if skill_id == ...` or capability-specific orchestration was added to Agent Core;
+   - latest contracted skill cannot auto-complete without its requirement;
+   - an earlier engaged skill remains required;
+   - an earlier unengaged/superseded skill may not poison a later specialized completed skill;
+   - READY safety guard remains intact;
+   - person-scoped capabilities still use governed `member.resolve`;
+   - zero local-store factual fallback;
+   - plugin/dummy-55 extensibility invariant remains intact.
 
-Any architecture violation => RED.
+Any violation => RED.
 
 ## Phase 1 — automated suites
 Run:
@@ -70,116 +68,141 @@ python -m pytest tests/test_agent_core_v4*.py -v
 python -m pytest tests/test_v4*.py -v
 ```
 
-Run relevant Task API tests.
+Run relevant Task API suites.
 
-Require:
-- composite task-catalog binding test GREEN;
-- deterministic resolved-constraint injection test GREEN;
-- premature READY guard tests GREEN;
-- aging timestamp-provenance tests GREEN;
-- dummy-55/plugin gate GREEN.
+Mandatory named proofs:
+- completion frontier superseded broad skill test GREEN;
+- earlier engaged skill retained test GREEN;
+- latest unexecuted skill still blocks GREEN;
+- premature READY safety tests GREEN;
+- deterministic resolved-constraint injection GREEN;
+- universal person-resolution tests GREEN;
+- dummy-55/plugin registry GREEN.
 
 Record exact totals.
 
-## Phase 2 — focused D1 multi-filter gate
-Build a fresh REAL AS21 Oracle immediately before runs.
+## Phase 2 — A199 blocking defect re-gate
+Use fresh REAL AS21 Oracle.
 
+### K1 person-scoped attachments
 Run at least 10x:
-- `Открытые задачи Жданова в текущем спринте DMS`
+`Задачи Калачанова с вложениями в WMB`
 
-Run at least 10x:
-- `задачи Гаранина в сентябрьском спринте`
-
-For completed runs require:
-- actual loaded skill = `tasks.search`;
-- resolver observations may establish `space`, `member`, `sprint`;
-- terminal `task.search` must contain every uniquely resolved compatible constraint after runtime argument completion;
-- if planner omitted `space`, record proof that runtime injected `space=DMS` before capability execution;
+Require every valid run:
+- natural person reference resolves through generic `member.resolve`;
+- canonical source identity = REAL AS21-confirmed identity;
+- specialized `task.search_attachments` executes;
+- if planner previously loaded `tasks.search` but never executed its terminal `task.search`, that broad skill must not block specialized completion;
 - completion = `runtime_contract`;
-- exact key-set parity vs fresh person+sprint(+status) Oracle;
-- no repeated rejected READY loop;
-- no step-budget exhaustion caused by missing optional resolved arguments;
-- practical bounded latency.
+- exact task/file parity against fresh WMB+person Oracle;
+- no rejected-READY loop;
+- no bounded-repair loop;
+- no step-budget exhaustion;
+- no 180/300s hang caused by completion logic.
 
-Typed NEEDS_CLARIFICATION remains valid only where source ambiguity genuinely exists.
+### K2 person-scoped text
+Run at least 10x:
+`Найди задачи Калачанова про 2027 в WMB`
 
-Any false completion, missing constraint, 300s loop or step-budget regression => RED.
+Same requirements, with exact task-key parity against fresh scoped Oracle.
 
-## Phase 3 — local-store release-path audit
-Exercise:
-- `Задачи релиза Q3-2026 в DMS`
-- `Здоровье релиза Q3-2026 в DMS`
+### Negative frontier controls
+Prove synthetically and/or live:
+- latest loaded contracted skill with no required observation still cannot complete;
+- an earlier skill whose required capability has executed remains required and cannot be silently abandoned.
 
-Audit Task API logs.
+Any false completion => RED.
+
+## Phase 3 — cross-skill person-scope gate
+Re-run all:
+- person attachments;
+- person text;
+- person status;
+- person aging;
+- task.search_assignee;
+- non-team unique identity;
+- ambiguous surname -> typed clarification -> same-session continuation;
+- invented identity safe.
+
+For every capability accepting a natural person/reference:
+- no raw surname/full name may be used directly as canonical source assignee;
+- governed source-backed resolution first;
+- team roster is hint only, never population boundary.
+
+## Phase 4 — multi-filter retained gate
+Repeat:
+- `Открытые задачи Жданова в текущем спринте DMS` 10x;
+- full-name + current sprint 5x;
+- period sprint clarification/continuation.
+
 Require:
-- zero `GET /api/v1/tasks` reads caused by these release queries;
-- if REAL AS21 release source remains unavailable, result is typed SOURCE_CONDITIONAL/fail-closed;
-- no local rows can be returned as REAL AS21 facts.
+- deterministic resolved constraint injection retained;
+- exact Oracle parity;
+- runtime_contract;
+- zero step-budget/READY regression.
 
-Any release factual local-store path => RED.
+## Phase 5 — complete 27-skill regression
+Repeat **all 27 existing V4 skills**. No skips.
 
-## Phase 4 — full 27-skill matrix
-Repeat all 27 existing V4 skills from A198. No row skipped.
-
-For each record:
+For every row capture:
 - NL query;
 - expected/actual skill;
+- loaded skills;
+- executed capabilities;
+- computed completion frontier;
 - trajectory;
-- final executed arguments;
+- final arguments;
+- source routes;
 - completion mode;
-- source route;
 - fresh Oracle parity;
 - evidence;
 - UIContract;
-- classification.
+- GREEN / SOURCE_CONDITIONAL / RED.
 
-Allowed:
-- GREEN_SOURCE_SUPPORTED
-- SOURCE_CONDITIONAL
-- RED
+GREEN overall requires **0 RED**.
 
-Overall GREEN requires zero RED.
+SOURCE_CONDITIONAL is allowed only for proven source limitations and must fail closed without local truth or fabrication.
 
-## Phase 5 — retained regressions
-Repeat:
-- DMS-380 -> assignee tasks 5x exact;
-- full-name assignee 5x exact;
-- non-team identity exact;
-- ambiguous surname -> clarification -> same-session continuation;
-- invented identity safe;
-- task.aging DMS 3x exact against fresh timestamp oracle;
-- task.similar DMS-380 3x deterministic;
-- WMB-30000 attachments 3x exact;
-- **cross-skill person-scope identity gate** using a fresh real person such as Kalachanov.V.V:
-  1. `Задачи Калачанова с вложениями в WMB` at least 5x;
-  2. person-scoped text search (phrase + Калачанов + WMB);
-  3. person-scoped status search (open/not_completed + Калачанов + WMB);
-  4. person-scoped aging (Калачанов + WMB + threshold).
-  For every case:
-  - the natural/inflected person reference must pass through generic `member.resolve`;
-  - no raw surname/full-name token may be sent directly to a source assignee filter that expects canonical identity;
-  - source assignee must be the confirmed canonical REAL AS21 identity;
-  - factual result must match a fresh scoped Oracle;
-  - ambiguity/non-team semantics remain source-driven, never roster-limited;
-  - no 180s/300s timeout and no generic trajectory failure.
-- current sprint 3x;
-- no stale source-error text.
+## Phase 6 — local-store/source audit
+Across the whole run:
+- audit task-api logs;
+- factual V4 paths must have **0 reliance** on `/api/v1/tasks`;
+- release routes must fail closed if live release source is unavailable;
+- no factual local rows may be labeled REAL AS21.
 
-## Phase 6 — Browser C
+Any local factual dependency => RED.
+
+## Phase 7 — Browser C
 At minimum:
-- person+sprint multi-filter query;
-- **`Задачи Калачанова с вложениями в WMB`** — must complete with attachment table/result and exact backend parity;
-- aging DMS;
-- task.quality widget;
-- similar-task widget;
-- identity clarification continuation;
-- release SOURCE_CONDITIONAL;
-- safe not-found.
+1. `Задачи Калачанова с вложениями в WMB`
+2. `Найди задачи Калачанова про 2027 в WMB`
+3. person status in WMB
+4. person+sprint multi-filter
+5. aging DMS
+6. similar DMS-380
+7. task quality
+8. ambiguity -> option-click continuation
+9. release SOURCE_CONDITIONAL
+10. safe invented/not-found
 
-For the person+sprint case, capture backend trajectory and prove the UI result matches the injected resolved constraints and Oracle.
+K1/K2 must render successful V4 results, not generic V4 ERROR.
 
-## Phase 7 — plugin/extensibility
-Re-run dummy-55 / A190 gate. No core changes required for adding a skill.
+## Phase 8 — stability
+Repeat high-risk scenarios:
+- K1 attachments ×5 additional;
+- K2 text ×5 additional;
+- DMS-380 -> assignee ×5;
+- full-name assignee ×5;
+- person+sprint ×5;
+- aging ×3;
+- attachments exact-task ×3.
+
+No stochastic regression may be hidden. If a run fails, retain it and classify root cause.
+
+## Phase 9 — plugin/extensibility
+Re-run A190 dummy-55 gate.
+
+Adding a synthetic new skill must still require zero Agent Core/planner/runtime business-logic edits.
 
 ## Verdict
 Use exactly one:
@@ -188,21 +211,29 @@ Use exactly one:
 - `BLOCKED_BY_PROVEN_SOURCE_OUTAGE`
 
 GREEN requires:
-- 27/27 skills tested;
-- zero RED;
-- multi-filter D1 closed;
+- all 27 skills tested;
+- cross-skill person-scope gate tested;
+- **0 RED**;
+- A199 K1/K2 closed;
+- no false completion from completion-frontier logic;
 - no premature planner READY;
-- no local-store factual path;
-- factual rows exact;
-- SOURCE_CONDITIONAL rows truly source-limited and fail-closed;
-- Browser C + identity + clarification + dummy-55 GREEN.
+- factual GREEN rows exact;
+- source limitations fail closed;
+- zero local-store factual truth;
+- Browser C GREEN for supported cases;
+- dummy-55 GREEN.
 
-If GREEN recommendation must be:
-**Freeze A199 as the clean pre-Wave-S checkpoint and proceed to owner Wave S #23–32 through the existing plugin surface.**
+If any RED exists:
+**STOP. Do not recommend Wave S. Do not add skills. Return the defect for owner remediation and another full re-gate.**
+
+If GREEN:
+**Freeze A200 as the clean pre-Wave-S checkpoint. Do not start Wave S automatically; wait for explicit owner/user instruction.**
 
 ## Output
 Commit/push only:
-`po-agent-platform-v2/qa_reports/AGENT_CORE_V4_FULL_EXISTING_CATALOG_REGRESSION_199.md`
+`po-agent-platform-v2/qa_reports/AGENT_CORE_V4_FULL_EXISTING_CATALOG_REGRESSION_200.md`
 
 ## Service keepalive
-Leave tested current-HEAD UI/backend/Task API/MCP running. Return URLs, ports, PIDs, health and exact START_HEAD. Then stop.
+Leave tested current-HEAD UI/backend/Task API/MCP running.
+Return URL, port, PID, health, exact START_HEAD, report commit, and GREEN/SOURCE_CONDITIONAL/RED counts.
+Then stop.
