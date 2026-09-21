@@ -178,8 +178,11 @@ V4_PLUGINIZED_SKILL_CAPABILITY_REGISTRY = GREEN_A190
 V4_PLUGIN_DUMMY_55_GATE = GREEN_A190
 V4_BROWSER_C = GREEN_A191
 V4_LIVE_SOURCE_ONLY_INVARIANT = LOCKED_AFTER_A192
-V4_CATALOG_TASK_WAVE_1_20 = RED_A192_BOUNDED_3_DEFECTS
-V4_FULL_54_SKILL_MIGRATION = IN_PROGRESS
+V4_CATALOG_TASK_WAVE_1_20 = GREEN_A195D
+V4_EXISTING_27_SKILL_MATRIX = 20_GREEN_7_SOURCE_CONDITIONAL_0_RED_A200
+V4_CLARIFICATION_CONTINUATION = OWNER_FIX_IMPLEMENTED_PENDING_A201
+V4_PRE_WAVE_S_ZERO_RED_GATE = A201_REQUIRED
+V4_FULL_54_SKILL_MIGRATION = PAUSED_UNTIL_A201_GREEN
 V4_FULL_54_ABC = NOT_DONE
 V4_LEARNING_REVIEWER = NOT_DONE
 V4_GOVERNED_SKILL_SELF_MODIFICATION = NOT_DONE
@@ -200,6 +203,9 @@ Key properties:
 - `completion=runtime_contract` marker in trajectory/response distinguishes runtime-generated completion from model `planner_ready`.
 - Recovery-time READY remains forbidden by the planner protocol.
 - The runtime path never uses model-recovered READY text and cannot fabricate an answer without observations.
+- Typed clarification continuation is part of the same Harness execution: session + clarification id restore generic loaded-skill state, validated observations and pending completion objectives.
+- A clarification answer may add a confirmed constraint, but must not reset or weaken the original pending completion contract.
+- Continuation state is generic control-plane state only; no skill/entity-specific branch may be added to Agent Core/API to preserve it.
 
 V4 remains single-planner / skill-native / governed. This mechanism is a generic control-plane rule, not a query-specific fallback.
 
