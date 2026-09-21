@@ -250,6 +250,8 @@ def completion_frontier_skills(
     contracts: Mapping[str, SkillCompletionContract],
     loaded_skills: tuple[str, ...],
     observations: Iterable[Any],
+    *,
+    pinned_skills: tuple[str, ...] = (),
 ) -> tuple[str, ...]:
     """Return the generic set of loaded skills that still govern completion.
 
@@ -279,6 +281,7 @@ def completion_frontier_skills(
     typed_observations = list(observations)
     observed_capabilities = {obs.capability_id for obs in typed_observations}
     frontier: list[str] = []
+    pinned = {skill_id for skill_id in pinned_skills if skill_id in contracts}
     for skill_id in loaded_skills:
         contract = contracts.get(skill_id)
         if contract is None:
@@ -287,7 +290,13 @@ def completion_frontier_skills(
             requirement.capability_id in observed_capabilities
             for requirement in contract.requirements
         )
-        if engaged or skill_id == latest:
+        if engaged or skill_id == latest or skill_id in pinned:
+            frontier.append(skill_id)
+    # A pinned continuation objective may have been validated from a prior
+    # trajectory but omitted from a malformed resume-loaded list. Keep it
+    # fail-closed by adding any such contracted skill to the frontier.
+    for skill_id in pinned_skills:
+        if skill_id in contracts and skill_id not in frontier:
             frontier.append(skill_id)
     return tuple(frontier)
 
@@ -296,10 +305,17 @@ def completion_frontier_satisfied(
     contracts: Mapping[str, SkillCompletionContract],
     loaded_skills: tuple[str, ...],
     observations: Iterable[Any],
+    *,
+    pinned_skills: tuple[str, ...] = (),
 ) -> bool:
     """True when every structurally active skill on the completion frontier is satisfied."""
     typed_observations = list(observations)
-    frontier = completion_frontier_skills(contracts, loaded_skills, typed_observations)
+    frontier = completion_frontier_skills(
+        contracts,
+        loaded_skills,
+        typed_observations,
+        pinned_skills=pinned_skills,
+    )
     if not frontier:
         return False
     return all(
