@@ -586,7 +586,11 @@ class AgentCoreV4Runtime:
         }
 
     def _trajectory_completion_satisfied(
-        self, loaded_skills: tuple[str, ...], observations: list[V4Observation]
+        self,
+        loaded_skills: tuple[str, ...],
+        observations: list[V4Observation],
+        *,
+        required_completion_skills: tuple[str, ...] = (),
     ) -> bool:
         """Deterministic post-observation completion predicate (Assignment 187).
 
@@ -596,7 +600,12 @@ class AgentCoreV4Runtime:
         — no query text, no entity literals — and fails closed to the normal
         planner path otherwise.
         """
-        return completion_frontier_satisfied(self._skill_contracts, loaded_skills, observations)
+        return completion_frontier_satisfied(
+            self._skill_contracts,
+            loaded_skills,
+            observations,
+            pinned_skills=required_completion_skills,
+        )
 
     async def _completed_response(
         self,
@@ -1059,7 +1068,38 @@ class AgentCoreV4Runtime:
             return HarnessResponse(status=ResponseStatus.FAILED, trace_id=trace_id, session_id=session_id, answer="Пустой запрос.", warnings=["query_empty"])
 
         loaded: list[str] = []
+        for skill_id in request.resume_loaded_skills:
+            normalized = str(skill_id or "").strip()
+            if not normalized or normalized in loaded:
+                continue
+            self.catalog.load(normalized)
+            loaded.append(normalized)
+
         observations: list[V4Observation] = []
+        for raw in request.resume_observations:
+            if not isinstance(raw, Mapping):
+                continue
+            capability_id = str(raw.get("capability_id") or "").strip()
+            if not capability_id:
+                continue
+            arguments_raw = raw.get("arguments")
+            data_raw = raw.get("data")
+            observations.append(V4Observation(
+                step=len(observations) + 1,
+                capability_id=capability_id,
+                arguments={
+                    str(key): str(value)
+                    for key, value in (arguments_raw.items() if isinstance(arguments_raw, Mapping) else ())
+                },
+                answer=str(raw.get("answer") or ""),
+                data=dict(data_raw) if isinstance(data_raw, Mapping) else {},
+            ))
+
+        required_completion_skills = tuple(
+            skill_id
+            for skill_id in request.required_completion_skills
+            if skill_id in self._skill_contracts
+        )
         all_evidence: list[Evidence] = []
         full_results: list[dict[str, Any]] = []
         trajectory: list[dict[str, Any]] = []
@@ -1115,7 +1155,15 @@ class AgentCoreV4Runtime:
                     # the runtime contract is satisfied or the step budget fails
                     # closed. Skills without contracts retain legacy READY
                     # semantics.
-                    if loaded and all(skill_id in self._skill_contracts for skill_id in loaded):
+                    if required_completion_skills:
+                        if not self._trajectory_completion_satisfied(
+                            tuple(loaded),
+                            observations,
+                            required_completion_skills=required_completion_skills,
+                        ):
+                            trajectory[-1]["ready_rejected"] = "unsatisfied_continuation_contract"
+                            continue
+                    elif loaded and all(skill_id in self._skill_contracts for skill_id in loaded):
                         if not self._trajectory_completion_satisfied(tuple(loaded), observations):
                             trajectory[-1]["ready_rejected"] = "unsatisfied_completion_contract"
                             continue
@@ -1181,7 +1229,11 @@ class AgentCoreV4Runtime:
                 # READY.  This is runtime-generated from verified completion
                 # state — never model-recovered text — and fails closed to the
                 # normal planner path whenever any contract is unmet.
-                if self._trajectory_completion_satisfied(tuple(loaded), observations):
+                if self._trajectory_completion_satisfied(
+                    tuple(loaded),
+                    observations,
+                    required_completion_skills=required_completion_skills,
+                ):
                     trajectory.append({
                         "planner_turn": len(trajectory) + 1,
                         "decision": "ready",
@@ -1216,7 +1268,16 @@ class AgentCoreV4Runtime:
                 intent="skill_native_v4",
                 skill_id=loaded[-1] if loaded else None,
                 skill_version="4.0.0-poc" if loaded else None,
-                data={"_agent_core_v4": {"runtime": "Agent Core v4", "semantic_prepass_used": False, "loaded_skills": loaded, "trajectory": trajectory}},
+                data={"_agent_core_v4": {
+                    "runtime": "Agent Core v4",
+                    "semantic_prepass_used": False,
+                    "loaded_skills": loaded,
+                    "trajectory": trajectory,
+                    "continuation_observations": [item.planner_view() for item in observations],
+                    "continuation_required_skills": [
+                        skill_id for skill_id in loaded if skill_id in self._skill_contracts
+                    ],
+                }},
                 evidence=all_evidence,
                 warnings=["v4_capability_clarification"],
                 latency_ms=(time.perf_counter() - started) * 1000,
