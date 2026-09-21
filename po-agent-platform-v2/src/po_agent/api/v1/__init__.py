@@ -237,6 +237,12 @@ def _remember_clarification(response: dict, session_id: str, original_query: str
     resume_observations = tuple(dict(item) for item in observations_raw if isinstance(item, dict)) if isinstance(observations_raw, list) else ()
     required_completion_skills = tuple(str(item) for item in required_raw) if isinstance(required_raw, list) else ()
 
+    # Continuation state is an internal Harness concern. Capture it for the
+    # pending-session record, then keep it out of the public Browser/API payload.
+    if isinstance(v4_state, dict):
+        v4_state.pop("continuation_observations", None)
+        v4_state.pop("continuation_required_skills", None)
+
     _pending_clarifications[session_id] = PendingClarification(
         clarification_id=clarification_id,
         original_query=original_query,
