@@ -178,11 +178,12 @@ def _prepare_query(
     payload: QueryRequest,
     session_id: str,
 ) -> tuple[str | None, dict | None, ClarificationContinuation]:
-    """Resolve a generic clarification continuation without touching Agent Core.
+    """Restore one typed clarification as continuation of the same Harness run.
 
-    The browser sends the selected option together with clarification_id. The API
-    layer restores the original user query and clarification question, then hands
-    one complete natural-language request to the unchanged V4 planner.
+    The browser sends the selected option with clarification_id. The API restores
+    the original query plus generic execution state (loaded skills, validated
+    observations and pending completion goals). No skill/entity-specific routing
+    is performed here.
     """
     if not payload.clarification_id:
         _pending_clarifications.pop(session_id, None)
@@ -195,7 +196,7 @@ def _prepare_query(
 
     option = str(payload.clarification_option or payload.query or "").strip()
     if not option:
-        return None, _clarification_lost_response(session_id)
+        return None, _clarification_lost_response(session_id), ClarificationContinuation()
     if pending.options and option not in pending.options:
         return None, {
             **_clarification_lost_response(session_id),
