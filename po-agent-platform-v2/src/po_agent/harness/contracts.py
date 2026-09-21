@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any
+from typing import Any, Mapping
 
 
 class ResponseStatus(str, Enum):
@@ -40,6 +40,13 @@ class Evidence:
 class HarnessRequest:
     query: str
     session_id: str | None = None
+    # Generic continuation state for a typed clarification. These fields are
+    # harness-level execution state, not business-skill semantics. They let a
+    # clarification resume the same trajectory instead of reinterpreting the
+    # user's answer as a fresh task.
+    resume_loaded_skills: tuple[str, ...] = ()
+    resume_observations: tuple[Mapping[str, Any], ...] = ()
+    required_completion_skills: tuple[str, ...] = ()
 
 
 @dataclass
