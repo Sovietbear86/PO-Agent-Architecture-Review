@@ -622,3 +622,42 @@ def test_completion_frontier_latest_unexecuted_skill_still_blocks() -> None:
     ]
     assert completion_frontier_skills(contracts, ("task.search_attachments",), observations) == ("task.search_attachments",)
     assert not completion_frontier_satisfied(contracts, ("task.search_attachments",), observations)
+
+
+def test_pinned_continuation_skill_remains_required_even_if_unengaged() -> None:
+    original = SkillCompletionContract(
+        "tasks.search",
+        (CompletionRequirement("task.search", data_keys=("count",), covers_resolved_constraints=True),),
+    )
+    helper = SkillCompletionContract(
+        "sprints.discover",
+        (CompletionRequirement("sprint.search", data_keys=("sprint_id",)),),
+    )
+    observations = [
+        _obs(1, "space.resolve", {"reference": "DMS"}, {"space": "DMS", "source": "scope"}),
+        _obs(2, "sprint.search", {"space": "DMS", "period": "сентябрь"}, {"sprint_id": "DMS-SPRNT-X", "space": "DMS"}),
+    ]
+    contracts = {"tasks.search": original, "sprints.discover": helper}
+
+    # Without continuation pinning the structural frontier may legitimately
+    # consider only the latest specialized helper.
+    assert completion_frontier_satisfied(
+        contracts,
+        ("tasks.search", "sprints.discover"),
+        observations,
+    )
+
+    # A clarification continuation pins the original pending objective, so a
+    # sprint identity observation cannot falsely complete a task-list request.
+    assert completion_frontier_skills(
+        contracts,
+        ("tasks.search", "sprints.discover"),
+        observations,
+        pinned_skills=("tasks.search",),
+    ) == ("tasks.search", "sprints.discover")
+    assert not completion_frontier_satisfied(
+        contracts,
+        ("tasks.search", "sprints.discover"),
+        observations,
+        pinned_skills=("tasks.search",),
+    )
