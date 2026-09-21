@@ -33,9 +33,19 @@ class PendingClarification:
     question: str
     options: tuple[str, ...]
     created_at: float
+    resume_loaded_skills: tuple[str, ...] = ()
+    resume_observations: tuple[dict, ...] = ()
+    required_completion_skills: tuple[str, ...] = ()
 
 
 _pending_clarifications: dict[str, PendingClarification] = {}
+
+
+@dataclass(frozen=True)
+class ClarificationContinuation:
+    loaded_skills: tuple[str, ...] = ()
+    observations: tuple[dict, ...] = ()
+    required_completion_skills: tuple[str, ...] = ()
 
 
 class QueryRequest(BaseModel):
@@ -164,7 +174,10 @@ def _clarification_lost_response(session_id: str) -> dict:
     }
 
 
-def _prepare_query(payload: QueryRequest, session_id: str) -> tuple[str | None, dict | None]:
+def _prepare_query(
+    payload: QueryRequest,
+    session_id: str,
+) -> tuple[str | None, dict | None, ClarificationContinuation]:
     """Resolve a generic clarification continuation without touching Agent Core.
 
     The browser sends the selected option together with clarification_id. The API
@@ -173,12 +186,12 @@ def _prepare_query(payload: QueryRequest, session_id: str) -> tuple[str | None, 
     """
     if not payload.clarification_id:
         _pending_clarifications.pop(session_id, None)
-        return payload.query, None
+        return payload.query, None, ClarificationContinuation()
 
     pending = _pending_clarifications.get(session_id)
     if pending is None or pending.clarification_id != payload.clarification_id or _clarification_expired(pending):
         _pending_clarifications.pop(session_id, None)
-        return None, _clarification_lost_response(session_id)
+        return None, _clarification_lost_response(session_id), ClarificationContinuation()
 
     option = str(payload.clarification_option or payload.query or "").strip()
     if not option:
@@ -190,7 +203,7 @@ def _prepare_query(payload: QueryRequest, session_id: str) -> tuple[str | None, 
             "options": list(pending.options),
             "clarification_id": pending.clarification_id,
             "warnings": ["invalid_clarification_option"],
-        }
+        }, ClarificationContinuation()
 
     _pending_clarifications.pop(session_id, None)
     combined = (
@@ -199,7 +212,11 @@ def _prepare_query(payload: QueryRequest, session_id: str) -> tuple[str | None, 
         f"Ответ пользователя на уточнение: {option}\n"
         "Продолжи выполнение исходного запроса с этим уточнением. Не трактуй ответ на уточнение как новый отдельный запрос."
     )
-    return combined, None
+    return combined, None, ClarificationContinuation(
+        loaded_skills=pending.resume_loaded_skills,
+        observations=pending.resume_observations,
+        required_completion_skills=pending.required_completion_skills,
+    )
 
 
 def _remember_clarification(response: dict, session_id: str, original_query: str) -> dict:
@@ -211,12 +228,23 @@ def _remember_clarification(response: dict, session_id: str, original_query: str
     options = tuple(str(item) for item in options_raw) if isinstance(options_raw, list) else ()
     clarification_id = str(response.get("clarification_id") or uuid.uuid4())
     response["clarification_id"] = clarification_id
+    v4_state = response.get("data", {}).get("_agent_core_v4", {}) if isinstance(response.get("data"), dict) else {}
+    loaded_raw = v4_state.get("loaded_skills") if isinstance(v4_state, dict) else None
+    observations_raw = v4_state.get("continuation_observations") if isinstance(v4_state, dict) else None
+    required_raw = v4_state.get("continuation_required_skills") if isinstance(v4_state, dict) else None
+    loaded_skills = tuple(str(item) for item in loaded_raw) if isinstance(loaded_raw, list) else ()
+    resume_observations = tuple(dict(item) for item in observations_raw if isinstance(item, dict)) if isinstance(observations_raw, list) else ()
+    required_completion_skills = tuple(str(item) for item in required_raw) if isinstance(required_raw, list) else ()
+
     _pending_clarifications[session_id] = PendingClarification(
         clarification_id=clarification_id,
         original_query=original_query,
         question=question,
         options=options,
         created_at=time.monotonic(),
+        resume_loaded_skills=loaded_skills,
+        resume_observations=resume_observations,
+        required_completion_skills=required_completion_skills,
     )
     return response
 
@@ -277,7 +305,7 @@ async def _run_query(payload: QueryRequest, request: Request, *, force_v4: bool 
     correlation_id = request.headers.get(settings.correlation_id_header, str(uuid.uuid4()))
     session_id = payload.session_id or request.headers.get("X-Session-Id") or str(uuid.uuid4())
     original_query = payload.query
-    effective_query, early_response = _prepare_query(payload, session_id)
+    effective_query, early_response, continuation = _prepare_query(payload, session_id)
     if early_response is not None:
         early_response["correlation_id"] = correlation_id
         return early_response
@@ -289,7 +317,13 @@ async def _run_query(payload: QueryRequest, request: Request, *, force_v4: bool 
         if force_v4 and not use_v4:
             raise HTTPException(status_code=503, detail="Agent Core v4 POC is not enabled/ready")
         if use_v4:
-            result = await bundle.v4_runtime.process(HarnessRequest(query=effective_query or original_query, session_id=session_id))
+            result = await bundle.v4_runtime.process(HarnessRequest(
+                query=effective_query or original_query,
+                session_id=session_id,
+                resume_loaded_skills=continuation.loaded_skills,
+                resume_observations=continuation.observations,
+                required_completion_skills=continuation.required_completion_skills,
+            ))
             response = _decorate_v4_response(result.to_dict(), bundle)
             response = _remember_clarification(response, session_id, effective_query or original_query)
         else:
