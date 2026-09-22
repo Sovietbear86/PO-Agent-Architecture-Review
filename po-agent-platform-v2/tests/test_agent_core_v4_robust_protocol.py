@@ -12,8 +12,10 @@ from po_agent.harness.agent_core_v4_robust import RobustSkillNativePlannerV4
 class StubClient:
     def __init__(self, *responses: str) -> None:
         self._responses = iter(responses)
+        self.calls = []
 
-    async def complete(self, *_args, **_kwargs):
+    async def complete(self, *args, **kwargs):
+        self.calls.append((args, kwargs))
         content = next(self._responses)
         return SimpleNamespace(
             choices=[SimpleNamespace(message=SimpleNamespace(content=content))]
@@ -180,3 +182,24 @@ def test_repair_only_ready_fails_closed() -> None:
                 observations=[],
             )
         )
+
+
+def test_robust_planner_accepts_and_forwards_generic_session_context() -> None:
+    client = StubClient(
+        '{"load_skill":{"skill_id":"task-search"},"call":null,"ready":null,"rationale":"use prior sprint"}'
+    )
+    planner = RobustSkillNativePlannerV4(client, model="test")
+    decision = asyncio.run(
+        planner.next_decision(
+            user_query="Покажи задачи в этом спринте",
+            catalog=_catalog(),
+            loaded_skills=(),
+            observations=[],
+            session_context={"space": "DMS", "sprint_id": "DMS-SPRNT-3"},
+        )
+    )
+    assert decision.kind == "load_skill"
+    assert len(client.calls) == 1
+    messages = client.calls[0][0][0]
+    payload = messages[1].content
+    assert '"session_context": {"space": "DMS", "sprint_id": "DMS-SPRNT-3"}' in payload
