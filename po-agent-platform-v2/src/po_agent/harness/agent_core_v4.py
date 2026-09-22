@@ -288,6 +288,7 @@ Rules:
 - If a required entity cannot be resolved by the available capabilities, use READY only to explain the limitation/clarification.
 - After observations already support the complete answer, use READY instead of calling unrelated tools.
 - Resolver/identity observations are never a substitute for a requested collection, metric or analysis. If the catalog has a matching skill, load it and execute its terminal capability. If the requested deliverable is not implemented, say that the capability is not implemented; do not claim that source data is absent merely because only an identity resolver has run.
+- Catalog presence means a capability is defined, not that its backing source is currently available. For "умеешь/можешь" questions about source-backed features, describe the capability conditionally and do not claim current availability until the source path has been exercised or readiness is explicitly known.
 """
 
     REPAIR = """The previous planner decision was invalid. Return one valid JSON decision only.
