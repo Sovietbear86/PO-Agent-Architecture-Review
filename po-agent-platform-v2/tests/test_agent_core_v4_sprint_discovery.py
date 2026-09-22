@@ -167,7 +167,7 @@ def test_sprint_list_requires_approved_space():
 
 def test_plural_sprint_request_is_routed_away_from_singleton_current():
     runtime = _runtime(SprintDirectoryAdapter([_APR, dict(_AUG)]))
-    assert runtime._reconcile_loaded_skill("sprint.current", "Активные спринты в DMS") == "sprint.list"
+    assert runtime._reconcile_loaded_skill("sprint.current", "Активные спринты в DMS") == "sprints.list"
     assert runtime._reconcile_loaded_skill("sprint.current", "Текущий спринт DMS") == "sprint.current"
     assert runtime._reconcile_loaded_skill("tasks.search", "Активные спринты в DMS") == "tasks.search"
 
@@ -179,6 +179,7 @@ def test_cardinality_detector_distinguishes_plural_from_singular():
     assert detect("Список спринтов DMS") is True
     assert detect("Текущий спринт DMS") is False
     assert detect("Покажи открытые задачи в спринте DMS-SPRNT-2") is False
+    assert detect("Покажи список задач в этом спринте и их статусы") is False
     assert detect("Какой сейчас спринт в DMS") is False
 
 
