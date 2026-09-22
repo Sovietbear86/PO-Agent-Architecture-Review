@@ -212,6 +212,11 @@ Key properties:
 - Typed clarification continuation is part of the same Harness execution: session + clarification id restore generic loaded-skill state, validated observations and pending completion objectives.
 - A clarification answer may add a confirmed constraint, but must not reset or weaken the original pending completion contract.
 - Continuation state is generic control-plane state only; no skill/entity-specific branch may be added to Agent Core/API to preserve it.
+- Multi-hop clarification must preserve the same original completion goal and already validated constraints across every clarification hop.
+- Completed-turn conversational context may contain only source-validated canonical entities (for example space/sprint/release/person ids), is session-bounded/TTL-bounded, and must never become factual truth without source-backed observations.
+- Resolver/identity-only observations must never be treated as fulfillment of a requested collection, metric or analysis deliverable.
+- Catalog presence means a skill/capability is declared, not that its live source is currently available; source-dependent skills must fail closed / SOURCE_CONDITIONAL when their certified read surface is unavailable.
+- Adding these generic control-plane guarantees must not require per-skill branches in Agent Core; skill-specific behavior remains in plugin contracts/handlers.
 
 V4 remains single-planner / skill-native / governed. This mechanism is a generic control-plane rule, not a query-specific fallback.
 
