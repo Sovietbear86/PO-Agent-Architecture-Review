@@ -225,7 +225,9 @@ async def test_stuck_first_page_falls_back_to_tql_and_is_complete(monkeypatch):
     assert len(codes) == 104
     assert len(set(codes)) == 104
     assert result["complete"] is True
+    assert result["membership_proven"] is True
     assert result["source_path"] == "tql_sprint_constraint"
+    assert all(row["sprint_id"] == "DMS-SPRNT-1" for row in result["complete_tasks"])
     assert client.tql_calls == 2
 
 
@@ -244,6 +246,7 @@ async def test_stuck_page_without_tql_is_typed_incomplete_not_amplified(monkeypa
     )
 
     assert result["complete"] is False
+    assert result["membership_proven"] is False
     assert result["source_path"] == "get_sprint_tasks"
     codes = [row["source_id"] for row in result["complete_tasks"]]
     assert len(codes) == 100
@@ -269,7 +272,9 @@ async def test_properly_paginated_source_is_complete_via_primary(monkeypatch):
     assert len(codes) == 104
     assert len(set(codes)) == 104
     assert result["complete"] is True
+    assert result["membership_proven"] is True
     assert result["source_path"] == "get_sprint_tasks"
+    assert all(row["sprint_id"] == "DMS-SPRNT-1" for row in result["complete_tasks"])
     assert client.tql_calls == 0
 
 
@@ -285,8 +290,10 @@ async def test_small_sprint_single_page_is_complete(monkeypatch):
     )
 
     assert result["complete"] is True
+    assert result["membership_proven"] is True
     assert result["source_path"] == "get_sprint_tasks"
     assert [row["source_id"] for row in result["complete_tasks"]] == codes
+    assert all(row["sprint_id"] == "DMS-SPRNT-2" for row in result["complete_tasks"])
     assert client.tql_calls == 0
 
 
