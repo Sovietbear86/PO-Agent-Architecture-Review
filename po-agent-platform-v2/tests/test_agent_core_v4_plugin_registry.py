@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+import inspect
 import types
 
 import pytest
 
-from po_agent.harness.agent_core_v4 import CapabilitySpecV4, SkillCatalogV4, SkillSpecV4
+from po_agent.harness.agent_core_v4 import AgentCoreV4Runtime, CapabilitySpecV4, SkillCatalogV4, SkillSpecV4
 from po_agent.harness.agent_core_v4_completion import CompletionRequirement, SkillCompletionContract
+from po_agent.harness.agent_core_v4_reliable import ReliableAgentCoreV4Runtime
+from po_agent.harness.agent_core_v4_robust import RobustReliableAgentCoreV4Runtime, RobustSkillNativePlannerV4
+from po_agent.harness.agent_core_v4_pluginized import PluginizedRobustReliableAgentCoreV4Runtime
 from po_agent.harness.v4_plugin_registry import (
     CapabilityBindingV4,
     UIContractV4,
@@ -225,3 +229,49 @@ def test_discovery_contract_rejects_module_without_typed_plugin(monkeypatch):
     monkeypatch.setattr(registry_module.importlib, "import_module", fake_import)
     with pytest.raises(V4PluginError, match="must export PLUGIN"):
         discover_v4_plugins()
+
+
+def test_session_context_interface_parity_across_production_runtime_chain():
+    """Cross-cutting Harness arguments must reach every production override.
+
+    This is intentionally an interface-level contract: adding a new generic
+    control-plane argument must not silently break one wrapper layer and turn
+    all plugin capabilities RED before skill loading.
+    """
+    runtime_classes = (
+        AgentCoreV4Runtime,
+        ReliableAgentCoreV4Runtime,
+        PluginizedRobustReliableAgentCoreV4Runtime,
+    )
+    for runtime_cls in runtime_classes:
+        signature = inspect.signature(runtime_cls._validate_call_literals)
+        assert "session_context" in signature.parameters, runtime_cls.__name__
+
+    planner_signature = inspect.signature(RobustSkillNativePlannerV4.next_decision)
+    assert "session_context" in planner_signature.parameters
+
+
+def test_pluginized_literal_guard_forwards_session_context_to_base(monkeypatch):
+    """A validated session entity must survive the pluginized overlay."""
+    runtime = object.__new__(PluginizedRobustReliableAgentCoreV4Runtime)
+    captured = {}
+
+    def fake_super_guard(self, capability_id, args, query, observations, session_context=None):
+        captured["capability_id"] = capability_id
+        captured["args"] = dict(args)
+        captured["query"] = query
+        captured["session_context"] = dict(session_context or {})
+
+    monkeypatch.setattr(ReliableAgentCoreV4Runtime, "_validate_call_literals", fake_super_guard)
+
+    runtime._validate_call_literals(
+        "task.search",
+        {"sprint_id": "DMS-SPRNT-3", "status": "not_completed"},
+        "покажи активные задачи в этом спринте",
+        [],
+        {"space": "DMS", "sprint_id": "DMS-SPRNT-3"},
+    )
+
+    assert captured["capability_id"] == "task.search"
+    assert captured["args"]["sprint_id"] == "DMS-SPRNT-3"
+    assert captured["session_context"] == {"space": "DMS", "sprint_id": "DMS-SPRNT-3"}
