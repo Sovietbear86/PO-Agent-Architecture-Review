@@ -54,7 +54,7 @@ CAPABILITIES = (
     CapabilitySpecV4(
         "task.search_assignee",
         "Resolve a natural person reference against REAL AS21 and return that person's live tasks.",
-        {"reference": "required user-grounded person reference", "space": "optional grounded product space"},
+        {"reference": "required user-grounded person reference", "space": "optional grounded product space", "status": "optional requested task status/open-completed semantic state"},
     ),
     CapabilitySpecV4(
         "task.search_status",
@@ -98,7 +98,7 @@ SKILLS = (
     ),
     SkillSpecV4(
         "task.search_assignee", "Find tasks assigned to a named person/source identity.",
-        ("Call task.search_assignee with the natural person reference exactly as grounded in the user request and optional grounded space. Identity resolution is source-backed inside the capability; never invent a login.",),
+        ("Call task.search_assignee with the natural person reference exactly as grounded in the user request and optional grounded space. If the user also requested a task status/open-completed state, pass it in the status argument; never drop that constraint. Identity resolution is source-backed inside the capability; never invent a login.",),
         ("task.search_assignee",), completion=(CompletionRequirement("task.search_assignee", data_keys=("count",)),),
     ),
     SkillSpecV4(
