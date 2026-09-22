@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 import re
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
@@ -407,8 +407,8 @@ async def _schema_aware_task_history_arguments(
     *,
     task_code: str,
 ) -> dict[str, Any]:
-    """Build get_unit_change_history arguments from the live MCP schema."""
-    schema = await client.tool_input_schema("get_unit_change_history")
+    """Build get_task_history arguments from the live MCP schema."""
+    schema = await client.tool_input_schema("get_task_history")
     properties = schema.get("properties") if isinstance(schema, dict) else None
     top = properties if isinstance(properties, dict) else {}
 
@@ -425,7 +425,7 @@ async def _schema_aware_task_history_arguments(
                 task_code,
             )
             if not request:
-                raise SWTRMCPProtocolError("get_unit_change_history request schema exposes no task identifier")
+                raise SWTRMCPProtocolError("get_task_history request schema exposes no task identifier")
             return {"request": request}
         if request_schema.get("type") == "string":
             return {"request": task_code}
@@ -438,8 +438,8 @@ async def _schema_aware_task_history_arguments(
         task_code,
     )
     if not result:
-        # Backward-compatible flat schema used by earlier MCP-SWTR releases.
-        result["unit_code"] = task_code
+        # Fail-safe fallback for a permissive flat schema. The live tool uses task_code.
+        result["task_code"] = task_code
     return result
 
 
@@ -830,6 +830,42 @@ async def search_versions(
     }
 
 
+def _history_value(value: Any) -> str | None:
+    """Normalize one authoritative history value without stringifying raw dicts."""
+    if value is None:
+        return None
+    if isinstance(value, dict):
+        for key in ("name", "externalId", "external_id", "login", "code"):
+            candidate = value.get(key)
+            if candidate not in (None, ""):
+                return str(candidate)
+        return json.dumps(value, ensure_ascii=False, sort_keys=True)
+    return str(value)
+
+
+def _history_actor(raw: Any) -> str:
+    if isinstance(raw, dict):
+        for key in ("externalId", "external_id", "login", "name"):
+            candidate = raw.get(key)
+            if candidate not in (None, ""):
+                return str(candidate)
+        first = str(raw.get("firstName") or "").strip()
+        last = str(raw.get("lastName") or "").strip()
+        if first or last:
+            return " ".join(item for item in (first, last) if item)
+    return "" if raw is None else str(raw)
+
+
+def _history_timestamp(raw: Any) -> datetime:
+    if raw in (None, ""):
+        raise HTTPException(status_code=502, detail="SWTR history event misses authoritative timestamp")
+    try:
+        parsed = datetime.fromisoformat(str(raw).replace("Z", "+00:00"))
+    except ValueError as exc:
+        raise HTTPException(status_code=502, detail="SWTR history event has invalid timestamp") from exc
+    return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=timezone.utc)
+
+
 @router.get("/tasks/{task_code}/history", response_model=HistoryResponse)
 async def get_task_history(task_code: str):
     normalized = task_code.upper().strip()
@@ -838,36 +874,67 @@ async def get_task_history(task_code: str):
     client = SWTRMCPClient()
     try:
         arguments = await _schema_aware_task_history_arguments(client, task_code=normalized)
-        content = await client.call_tool("get_unit_change_history", arguments)
+        content = await client.call_tool("get_task_history", arguments)
     except (SWTRMCPUnavailable, SWTRMCPProtocolError) as exc:
         raise _transport_http_error(exc) from exc
+
     payload = _parse_tool_content(content)
     if isinstance(payload, dict):
         events_raw = payload.get("content", payload.get("events", []))
+        has_next = bool(payload.get("hasNext", payload.get("has_next", False)))
+        page_number = int(payload.get("pageNumber", payload.get("page_number", 1)) or 1)
+        page_size = int(payload.get("pageSize", payload.get("page_size", len(events_raw) if isinstance(events_raw, list) else 0)) or 0)
+        total = int(payload.get("totalElements", payload.get("total_elements", len(events_raw) if isinstance(events_raw, list) else 0)) or 0)
     else:
         events_raw = payload
+        has_next = False
+        page_number = 1
+        page_size = len(events_raw) if isinstance(events_raw, list) else 0
+        total = page_size
+
     if not isinstance(events_raw, list):
-        raise HTTPException(status_code=502, detail="SWTR change history payload is malformed")
+        raise HTTPException(status_code=502, detail="SWTR task history payload is malformed")
+    # The live get_task_history schema currently exposes only task_code. If the
+    # source reports another page but gives no page argument, fail closed rather
+    # than silently returning a truncated lifecycle.
+    if has_next:
+        raise HTTPException(status_code=502, detail="SWTR task history is paginated but the live tool exposes no page selector")
+
     events: list[HistoryEvent] = []
     for raw in events_raw:
         if not isinstance(raw, dict):
             continue
-        field_code = str(raw.get("fieldCode") or raw.get("field_code") or "")
-        old_value = raw.get("oldValue", raw.get("old_value"))
-        new_value = raw.get("newValue", raw.get("new_value"))
-        changed_at_raw = raw.get("changedAt", raw.get("changed_at"))
-        actor = raw.get("actor")
-        try:
-            changed_at = datetime.fromisoformat(str(changed_at_raw).replace("Z", "+00:00")) if changed_at_raw else datetime.now()
-        except ValueError:
-            changed_at = datetime.now()
+        entity = raw.get("entity") if isinstance(raw.get("entity"), dict) else {}
+        field_code = str(
+            entity.get("code")
+            or raw.get("fieldCode")
+            or raw.get("field_code")
+            or ""
+        ).strip()
+        if not field_code:
+            raise HTTPException(status_code=502, detail="SWTR history event misses field identity")
         events.append(
             HistoryEvent(
+                task_code=normalized,
+                event_id=str(raw.get("id") or "") or None,
                 field_code=field_code,
-                old_value=None if old_value is None else str(old_value),
-                new_value=None if new_value is None else str(new_value),
-                changed_at=changed_at,
-                actor=None if actor is None else str(actor),
+                field_name=str(entity.get("name") or "") or None,
+                old_value=_history_value(raw.get("oldValue", raw.get("old_value"))),
+                new_value=_history_value(raw.get("newValue", raw.get("new_value"))),
+                changed_at=_history_timestamp(raw.get("createdAt", raw.get("changedAt", raw.get("changed_at")))),
+                actor=_history_actor(raw.get("user", raw.get("actor"))),
             )
         )
-    return HistoryResponse(task_code=normalized, events=events)
+    events.sort(key=lambda item: item.changed_at)
+    return HistoryResponse(
+        task_code=normalized,
+        events=events,
+        page_info={
+            "page_number": page_number,
+            "page_size": page_size,
+            "total_elements": total,
+            "has_next": has_next,
+            "complete": True,
+            "source_tool": "get_task_history",
+        },
+    )
