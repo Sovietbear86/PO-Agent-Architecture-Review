@@ -297,3 +297,107 @@ async def test_completed_turn_session_context_is_internal_and_reused(monkeypatch
         "space": "DMS",
         "sprint_id": "DMS-SPRNT-3",
     }
+
+
+class _MultiHopClarificationRuntime:
+    plugin_ids = ("builtin.core.a188",)
+
+    def __init__(self):
+        self.requests = []
+
+    async def process(self, request):
+        self.requests.append(request)
+        turn = len(self.requests)
+        if turn == 1:
+            return HarnessResponse(
+                status=ResponseStatus.NEEDS_CLARIFICATION,
+                trace_id="mh-1",
+                session_id=request.session_id or "missing",
+                question="Уточните пространство.",
+                options=["OLP", "DMS"],
+                intent="skill_native_v4",
+                skill_id="tasks.search",
+                skill_version="4.0.0-poc",
+                data={"_agent_core_v4": {
+                    "loaded_skills": ["tasks.search"],
+                    "continuation_observations": [],
+                    "continuation_required_skills": ["tasks.search"],
+                }},
+            )
+        if turn == 2:
+            return HarnessResponse(
+                status=ResponseStatus.NEEDS_CLARIFICATION,
+                trace_id="mh-2",
+                session_id=request.session_id or "missing",
+                question="Какой спринт использовать?",
+                options=["OLP-SPRNT-7", "OLP-SPRNT-6"],
+                intent="skill_native_v4",
+                skill_id="tasks.search",
+                skill_version="4.0.0-poc",
+                data={"_agent_core_v4": {
+                    "loaded_skills": ["tasks.search"],
+                    "continuation_observations": [
+                        {
+                            "step": 1,
+                            "capability_id": "space.resolve",
+                            "arguments": {"reference": "OLP"},
+                            "answer": "Пространство подтверждено: OLP.",
+                            "data": {"space": "OLP", "source": "PO_AGENT_SCOPE"},
+                        }
+                    ],
+                    "continuation_required_skills": ["tasks.search"],
+                }},
+            )
+        return HarnessResponse(
+            status=ResponseStatus.COMPLETED,
+            trace_id="mh-3",
+            session_id=request.session_id or "missing",
+            answer="Готово.",
+            intent="skill_native_v4",
+            skill_id="tasks.search",
+            skill_version="4.0.0-poc",
+            data={"_agent_core_v4": {"semantic_prepass_used": False}},
+        )
+
+    def ui_contract(self, skill_id):
+        return _UIContract()
+
+
+@pytest.mark.asyncio
+async def test_multi_hop_clarification_preserves_original_goal(monkeypatch):
+    import po_agent.api.v1 as api_v1
+
+    runtime = _MultiHopClarificationRuntime()
+    api_v1.set_runtime(None)
+    monkeypatch.setattr(api_v1, "get_settings", lambda: SimpleNamespace(
+        correlation_id_header="X-Correlation-Id",
+        agent_core_v4_enabled=True,
+    ))
+    monkeypatch.setattr(api_v1, "get_runtime_bundle", lambda: SimpleNamespace(v4_runtime=runtime))
+
+    first = await query_agent(
+        QueryRequest(query="активные задачи Гаранина в сентябрьском спринте по OLAP", session_id="mh"),
+        _HeadersRequest(),
+    )
+    second = await query_agent(
+        QueryRequest(
+            query="OLP",
+            session_id="mh",
+            clarification_id=first["clarification_id"],
+            clarification_option="OLP",
+        ),
+        _HeadersRequest(),
+    )
+    third = await query_agent(
+        QueryRequest(
+            query="OLP-SPRNT-7",
+            session_id="mh",
+            clarification_id=second["clarification_id"],
+            clarification_option="OLP-SPRNT-7",
+        ),
+        _HeadersRequest(),
+    )
+    assert third["status"] == "COMPLETED"
+    assert runtime.requests[2].required_completion_skills == ("tasks.search",)
+    assert runtime.requests[2].resume_loaded_skills == ("tasks.search",)
+    assert runtime.requests[2].resume_observations[0]["capability_id"] == "space.resolve"
