@@ -301,24 +301,15 @@ class HardenedProductionTaskApiAS21Adapter(ProductionTaskApiAS21Adapter):
         if not project and not sprint:
             return await super().search_tasks(jql, max_results=max_results, fields=fields)
 
-        # Release-filtered project queries must never fall through to the
-        # historical local /api/v1/tasks store. Until a certified live
-        # release-task collection is available, fail closed rather than
-        # returning local rows as if they were REAL AS21 facts.
-        if project and filters.get("release_id") and not sprint and not assignee:
-            raise AS21SourceUnavailable(
-                "REAL AS21 release-task collection is unavailable on the certified live path"
-            )
-
         remaining = dict(filters)
         remaining.pop("project_space", None); remaining.pop("sprint_id", None)
         if sprint:
             candidates = await self.get_sprint_tasks(sprint, space=project)
         else:
-            cached_filters = {k: v for k, v in remaining.items() if k in {"assignee", "status", "release_id", "key", "source"}}
-            query = " AND ".join(f"{k if k != 'release_id' else 'release'} = {v}" for k, v in cached_filters.items())
-            candidates = await TaskApiAS21Adapter.search_tasks(self, query, max_results=self._scan_limit, fields=fields)
-            candidates = await self._hydrate_relations(candidates)
+            # Project/release/status scans stay on the certified live task-query
+            # facade. Never route bounded V4 factual reads through the historical
+            # local /api/v1/tasks store.
+            candidates = await super().search_tasks(jql, max_results=self._scan_limit, fields=fields)
         final_filters = dict(remaining)
         if project:
             final_filters["project_space"] = project
