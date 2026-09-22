@@ -157,7 +157,7 @@ def test_clarification_continuation_restores_original_query_and_option():
     clarification_id = remembered["clarification_id"]
     assert clarification_id
 
-    effective, early = _prepare_query(
+    effective, early, continuation = _prepare_query(
         QueryRequest(
             query="DMS",
             session_id=session_id,
@@ -167,6 +167,9 @@ def test_clarification_continuation_restores_original_query_and_option():
         session_id,
     )
     assert early is None
+    assert continuation.loaded_skills == ()
+    assert continuation.observations == ()
+    assert continuation.required_completion_skills == ()
     assert "задачи Гаранина в сентябрьском спринте" in effective
     assert "Ответ пользователя на уточнение: DMS" in effective
     assert "Не трактуй ответ на уточнение как новый отдельный запрос" in effective
@@ -191,6 +194,9 @@ def test_clarification_is_session_bound_and_fails_closed_in_russian():
         "session-b",
     )
     assert effective is None
+    assert continuation.loaded_skills == ()
+    assert continuation.observations == ()
+    assert continuation.required_completion_skills == ()
     assert early["status"] == "NEEDS_CLARIFICATION"
     assert "Контекст предыдущего уточнения" in early["question"]
     assert early["warnings"] == ["clarification_context_lost"]
@@ -214,6 +220,9 @@ def test_invalid_clarification_option_does_not_replan_as_standalone_query():
         "session-a",
     )
     assert effective is None
+    assert continuation.loaded_skills == ()
+    assert continuation.observations == ()
+    assert continuation.required_completion_skills == ()
     assert early["status"] == "NEEDS_CLARIFICATION"
     assert early["options"] == ["DMS", "WMB"]
     assert early["warnings"] == ["invalid_clarification_option"]
