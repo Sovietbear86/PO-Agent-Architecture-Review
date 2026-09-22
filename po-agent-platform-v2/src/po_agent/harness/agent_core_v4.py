@@ -283,6 +283,7 @@ Rules:
 - For person+sprint task requests, normally resolve the person and sprint, then call task.search with both constraints.
 - For task-key analysis, use the task-key capability exposed by the loaded skill.
 - Keep every user constraint through the trajectory.
+- Before READY, verify that every explicit user constraint that the terminal capability schema can express is present in the executed call arguments or proven by a prior source-backed resolver observation. Never answer a constrained collection request from an unconstrained collection observation.
 - session_context contains only source-validated entities from prior COMPLETED turns in the same session. Use it only when the user explicitly refers back to prior context (for example "этот спринт"/"этот релиз"); never apply it silently to unrelated new requests.
 - You may infer safe semantic enums such as status=not_completed from words meaning open/unresolved/not completed and unassigned=true from an explicit request for tasks without an assignee.
 - Never invent people, logins, spaces, sprint ids, release ids, task ids, counts or source facts.
