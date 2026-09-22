@@ -215,6 +215,18 @@ def _status_identifier(value: Any) -> str:
     return ""
 
 
+def _relation_identifier(value: Any) -> str | None:
+    if isinstance(value, str):
+        text = value.strip()
+        return text or None
+    if isinstance(value, dict):
+        for key in ("code", "id", "value", "name"):
+            candidate = value.get(key)
+            if isinstance(candidate, (str, int)) and str(candidate).strip():
+                return str(candidate).strip()
+    return None
+
+
 def _canonical_sprint_task_row(item: dict[str, Any]) -> dict[str, Any] | None:
     """Canonical task-shaped row (same contract as the live assignee route).
 
@@ -252,6 +264,8 @@ def _canonical_sprint_task_row(item: dict[str, Any]) -> dict[str, Any] | None:
     elif isinstance(space_value, str):
         space = space_value.strip() or None
     status = _status_identifier(attrs.get("workflow_status", unit.get("workflow_status")))
+    sprint_id = _relation_identifier(attrs.get("scrum_board_plugin_sprint"))
+    release_id = _relation_identifier(attrs.get("fix_version_s"))
     # Normalize to the flat ``{"code","value"}`` contract that downstream
     # readers (agent ``_attributes``) expect, so workflow semantics such as
     # ``workflow_status.statusType`` survive the canonical row boundary.
@@ -265,6 +279,8 @@ def _canonical_sprint_task_row(item: dict[str, Any]) -> dict[str, Any] | None:
             "swtr_space": space,
             "workflow_status": status,
             "swtr_attributes": swtr_attributes,
+            "sprint_id": sprint_id,
+            "release_id": release_id,
             "live_sprint_route": True,
         },
     }
