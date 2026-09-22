@@ -399,9 +399,15 @@ Additional reliability rules:
         args: Mapping[str, str],
         query: str,
         observations: list[V4Observation],
+        session_context: Mapping[str, str] | None = None,
     ) -> None:
-        safe_enum_fields = {"status"}
+        safe_enum_fields = {"status", "unassigned"}
         trusted_identities = self._trusted_identity_values(observations)
+        trusted_context_values = {
+            str(value).strip().casefold()
+            for value in (session_context or {}).values()
+            if value and str(value).strip()
+        }
 
         for key, value in args.items():
             raw = str(value).strip()
@@ -425,10 +431,13 @@ Additional reliability rules:
                     f"planner person reference is neither query-derived nor uniquely team-scoped: {raw}"
                 )
             if key in {"reference", "space", "sprint_id", "release_id", "task_key", "product"}:
-                if not _literal_is_query_derived(raw, query):
-                    raise V4ContractError(
-                        f"planner literal is not grounded in user query: {key}={raw}"
-                    )
+                if _literal_is_query_derived(raw, query):
+                    continue
+                if raw.casefold() in trusted_context_values:
+                    continue
+                raise V4ContractError(
+                    f"planner literal is not grounded in user query or validated session context: {key}={raw}"
+                )
 
     async def _sprint_current_source_backed(self, args: dict[str, str]) -> CapabilityResult:
         product = str(args.get("product") or args.get("space") or "").strip().upper()
