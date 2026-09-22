@@ -89,6 +89,39 @@ def resolved_constraint_arguments(
     }
 
 
+def validated_session_context(observations: Iterable[Any]) -> dict[str, str]:
+    """Return unique source-validated entity facts safe for later session turns.
+
+    Resolver observations are authoritative by definition. Successful downstream
+    observations may also expose canonical entity fields in their data (for
+    example sprint.health -> sprint_id). Values are retained only when a role has
+    exactly one canonical value across the completed trajectory.
+    """
+    typed = list(observations)
+    grouped: dict[str, set[str]] = {}
+    for role, value in resolved_constraint_values(typed):
+        grouped.setdefault(role, set()).add(value)
+
+    for observation in typed:
+        data = observation.data if isinstance(observation.data, Mapping) else {}
+        for role in ("space", "sprint_id", "release_id", "assignee"):
+            value = data.get(role)
+            if not _nonempty(value):
+                continue
+            grouped.setdefault(role, set()).add(str(value).strip())
+        # Identity capabilities commonly expose canonical login under these keys.
+        for key in ("member_login", "external_id", "assignee_login", "assignee_id"):
+            value = data.get(key)
+            if _nonempty(value):
+                grouped.setdefault("assignee", set()).add(str(value).strip())
+
+    return {
+        role: next(iter(values))
+        for role, values in grouped.items()
+        if len(values) == 1
+    }
+
+
 def resolved_constraint_values(observations: Iterable[Any]) -> list[tuple[str, str]]:
     """Typed user constraints resolved by resolver capabilities in the trajectory."""
     resolved: list[tuple[str, str]] = []
