@@ -41,6 +41,7 @@ class PluginizedRobustReliableAgentCoreV4Runtime(RobustReliableAgentCoreV4Runtim
         args: Mapping[str, str],
         query: str,
         observations: list[V4Observation],
+        session_context: Mapping[str, str] | None = None,
     ) -> None:
         """Apply morphology-aware grounding to generic human ``reference`` args.
 
@@ -71,7 +72,13 @@ class PluginizedRobustReliableAgentCoreV4Runtime(RobustReliableAgentCoreV4Runtim
             # validation. Space/sprint/release/task/product guards remain intact.
             forwarded.pop("reference", None)
 
-        super()._validate_call_literals(capability_id, forwarded, query, observations)
+        super()._validate_call_literals(
+            capability_id,
+            forwarded,
+            query,
+            observations,
+            session_context,
+        )
 
     @property
     def plugin_ids(self) -> tuple[str, ...]:
