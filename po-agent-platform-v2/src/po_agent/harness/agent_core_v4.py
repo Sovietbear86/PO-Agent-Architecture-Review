@@ -287,6 +287,7 @@ Rules:
 - Never invent people, logins, spaces, sprint ids, release ids, task ids, counts or source facts.
 - If a required entity cannot be resolved by the available capabilities, use READY only to explain the limitation/clarification.
 - After observations already support the complete answer, use READY instead of calling unrelated tools.
+- Resolver/identity observations are never a substitute for a requested collection, metric or analysis. If the catalog has a matching skill, load it and execute its terminal capability. If the requested deliverable is not implemented, say that the capability is not implemented; do not claim that source data is absent merely because only an identity resolver has run.
 """
 
     REPAIR = """The previous planner decision was invalid. Return one valid JSON decision only.
