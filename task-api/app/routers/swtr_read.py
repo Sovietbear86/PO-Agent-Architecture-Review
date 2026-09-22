@@ -756,8 +756,27 @@ async def get_sprint_tasks(
                 source_path = "tql_sprint_constraint"
                 pages_fetched = tql_pages
 
+    if is_complete:
+        # The complete collection was produced by a source operation whose
+        # predicate is the requested sprint itself (get_sprint_tasks or TQL
+        # sprint constraint). Stamp that proven relation onto the canonical
+        # rows so downstream adapters do not need an N+1 raw-unit re-read for
+        # every task just to rediscover the same relation.
+        for row in canonical_rows:
+            source_data = row.get("source_data") if isinstance(row.get("source_data"), dict) else {}
+            source_data = dict(source_data)
+            source_data["sprint_id"] = normalized
+            source_data["sprint_membership_proven"] = True
+            if normalized_space and not source_data.get("swtr_space"):
+                source_data["swtr_space"] = normalized_space
+            row["source_data"] = source_data
+            row["sprint_id"] = normalized
+            if normalized_space:
+                row["project_space"] = normalized_space
+
     result["complete_tasks"] = canonical_rows
     result["complete"] = is_complete
+    result["membership_proven"] = bool(is_complete)
     result["pages_fetched"] = pages_fetched
     result["source_path"] = source_path
     return result
