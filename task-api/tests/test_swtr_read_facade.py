@@ -4,6 +4,9 @@ import pytest
 from fastapi import HTTPException
 
 from app.routers.swtr_read import (
+    _history_actor,
+    _history_timestamp,
+    _history_value,
     _normalize_sprint_row,
     _parse_tool_content,
     _schema_aware_get_sprint_tasks_arguments,
@@ -174,7 +177,7 @@ class HistorySchemaClient:
         self.schema = schema
 
     async def tool_input_schema(self, name: str):
-        assert name == "get_unit_change_history"
+        assert name == "get_task_history"
         return self.schema
 
 
@@ -199,7 +202,15 @@ async def test_history_arguments_support_nested_request_schema():
 @pytest.mark.asyncio
 async def test_history_arguments_support_flat_schema():
     client = HistorySchemaClient(
-        {"properties": {"unit_code": {"type": "string"}}}
+        {"properties": {"task_code": {"type": "string"}}}
     )
     args = await _schema_aware_task_history_arguments(client, task_code="DMS-399")
-    assert args == {"unit_code": "DMS-399"}
+    assert args == {"task_code": "DMS-399"}
+
+
+def test_history_payload_normalizers_match_live_mcp_shape():
+    assert _history_value({"code": "CLOSED", "name": "Закрыт", "statusType": "done"}) == "Закрыт"
+    assert _history_value({"externalId": "Semavin.M.M", "login": "semavin"}) == "Semavin.M.M"
+    assert _history_actor({"externalId": "Semavin.M.M", "firstName": "M", "lastName": "S"}) == "Semavin.M.M"
+    parsed = _history_timestamp("2026-09-17T10:51:55.272677Z")
+    assert parsed.isoformat().endswith("+00:00")
