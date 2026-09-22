@@ -402,8 +402,15 @@ class TaskApiAS21Adapter(AS21Adapter):
         source_data["_canonical_created_at_from_source"] = source_created is not None
         source_data["_canonical_updated_at_from_source"] = source_updated is not None
         project_space = source_data.get("swtr_space") if isinstance(source_data.get("swtr_space"), str) else None
-        sprint_id = _identifier(data.get("sprint")) or _identifier(attrs.get("scrum_board_plugin_sprint"))
-        release_id = _identifier(attrs.get("fix_version_s"))
+        sprint_id = (
+            _identifier(data.get("sprint"))
+            or _identifier(source_data.get("sprint_id"))
+            or _identifier(attrs.get("scrum_board_plugin_sprint"))
+        )
+        release_id = (
+            _identifier(source_data.get("release_id"))
+            or _identifier(attrs.get("fix_version_s"))
+        )
         task = Task(
             key=source_id,
             id=source_id,
