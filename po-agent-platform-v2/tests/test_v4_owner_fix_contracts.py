@@ -210,7 +210,7 @@ def test_invalid_clarification_option_does_not_replan_as_standalone_query():
         "clarification_id": None,
     }
     remembered = _remember_clarification(first, "session-a", "исходный запрос")
-    effective, early = _prepare_query(
+    effective, early, continuation = _prepare_query(
         QueryRequest(
             query="UNKNOWN",
             session_id="session-a",
