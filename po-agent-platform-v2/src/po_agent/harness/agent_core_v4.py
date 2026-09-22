@@ -1071,7 +1071,11 @@ class AgentCoreV4Runtime:
         has_sprint_noun = any(token.startswith("спринт") or token.startswith("sprint") for token in tokens)
         has_plural = any(token in _SPRINT_PLURAL_TOKENS for token in tokens)
         has_marker = any(token in _COLLECTION_MARKERS for token in tokens)
-        return has_plural or (has_sprint_noun and has_marker)
+        # "список задач в этом спринте" is a task collection, not a sprint
+        # collection. Cardinality remapping must follow the collection object,
+        # not merely the presence of a generic list marker.
+        has_task_noun = any(token.startswith("задач") or token.startswith("task") for token in tokens)
+        return has_plural or (has_sprint_noun and has_marker and not has_task_noun)
 
     def _reconcile_loaded_skill(self, skill_id: str, query: str) -> str:
         """Deterministic capability-cardinality guard for skill loading.
