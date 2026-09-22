@@ -419,3 +419,42 @@ async def test_person_scoped_aging_uses_generic_member_resolver():
     })
     assert runtime.resolve_calls == [{"reference": "Калачанов", "space": "WMB"}]
     assert result.data["source_assignee"] == "Kalachanov.V.V"
+
+
+@pytest.mark.asyncio
+async def test_task_search_unassigned_filters_bounded_space_without_false_success():
+    class Task:
+        def __init__(self, key, assignee=None):
+            self.key = key
+            self.title = key
+            self.status = type("Status", (), {"value": "Open"})()
+            self.status_category = type("StatusCategory", (), {"value": "in_progress"})()
+            self.assignee = assignee
+            self.assignee_login = assignee
+            self.assignee_id = assignee
+            self.project_space = "OLP"
+            self.sprint_id = None
+            self.release_id = None
+            self.source = "swtr"
+            self.is_open = True
+            self.is_completed = False
+
+    class Adapter:
+        async def search_tasks(self, query, max_results=10000):
+            assert 'project = "OLP"' in query
+            return [Task("OLP-1", None), Task("OLP-2", "person.login")]
+
+    runtime = type("Runtime", (), {})()
+    # Reuse the production method without constructing planner/LLM state.
+    from po_agent.harness.agent_core_v4 import AgentCoreV4Runtime
+    runtime.adapter = Adapter()
+    runtime._safe_status = AgentCoreV4Runtime._safe_status
+    runtime._task_to_dict = AgentCoreV4Runtime._task_to_dict
+
+    result = await AgentCoreV4Runtime._task_search(runtime, {
+        "space": "OLP",
+        "unassigned": "true",
+    })
+    assert result.data["count"] == 1
+    assert result.data["task_keys"] == ["OLP-1"]
+    assert result.data["filters"]["unassigned"] is True
