@@ -41,6 +41,15 @@ class PendingClarification:
 _pending_clarifications: dict[str, PendingClarification] = {}
 
 
+@dataclass
+class SessionEntityContext:
+    values: dict[str, str]
+    updated_at: float
+
+
+_session_entity_context: dict[str, SessionEntityContext] = {}
+
+
 @dataclass(frozen=True)
 class ClarificationContinuation:
     loaded_skills: tuple[str, ...] = ()
@@ -116,6 +125,7 @@ def set_runtime(runtime: HarnessRuntime | None) -> None:
     _bundle = None
     _runtime_init_error = None
     _pending_clarifications.clear()
+    _session_entity_context.clear()
 
 
 def _decorate_v4_response(response: dict, bundle: RuntimeBundle) -> dict:
@@ -218,6 +228,40 @@ def _prepare_query(
         observations=pending.resume_observations,
         required_completion_skills=pending.required_completion_skills,
     )
+
+
+def _session_context_for(session_id: str) -> dict[str, str]:
+    item = _session_entity_context.get(session_id)
+    if item is None:
+        return {}
+    if (time.monotonic() - item.updated_at) > _CLARIFICATION_TTL_SECONDS:
+        _session_entity_context.pop(session_id, None)
+        return {}
+    return dict(item.values)
+
+
+def _remember_completed_session_context(response: dict, session_id: str) -> dict:
+    if response.get("status") != "COMPLETED":
+        return response
+    data = response.get("data")
+    v4_state = data.get("_agent_core_v4", {}) if isinstance(data, dict) else {}
+    raw = v4_state.get("session_context") if isinstance(v4_state, dict) else None
+    if isinstance(raw, dict):
+        clean = {
+            str(key): str(value).strip()
+            for key, value in raw.items()
+            if value is not None and str(value).strip()
+        }
+        if clean:
+            previous = _session_context_for(session_id)
+            previous.update(clean)
+            _session_entity_context[session_id] = SessionEntityContext(
+                values=previous,
+                updated_at=time.monotonic(),
+            )
+        # Internal control-plane state is not a public API field.
+        v4_state.pop("session_context", None)
+    return response
 
 
 def _remember_clarification(response: dict, session_id: str, original_query: str) -> dict:
@@ -336,8 +380,10 @@ async def _run_query(payload: QueryRequest, request: Request, *, force_v4: bool 
                 resume_loaded_skills=continuation.loaded_skills,
                 resume_observations=continuation.observations,
                 required_completion_skills=continuation.required_completion_skills,
+                session_context=_session_context_for(session_id),
             ))
             response = _decorate_v4_response(result.to_dict(), bundle)
+            response = _remember_completed_session_context(response, session_id)
             response = _remember_clarification(response, session_id, effective_query or original_query)
         else:
             result = await get_runtime().process(HarnessRequest(query=effective_query or original_query, session_id=session_id))
