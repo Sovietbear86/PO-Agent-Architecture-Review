@@ -8,6 +8,7 @@ from app.routers.swtr_read import (
     _parse_tool_content,
     _schema_aware_get_sprint_tasks_arguments,
     _schema_aware_search_sprints_arguments,
+    _schema_aware_task_history_arguments,
 )
 
 
@@ -166,3 +167,39 @@ def test_normalize_sprint_row_defaults_deleted_flag():
     normalized = _normalize_sprint_row({"id": {"code": "X-SPRNT-1"}, "name": "n", "status": "NEW"})
     assert normalized["code"] == "X-SPRNT-1"
     assert normalized["deleted"] is False
+
+
+class HistorySchemaClient:
+    def __init__(self, schema):
+        self.schema = schema
+
+    async def tool_input_schema(self, name: str):
+        assert name == "get_unit_change_history"
+        return self.schema
+
+
+@pytest.mark.asyncio
+async def test_history_arguments_support_nested_request_schema():
+    client = HistorySchemaClient(
+        {
+            "properties": {
+                "request": {
+                    "type": "object",
+                    "properties": {
+                        "unitCode": {"type": "string"},
+                    },
+                }
+            }
+        }
+    )
+    args = await _schema_aware_task_history_arguments(client, task_code="DMS-380")
+    assert args == {"request": {"unitCode": "DMS-380"}}
+
+
+@pytest.mark.asyncio
+async def test_history_arguments_support_flat_schema():
+    client = HistorySchemaClient(
+        {"properties": {"unit_code": {"type": "string"}}}
+    )
+    args = await _schema_aware_task_history_arguments(client, task_code="DMS-399")
+    assert args == {"unit_code": "DMS-399"}
