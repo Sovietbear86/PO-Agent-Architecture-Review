@@ -257,6 +257,28 @@ class HardenedProductionTaskApiAS21Adapter(ProductionTaskApiAS21Adapter):
         if payload.get("complete") is False:
             raise AS21SourceError("task-api sprint task endpoint returned an incomplete corpus")
         rows = _sprint_rows(payload)
+
+        # New certified route contract: when Task API marks a collection
+        # complete and membership_proven, every canonical row was produced by
+        # a source-side sprint predicate and carries the requested sprint id.
+        # Trust that typed route proof and avoid the previous N+1 raw-unit
+        # hydration. Still validate each mapped row against the requested
+        # sprint/space before returning it.
+        if payload.get("membership_proven") is True:
+            mapped_tasks: list[Task] = []
+            for row in rows:
+                mapped = self._map(row)
+                if mapped is None:
+                    raise AS21SourceError("source-proven sprint row cannot be mapped to canonical Task")
+                if (mapped.sprint_id or "").casefold() != normalized.casefold():
+                    raise AS21SourceError("source-proven sprint row lost canonical sprint membership")
+                if space and (mapped.project_space or "").casefold() != space.strip().casefold():
+                    raise AS21SourceError("source-proven sprint row violates requested space")
+                mapped_tasks.append(mapped)
+            return mapped_tasks
+
+        # Compatibility/fail-closed fallback for older Task API payloads that
+        # cannot explicitly prove sprint membership.
         rows_by_code: dict[str, dict[str, Any]] = {}
         codes: list[str] = []
         seen: set[str] = set()
