@@ -184,7 +184,7 @@ def test_clarification_is_session_bound_and_fails_closed_in_russian():
         "clarification_id": None,
     }
     remembered = _remember_clarification(first, "session-a", "исходный запрос")
-    effective, early = _prepare_query(
+    effective, early, continuation = _prepare_query(
         QueryRequest(
             query="DMS",
             session_id="session-b",
