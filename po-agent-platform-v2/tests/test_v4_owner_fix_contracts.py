@@ -458,3 +458,41 @@ async def test_task_search_unassigned_filters_bounded_space_without_false_succes
     assert result.data["count"] == 1
     assert result.data["task_keys"] == ["OLP-1"]
     assert result.data["filters"]["unassigned"] is True
+
+
+@pytest.mark.asyncio
+async def test_release_resolve_rejects_product_space_as_release_identity():
+    from po_agent.harness.agent_core_v4 import AgentCoreV4Runtime
+
+    class Adapter:
+        async def get_release_tasks(self, release_id, space=None):
+            raise AssertionError("known product space must not be queried as release id")
+
+    runtime = type("Runtime", (), {"adapter": Adapter()})()
+    with pytest.raises(V4NeedsClarification, match="Какой релиз"):
+        await AgentCoreV4Runtime._release_resolve(runtime, {
+            "reference": "DMS",
+            "space": "DMS",
+        })
+
+
+@pytest.mark.asyncio
+async def test_release_resolve_uses_explicit_release_on_live_adapter():
+    from po_agent.harness.agent_core_v4 import AgentCoreV4Runtime
+
+    task = _task_stub("DMS-900", space="DMS")
+    task.release_id = "DMS-REL-42"
+
+    class Adapter:
+        async def get_release_tasks(self, release_id, space=None):
+            assert release_id == "DMS-REL-42"
+            assert space == "DMS"
+            return [task]
+
+    runtime = type("Runtime", (), {"adapter": Adapter()})()
+    result = await AgentCoreV4Runtime._release_resolve(runtime, {
+        "reference": "DMS-REL-42",
+        "space": "DMS",
+    })
+    assert result.data["release_id"] == "DMS-REL-42"
+    assert result.data["count"] == 1
