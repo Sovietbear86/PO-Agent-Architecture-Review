@@ -52,12 +52,15 @@ async def _fetch_space_rows(
     *,
     space: str,
     assignee_external_id: str | None,
+    release_id: str | None,
     limit: int,
     max_pages: int,
 ) -> list[dict[str, Any]]:
     clauses = [f'space = "{space}"']
     if assignee_external_id:
         clauses.append(f'assigned_to = "{assignee_external_id}"')
+    if release_id:
+        clauses.append(f'fix_version_s = "{release_id}"')
     query = " AND ".join(clauses)
     rows: list[dict[str, Any]] = []
     seen_codes: set[str] = set()
@@ -115,6 +118,7 @@ async def query_live_tasks(
     phrase: str | None = Query(None, max_length=500),
     space: str | None = Query(None, max_length=20),
     assignee: str | None = Query(None, max_length=120),
+    release: str | None = Query(None, max_length=120),
     limit: int = Query(100, ge=1, le=1000),
     max_pages: int = Query(100, ge=1, le=500),
 ):
@@ -131,7 +135,7 @@ async def query_live_tasks(
 
     # Row #7 (assignee search) is a canonical identity query, not a generic
     # multi-space scan. Reuse the proven source-backed assignee facade directly.
-    if assignee and not (phrase or "").strip():
+    if assignee and not (phrase or "").strip() and not (release or "").strip():
         result = await get_assignee_tasks(
             assignee=assignee,
             space=normalized_space,
@@ -160,6 +164,7 @@ async def query_live_tasks(
                 client,
                 space=current_space,
                 assignee_external_id=external_id,
+                release_id=(release or "").strip() or None,
                 limit=limit,
                 max_pages=max_pages,
             )
@@ -204,6 +209,7 @@ async def query_live_tasks(
         "space": normalized_space,
         "assignee": assignee,
         "external_id": external_id,
+        "release": (release or "").strip() or None,
         "phrase": phrase,
         "count": len(canonical),
         "tasks": canonical,
