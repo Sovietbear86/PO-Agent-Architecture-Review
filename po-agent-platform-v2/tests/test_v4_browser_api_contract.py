@@ -228,3 +228,72 @@ async def test_health_uses_lightweight_source_probe_not_unscoped_task_search(mon
     assert response["status"] == "healthy"
     assert adapter.health_calls == 1
     assert adapter.search_calls == 0
+
+
+class _SessionContextRuntime:
+    plugin_ids = ("builtin.core.a188",)
+
+    def __init__(self):
+        self.requests = []
+
+    async def process(self, request):
+        self.requests.append(request)
+        if len(self.requests) == 1:
+            return HarnessResponse(
+                status=ResponseStatus.COMPLETED,
+                trace_id="trace-context-1",
+                session_id=request.session_id or "missing",
+                answer="Спринт найден.",
+                intent="skill_native_v4",
+                skill_id="sprints.discover",
+                skill_version="4.0.0-poc",
+                data={
+                    "_agent_core_v4": {
+                        "semantic_prepass_used": False,
+                        "session_context": {"space": "DMS", "sprint_id": "DMS-SPRNT-3"},
+                    }
+                },
+            )
+        return HarnessResponse(
+            status=ResponseStatus.COMPLETED,
+            trace_id="trace-context-2",
+            session_id=request.session_id or "missing",
+            answer="Задачи получены.",
+            intent="skill_native_v4",
+            skill_id="task.search_sprint",
+            skill_version="4.0.0-poc",
+            data={"_agent_core_v4": {"semantic_prepass_used": False}},
+        )
+
+    def ui_contract(self, skill_id):
+        return _UIContract()
+
+
+@pytest.mark.asyncio
+async def test_completed_turn_session_context_is_internal_and_reused(monkeypatch):
+    import po_agent.api.v1 as api_v1
+
+    runtime = _SessionContextRuntime()
+    api_v1.set_runtime(None)
+    monkeypatch.setattr(api_v1, "get_settings", lambda: SimpleNamespace(
+        correlation_id_header="X-Correlation-Id",
+        agent_core_v4_enabled=True,
+    ))
+    monkeypatch.setattr(api_v1, "get_runtime_bundle", lambda: SimpleNamespace(v4_runtime=runtime))
+
+    first = await query_agent(
+        QueryRequest(query="сентябрьский спринт DMS", session_id="ui-context"),
+        _HeadersRequest(),
+    )
+    assert first["status"] == "COMPLETED"
+    assert "session_context" not in first["data"]["_agent_core_v4"]
+
+    second = await query_agent(
+        QueryRequest(query="покажи задачи в этом спринте", session_id="ui-context"),
+        _HeadersRequest(),
+    )
+    assert second["status"] == "COMPLETED"
+    assert runtime.requests[1].session_context == {
+        "space": "DMS",
+        "sprint_id": "DMS-SPRNT-3",
+    }
