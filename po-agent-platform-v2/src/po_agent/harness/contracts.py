@@ -47,6 +47,10 @@ class HarnessRequest:
     resume_loaded_skills: tuple[str, ...] = ()
     resume_observations: tuple[Mapping[str, Any], ...] = ()
     required_completion_skills: tuple[str, ...] = ()
+    # Generic validated entity context from prior COMPLETED turns in the same
+    # session. This is planner context only: it does not satisfy completion
+    # contracts by itself and is never treated as a fresh source observation.
+    session_context: Mapping[str, str] = field(default_factory=dict)
 
 
 @dataclass
