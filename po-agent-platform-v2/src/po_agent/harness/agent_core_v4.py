@@ -282,6 +282,7 @@ Rules:
 - For person+sprint task requests, normally resolve the person and sprint, then call task.search with both constraints.
 - For task-key analysis, use the task-key capability exposed by the loaded skill.
 - Keep every user constraint through the trajectory.
+- session_context contains only source-validated entities from prior COMPLETED turns in the same session. Use it only when the user explicitly refers back to prior context (for example "этот спринт"/"этот релиз"); never apply it silently to unrelated new requests.
 - You may infer safe semantic enums such as status=not_completed from words meaning open/unresolved/not completed.
 - Never invent people, logins, spaces, sprint ids, release ids, task ids, counts or source facts.
 - If a required entity cannot be resolved by the available capabilities, use READY only to explain the limitation/clarification.
@@ -324,12 +325,14 @@ Choose exactly one branch: load_skill, call, or ready. Do not add keys. Do not i
         catalog: SkillCatalogV4,
         loaded_skills: tuple[str, ...],
         observations: list[V4Observation],
+        session_context: Mapping[str, str] | None = None,
     ) -> V4Decision:
         payload = {
             "user_query": user_query,
             "compact_skill_catalog": list(catalog.compact()),
             "loaded_skills": [catalog.load(skill_id) for skill_id in loaded_skills],
             "observations": [item.planner_view() for item in observations],
+            "session_context": dict(session_context or {}),
             "step_budget_remaining": self.max_steps - len(observations),
         }
         messages = [
@@ -649,6 +652,10 @@ class AgentCoreV4Runtime:
                     "trajectory": trajectory,
                     "observation_count": len(observations),
                     "completion": completion,
+                    "session_context": resolved_constraint_arguments(
+                        observations,
+                        ("assignee", "space", "sprint_id", "release_id"),
+                    ),
                 },
                 "results": full_results,
             },
@@ -970,9 +977,21 @@ class AgentCoreV4Runtime:
             return str(current).strip()
         raise V4ContractError(f"observation value unusable: {raw}")
 
-    def _validate_call_literals(self, capability_id: str, args: Mapping[str, str], query: str, observations: list[V4Observation]) -> None:
-        safe_enum_fields = {"status"}
+    def _validate_call_literals(
+        self,
+        capability_id: str,
+        args: Mapping[str, str],
+        query: str,
+        observations: list[V4Observation],
+        session_context: Mapping[str, str] | None = None,
+    ) -> None:
+        safe_enum_fields = {"status", "unassigned"}
         source_derived_fields = {"assignee"}
+        trusted_context_values = {
+            str(value).strip().casefold()
+            for value in (session_context or {}).values()
+            if value and str(value).strip()
+        }
         for key, value in args.items():
             raw = str(value).strip()
             if raw.startswith("$obs."):
@@ -982,8 +1001,12 @@ class AgentCoreV4Runtime:
             if key in source_derived_fields:
                 # Canonical assignee must come from an observation, not planner invention.
                 raise V4ContractError(f"{capability_id}.{key} must use a source observation reference")
-            if key in {"reference", "space", "sprint_id", "release_id", "task_key", "product"} and not _literal_is_query_derived(raw, query):
-                raise V4ContractError(f"planner literal is not grounded in user query: {key}={raw}")
+            if key in {"reference", "space", "sprint_id", "release_id", "task_key", "product"}:
+                if _literal_is_query_derived(raw, query):
+                    continue
+                if raw.casefold() in trusted_context_values:
+                    continue
+                raise V4ContractError(f"planner literal is not grounded in user query or validated session context: {key}={raw}")
 
     @classmethod
     def _compact_planner_value(cls, value: Any, *, field_name: str | None = None) -> Any:
@@ -1110,6 +1133,7 @@ class AgentCoreV4Runtime:
                     catalog=self.catalog,
                     loaded_skills=tuple(loaded),
                     observations=observations,
+                    session_context=request.session_context,
                 )
                 trajectory.append({
                     "planner_turn": planner_turn + 1,
@@ -1187,7 +1211,13 @@ class AgentCoreV4Runtime:
                 if capability_id not in self._handlers:
                     raise V4ContractError(f"capability has no v4 handler: {capability_id}")
                 raw_args = dict(decision.arguments or {})
-                self._validate_call_literals(capability_id, raw_args, query, observations)
+                self._validate_call_literals(
+                    capability_id,
+                    raw_args,
+                    query,
+                    observations,
+                    request.session_context,
+                )
                 resolved_args = {
                     key: self._resolve_observation_reference(value, observations)
                     for key, value in raw_args.items()
