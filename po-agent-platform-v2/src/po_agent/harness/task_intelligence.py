@@ -98,8 +98,20 @@ class TaskIntelligenceCapabilities:
         if transitions:
             ordered = sorted(transitions, key=lambda item: item.timestamp)
             for index, transition in enumerate(ordered):
-                end = ordered[index + 1].timestamp if index + 1 < len(ordered) else now
-                durations.append({"status": transition.to_status.value, "hours": round(max(0.0, (end - transition.timestamp).total_seconds() / 3600), 2), "from": transition.timestamp.isoformat(), "to": end.isoformat()})
+                if index + 1 < len(ordered):
+                    end = ordered[index + 1].timestamp
+                elif task.is_completed:
+                    # A terminal transition marks the end of the lifecycle.
+                    # Do not extend a closed/cancelled/done status to "now".
+                    end = transition.timestamp
+                else:
+                    end = now
+                durations.append({
+                    "status": transition.to_status.value,
+                    "hours": round(max(0.0, (end - transition.timestamp).total_seconds() / 3600), 2),
+                    "from": transition.timestamp.isoformat(),
+                    "to": end.isoformat(),
+                })
         return CapabilityResult(
             answer=f"{key}: текущий статус {task.status.value}, рассчитано интервалов: {len(durations)}.",
             data={"task_key": key, "current_status": task.status.value, "durations": durations},
