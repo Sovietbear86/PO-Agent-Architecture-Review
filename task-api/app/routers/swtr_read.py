@@ -386,6 +386,47 @@ async def _schema_aware_get_sprint_tasks_arguments(
     return result
 
 
+async def _schema_aware_task_history_arguments(
+    client: SWTRMCPClient,
+    *,
+    task_code: str,
+) -> dict[str, Any]:
+    """Build get_unit_change_history arguments from the live MCP schema."""
+    schema = await client.tool_input_schema("get_unit_change_history")
+    properties = schema.get("properties") if isinstance(schema, dict) else None
+    top = properties if isinstance(properties, dict) else {}
+
+    request_schema = top.get("request")
+    if isinstance(request_schema, dict):
+        nested = request_schema.get("properties")
+        nested_props = nested if isinstance(nested, dict) else {}
+        if request_schema.get("type") == "object" or nested_props:
+            request: dict[str, Any] = {}
+            _put_declared(
+                request,
+                nested_props,
+                ("unit_code", "unitCode", "task_code", "taskCode", "code", "id"),
+                task_code,
+            )
+            if not request:
+                raise SWTRMCPProtocolError("get_unit_change_history request schema exposes no task identifier")
+            return {"request": request}
+        if request_schema.get("type") == "string":
+            return {"request": task_code}
+
+    result: dict[str, Any] = {}
+    _put_declared(
+        result,
+        top,
+        ("unit_code", "unitCode", "task_code", "taskCode", "code", "id"),
+        task_code,
+    )
+    if not result:
+        # Backward-compatible flat schema used by earlier MCP-SWTR releases.
+        result["unit_code"] = task_code
+    return result
+
+
 async def _schema_aware_search_versions_arguments(
     client: SWTRMCPClient,
     *,
@@ -761,7 +802,8 @@ async def get_task_history(task_code: str):
         raise HTTPException(status_code=400, detail="Invalid SWTR task code")
     client = SWTRMCPClient()
     try:
-        content = await client.call_tool("get_unit_change_history", {"unit_code": normalized})
+        arguments = await _schema_aware_task_history_arguments(client, task_code=normalized)
+        content = await client.call_tool("get_unit_change_history", arguments)
     except (SWTRMCPUnavailable, SWTRMCPProtocolError) as exc:
         raise _transport_http_error(exc) from exc
     payload = _parse_tool_content(content)
