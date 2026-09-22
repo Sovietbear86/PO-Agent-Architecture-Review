@@ -278,8 +278,14 @@ async def health_check(request: Request):
     source_error = None
     if bundle.mode == "task-api":
         try:
-            await bundle.adapter.search_tasks("", max_results=1)
+            probe = getattr(bundle.adapter, "source_health", None)
+            if probe is None:
+                raise AS21SourceError("task-api adapter has no lightweight source health probe")
+            await probe()
         except AS21SourceError as exc:
+            source_status = "degraded"
+            source_error = type(exc).__name__
+        except Exception as exc:
             source_status = "degraded"
             source_error = type(exc).__name__
 
