@@ -101,6 +101,15 @@ A195D result: **Wave T re-closed GREEN** with universal source-backed identity r
 
 ### Wave S — Sprint/flow (#21–32)
 
+**Wave S foundation helper (plugin skill, outside the canonical 54 numbering):**
+- **Search releases / versions** — `release.search`.
+- Purpose: find real releases by product/space and free-text/name, return source-backed release ids/options, and support typed clarification for `release.health`, release task search and later Release wave skills.
+- This is **not** the same as `task.search_release` (tasks filtered by a known release) and not the same as `release.resolve` (validate one already-specified release id).
+- Must use a bounded live REAL AS21 release/version search surface; no tenant-wide task scan, no local cache truth, no treating a product space such as DMS as a release id.
+- If the live release/version source is unavailable, fail closed / SOURCE_CONDITIONAL.
+- It must be implemented through the plugin registry with zero Agent Core/planner/runtime business edits.
+- QA for Wave S must cover: direct release search, ambiguous name -> typed options, no-match, explicit release id, product-space scoping, and hand-off into `release.health`.
+
 | # | Canonical skill | V4 target | Source note |
 |---:|---|---|---|
 | 21 | Sprint health | `sprint.health` | already present; must remain GREEN |
@@ -242,6 +251,7 @@ A205_ROLLBACK_CHECKPOINT = checkpoint/v4-a205-green@1fd519105ba6612f535ad98a55cb
 A206_HISTORY_STATUS_SOURCE_DIAGNOSTIC = REQUIRED_BEFORE_WAVE_S
 CURRENT_GATE = A206_HISTORY_STATUS_SOURCE_DIAGNOSTIC
 NEXT_AFTER_A206 = IF_FIXABLE_OWNER_FIX_THEN_A206_REGATE_ELSE_LOCK_SOURCE_CONDITIONAL_AND_PROCEED_TO_WAVE_S_APPROVAL
+WAVE_S_FOUNDATION_HELPER = release.search_REQUIRED
 ALREADY_PRESENT_WAVE_S = #21 sprint.health, #22 sprint.current
 THEN = M_TEAM_33_40 -> R/P_RELEASE_PORTFOLIO_41_48 -> X_ADDITIONS_49_54
 FULL_54_ABC = NOT_DONE
