@@ -430,6 +430,8 @@ Additional reliability rules:
                 raise V4ContractError(
                     f"planner person reference is neither query-derived nor uniquely team-scoped: {raw}"
                 )
+            if key == "release_id" and raw.upper() in APPROVED_PRODUCT_SPACES:
+                raise V4ContractError("release_id cannot be a product space; resolve or clarify a concrete release")
             if key in {"reference", "space", "sprint_id", "release_id", "task_key", "product"}:
                 if _literal_is_query_derived(raw, query):
                     continue
