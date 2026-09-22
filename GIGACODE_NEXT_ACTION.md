@@ -1,7 +1,7 @@
 # GigaCode — Current Action
 
 ## Status
-`ACTIVE_QA_ASSIGNMENT_201_V4_CLARIFICATION_CONTINUATION_ZERO_RED_REGATE`
+`ACTIVE_QA_ASSIGNMENT_202_V4_POST_GREEN_HYGIENE_SMOKE`
 
 ## Role lock
 GigaCode is **QA/adversarial tester + service operator only**.
@@ -9,227 +9,135 @@ GigaCode is **QA/adversarial tester + service operator only**.
 Do NOT modify production/frontend/plugin/test/config/architecture code.
 Do NOT start Wave S.
 Do NOT add new skills.
-If any RED appears, classify/report only and stop progression.
 
 ## Context
-A200 certified the A199 completion-frontier fix and again proved the canonical 27-skill matrix itself is healthy:
+A201 is the certified clean zero-RED pre-Wave-S checkpoint:
+- 27/27 existing V4 skills tested;
 - 20 GREEN / 7 SOURCE_CONDITIONAL / 0 RED;
 - Browser C 10/10;
-- local-store factual reads = 0;
-- dummy-55/plugin gate = 11/11.
+- local-store factual reads 0;
+- dummy-55 11/11;
+- clarification-continuation defect D-A200-1 CLOSED.
 
-The sole blocking defect was D-A200-1:
-`задачи Гаранина в сентябрьском спринте` -> typed space clarification -> option `DMS` could be replanned as a narrower sprint-identity/assignee-only task and falsely finish without the original requested task collection.
+After A201 the owner made a deliberately small hygiene-only change set:
+1. `5410d00179d24f80671733dd697e0dda68477e10`
+   - fixes 3 stale owner tests that still unpacked the pre-continuation 2-tuple API.
+2. `ce5d74ed3f01ff79061b60453d96b82b94a3a724`
+   - adds lightweight Task API source-health probe.
+3. `10891bc56237ba40ddd7908ef7a708b05e27bc5c`
+   - Agent `/health` no longer performs an unscoped task collection scan.
+4. `3ce03af5c9f90dd2de3cc3ebc5e1a7be91aa9fbf`
+   - regression test: health must call source-health and must not call `search_tasks("")`.
+5. docs only after that.
 
-Owner remediation after A200 is intentionally **Harness-generic**, not skill-specific:
-
-- `374675873b60ded28b566870d23900f37b5384d6` — HarnessRequest gets generic typed continuation fields: prior loaded skills, validated observations, required completion skills.
-- `463535837265b7fde34f9de14674680cfe1d8ee0` — completion frontier can pin generic continuation objectives; latest/unengaged safety semantics remain.
-- `5655d18d26b71a4370135bd2f18baa95c8271948` — Agent Core resumes typed observations/loaded skills and requires pinned continuation completion goals; clarification responses expose generic internal resume state to API only.
-- `be7eccaafd72186ee6922ffefc4079eec764bd41` + `4055d71d675e6349bd5ff504ab5776bb6f9ac326` — API stores/restores typed continuation state by `session_id + clarification_id`; no skill/entity routing.
-- `0dbbcd75679d4d084917a72f3a0529ef5f6a9afd` — continuation execution state is captured internally and removed from the public response payload.
-- completion-frontier regression test: original pinned task objective cannot be satisfied by a sprint-identity helper alone.
-- `cf7d75c91e988ac1cbd9427b8227f84bd8a30c99` — Browser/API contract test proves generic Harness state round-trips through clarification without leaking internal state.
-
-Architecture invariant:
-clarification continuation is now:
-`same original Harness goal + validated observations + newly confirmed constraint -> continue execution`
-not:
-`answer token -> fresh independent planning problem`.
-
-No query-specific person/sprint/DMS branches are permitted.
-
-Permanent rollback checkpoint:
-`0f03fca14fe078c86dca961362915e10cc985401` / `checkpoint/v4-poc-green-a188`.
+No skill/plugin/Agent Core/planner/completion behavior was intentionally changed after A201.
 
 ## Mission
-Prove the existing V4 catalog has **zero RED** after the generic clarification-continuation fix.
+Certify the post-A201 hygiene changes without reopening the already-completed full catalog campaign.
 
-A201 is still a hard freeze gate:
-**no Wave S and no new skills until A201 GREEN.**
+A202 is a **compact smoke gate**, not a new full 27-skill certification. It may pass only if the hygiene changes are isolated and the high-risk A201 paths remain intact.
 
-## Phase 0 — architecture/static audit
+## Phase 0 — diff/static gate
 1. `git pull --ff-only origin feat/core8-real-query-hardening-v2`
 2. Record exact START_HEAD; tracked worktree clean.
-3. Read A200 report and owner diff since A200 START_HEAD.
+3. Diff A201 START_HEAD `ae5caeed503ebc3839a5957cd612fc1751cbada3` to START_HEAD.
 4. Confirm:
-   - continuation state is generic Harness execution state only;
-   - no specific skill ID, surname, sprint, space or period special-case was added to API/runtime;
-   - public UI payload does not expose internal continuation observations/goals;
-   - continuation state is keyed by session + clarification id and TTL behavior remains;
-   - pinned completion goals are contract-driven from loaded plugin skills;
-   - a helper skill cannot complete the continuation while the original pinned goal is unmet;
-   - latest-unexecuted / engaged-earlier / superseded-skill frontier protections remain;
-   - dynamic plugin discovery and dummy-55 invariant remain unchanged;
-   - zero local-store factual fallback.
+   - no new skill/plugin business logic after A201;
+   - no Agent Core/planner/completion behavior change after A201;
+   - test-only clarification tuple update is compatible with the generic continuation contract;
+   - health change is operational only and performs no task collection query;
+   - no local-store fallback was introduced.
 
-Any architecture violation => RED.
+Any unexpected product-behavior change => RED.
 
-## Phase 1 — automated tests
+## Phase 1 — focused automated tests
 Run:
 ```bash
 cd po-agent-platform-v2
 source .venv/bin/activate
-python -m pytest tests/test_agent_core_v4*.py -v
-python -m pytest tests/test_v4*.py -v
+python -m pytest tests/test_v4_owner_fix_contracts.py -v
+python -m pytest tests/test_v4_browser_api_contract.py -v
+python -m pytest tests/test_agent_core_v4_completion_contract.py -v
+python -m pytest tests/test_agent_core_v4_plugin_registry.py tests/test_agent_core_v4_task_catalog.py -v
 ```
-and relevant API/Browser contract tests.
 
-Mandatory named proofs:
-- pinned continuation objective remains required;
-- superseded broad skill still does not poison specialized completion;
-- engaged earlier skill remains required;
-- latest unexecuted skill still blocks;
-- premature READY guard retained;
-- resolved-constraint injection retained;
-- API clarification continuation restores loaded skills/observations/required completion skills;
-- continuation state does not leak into public response;
-- dummy-55/plugin tests GREEN.
+Require:
+- stale 3 clarification owner tests now GREEN;
+- generic continuation state round-trip still GREEN;
+- internal continuation state still hidden from public payload;
+- all completion-frontier/pinned-goal tests GREEN;
+- dummy-55/plugin tests GREEN;
+- health test proves `search_tasks` is never called by readiness.
 
-## Phase 2 — D-A200-1 focused re-gate
-Build a fresh REAL AS21 Oracle immediately before each batch.
+## Phase 2 — live health hygiene
+With current services:
+- GET Agent `/live`;
+- GET Agent `/health`;
+- GET Task API `/api/v1/swtr-read/health`.
 
-### P2a period-sprint continuation
-Run at least 10 fresh sessions:
-1. `задачи Гаранина в сентябрьском спринте`
-2. receive typed `NEEDS_CLARIFICATION` when space is genuinely ambiguous;
-3. choose `DMS` using the exact Browser payload shape:
-   `session_id + clarification_id + clarification_option`.
+Require:
+- `/live` 200;
+- Agent `/health` returns within a small operational budget (target <= 5s; record actual latency);
+- Task API source-health 200;
+- inspect logs and prove Agent `/health` caused **0** unscoped `task-query` or `GET /api/v1/tasks` reads.
 
-For every continuation that completes:
-- original `tasks.search` goal remains pinned;
-- prior validated observations are restored, not discarded;
-- helper `sprints.discover/sprint.search` alone MUST NOT satisfy completion;
-- terminal factual task collection MUST execute;
-- final task search must cover confirmed person + DMS + resolved September sprint;
-- completion = `runtime_contract`;
-- exact task-key parity with fresh Oracle;
-- no answer may say it completed while admitting the task list was not retrieved.
+If source-health itself is down, classify source outage separately; do not substitute a task scan.
 
-Any sprint-only false completion => RED.
+## Phase 3 — retained live smoke
+Fresh sessions, concurrency 1:
+1. DMS-380 lookup -> assignee collection, 2x exact.
+2. `Задачи Калачанова с вложениями в WMB`, 2x exact.
+3. `Найди задачи Калачанова про 2027 в WMB`, 2x exact.
+4. current-sprint multi-filter, 2x exact.
+5. period-sprint clarification -> DMS continuation, at least 2 successful continuations if model emits typed options.
+6. ambiguous person -> option-click continuation, 1 successful continuation.
+7. one SOURCE_CONDITIONAL release/history path fail-closed.
 
-### P2b direct no-clarification adversarial variant
-Run the same original query at least 10 additional fresh sessions.
+Require no false completion, no all-space leak, no internal continuation-state leak, runtime_contract where contracted.
 
-If planner happens to skip clarification:
-- it still must not return assignee-only/all-space tasks for a sprint-constrained request;
-- completed result must be fully constrained and exact;
-- if required constraints cannot be established, typed clarification/fail-closed is acceptable.
+## Phase 4 — Browser C smoke
+Browser:
+- one ordinary factual task query;
+- person attachments;
+- one clarification + option click;
+- one SOURCE_CONDITIONAL path.
 
-Any all-space/assignee-only false completion => RED and record trajectory.
+Require no generic V4 error for supported cases and no continuation internals in UI response.
 
-## Phase 3 — clarification framework regression
-Test multiple unrelated clarification classes to ensure the fix is generic:
-- ambiguous person -> choose source candidate -> original task request completes;
-- ambiguous space for period sprint -> continue;
-- any existing release/source clarification path if available;
-- invalid clarification option;
-- expired/lost clarification id;
-- new session must not inherit old pending continuation;
-- manual option text with correct clarification_id if supported.
-
-Require no context loss and no cross-session state leak.
-
-## Phase 4 — retained completion/frontier regression
-Repeat:
-- K1 person attachments WMB 10x;
-- K2 person text WMB 10x;
-- person status;
-- person aging;
-- multi-filter current-sprint query 10x;
-- DMS-380 -> assignee 5x;
-- full-name assignee 5x;
-- non-team identity;
-- ambiguity + continuation;
-- invented identity.
-
-No regression from A199/A200 fixes.
-
-## Phase 5 — full 27-skill matrix
-Run **all 27 existing V4 skills**, no skips.
-
-For each capture:
-- NL request;
-- expected/actual skill;
-- loaded skills;
-- resumed/pinned goal state where applicable;
-- executed capabilities;
-- completion frontier;
-- final arguments;
-- source route;
-- completion mode;
-- fresh Oracle parity;
-- evidence;
-- UIContract;
-- GREEN / SOURCE_CONDITIONAL / RED.
-
-Overall GREEN requires **0 RED**.
-
-## Phase 6 — Browser C
-At minimum:
-1. period-sprint clarification + DMS option-click -> exact task collection;
-2. person attachments WMB;
-3. person text WMB;
-4. current-sprint multi-filter;
-5. identity ambiguity continuation;
-6. aging DMS;
-7. similar DMS-380;
-8. task quality;
-9. release/source-unavailable;
-10. safe not-found.
-
-No public payload may reveal `continuation_observations` or `continuation_required_skills`.
-
-## Phase 7 — local-store/source audit
-During entire run:
-- factual V4 paths must have 0 reliance on `/api/v1/tasks`;
-- release/source limitations fail closed;
-- no local row may be presented as REAL AS21.
-
-## Phase 8 — stability
-Repeat high-risk successful paths with fresh sessions, concurrency 1:
-- period-sprint continuation ×5 additional;
-- person attachments ×5;
-- person text ×5;
-- current-sprint multi-filter ×5;
-- exact attachments ×3;
-- aging ×3.
-
-Distinguish endpoint ReadTimeout from logic defects, but never hide failed runs.
-
-## Phase 9 — plugin/extensibility
-Re-run dummy-55 / A190 gate.
-A synthetic new skill must still register and execute with **zero business-logic changes to Agent Core/planner/runtime**.
+## Phase 5 — plugin extensibility
+Run dummy-55 gate once.
+Must remain GREEN with zero Agent Core/planner/runtime business edits.
 
 ## Verdict
 Use exactly one:
-- `AGENT_CORE_V4_EXISTING_CATALOG_REGRESSION_GREEN`
-- `AGENT_CORE_V4_EXISTING_CATALOG_REGRESSION_RED`
+- `AGENT_CORE_V4_POST_GREEN_HYGIENE_SMOKE_GREEN`
+- `AGENT_CORE_V4_POST_GREEN_HYGIENE_SMOKE_RED`
 - `BLOCKED_BY_PROVEN_SOURCE_OUTAGE`
 
 GREEN requires:
-- 27/27 existing skills tested;
-- D-A200-1 closed;
-- direct adversarial variant has no false completion;
-- clarification framework retained across unrelated cases;
-- 0 RED;
-- exact factual parity for GREEN rows;
-- source limitations fail closed;
-- 0 local-store factual truth;
-- Browser C supported paths GREEN;
-- dummy-55 GREEN.
+- focused tests GREEN;
+- health no longer scans tasks;
+- retained high-risk live paths exact/safe;
+- Browser C smoke GREEN;
+- dummy-55 GREEN;
+- no new RED.
 
-If any RED:
-**STOP. No Wave S, no new skills. Return root cause for owner remediation and another full regression.**
+If RED:
+STOP. Do not start Wave S.
 
 If GREEN:
-**Freeze A201 as the clean zero-RED pre-Wave-S checkpoint. Do not start Wave S automatically; wait for explicit owner/user instruction.**
+recommend:
+**Create immutable/rollback checkpoint for the tested HEAD and wait for explicit owner/user approval before Wave S #23–32.**
 
 ## Output
 Commit/push only:
-`po-agent-platform-v2/qa_reports/AGENT_CORE_V4_FULL_EXISTING_CATALOG_REGRESSION_201.md`
+`po-agent-platform-v2/qa_reports/AGENT_CORE_V4_POST_GREEN_HYGIENE_SMOKE_202.md`
 
 ## Service keepalive
-Leave tested current-HEAD UI/backend/Task API/MCP running.
-Return exact START_HEAD, report commit, verdict, GREEN/SOURCE_CONDITIONAL/RED counts, URLs/ports/PIDs/health.
+Leave UI/backend/Task API/MCP running and return:
+- verdict;
+- exact START_HEAD;
+- report commit;
+- URLs/ports/PIDs/health;
+- measured Agent /health latency.
 Then stop.
