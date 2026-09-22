@@ -295,6 +295,20 @@ class TaskApiAS21Adapter(AS21Adapter):
             follow_redirects=True,
         )
 
+    async def source_health(self) -> dict[str, Any]:
+        """Probe the certified Task API source-health endpoint without scanning tasks.
+
+        Readiness must never issue an unscoped factual collection query merely
+        to prove liveness. This lightweight probe is operational metadata only.
+        """
+        response = await self._client.get(
+            "/api/v1/swtr-read/health",
+            timeout=httpx.Timeout(min(self._base_timeout_seconds, 5.0)),
+        )
+        response.raise_for_status()
+        payload = response.json()
+        return dict(payload) if isinstance(payload, dict) else {"status": "unknown"}
+
     async def _refresh_client(self) -> None:
         """Reset the owned HTTP client so an unhealthy pooled connection is discarded."""
         if not self._owns_client:
