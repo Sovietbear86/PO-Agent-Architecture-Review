@@ -167,8 +167,11 @@ class ProductionTaskApiAS21Adapter(TaskApiAS21Adapter):
             params["assignee"] = assignee
         if project_space:
             params["space"] = project_space
+        release_id = filters.get("release_id")
         if free_text:
             params["phrase"] = free_text
+        if release_id:
+            params["release"] = release_id
 
         try:
             response = await self._get_resilient("/api/v1/swtr-read/task-query", params=params)
