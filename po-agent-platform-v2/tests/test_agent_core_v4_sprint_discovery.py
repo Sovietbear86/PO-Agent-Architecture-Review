@@ -202,3 +202,21 @@ def test_overlap_respects_source_period_and_year():
     assert sprint_overlaps_period(_APR, 8, None) is False
     # a sprint without a readable period can never be proven to match
     assert sprint_overlaps_period({"code": "X", "start_at": None, "finish_at": None}, 8, None) is False
+
+def test_reliable_literal_guard_accepts_only_validated_session_referent():
+    runtime = object.__new__(ReliableAgentCoreV4Runtime)
+    runtime._validate_call_literals(
+        "task.search",
+        {"sprint_id": "DMS-SPRNT-3"},
+        "Покажи задачи в этом спринте",
+        [],
+        {"sprint_id": "DMS-SPRNT-3", "space": "DMS"},
+    )
+    with pytest.raises(Exception):
+        runtime._validate_call_literals(
+            "task.search",
+            {"sprint_id": "DMS-SPRNT-999"},
+            "Покажи задачи в этом спринте",
+            [],
+            {"sprint_id": "DMS-SPRNT-3", "space": "DMS"},
+        )
