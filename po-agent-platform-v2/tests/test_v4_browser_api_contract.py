@@ -401,3 +401,6 @@ async def test_multi_hop_clarification_preserves_original_goal(monkeypatch):
     assert runtime.requests[2].required_completion_skills == ("tasks.search",)
     assert runtime.requests[2].resume_loaded_skills == ("tasks.search",)
     assert runtime.requests[2].resume_observations[0]["capability_id"] == "space.resolve"
+    assert "активные задачи Гаранина в сентябрьском спринте по OLAP" in runtime.requests[2].query
+    assert "OLP" in runtime.requests[2].query
+    assert "OLP-SPRNT-7" in runtime.requests[2].query
