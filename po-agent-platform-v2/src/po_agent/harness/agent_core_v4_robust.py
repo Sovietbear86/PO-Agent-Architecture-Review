@@ -26,7 +26,7 @@ from __future__ import annotations
 import json
 import re
 import shlex
-from typing import Any
+from typing import Any, Mapping
 
 from po_agent.llm.client import LLMMessage
 
@@ -153,12 +153,14 @@ with the next governed skill/capability action."""
         catalog: SkillCatalogV4,
         loaded_skills: tuple[str, ...],
         observations: list[V4Observation],
+        session_context: Mapping[str, str] | None = None,
     ) -> V4Decision:
         payload = {
             "user_query": user_query,
             "compact_skill_catalog": list(catalog.compact()),
             "loaded_skills": [catalog.load(skill_id) for skill_id in loaded_skills],
             "observations": [item.planner_view() for item in observations],
+            "session_context": dict(session_context or {}),
             "step_budget_remaining": self.max_steps - len(observations),
         }
         messages = [
