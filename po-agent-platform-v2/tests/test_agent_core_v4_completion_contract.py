@@ -41,6 +41,7 @@ from po_agent.harness.agent_core_v4_completion import (
     completion_frontier_satisfied,
     is_skill_satisfied,
     resolved_constraint_values,
+    validated_session_context,
 )
 from po_agent.harness.agent_core_v4_robust import RobustReliableAgentCoreV4Runtime
 from po_agent.harness.contracts import ResponseStatus
@@ -661,3 +662,36 @@ def test_pinned_continuation_skill_remains_required_even_if_unengaged() -> None:
         observations,
         pinned_skills=("tasks.search",),
     )
+
+
+def test_validated_session_context_includes_terminal_entity_facts() -> None:
+    observations = [
+        _obs(1, "sprint.health", {"sprint_id": "DMS-SPRNT-9"}, {
+            "sprint_id": "DMS-SPRNT-9",
+            "space": "DMS",
+            "total": 7,
+            "source": "REAL_AS21",
+        }),
+    ]
+    assert validated_session_context(observations) == {
+        "space": "DMS",
+        "sprint_id": "DMS-SPRNT-9",
+    }
+
+
+def test_validated_session_context_drops_ambiguous_role_values() -> None:
+    observations = [
+        _obs(1, "sprint.search", {"space": "DMS", "period": "август"}, {
+            "sprint_id": "DMS-SPRNT-2",
+            "space": "DMS",
+            "source": "REAL_AS21",
+        }),
+        _obs(2, "sprint.search", {"space": "DMS", "period": "сентябрь"}, {
+            "sprint_id": "DMS-SPRNT-3",
+            "space": "DMS",
+            "source": "REAL_AS21",
+        }),
+    ]
+    context = validated_session_context(observations)
+    assert context["space"] == "DMS"
+    assert "sprint_id" not in context
