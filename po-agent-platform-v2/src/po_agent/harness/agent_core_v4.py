@@ -512,15 +512,14 @@ class AgentCoreV4Runtime:
             ),
             SkillSpecV4(
                 "sprints.discover",
-                "Find a sprint by a human month/period reference in a product space.",
+                "Resolve sprint identity by a human month/period reference in a product space. Identity-only helper: it must not terminate health, task-list or analytics requests.",
                 (
                     "Validate the product space, then call sprint.search with the space and the period reference.",
                     "If sprint.search returns typed ambiguity, surface the options instead of guessing.",
+                    "For health, task-list or analytics deliverables continue with the matching skill after identity resolution.",
                 ),
                 ("space.resolve", "sprint.search"),
-                completion=(
-                    CompletionRequirement("sprint.search", data_keys=("sprint_id",)),
-                ),
+                completion=(),
             ),
             SkillSpecV4(
                 "sprints.list",
@@ -567,7 +566,7 @@ class AgentCoreV4Runtime:
                 completion=(CompletionRequirement("task.acceptance", data_keys=("task_key",), data_absent_keys=("found",)),)),
             SkillSpecV4("task.blockers", "Inspect blockers/dependencies of a task.", ("Call task.blockers with the literal task key.",), ("task.blockers",),
                 completion=(CompletionRequirement("task.blockers", data_keys=("task_key",), data_absent_keys=("found",)),)),
-            SkillSpecV4("sprint.health", "Show health/progress of a sprint.", ("Resolve/validate the sprint if needed, then call sprint.health.",), ("sprint.resolve", "sprint.health"),
+            SkillSpecV4("sprint.health", "Show actual health/progress metrics of a sprint; sprint identity alone is not a health result.", ("Resolve/validate the sprint if needed, then call sprint.health. Never answer a health request from sprint identity alone.",), ("sprint.resolve", "sprint.health"),
                 completion=(CompletionRequirement("sprint.health", data_keys=("sprint_id", "total")),)),
             SkillSpecV4("sprint.current", "Report which sprint is currently active in a product space (identity only; use tasks.search to list tasks within it).", ("Validate the product space, then call sprint.current.",), ("space.resolve", "sprint.current"),
                 completion=()),
@@ -884,8 +883,10 @@ class AgentCoreV4Runtime:
     async def _release_resolve(self, args: dict[str, str]) -> CapabilityResult:
         reference = str(args.get("reference") or "").strip().upper()
         space = str(args.get("space") or "").strip().upper() or None
-        if not reference:
-            raise V4NeedsClarification("Какой релиз использовать?")
+        if not reference or reference in APPROVED_PRODUCT_SPACES or (space and reference == space):
+            raise V4NeedsClarification(
+                "Какой релиз использовать? Укажите идентификатор релиза.",
+            )
         tasks = await self.adapter.get_release_tasks(reference, space)
         if not tasks:
             raise V4NeedsClarification(f"Не удалось подтвердить релиз «{reference}» по данным REAL AS21.")
