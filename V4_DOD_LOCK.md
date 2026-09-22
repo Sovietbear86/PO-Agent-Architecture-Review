@@ -197,6 +197,7 @@ V4_A205_LOCAL_STORE_FACTUAL_READS = 0
 V4_A205_PLUGIN_DUMMY_55 = GREEN
 V4_A205_ROLLBACK_CHECKPOINT = checkpoint/v4-a205-green@1fd519105ba6612f535ad98a55cb1302f387ca43
 V4_HISTORY_STATUS_SOURCE_DIAGNOSTIC = A206_REQUIRED_BEFORE_WAVE_S
+V4_WAVE_S_RELEASE_SEARCH_HELPER = REQUIRED_PLUGIN_ONLY
 V4_FULL_54_SKILL_MIGRATION = PAUSED_UNTIL_A206_HISTORY_STATUS_DECISION
 V4_FULL_54_ABC = NOT_DONE
 V4_LEARNING_REVIEWER = NOT_DONE
@@ -226,6 +227,7 @@ Key properties:
 - Resolver/identity-only observations must never be treated as fulfillment of a requested collection, metric or analysis deliverable.
 - Catalog presence means a skill/capability is declared, not that its live source is currently available; source-dependent skills must fail closed / SOURCE_CONDITIONAL when their certified read surface is unavailable.
 - Adding these generic control-plane guarantees must not require per-skill branches in Agent Core; skill-specific behavior remains in plugin contracts/handlers.
+- Wave S must include a plugin-only `release.search` helper that searches/releases versions from bounded REAL AS21 source data. It must remain distinct from `task.search_release` (tasks by known release) and `release.resolve` (validation of a known release id).
 
 V4 remains single-planner / skill-native / governed. This mechanism is a generic control-plane rule, not a query-specific fallback.
 
