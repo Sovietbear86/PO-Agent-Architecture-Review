@@ -107,6 +107,9 @@ def test_task_wave_progressive_catalog_exposes_procedure_and_typed_capabilities(
     assert [capability["id"] for capability in assignee["capabilities"]] == [
         "task.search_assignee",
     ]
+    assignee_args = assignee["capabilities"][0]["arguments"]
+    assert "status" in assignee_args
+    assert "never drop that constraint" in " ".join(assignee["procedure"])
 
     assert [capability["id"] for capability in catalog.load("task.search_excel")["capabilities"]] == ["task.search_excel"]
 
