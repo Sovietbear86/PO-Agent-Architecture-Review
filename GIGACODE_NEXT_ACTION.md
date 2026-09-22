@@ -1,7 +1,24 @@
 # GigaCode — Current Action
 
 ## Status
-`ACTIVE_QA_ASSIGNMENT_205_V4_EXISTING_CATALOG_ADVERSARIAL_ZERO_RED_REGATE`
+`ACTIVE_QA_ASSIGNMENT_205_V4_FULL_EXISTING_CATALOG_AND_ADVERSARIAL_ZERO_RED_RERUN`
+
+## Critical owner remediation after first A205 attempt
+The first A205 attempt did **not** exercise any skill. It failed at the planner interface boundary:
+`RobustSkillNativePlannerV4.next_decision()` did not accept the new generic `session_context` parameter that the runtime now passes.
+
+Owner fixes:
+- `66549adac0d6efa3bbc7b04df6c944147131ecab` — robust planner now accepts `session_context: Mapping[str, str] | None` and includes it in the LLM payload exactly like the base planner.
+- `0a6db2a1ceb62b3d775659904106952134be40d2` — regression proving robust planner API/payload parity with the base planner.
+
+This is an interface-parity fix only:
+- no skill logic changed;
+- no Agent Core business branching added;
+- no source routing changed;
+- no completion semantics changed;
+- no plugin contract changed.
+
+The previous A205 report is **not** a valid 27-skill result because all 27 failed before skill loading, with 0 LLM/source trajectory execution. Re-run A205 **from scratch** after pulling current HEAD.
 
 ## Role lock
 GigaCode is **QA/adversarial tester + service operator only**.
