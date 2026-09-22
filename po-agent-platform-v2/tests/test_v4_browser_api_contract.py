@@ -207,7 +207,7 @@ async def test_health_uses_lightweight_source_probe_not_unscoped_task_search(mon
             raise AssertionError("health must not perform unscoped task search")
 
     adapter = Adapter()
-    readiness = SimpleNamespace(summary=lambda: {"ready": 1})
+    readiness = SimpleNamespace(summary=lambda: {"ready": 1}, available_facts=frozenset({"tasks", "attachments", "history"}))
     bundle = SimpleNamespace(
         mode="task-api",
         adapter=adapter,
