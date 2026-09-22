@@ -184,9 +184,28 @@ def build_task_search_assignee(runtime: Any):
         if space:
             query += f' AND project = "{space}"'
         tasks = list(await runtime.adapter.search_tasks(query, max_results=10000))
+
+        requested_status = str(args.get("status") or "").strip().casefold()
+        normalized_status = None
+        if requested_status:
+            if requested_status in {"not_completed", "open", "active", "открытые", "незавершенные", "незавершённые"}:
+                tasks = [task for task in tasks if task.is_open]
+                normalized_status = "not_completed"
+            elif requested_status in {"completed", "done", "closed", "закрытые", "завершенные", "завершённые"}:
+                tasks = [task for task in tasks if task.is_completed]
+                normalized_status = "completed"
+            else:
+                tasks = [
+                    task for task in tasks
+                    if requested_status in task.status.value.casefold()
+                    or requested_status in task.status_category.value.casefold()
+                ]
+                normalized_status = requested_status
+
         rows = [_task_dict(task) for task in tasks]
+        label = f" по состоянию «{normalized_status}»" if normalized_status else ""
         return CapabilityResult(
-            answer=f"Для «{reference}» найдено задач: {len(rows)}.",
+            answer=f"Для «{reference}» найдено задач{label}: {len(rows)}.",
             data={
                 "count": len(rows),
                 "tasks": rows,
@@ -195,6 +214,7 @@ def build_task_search_assignee(runtime: Any):
                 "source_reference": canonical_identity,
                 "member_login": canonical_identity,
                 "space": space,
+                "status": normalized_status,
                 "source": "REAL_AS21",
             },
             evidence=[Evidence(type="task", source="as21", entity_id=row["key"], label=row["title"], value=row["status"]) for row in rows],
