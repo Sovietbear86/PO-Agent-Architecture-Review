@@ -283,7 +283,7 @@ Rules:
 - For task-key analysis, use the task-key capability exposed by the loaded skill.
 - Keep every user constraint through the trajectory.
 - session_context contains only source-validated entities from prior COMPLETED turns in the same session. Use it only when the user explicitly refers back to prior context (for example "этот спринт"/"этот релиз"); never apply it silently to unrelated new requests.
-- You may infer safe semantic enums such as status=not_completed from words meaning open/unresolved/not completed.
+- You may infer safe semantic enums such as status=not_completed from words meaning open/unresolved/not completed and unassigned=true from an explicit request for tasks without an assignee.
 - Never invent people, logins, spaces, sprint ids, release ids, task ids, counts or source facts.
 - If a required entity cannot be resolved by the available capabilities, use READY only to explain the limitation/clarification.
 - After observations already support the complete answer, use READY instead of calling unrelated tools.
@@ -478,7 +478,7 @@ class AgentCoreV4Runtime:
             "sprint.search": CapabilitySpecV4("sprint.search", "Resolve a human period reference (month/year/period) to source-backed sprint(s) in a space; typed ambiguity if several match.", {"space": "required approved space", "period": "required human period reference, e.g. a month name or YYYY-MM"}),
             "sprint.list": CapabilitySpecV4("sprint.list", "List source-backed sprints in a space (optionally only active ones) as a complete collection.", {"space": "required approved space", "active_only": "optional 'true' to keep only non-closed sprints"}),
             "release.resolve": CapabilitySpecV4("release.resolve", "Validate a release/version id against REAL AS21 tasks.", {"reference": "required release id", "space": "optional canonical space"}),
-            "task.search": CapabilitySpecV4("task.search", "Search REAL AS21 tasks by any resolved assignee/space/sprint/status combination.", {"assignee": "optional canonical login from member.resolve", "space": "optional approved space", "sprint_id": "optional canonical sprint", "status": "optional status; not_completed is supported"}),
+            "task.search": CapabilitySpecV4("task.search", "Search REAL AS21 tasks by any resolved assignee/space/sprint/status/unassigned combination.", {"assignee": "optional canonical login from member.resolve", "space": "optional approved space", "sprint_id": "optional canonical sprint", "status": "optional status; not_completed is supported", "unassigned": "optional true only when user explicitly asks for tasks without an assignee"}),
             "task.lookup": CapabilitySpecV4("task.lookup", "Read one REAL AS21 task by key.", {"task_key": "required task key"}),
             "task.summary": CapabilitySpecV4("task.summary", "Summarize one REAL AS21 task.", {"task_key": "required task key"}),
             "task.quality": CapabilitySpecV4("task.quality", "Analyze one task's formulation quality.", {"task_key": "required task key"}),
@@ -900,10 +900,11 @@ class AgentCoreV4Runtime:
         space = str(args.get("space") or "").strip().upper()
         sprint_id = str(args.get("sprint_id") or "").strip().upper()
         status = self._safe_status(args.get("status") or "")
+        unassigned = str(args.get("unassigned") or "").strip().casefold() in {"1", "true", "yes", "y"}
         if space and space not in APPROVED_PRODUCT_SPACES:
             raise V4NeedsClarification(f"Пространство «{space}» не подтверждено.")
-        if not any((assignee, sprint_id)):
-            raise V4NeedsClarification("Для skill-native POC task.search нужен исполнитель и/или спринт; уточните фильтр.")
+        if not any((assignee, sprint_id, space and unassigned)):
+            raise V4NeedsClarification("Для task.search нужен исполнитель, спринт или явно ограниченный запрос без исполнителя; уточните фильтр.")
 
         tasks: list[Any]
         if assignee:
@@ -911,8 +912,10 @@ class AgentCoreV4Runtime:
             if space:
                 query += f' AND project = "{space}"'
             tasks = list(await self.adapter.search_tasks(query, max_results=10000))
-        else:
+        elif sprint_id:
             tasks = list(await self.adapter.get_sprint_tasks(sprint_id, space or None))
+        else:
+            tasks = list(await self.adapter.search_tasks(f'project = "{space}"', max_results=10000))
 
         if sprint_id:
             sprint_tasks = list(await self.adapter.get_sprint_tasks(sprint_id, space or None))
@@ -935,6 +938,19 @@ class AgentCoreV4Runtime:
                 }
             tasks = [task for task in tasks if assignee.casefold() in identity_values(task)]
 
+        if unassigned:
+            tasks = [
+                task for task in tasks
+                if not any(
+                    str(value or "").strip()
+                    for value in (
+                        getattr(task, "assignee", None),
+                        getattr(task, "assignee_login", None),
+                        getattr(task, "assignee_id", None),
+                    )
+                )
+            ]
+
         if status == "not_completed":
             # Explicitly non-terminal only: an undecodable status must never
             # inflate an open-task factual collection.
@@ -944,7 +960,7 @@ class AgentCoreV4Runtime:
         elif status:
             tasks = [task for task in tasks if status.casefold() in task.status.value.casefold() or status.casefold() in task.status_category.value.casefold()]
 
-        filters = {key: value for key, value in {"assignee": assignee, "space": space, "sprint_id": sprint_id, "status": status}.items() if value}
+        filters = {key: value for key, value in {"assignee": assignee, "space": space, "sprint_id": sprint_id, "status": status, "unassigned": unassigned or None}.items() if value}
         rows = [self._task_to_dict(task) for task in tasks]
         answer = f"Найдено задач: {len(rows)}."
         return CapabilityResult(
