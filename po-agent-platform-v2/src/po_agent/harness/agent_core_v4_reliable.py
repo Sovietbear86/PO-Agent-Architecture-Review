@@ -476,5 +476,5 @@ Additional reliability rules:
         rather than silently dropping the plurality constraint.
         """
         if skill_id == "sprint.current" and self.query_requests_sprint_collection(query):
-            return "sprint.list"
+            return "sprints.list"
         return skill_id
