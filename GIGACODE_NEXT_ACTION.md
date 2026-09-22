@@ -1,71 +1,71 @@
 # GigaCode — Current Action
 
 ## Status
-`ACTIVE_QA_ASSIGNMENT_205_V4_FULL_EXISTING_CATALOG_AND_ADVERSARIAL_ZERO_RED`
+`ACTIVE_QA_ASSIGNMENT_205_V4_EXISTING_CATALOG_ADVERSARIAL_ZERO_RED_REGATE`
 
 ## Role lock
 GigaCode is **QA/adversarial tester + service operator only**.
 
 Do NOT modify production/frontend/plugin/test/config/architecture code.
-Do NOT add skills.
+Do NOT add new skills.
 Do NOT start Wave S.
-Any RED blocks progression.
+If any RED is found, classify/report only and stop progression.
 
 ## Context
-A204 returned RED and isolated four classes:
-1. sprint health / period task-list requests could terminate on identity-only `sprints.discover`;
-2. sprint collection guard used the capability id `sprint.list` instead of skill id `sprints.list` and false-triggered on task-list wording;
-3. ordinary same-session references such as `этом спринте / этом релизе` had no validated completed-turn entity context;
-4. release health had both bad grounding (space treated as release id) and no bounded live release-task path.
+A204 returned RED with four bounded defect classes plus manual adversarial findings:
+- D-A204-1: sprint health / NL sprint-task requests could terminate on sprint identity only;
+- D-A204-2: cardinality guard mapped `sprint.current -> sprint.list` although the skill id is `sprints.list`, and falsely treated "list of tasks in sprint" as a sprint-collection request;
+- D-A204-3: completed turns had no generic source-validated entity context, so "в этом спринте / в этом релизе" could not resolve safely;
+- D-A204-4: release health bound a product space as release id and release-task reads lacked a bounded live source filter.
 
-Manual Browser testing also exposed:
-- two-hop clarification (space -> ambiguous sprint -> selected sprint) can lose the original terminal goal;
-- unsupported workload analytics can falsely look like source data is missing after only sprint identity resolution;
-- `без исполнителя` could return the entire sprint while admitting the filter was not applied;
-- history/time-in-status are declared skills but their live source can be unavailable;
-- explicit sprint task collections were slowed by N+1 raw-unit membership revalidation.
+Manual Browser cases additionally exposed:
+- multi-hop clarification (space -> sprint -> original task goal) could fail;
+- "кто больше всех загружен..." could false-complete on sprint identity and incorrectly claim data absence;
+- "задачи без исполнителя" returned the unfiltered sprint collection as SUCCESS;
+- task.history / task.time_in_status were declared but their live history path returned SOURCE_UNAVAILABLE;
+- explicit sprint task collections suffered N+1 raw-unit validation latency.
 
-Owner remediation since A204 is **generic/plugin-preserving**. Key changes include:
-- generic source-validated completed-turn session context: `e7881bed`, `52d43616`, `6beab796`;
-- sprint cardinality fix: `b1d548d8`, `2855f615`;
-- typed `unassigned` constraint and exact filtering: `fcbd65cc`, `cd2f439d`;
-- sprint resolver is identity-only and cannot deterministic-auto-complete a health/analytics deliverable: `f542c399`, `c3178c01`;
-- planner contract explicitly forbids resolver-only substitution for requested collection/metric/analysis: `4b6befd5`;
-- release id validation + bounded REAL AS21 release filter: `85c772b6`, `5238b423`, `fffd148e`, `cfd5a3eb`;
-- source-dependent capability wording/readiness hardened for history/time-in-status: `97fdefff`, `958155aa`;
-- completed-session context, unassigned, release-filter and multi-hop clarification tests: `18185e3c`, `a2cc17c6`, `d6fc9ff2`, `e8e1fd1a`, `7bc4863d`;
-- sprint collection N+1 removal on source-proven complete rows: `18e483d8`, `cb855e60`, `30582611`;
-- V4 DoD now locks generic session-context / multi-hop / deliverable / source-readiness invariants.
+Owner remediation bundle after A204 is intentionally generic / plugin-safe:
+- generic completed-turn `session_context` added to HarnessRequest and planner payload; it contains only unique source-validated canonical entity facts and is TTL/session bounded;
+- public API stores this internal context per session and never exposes it to Browser payloads;
+- reliable grounding accepts a session-context literal only when it exactly equals a validated prior canonical value;
+- multi-hop typed clarification contract remains pinned across every hop;
+- sprint discovery is now an identity-only helper with no deterministic auto-completion contract; resolver identity alone must not satisfy health/task-list/analysis deliverables;
+- cardinality guard now maps to `sprints.list` and does not interpret "список задач в спринте" as a sprint collection;
+- `task.search` has typed `unassigned=true`; bounded space/sprint collections are actually filtered by null assignee before SUCCESS;
+- product-space tokens are forbidden as release ids; missing release identity yields typed clarification;
+- Task API live `task-query` now accepts a bounded `release` filter pushed to MCP TQL (`fix_version_s`), with no local-store fallback;
+- history MCP arguments are schema-aware for flat/nested schemas;
+- history/time-in-status catalog text is source-conditional rather than claiming current availability from catalog presence;
+- certified sprint collection rows preserve sprint/release relation proof so hardened adapter can avoid per-task N+1 re-reads when proof is already present;
+- no new production skill was added.
 
-Permanent rollback checkpoint remains:
-`checkpoint/v4-pre-wave-s-a202` @ `e580489950e5a149a6a740cb8779dfdb0351d471`.
+Permanent safe rollback remains:
+`checkpoint/v4-pre-wave-s-a202@e580489950e5a149a6a740cb8779dfdb0351d471`.
 
 ## Mission
-Run one consolidated **zero-RED full existing-catalog re-gate** after A204 remediation.
+Prove that the complete existing V4 surface is again **zero RED**, including the user's real Browser adversarial cases.
 
-A205 must prove:
-- every existing skill still works or fails only for a proven source limitation;
-- the user's manual adversarial cases are closed;
-- Harness/plugin extensibility is intact;
-- no local-store factual truth;
-- no resolver-only false success;
-- no dropped filters;
-- no conversational-context fabrication.
+A205 is the hard freeze gate.
+**No new skill may be added until A205 GREEN and explicit owner/user approval.**
 
-## Phase 0 — start / architecture audit
+## Phase 0 — start + architecture audit
 1. `git pull --ff-only origin feat/core8-real-query-hardening-v2`
-2. Record exact START_HEAD; tracked worktree must be clean except known QA artifacts.
-3. Diff A204 START `5b42e5930d6e2b64f85925f35bb15c2167becf0b..START_HEAD`.
+2. Record exact START_HEAD; tracked production worktree must be clean.
+3. Read A204 report and diff `5b42e5930d6e2b64f85925f35bb15c2167becf0b..START_HEAD`.
 4. Confirm:
-   - no person/sprint/release literal hardcode;
-   - no query-specific branch such as `if "Гаранин"` / `if "здоровье"` in Agent Core;
-   - completed-turn context contains only canonical source-validated entities and is TTL/session bounded;
-   - multi-hop clarification preserves generic loaded skills, observations and completion goals;
-   - new task/release/sprint behavior is expressed through capability schemas, plugin procedures, generic Harness controls and live adapters;
-   - dummy-55 still requires zero core business changes;
-   - local `/api/v1/tasks` is never a factual V4 truth source.
+   - no new business skill ids were added;
+   - no surname/person/sprint/release literals or query-specific business branches were added to Agent Core;
+   - session context is generic, source-validated, TTL/session bounded and public-response-hidden;
+   - same-session context does NOT itself satisfy a completion contract;
+   - multi-hop clarification still pins original required completion goals;
+   - sprint-discovery change is plugin/catalog semantics, not a hardcoded health router;
+   - release filter is pushed to live MCP query and never local store;
+   - unassigned is a typed task constraint, not a phrase-specific branch;
+   - dummy-55/plugin extension architecture remains intact;
+   - semantic_prepass remains false.
 
-Any architecture violation => RED.
+Any violation => RED.
 
 ## Phase 1 — automated suites
 Run at minimum:
@@ -75,216 +75,220 @@ source .venv/bin/activate
 python -m pytest tests/test_agent_core_v4*.py -v
 python -m pytest tests/test_v4*.py -v
 cd ../task-api
-python -m pytest tests/test_swtr_read_sprint_collection.py -v
-python -m pytest tests/test_swtr_task_query_release.py -v
+python -m pytest tests/test_swtr_read_facade.py tests/test_swtr_read_sprint_collection.py tests/test_swtr_task_query_release.py -v
 ```
 
-Also run relevant task-api/history/source tests.
-
 Mandatory named proofs:
-- sprint collection guard maps to `sprints.list`, never `sprint.list`;
-- task-list wording does not trigger sprint-collection remap;
-- completed-turn session context is internal + reused;
-- multi-hop clarification keeps the original query/filters and pinned goal;
-- `unassigned=true` returns only tasks with no assignee;
-- release filter reaches source-side MCP/TQL, no local-store fallback;
-- source-proven sprint rows avoid N+1 raw-unit membership reads;
-- completion/frontier/premature-READY protections remain GREEN;
-- dummy-55/plugin registry GREEN.
+- sprint collection guard maps to `sprints.list`;
+- "список задач в этом спринте" is NOT a sprint-collection cardinality signal;
+- completed-turn session context is internal and reused only in same session;
+- validated context drops ambiguous entity values;
+- multi-hop clarification preserves the original goal;
+- unassigned filtering returns only truly unassigned tasks;
+- product space cannot be accepted as release id;
+- explicit release id uses live release collection;
+- history MCP schema helper works for flat and nested request schemas;
+- canonical sprint rows preserve relation proof;
+- plugin/dummy-55 tests GREEN.
 
-Zero unexplained test failures.
+Record exact totals.
 
-## Phase 2 — fresh REAL AS21 Oracle
-Immediately before factual batches build fresh source oracles for:
-- DMS September sprint and full tasks/status set;
-- OLP current sprint and September sprint candidates;
-- exact unassigned set in OLP current sprint;
-- DMS-380 history endpoint state;
-- DMS-399 history/time-in-status endpoint state;
-- release/version inventory for DMS if source allows it;
-- one concrete REAL release id + exact release task set if obtainable.
+## Phase 2 — sprint health hard gate
+Fresh REAL AS21 Oracle immediately before each batch.
 
-Never reuse A204 counts when source has drifted.
-
-## Phase 3 — sprint health / period task-list
-### H1
-Run 10x fresh:
+Run at least 10 fresh sessions:
 `здоровье сентябрьского спринта по DMS`
 
-Require:
-- correct period sprint resolution;
-- actual `sprint.health` capability executes;
-- final skill/UI = health/analysis, not identity-only `sprint_summary`;
-- health task counts/progress exact vs fresh sprint oracle;
-- `sprints.discover` may resolve identity but MUST NOT be the terminal deliverable;
-- completion runtime_contract or safe source failure, never identity-only success.
+Require every supported completed run:
+- period resolves to the source sprint;
+- `sprint.health` capability **actually executes**;
+- completion cannot occur on `sprint.search` / sprint identity alone;
+- final data contains actual health fields: at minimum sprint_id + total and available progress/status metrics;
+- exact total/status parity vs fresh sprint-task Oracle;
+- UI uses `sprint_health` / analysis contract, not identity-only `sprint_summary`;
+- answer must not say metrics are unavailable when the live sprint-task set was successfully read.
 
-### H2
-Run 10x fresh:
-`Покажи список задач сентябрьского спринта DMS и их статусы`
+Any identity-only COMPLETED => RED.
 
-Require actual task collection + statuses and exact key parity. Identity-only completion is RED.
+## Phase 3 — completed-turn dialogue context
+For at least 10 same-session pairs:
 
-### H3 — performance
-Run explicit:
-`Покажи список задач в DMS-SPRNT-3 и их статусы` at least 3x.
+Turn 1:
+`здоровье сентябрьского спринта по DMS`
 
-Audit Task API logs:
-- no per-task N+1 raw membership validation caused by the Agent adapter when the sprint route returns `complete=true, membership_proven=true`;
-- exact parity retained;
-- record latency before/after. A regression back to ~65 extra raw task reads is RED_PERFORMANCE.
-
-## Phase 4 — same-session completed-turn context
-At least 10 pairs:
-1. `здоровье сентябрьского спринта по DMS`
-2. same session: `Покажи список задач в этом спринте и их статусы`
+Turn 2:
+`Покажи список задач в этом спринте и их статусы`
 
 Require:
-- turn 1 establishes canonical DMS sprint;
-- API persists only validated `space/sprint_id` internally;
-- turn 2 receives that session_context;
-- `этом спринте` resolves to the validated sprint, not current-sprint guessing;
-- task collection exact;
+- turn 2 request carries same session_id but no fabricated business state from UI;
+- Harness receives internal validated session_context including prior sprint_id/space;
+- `этом спринте` resolves to the exact source-confirmed prior sprint;
+- task collection executes and matches fresh key/status Oracle;
 - no `unknown skill: sprint.list`;
-- context does not leak in public payload.
+- no fallback to current sprint merely because it happens to be the same;
+- session context does not leak to public response.
 
-Negative:
-- same phrase in a new session must not inherit the old sprint;
-- unrelated new query in same session must not silently receive old sprint filter.
+Controls:
+- same turn 2 in a new session must NOT inherit the old sprint;
+- explicit `DMS-SPRNT-3` query must remain exact.
 
-## Phase 5 — multi-hop clarification
-Reproduce user's OLP case at least 10 times:
+## Phase 4 — multi-hop clarification
+Use a real case where period+space yields more than one candidate sprint, e.g. the user's OLP September case when source still returns OLP-SPRNT-7 / OLP-SPRNT-6.
+
+Query:
 `покажи активные задачи у Гаранина в сентябрьском спринте по OLAP`
 
-Expected flow when source requires it:
-1. typed clarification of space -> choose `OLP`;
-2. if multiple September sprints overlap -> typed sprint options;
-3. choose a source-backed sprint, e.g. one of the offered OLP-SPRNT-* ids;
-4. terminal task collection executes.
+Follow the actual Browser flow:
+1. typed clarification for product space -> choose `OLP`;
+2. typed clarification for sprint -> choose one real candidate, e.g. `OLP-SPRNT-7`;
+3. original task goal must resume and execute.
 
+Run at least 5 full chains.
 Require:
-- same session + clarification ids at every hop;
-- original goal `active tasks of person` remains pinned through both clarifications;
-- `status=not_completed` remains applied;
-- person + OLP + selected sprint + active status all covered by final arguments;
+- same original task completion goal pinned across both clarification hops;
+- already resolved space preserved;
+- selected sprint preserved;
+- member identity source-backed;
+- terminal task collection executes with person + space + sprint + active/not_completed constraint;
 - exact Oracle parity;
-- no V4 ERROR after second option click.
+- no generic V4 ERROR after second clarification.
 
-Any loss of the active/person constraint => RED.
+Any loss of original goal => RED.
 
-## Phase 6 — unassigned constraint
-Run:
-1. `найди задачи без исполнителя в OLP` -> if sprint needed, answer with current sprint through typed continuation;
-2. `найди задачи без исполнителя в текущем спринте OLP`;
-3. same for DMS as control.
+## Phase 5 — unassigned tasks
+Test both:
+1. `найди задачи без исполнителя в OLP`
+2. `найди задачи без исполнителя в текущем спринте OLP`
 
-Require:
-- terminal task.search arguments include `unassigned=true`;
-- result contains **only** rows whose assignee/login/id are empty;
-- exact key-set parity vs fresh sprint oracle;
-- never return all sprint tasks while warning that filter was not applied;
-- if filter cannot be applied, fail closed / unsupported, never SUCCESS_WITH_DATA.
+If the first requires a bounded clarification, follow it exactly.
+For every COMPLETED result:
+- final task.search arguments contain `unassigned=true`;
+- every returned task has null/empty canonical assignee identity;
+- no assigned task may appear;
+- count/key parity vs fresh REAL AS21 Oracle;
+- unfiltered sprint/space collection must NEVER be returned as SUCCESS for an unassigned request.
 
-## Phase 7 — unsupported analytics honesty
+Any "filter was not applied" + COMPLETED => RED.
+
+## Phase 6 — unsupported analytics safety
 Run at least 5x:
 `кто больше всех загружен в сентябрьском спринте по DMS?`
 
-Current catalog does not yet contain the future workload skill.
+Current V4 catalog does not yet add a new workload-aggregation skill in this remediation.
+Therefore acceptable behavior is:
+- source-safe explicit statement that this analytical capability is not yet implemented / not available in the current catalog, OR
+- an existing governed capability truly computes the requested aggregate from source and exact Oracle parity is proven.
+
+Forbidden:
+- identity-only sprint result marked COMPLETED as if it answered workload;
+- claim "source has no assignee distribution" merely because only sprint.search executed;
+- invented ranking.
+
+False resolver-only answer => RED.
+
+## Phase 7 — release health + release tasks
+### Missing release identity
+Run at least 10x:
+- `здоровье релиза по DMS`
+- `задачи в релизе по DMS`
+
 Require:
-- may resolve sprint identity as an intermediate observation;
-- MUST NOT claim that source lacks assignee/task distribution merely because only sprint identity was loaded;
-- MUST NOT present sprint_summary as if workload analysis was delivered;
-- acceptable outcome: explicit honest statement that this analytical skill is not implemented/migrated yet, without fabricated result; or a genuinely supported governed path if one exists.
-- no invented ranking/person.
+- DMS must be treated as product space, never as release_id;
+- if no unique current release semantics are source-backed, return typed clarification asking for a concrete release id;
+- no full-tenant release scan;
+- no local `/api/v1/tasks` read;
+- no generic SOURCE_UNAVAILABLE merely because the user omitted the release id.
 
-Classify any identity-only SUCCESS_WITH_DATA masquerading as analysis as RED.
-
-## Phase 8 — history and time-in-status readiness
-Run:
-- `покажи историю статусов задачи DMS-380`
-- `сколько времени DMS-399 провела в каждом статусе?`
-- `Ты умеешь определять длительность задач?`
-
-For DMS-380/DMS-399:
-- if authoritative history endpoint works, exact history/time calculations must be returned;
-- if endpoint is unavailable, typed SOURCE_UNAVAILABLE/SOURCE_CONDITIONAL is correct;
-- empty history must not be fabricated from outage.
-
-For capability question:
-- catalog definition must not be stated as guaranteed current live availability;
-- answer should distinguish “skill is defined” from “authoritative history source is currently available”.
-
-## Phase 9 — release health / release tasks
-### R1 missing release identity
-Run 10x:
-`здоровье релиза по DMS`
-and
-`задачи в релизе по DMS`
-
-Because no release id is supplied:
-- DMS must be treated as space, never as release id;
-- expected = typed clarification asking which release, preferably source options if reliable inventory is available;
-- generic AS21-unavailable caused by trying `release=DMS` is RED.
-
-### R2 concrete release
-If a REAL release id can be obtained from source:
+### Explicit release identity
+If `/versions` / MCP search_versions is healthy, discover one REAL release id and run:
 - `здоровье релиза <REAL_ID> по DMS`
 - `задачи релиза <REAL_ID> по DMS`
 
 Require:
-- bounded source-side release predicate (`fix_version_s` / task-query `release`);
-- zero full-tenant client-side release scan;
-- zero local-store reads;
-- exact release task parity;
-- release.health actual metrics, not resolver-only completion.
+- live task-query receives bounded space=DMS + release=<REAL_ID>;
+- MCP query contains `space = "DMS"` and `fix_version_s = "<REAL_ID>"`;
+- exact release task key/status parity;
+- release.health executes for health request.
 
-If the source version inventory itself is genuinely unavailable, mark only the explicit-release discovery control SOURCE_CONDITIONAL; do not turn `DMS` into a release id.
+If release inventory remains a proven external source outage:
+- explicit-id discovery subsection may be SOURCE_CONDITIONAL;
+- bounded release route unit tests must still be GREEN;
+- do not invent an id.
 
-## Phase 10 — full existing 27-skill matrix
-Run **all 27 current V4 skills**, no skips.
+## Phase 8 — task history and duration
+Run:
+- `покажи историю статусов задачи DMS-380` at least 5x;
+- `сколько времени задача DMS-399 провела в каждом статусе` at least 5x;
+- `Ты умеешь определять длительность задач?` at least 3x.
 
-For every row record:
-- natural-language request;
+Require:
+- history route uses live MCP `get_unit_change_history` with its actual schema (flat or nested request);
+- if source is available, exact chronological transitions/durations from source;
+- if source is genuinely unavailable, typed SOURCE_CONDITIONAL/fail-closed, never empty history;
+- capability-description answer must be conditional: declared capability != proof that live source is currently available;
+- no unconditional "да, умею" that implies current source availability when the following call cannot be served.
+
+## Phase 9 — sprint collection performance / N+1
+Run explicit:
+`Покажи список задач в DMS-SPRNT-3 и их статусы`
+
+At least 3x with fresh Oracle.
+Audit Task API/agent logs:
+- complete sprint route returns canonical relation proof;
+- hardened adapter must not perform one raw `GET /tasks/{code}` validation call per task when the certified row already carries matching sprint/space relation;
+- per-task raw proof is allowed only for rows missing canonical relation metadata;
+- exact task/status parity retained;
+- record backend collection latency and total agent latency.
+
+Any correctness weakening => RED.
+A persistent 65-task -> 65 raw-read N+1 after canonical relation proof exists => RED performance regression.
+
+## Phase 10 — canonical 27-skill full regression
+Re-run **all 27 existing V4 skills**, no skips.
+
+For each row record:
+- NL request;
 - expected/actual skill;
 - loaded skills;
 - capabilities;
-- arguments/constraints;
 - completion mode;
 - source route;
-- exact Oracle parity where factual;
+- Oracle parity;
+- evidence;
 - UIContract;
-- Browser state where applicable;
 - GREEN / SOURCE_CONDITIONAL / RED.
 
-Overall A205 cannot be GREEN with any RED.
+Overall A205 GREEN requires **0 RED**.
 
-## Phase 11 — Browser C adversarial pack
-Use real UI for at least:
+SOURCE_CONDITIONAL is allowed only for a proven external/source limitation and must fail closed without fabrication.
+
+## Phase 11 — Browser C adversarial suite
+Use the real UI for at minimum:
 1. sprint health;
-2. same-session `этом спринте` task follow-up;
-3. two-hop OLP clarification;
-4. unassigned current-sprint query;
+2. same-session "этом спринте" follow-up;
+3. multi-hop OLP clarification;
+4. unassigned current-sprint tasks;
 5. unsupported workload question;
-6. task history/time-in-status;
-7. release health missing-release clarification;
-8. concrete release path if source-supported.
+6. release health without release id;
+7. explicit release test if source inventory permits;
+8. history/time-in-status;
+9. person attachments;
+10. person+sprint multi-filter;
+11. ambiguity continuation;
+12. safe not-found.
 
-No internal session/continuation state leak.
+No internal session_context / continuation observations may leak into UI.
 
-## Phase 12 — global source/local audit
-Across all runs:
-- `GET /api/v1/tasks` factual reads = 0;
-- no fake/frozen/local Oracle;
-- no broad release client-side scan;
-- no unexplained N+1 sprint membership reads;
-- source outages fail closed;
-- model/429 timeout runs are retained and classified, never silently discarded.
+## Phase 12 — source/local-store audit
+Across all A205 runs:
+- factual V4 paths: zero `GET /api/v1/tasks` truth;
+- no tenant-wide release scan;
+- no false REAL_EMPTY from source outage;
+- exact source provenance logged.
 
-## Phase 13 — plugin/Harness invariant
-Re-run dummy-55 gate.
-Prove a synthetic skill can still be added/discovered/bound/completed/UI-propagated with zero Agent Core/planner/runtime business edits.
-
-Static audit must show the A204 fixes did not introduce skill-specific core branching.
+## Phase 13 — plugin/extensibility
+Re-run A190 dummy-55 gate.
+Adding the synthetic skill must still require **zero business-logic edits to Agent Core/planner/runtime**.
 
 ## Verdict
 Use exactly one:
@@ -293,37 +297,32 @@ Use exactly one:
 - `BLOCKED_BY_PROVEN_SOURCE_OUTAGE`
 
 GREEN requires:
-- automated gates clean;
-- all 27 skills tested;
-- **0 RED**;
-- all manual adversarial cases above closed or correctly SOURCE_CONDITIONAL;
-- no resolver-only false success;
-- no dropped unassigned/status/person/sprint constraints;
-- same-session context safe;
-- multi-hop clarification safe;
-- release grounding correct;
-- local factual reads = 0;
-- plugin gate GREEN.
+- Phase 1 tests clean;
+- A204 defects D1-D4 closed or correctly SOURCE_CONDITIONAL only where source itself is proven unavailable;
+- manual multi-hop/unassigned/history/release cases safe;
+- full 27-skill matrix has 0 RED;
+- Browser C supported paths GREEN;
+- zero local truth;
+- dummy-55 GREEN;
+- no Harness/plugin architecture regression.
 
 If any RED:
-**STOP. No Wave S, no new skills. Do not fix production code. Return exact root cause to owner for another remediation/re-gate.**
+**STOP. Do not add skills or start Wave S. Return root cause for owner remediation and another full re-gate.**
 
 If GREEN:
-recommend:
-**Freeze A205 as a new clean rollback checkpoint. Do not start Wave S automatically; wait for explicit owner/user approval.**
+**Freeze the tested HEAD as a new post-A205 rollback checkpoint. Do not start Wave S automatically; wait for explicit owner/user approval.**
 
 ## Output
 Commit/push only:
-`po-agent-platform-v2/qa_reports/AGENT_CORE_V4_FULL_EXISTING_CATALOG_ADVERSARIAL_205.md`
+`po-agent-platform-v2/qa_reports/AGENT_CORE_V4_EXISTING_CATALOG_ADVERSARIAL_205.md`
 
 ## Service keepalive
 Leave UI/backend/Task API/MCP running.
 Return:
 - verdict;
-- START_HEAD;
+- exact START_HEAD;
 - report commit;
-- 27-skill counts;
-- adversarial case matrix;
-- service URL/port/PID/health;
-- key latency and route-provenance stats.
+- GREEN/SOURCE_CONDITIONAL/RED totals;
+- service URLs/ports/PIDs/health;
+- key trajectory evidence for sprint health, same-session context, multi-hop clarification, unassigned, release, history.
 Then stop.
