@@ -30,6 +30,7 @@ from .agent_core_v4_completion import (
     SkillCompletionContract,
     completion_frontier_satisfied,
     resolved_constraint_arguments,
+    validated_session_context,
 )
 from .contracts import CapabilityResult, Evidence, HarnessRequest, HarnessResponse, ResponseStatus
 from .entity_grounding import TeamDirectory
@@ -653,10 +654,7 @@ class AgentCoreV4Runtime:
                     "trajectory": trajectory,
                     "observation_count": len(observations),
                     "completion": completion,
-                    "session_context": resolved_constraint_arguments(
-                        observations,
-                        ("assignee", "space", "sprint_id", "release_id"),
-                    ),
+                    "session_context": validated_session_context(observations),
                 },
                 "results": full_results,
             },
