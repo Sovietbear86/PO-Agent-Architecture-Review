@@ -187,3 +187,44 @@ async def test_clarification_continuation_restores_generic_harness_execution_sta
     assert resumed.resume_observations[0]["capability_id"] == "member.resolve"
     assert "Исходный запрос пользователя" in resumed.query
     assert "Ответ пользователя на уточнение: DMS" in resumed.query
+
+
+@pytest.mark.asyncio
+async def test_health_uses_lightweight_source_probe_not_unscoped_task_search(monkeypatch):
+    import po_agent.api.v1 as api_v1
+
+    class Adapter:
+        def __init__(self):
+            self.health_calls = 0
+            self.search_calls = 0
+
+        async def source_health(self):
+            self.health_calls += 1
+            return {"status": "ok"}
+
+        async def search_tasks(self, *args, **kwargs):
+            self.search_calls += 1
+            raise AssertionError("health must not perform unscoped task search")
+
+    adapter = Adapter()
+    readiness = SimpleNamespace(summary=lambda: {"ready": 1})
+    bundle = SimpleNamespace(
+        mode="task-api",
+        adapter=adapter,
+        readiness=readiness,
+        v4_runtime=SimpleNamespace(plugin_ids=("builtin.core.a188",)),
+    )
+    monkeypatch.setattr(api_v1, "get_settings", lambda: SimpleNamespace(
+        correlation_id_header="X-Correlation-Id",
+        semantic_llm_enabled=False,
+        llm_api_key=None,
+        agent_core_v3_enabled=False,
+        agent_core_v4_enabled=True,
+        as21_mode="task-api",
+    ))
+    monkeypatch.setattr(api_v1, "get_runtime_bundle", lambda: bundle)
+
+    response = await api_v1.health_check(_HeadersRequest())
+    assert response["status"] == "healthy"
+    assert adapter.health_calls == 1
+    assert adapter.search_calls == 0
