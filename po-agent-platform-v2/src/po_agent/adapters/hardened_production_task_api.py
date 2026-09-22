@@ -290,6 +290,26 @@ class HardenedProductionTaskApiAS21Adapter(ProductionTaskApiAS21Adapter):
                 seen.add(code); codes.append(code)
         if rows and not codes:
             raise AS21SourceError("live sprint rows do not expose canonical task codes")
+        # The certified complete sprint facade now preserves canonical sprint
+        # and space relations in each row. Use those source-backed relations
+        # directly and fall back to per-task raw proof only for legacy/malformed
+        # rows that lack relation metadata. This removes the N+1 evidence read
+        # without weakening the relation check.
+        direct: list[Task] = []
+        needs_raw_proof: list[str] = []
+        for code in codes:
+            row = rows_by_code.get(code)
+            mapped = TaskApiAS21Adapter._map(row) if isinstance(row, dict) else None
+            if mapped is not None:
+                row_sprint = (mapped.sprint_id or "").strip()
+                row_space = (mapped.project_space or "").strip()
+                sprint_ok = row_sprint and row_sprint.casefold() == normalized.casefold()
+                space_ok = not space or (row_space and row_space.casefold() == space.strip().casefold())
+                if sprint_ok and space_ok:
+                    direct.append(mapped)
+                    continue
+            needs_raw_proof.append(code)
+
         semaphore = asyncio.Semaphore(12)
         async def prove(code: str):
             async with semaphore:
@@ -301,9 +321,15 @@ class HardenedProductionTaskApiAS21Adapter(ProductionTaskApiAS21Adapter):
                 return None
             if space and (not real_space or real_space.casefold() != space.strip().casefold()):
                 return None
-            return self._map_raw_unit(unit, sprint_id=real_sprint, space=real_space, workflow_status=_workflow_status_from_row(rows_by_code.get(code)))
-        proven = await asyncio.gather(*(prove(code) for code in codes)) if codes else []
-        return [task for task in proven if task is not None]
+            return self._map_raw_unit(
+                unit,
+                sprint_id=real_sprint,
+                space=real_space,
+                workflow_status=_workflow_status_from_row(rows_by_code.get(code)),
+            )
+
+        proven = await asyncio.gather(*(prove(code) for code in needs_raw_proof)) if needs_raw_proof else []
+        return direct + [task for task in proven if task is not None]
 
     async def search_tasks(self, jql: str, max_results: int = 50, fields: list[str] | None = None) -> list[Task]:
         filters, free_text = _parse_query(jql)
