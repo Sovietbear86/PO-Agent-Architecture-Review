@@ -43,10 +43,27 @@ def _metric_evidence(sprint_id: str, label: str, value: Any) -> list[Evidence]:
     return [Evidence(type="sprint_metric", source="as21", entity_id=sprint_id, label=label, value=value)]
 
 
+def _source_flag(task: Any, name: str) -> bool:
+    source_data = getattr(task, "source_data", None)
+    return isinstance(source_data, dict) and source_data.get(name) is True
+
+
+def _aware_utc(value: datetime) -> datetime:
+    return value.astimezone(timezone.utc) if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
+
+
 async def _completed_history_metrics(runtime: Any, sprint_id: str, tasks: list[Any]) -> list[dict[str, Any]]:
     completed = [task for task in tasks if task.is_completed]
     if not completed:
         raise V4CapabilityUnavailable(f"{sprint_id}: нет завершённых задач для history-based метрики")
+    missing_created = [
+        task.key for task in completed
+        if not _source_flag(task, "_canonical_created_at_from_source")
+    ]
+    if missing_created:
+        raise V4CapabilityUnavailable(
+            f"{sprint_id}: sprint task rows lack source created_at: {', '.join(missing_created[:8])}"
+        )
 
     semaphore = asyncio.Semaphore(8)
 
@@ -55,14 +72,15 @@ async def _completed_history_metrics(runtime: Any, sprint_id: str, tasks: list[A
             transitions = list(await runtime.adapter.get_task_history(task.key))
         if not transitions:
             return None
-        ordered = sorted(transitions, key=lambda item: item.timestamp)
-        first_transition = ordered[0].timestamp
-        terminal_transition = ordered[-1].timestamp
-        if terminal_transition < first_transition or terminal_transition < task.created_at:
+        ordered = sorted(transitions, key=lambda item: _aware_utc(item.timestamp))
+        first_transition = _aware_utc(ordered[0].timestamp)
+        terminal_transition = _aware_utc(ordered[-1].timestamp)
+        created_at = _aware_utc(task.created_at)
+        if terminal_transition < first_transition or terminal_transition < created_at:
             raise V4CapabilityUnavailable(f"{task.key}: неконсистентная временная шкала истории")
         return {
             "task_key": task.key,
-            "created_at": task.created_at,
+            "created_at": created_at,
             "cycle_start": first_transition,
             "terminal_at": terminal_transition,
             "cycle_hours": (terminal_transition - first_transition).total_seconds() / 3600.0,
@@ -290,20 +308,35 @@ def build_sprint_risk_queue(runtime: Any):
         sprint_id, space, tasks = await _sprint_tasks(runtime, args)
         now = datetime.now(timezone.utc)
         rows = []
+        missing_created = 0
+        missing_deadline = 0
         for task in tasks:
             if not task.is_open:
                 continue
+            created_from_source = _source_flag(task, "_canonical_created_at_from_source")
+            deadline_from_source = _source_flag(task, "_canonical_deadline_from_source")
+            if not created_from_source:
+                missing_created += 1
+            if task.due_date is not None and not deadline_from_source:
+                missing_deadline += 1
+
             overdue_days = 0
-            if task.due_date is not None:
-                due = task.due_date if task.due_date.tzinfo is not None else task.due_date.replace(tzinfo=timezone.utc)
+            if task.due_date is not None and deadline_from_source:
+                due = _aware_utc(task.due_date)
                 overdue_days = max(0, (now - due).days)
+
+            age_days = 0
+            if created_from_source:
+                created = _aware_utc(task.created_at)
+                age_days = max(0, (now - created).days)
+
             reasons = []
             if task.is_blocked:
                 reasons.append("blocked")
             if overdue_days > 0:
                 reasons.append(f"overdue:{overdue_days}d")
-            if task.age_days >= 14:
-                reasons.append(f"aging:{task.age_days}d")
+            if age_days >= 14:
+                reasons.append(f"aging:{age_days}d")
             if not reasons:
                 continue
             rows.append({
@@ -313,7 +346,7 @@ def build_sprint_risk_queue(runtime: Any):
                 "assignee": task.assignee,
                 "blocked": bool(task.is_blocked),
                 "overdue_days": overdue_days,
-                "age_days": task.age_days,
+                "age_days": age_days,
                 "reasons": reasons,
             })
         rows.sort(key=lambda row: (not row["blocked"], -row["overdue_days"], -row["age_days"], row["task_key"]))
@@ -327,13 +360,23 @@ def build_sprint_risk_queue(runtime: Any):
             "source": "REAL_AS21",
             "formula": "blocked first, then overdue_days desc, then age_days desc; no employee scoring",
         }
+        warnings = []
+        limitations = []
+        if missing_created:
+            warnings.append("risk_queue_created_at_source_missing")
+            limitations.append(f"aging недоступен для {missing_created} открытых задач")
+        if missing_deadline:
+            warnings.append("risk_queue_deadline_source_missing")
+            limitations.append(f"deadline недоступен для {missing_deadline} открытых задач")
+        caveat = f" Ограничения источника: {'; '.join(limitations)}." if limitations else ""
         return CapabilityResult(
-            answer=f"Очередь рисков {sprint_id}: {len(rows)} задач требуют внимания.",
+            answer=f"Очередь рисков {sprint_id}: {len(rows)} задач требуют внимания.{caveat}",
             data=data,
             evidence=[
                 Evidence(type="task_risk", source="as21", entity_id=row["task_key"], label=";".join(row["reasons"]), value=row["rank"])
                 for row in rows
             ],
+            warnings=warnings,
         )
     return execute
 
