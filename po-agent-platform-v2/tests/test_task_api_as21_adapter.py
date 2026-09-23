@@ -223,3 +223,37 @@ async def test_get_task_history_maps_workflow_status_changes():
     assert transitions[1].from_status == TaskStatus.IN_PROGRESS
     assert transitions[1].to_status == TaskStatus.RESOLVED
     assert transitions[1].author == "User2"
+    assert transitions[0].display_from_status == "Open"
+    assert transitions[0].display_to_status == "In progress"
+
+
+@pytest.mark.asyncio
+async def test_get_task_history_preserves_source_labels_unknown_to_generic_enum():
+    history_payload = {
+        "task_code": "WMB-30000",
+        "events": [
+            {
+                "task_code": "WMB-30000",
+                "field_code": "workflow_status",
+                "old_value": "Escalated",
+                "new_value": "На исправлении",
+                "changed_at": "2026-07-20T12:20:09Z",
+                "actor": "User1",
+            }
+        ],
+        "page_info": {"has_next": False, "page": 0, "page_size": 100, "total": 1},
+    }
+
+    async def handler(request):
+        return httpx.Response(200, json=history_payload)
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="http://task-api")
+    adapter = TaskApiAS21Adapter(client=client)
+    transitions = await adapter.get_task_history("WMB-30000")
+    await client.aclose()
+
+    assert len(transitions) == 1
+    assert transitions[0].from_status == TaskStatus.UNKNOWN
+    assert transitions[0].to_status == TaskStatus.UNKNOWN
+    assert transitions[0].display_from_status == "Escalated"
+    assert transitions[0].display_to_status == "На исправлении"
