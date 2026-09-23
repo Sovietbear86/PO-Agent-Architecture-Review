@@ -160,6 +160,16 @@ def test_risk_queue_ranks_tasks_not_people():
 
 
 
+def test_lead_time_normalizes_source_backed_naive_created_at():
+    runtime = _runtime()
+    runtime.adapter.current[0].created_at = runtime.adapter.current[0].created_at.replace(tzinfo=None)
+    result = asyncio.run(
+        build_sprint_lead_time(runtime)({"sprint_id": "DMS-SPRNT-3", "space": "DMS"})
+    )
+    assert result.data["completed_sample"] == 2
+    assert result.data["lead_time_hours"]["median"] == 26.0
+
+
 def test_cycle_time_fails_closed_without_source_created_at():
     runtime = _runtime()
     runtime.adapter.current[0].source_data["_canonical_created_at_from_source"] = False
