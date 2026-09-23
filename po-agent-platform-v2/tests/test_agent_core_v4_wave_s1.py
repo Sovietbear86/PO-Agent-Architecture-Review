@@ -5,7 +5,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from po_agent.harness.agent_core_v4 import V4NeedsClarification
+from po_agent.harness.agent_core_v4 import AgentCoreV4Runtime, V4NeedsClarification
+from po_agent.harness.agent_core_v4_completion import SkillCompletionContract, is_skill_satisfied
 from po_agent.harness.v4_plugin_registry import discover_v4_plugins
 from po_agent.harness.v4_plugins.wave_s1 import (
     build_release_search,
@@ -152,3 +153,33 @@ def test_wave_s1_metric_skills_can_resolve_explicit_period_or_current_sprint():
         capabilities = set(by_id[skill_id].capabilities)
         assert expected_resolvers <= capabilities
         assert skill_id in capabilities
+
+
+def test_scope_and_wip_contracts_match_compacted_observation_shape():
+    registry = discover_v4_plugins()
+    by_id = {skill.id: skill for skill in registry.skills()}
+
+    raw = {
+        "sprint_id": "DMS-SPRNT-3",
+        "total": 3,
+        "wip": 1,
+        "task_keys": ["DMS-1", "DMS-2", "DMS-3"],
+        "source": "REAL_AS21",
+    }
+
+    compacted = AgentCoreV4Runtime._compact_data("sprint.wip", raw)
+    assert "task_keys" not in compacted
+    assert compacted["task_key_count"] == 3
+    assert compacted["task_keys_sample"] == ["DMS-1", "DMS-2", "DMS-3"]
+
+    for skill_id in ("sprint.scope", "sprint.wip"):
+        requirement = by_id[skill_id].completion[0]
+        assert "task_key_count" in requirement.data_keys
+        observation = SimpleNamespace(
+            capability_id=requirement.capability_id,
+            data=dict(compacted),
+            arguments={},
+            step=1,
+        )
+        contract = SkillCompletionContract(skill_id=skill_id, requirements=(requirement,))
+        assert is_skill_satisfied(contract, [observation])
