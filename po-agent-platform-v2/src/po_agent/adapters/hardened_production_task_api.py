@@ -235,6 +235,47 @@ class HardenedProductionTaskApiAS21Adapter(ProductionTaskApiAS21Adapter):
                 return await self._hydrate_relation(task)
         return list(await asyncio.gather(*(hydrate(task) for task in tasks))) if tasks else []
 
+    async def search_versions_bounded(
+        self,
+        *,
+        query: str | None = None,
+        space: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Search the live release/version directory without task-scan fallback.
+
+        Wave S release.search must never synthesize a version directory by
+        scanning a tenant-wide task corpus. If the authoritative version source
+        is unavailable, fail closed and let V4 surface SOURCE_UNAVAILABLE.
+        """
+        params: dict[str, Any] = {"limit": 100}
+        if query and query.strip():
+            params["query"] = query.strip()
+        if space and space.strip():
+            params["space"] = space.strip().upper()
+        try:
+            response = await self._get_resilient("/api/v1/swtr-read/versions", params=params)
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 404:
+                return []
+            if exc.response.status_code in (502, 503):
+                raise AS21SourceUnavailable(
+                    f"task-api version directory unavailable: HTTP {exc.response.status_code}"
+                ) from exc
+            raise AS21SourceError(
+                f"task-api version directory failed: HTTP {exc.response.status_code}"
+            ) from exc
+        except httpx.HTTPError as exc:
+            raise AS21SourceUnavailable(
+                f"task-api version directory unavailable: {type(exc).__name__}"
+            ) from exc
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            raise AS21SourceError("task-api version directory returned invalid JSON") from exc
+        if not isinstance(payload, dict) or not isinstance(payload.get("versions"), list):
+            raise AS21SourceError("task-api version directory returned malformed payload")
+        return [item for item in payload["versions"] if isinstance(item, (dict, str))]
+
     async def get_sprint_tasks(self, sprint_id: str, space: str | None = None) -> list[Task]:
         normalized = (sprint_id or "").strip().upper()
         if not normalized:
