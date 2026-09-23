@@ -551,6 +551,8 @@ class TaskApiAS21Adapter(AS21Adapter):
                 StatusTransition(
                     from_status=from_status,
                     to_status=to_status,
+                    from_name=None if old_value_raw is None else str(old_value_raw),
+                    to_name=None if new_value_raw is None else str(new_value_raw),
                     timestamp=timestamp,
                     author=actor,
                 )
