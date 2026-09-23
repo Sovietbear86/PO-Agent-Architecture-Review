@@ -270,7 +270,10 @@ def _canonical_sprint_task_row(item: dict[str, Any]) -> dict[str, Any] | None:
     # readers (agent ``_attributes``) expect, so workflow semantics such as
     # ``workflow_status.statusType`` survive the canonical row boundary.
     swtr_attributes = [{"code": c, "value": v} for c, v in _raw_attribute_entries(item)]
-    return {
+    created_at = pick("created_at", "createdAt")
+    updated_at = pick("updated_at", "updatedAt")
+    deadline = pick("deadline", "dueDate", "due_date")
+    row = {
         "source_id": code,
         "title": title,
         "status": status,
@@ -284,6 +287,13 @@ def _canonical_sprint_task_row(item: dict[str, Any]) -> dict[str, Any] | None:
             "live_sprint_route": True,
         },
     }
+    if created_at is not None:
+        row["created_at"] = created_at
+    if updated_at is not None:
+        row["updated_at"] = updated_at
+    if deadline is not None:
+        row["deadline"] = deadline
+    return row
 
 
 async def _tql_sprint_tasks(
@@ -316,6 +326,12 @@ async def _tql_sprint_tasks(
                             "scrum_board_plugin_sprint",
                             "assigned_to",
                             "fix_version_s",
+                            "created_at",
+                            "updated_at",
+                            "createdAt",
+                            "updatedAt",
+                            "deadline",
+                            "dueDate",
                         ],
                         "query": f'scrum_board_plugin_sprint = "{sprint_id}"',
                         "timeZone": "Europe/Moscow",
@@ -771,6 +787,35 @@ async def get_sprint_tasks(
                 is_complete = tql_complete
                 source_path = "tql_sprint_constraint"
                 pages_fetched = tql_pages
+
+    # Sprint membership and task timestamps come from different live MCP views
+    # on some SWTR versions. Enrich the already-proven sprint membership by task
+    # key from the bounded sprint-constraint query; never change membership from
+    # this enrichment and never fabricate missing timestamps.
+    if canonical_rows and any(
+        row.get("created_at") is None or row.get("deadline") is None
+        for row in canonical_rows
+    ):
+        enrichment_rows, _, _ = await _tql_sprint_tasks(
+            client, normalized, limit=limit, max_pages=max_pages
+        )
+        if enrichment_rows:
+            enrichment_by_code: dict[str, dict[str, Any]] = {}
+            for raw in enrichment_rows:
+                enriched = _canonical_sprint_task_row(raw)
+                if enriched is None:
+                    continue
+                code = str(enriched.get("source_id") or "").upper().strip()
+                if code:
+                    enrichment_by_code[code] = enriched
+            for row in canonical_rows:
+                code = str(row.get("source_id") or "").upper().strip()
+                enriched = enrichment_by_code.get(code)
+                if enriched is None:
+                    continue
+                for field in ("created_at", "updated_at", "deadline"):
+                    if row.get(field) is None and enriched.get(field) is not None:
+                        row[field] = enriched[field]
 
     if is_complete:
         # The complete collection was produced by a source operation whose
