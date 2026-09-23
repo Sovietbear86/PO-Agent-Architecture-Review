@@ -959,8 +959,20 @@ class AgentCoreV4Runtime:
             tasks = [task for task in tasks if task.is_open]
         elif status == "completed":
             tasks = [task for task in tasks if task.is_completed]
+        elif status == "blocked":
+            # Generic semantic predicate shared with sprint health/risk logic.
+            # Do not approximate "blocked" from arbitrary text/status names.
+            tasks = [task for task in tasks if task.is_blocked]
         elif status:
-            tasks = [task for task in tasks if status.casefold() in task.status.value.casefold() or status.casefold() in task.status_category.value.casefold()]
+            requested = status.casefold().strip()
+            tasks = [
+                task
+                for task in tasks
+                if requested in str(getattr(task, "status_raw", "") or "").casefold()
+                or requested in str(getattr(task, "status_type", "") or "").casefold()
+                or requested in task.status.value.casefold()
+                or requested in task.status_category.value.casefold()
+            ]
 
         filters = {key: value for key, value in {"assignee": assignee, "space": space, "sprint_id": sprint_id, "status": status, "unassigned": unassigned or None}.items() if value}
         rows = [self._task_to_dict(task) for task in tasks]
