@@ -378,7 +378,7 @@ SKILLS = (
             "Then call sprint.scope with the resolved sprint_id; identity-only observations must not terminate the metric request.",
         ),
         ("space.resolve", "sprint.resolve", "sprint.search", "sprint.current", "sprint.scope"),
-        completion=(CompletionRequirement("sprint.scope", data_keys=("sprint_id", "total", "task_keys")),),
+        completion=(CompletionRequirement("sprint.scope", data_keys=("sprint_id", "total", "task_key_count")),),
     ),
     SkillSpecV4(
         "sprint.velocity",
@@ -410,7 +410,7 @@ SKILLS = (
             "Then call sprint.wip with the resolved sprint_id; never guess a sprint id from product name.",
         ),
         ("space.resolve", "sprint.resolve", "sprint.search", "sprint.current", "sprint.wip"),
-        completion=(CompletionRequirement("sprint.wip", data_keys=("sprint_id", "wip", "task_keys")),),
+        completion=(CompletionRequirement("sprint.wip", data_keys=("sprint_id", "wip", "task_key_count")),),
     ),
     SkillSpecV4(
         "release.search",
