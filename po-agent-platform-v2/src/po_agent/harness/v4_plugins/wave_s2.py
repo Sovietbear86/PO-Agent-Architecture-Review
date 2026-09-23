@@ -84,7 +84,7 @@ async def _completed_history_metrics(runtime: Any, sprint_id: str, tasks: list[A
             "cycle_start": first_transition,
             "terminal_at": terminal_transition,
             "cycle_hours": (terminal_transition - first_transition).total_seconds() / 3600.0,
-            "lead_hours": (terminal_transition - task.created_at).total_seconds() / 3600.0,
+            "lead_hours": (terminal_transition - created_at).total_seconds() / 3600.0,
         }
 
     rows = list(await asyncio.gather(*(one(task) for task in completed)))
