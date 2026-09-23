@@ -1,259 +1,209 @@
 # GigaCode — Current Action
 
 ## Status
-`ACTIVE_QA_ASSIGNMENT_207_V4_WAVE_S1_SPRINT_FLOW_RELEASE_SEARCH`
+`ACTIVE_QA_ASSIGNMENT_208_PRE_S2_MANUAL_QUERY_CONSISTENCY`
 
 ## Role lock
 GigaCode is **QA/adversarial tester + service operator only**.
 
 Do NOT modify production/frontend/plugin/test/config/architecture code.
-Do NOT add skills.
 Do NOT start Wave S2.
-Any RED blocks progression.
+Do NOT add skills.
 
 ## Stable rollback
-A206B is GREEN and frozen at:
-`checkpoint/v4-a206b-green@f7f846dee71b676fb0fc8d1d8f0d8aa23d521eaf`
+Wave S1 is GREEN at:
+`checkpoint/v4-wave-s1-green@ce64264c868afd73743d5daafdeaee767e07adef`
 
-## Owner Wave S1 delta
-New plugin-only skills/capabilities:
-- `sprint.scope`
-- `sprint.velocity`
-- `sprint.throughput`
-- `sprint.wip`
-- `release.search`
+A207 result:
+- sprint.scope GREEN;
+- sprint.velocity GREEN;
+- sprint.throughput GREEN;
+- sprint.wip GREEN;
+- release.search SOURCE_CONDITIONAL due proven /versions 502;
+- zero local factual reads;
+- plugin invariant GREEN.
+
+## Why A208 exists
+Manual Browser C testing exposed three consistency gaps that must be closed before S2:
+
+1. `wip спринта по DMS` could fail even though `показать текущий WIP сентябрьского спринта по DMS` succeeds.  
+   Root boundary: Wave S1 metric skill contracts only exposed `sprint.resolve`, while product-only/current and period phrases need `sprint.current` or `sprint.search`.
+
+2. `Заблокированные задачи спринта DMS-SPRNT-3` could fail or previously return an incorrect empty collection, while `sprint.health` reports blocked tasks.  
+   Root boundary: task.search had no explicit `blocked` semantic predicate even though canonical Task/sprint risk logic has `task.is_blocked`.
+
+3. Raw authoritative status names such as `На исправлении` were not matched by generic `task.search` when they normalize to TaskStatus.UNKNOWN.  
+   Root boundary: task.search compared only normalized enum/category, not `status_raw/status_type`.
+
+Owner fixes are intentionally generic:
+- task.search status filtering now checks authoritative `status_raw` and `status_type` before normalized enum/category;
+- status=blocked uses canonical `task.is_blocked`, not a phrase/status-name hardcode;
+- tasks.search contract declares blocked and source-label semantics;
+- all four Wave S1 metric skills expose generic sprint resolution paths:
+  explicit id -> sprint.resolve;
+  period/month -> space.resolve + sprint.search;
+  product-only/current -> space.resolve + sprint.current.
+- focused tests added.
 
 Owner commits:
-- `2f110dc6c2cb22513dcc4bd4e660b54f8b53d058` — new registry-discovered Wave S1 plugin;
-- `6a2373683bbf8a541ba7ff666168eb87d86a84e1` — bounded live release/version directory adapter surface (no task-scan fallback);
-- `91f7e18adafbb3c549f436922bdc75ecac04857e` — release.health plugin contract can use release.search;
-- `2a7e9caf8cf0c77c052934ac9d0c8dd2e4eef42a` — focused Wave S1 tests.
-
-No Agent Core/planner/runtime business-skill code was added.
-
-## Metric contracts to verify
-### sprint.scope
-Source = complete live sprint task set.
-Required facts:
-- total;
-- completed;
-- open;
-- undecodable_status;
-- unassigned;
-- exact task_keys.
-
-### sprint.velocity
-Explicit unit = `tasks/sprint`.
-Formula = completed tasks in the current complete sprint snapshot.
-Must explicitly state that story points are **not** source-backed.
-Never label task-count velocity as story-point velocity.
-
-### sprint.throughput
-Explicit unit = `completed_tasks/calendar_day`.
-Formula = completed tasks in current snapshot / max(1, elapsed calendar days from authoritative sprint start).
-Must expose start/measurement_end and warn that this is a current snapshot rate, not historical completion-event throughput.
-
-### sprint.wip
-Formula = current non-terminal sprint tasks excluding source backlog/open/todo/registered states.
-Must return exact task_keys and source statuses.
-
-### release.search
-Must use bounded live version/release directory only.
-No tenant-wide task scan.
-No local task store.
-DMS/OLP/etc are product spaces, never release ids.
-Ambiguity for a single-release need must become typed clarification.
-If authoritative release directory is unavailable, fail closed / SOURCE_CONDITIONAL.
+- `16bbae5606f2ce313ffe7084f1fa07e969fe6d7e`
+- `fc8d269edd1f082fd2b30ac4346fdde977d24886`
+- `3aa47ceee6a7d0d3fc6781bba6598762943e1268`
+- `76c57d13779d65fee2291f4667d56ed7dd17a925`
+- `d11dbe0fb5f85a8988a570fe56d46b804906a234`
 
 ## Phase 0 — pull / architecture diff
 1. `git pull --ff-only origin feat/core8-real-query-hardening-v2`
 2. Record START_HEAD; tracked worktree clean.
-3. Diff from A206B checkpoint `f7f846dee71b676fb0fc8d1d8f0d8aa23d521eaf..START_HEAD`.
-4. Prove:
-   - new skills are entirely plugin registry additions;
-   - no skill-specific Agent Core/planner/runtime branch;
-   - no per-space/release/sprint hardcode;
-   - release.search does not use `_task_backed_versions` or any broad task scan;
-   - existing core release.health change is declarative plugin contract only.
+3. Diff `ce64264c868afd73743d5daafdeaee767e07adef..START_HEAD`.
+4. Confirm:
+   - no per-person/space/sprint/status-name hardcode;
+   - no new Agent Core routing branch by phrase/entity;
+   - task.search change is generic predicate/source-field support only;
+   - Wave S1 resolution changes are declarative plugin procedure/capability exposure;
+   - no local/fake/cache fallback.
 
-Any architecture violation => RED.
+Architecture violation => RED.
 
 ## Phase 1 — automated tests
 Run at minimum:
 ```bash
 cd po-agent-platform-v2
 source .venv/bin/activate
+python -m pytest tests/test_agent_core_v4_task_search_source_status.py -v
 python -m pytest tests/test_agent_core_v4_wave_s1.py -v
 python -m pytest tests/test_agent_core_v4_plugin_registry.py -v
 python -m pytest tests/test_agent_core_v4*.py -v
 python -m pytest tests/test_v4*.py -v
 ```
-
-Also run affected adapter/source tests.
-
-Require zero unexplained failures.
+Zero unexplained failures.
 
 ## Phase 2 — fresh REAL AS21 Oracle
-Immediately before live tests build fresh source oracles for:
-- DMS current/September sprint;
-- OLP current sprint;
-- complete task keys/statuses for selected sprint(s);
-- source sprint start/finish timestamps;
-- release/version directory availability + returned rows if healthy.
+Build fresh source oracle for current DMS sprint:
+- sprint id;
+- full exact task key set;
+- raw/source status name for every task;
+- status_type/status_category;
+- canonical `is_blocked`;
+- sprint.health blocked count from the same fresh source run.
 
-Do not reuse A205/A206 counts.
+Do not reuse A207 counts; source has already drifted from 65 to 66 tasks.
 
-## Phase 3 — sprint.scope
-Run at least 5x on DMS and 3x on OLP.
-
-Example natural-language requests:
-- `объем сентябрьского спринта по DMS`
-- `scope текущего спринта OLP`
-
-Require:
-- actual `sprint.scope` capability;
-- exact total/task key parity;
-- completed/open/unassigned exact vs fresh Oracle;
-- identity-only sprint resolution cannot terminate the request;
-- no local reads.
-
-## Phase 4 — sprint.velocity
-Run at least 5x:
-- `скорость сентябрьского спринта по DMS`
-- `velocity текущего спринта OLP`
+## Phase 3 — blocked drill-down parity
+Run at least 10 fresh sessions across:
+- `Заблокированные задачи спринта DMS-SPRNT-3`
+- `покажи заблокированные задачи сентябрьского спринта по DMS`
+- `какие задачи заблокированы в текущем спринте DMS?`
 
 Require:
-- actual `sprint.velocity`;
-- value = exact count of currently completed source-backed sprint tasks;
-- unit exactly `tasks/sprint`;
-- answer warns/no claim of story points;
-- exact completed key parity available in evidence/data.
+- explicit/period/current sprint is resolved correctly;
+- terminal collection uses task.search with `status=blocked` or an equivalent governed path preserving the canonical predicate;
+- exact key parity against fresh `task.is_blocked` Oracle;
+- blocked count exactly equals the blocked count reported by `sprint.health` for the same sprint/source moment;
+- no result may say zero if health reports >0;
+- no planner-ready completion before the blocked collection executes.
 
-Any invented points => RED.
+If sprint.health and canonical task.is_blocked disagree, classify RED and identify which implementation is inconsistent. Do not invent a reconciliation.
 
-## Phase 5 — sprint.throughput
-Run at least 5x on a source-backed active sprint.
+## Phase 4 — raw source status filtering
+Use at least three real source status labels, including `На исправлении` if still present.
 
-Require:
-- actual `sprint.throughput`;
-- authoritative sprint start timestamp;
-- elapsed-days formula exact;
-- completed count exact;
-- rounded throughput matches independent Oracle;
-- unit `completed_tasks/calendar_day`;
-- current-snapshot limitation visible.
+Examples:
+- `задачи в статусе На исправлении в DMS-SPRNT-3`
+- one source status that maps to a known enum;
+- one custom/source label that maps to UNKNOWN internally.
 
-If sprint dates are unavailable/malformed, fail closed; do not substitute task timestamps.
+Require exact key parity using `status_raw/status_type` source oracle.
+No custom source label supplied by AS21 may incorrectly become empty merely because TaskStatus enum is UNKNOWN.
 
-## Phase 6 — sprint.wip
-Run at least 5x:
-- `WIP сентябрьского спринта DMS`
-- `сколько задач сейчас в работе в текущем спринте OLP`
+Retain:
+- `status=not_completed` exact;
+- `status=completed` exact.
 
-Require:
-- exact WIP key parity;
-- completed/terminal tasks excluded;
-- backlog/open/todo/registered source states excluded by documented formula;
-- no custom source status is silently discarded if it is source-classified as active work;
-- task statuses/evidence source-backed.
+## Phase 5 — short-form Wave S1 metric resolution
+Fresh sessions, at least 5x each:
+- `wip спринта по DMS`
+- `velocity спринта по DMS`
+- `scope спринта по DMS`
+- `throughput спринта по DMS`
 
-## Phase 7 — release.search
-Test all states.
+Expected product-only semantics:
+- resolve the current source-backed DMS sprint with `sprint.current`;
+- execute the requested metric;
+- identity-only observation must not terminate.
 
-### 7A direct list/search
-- `найди релизы DMS`
-- `найди релиз <source-backed text/name> в DMS`
+Also run period forms:
+- `WIP сентябрьского спринта по DMS`
+- `velocity сентябрьского спринта по DMS`
 
-If source directory is healthy:
-- actual `release.search`;
-- exact source ids/names;
-- product-space scoping exact;
-- bounded route provenance;
-- zero task-scan fallback.
+Expected:
+- `sprint.search(period=сентябрь)` then metric;
+- exact parity with explicit-id query.
 
-### 7B ambiguity
-When several source releases match and one is required:
-- typed clarification options;
-- no guessing.
+Any stochastic failure of product-only/period resolution => RED.
 
-### 7C no-match
-- typed no-match/clarification;
-- no fabricated id.
+## Phase 6 — health/WIP semantics sanity
+Manually verify that these labels are not conflated:
+- `sprint.health.active` / “В работе” may be a narrower status class;
+- `sprint.wip` is the documented set of all non-terminal started work excluding backlog/open/todo/registered;
+- `blocked` is the canonical blocked subset.
 
-### 7D source unavailable
-If live `search_versions` is still 502:
-- typed SOURCE_UNAVAILABLE/SOURCE_CONDITIONAL;
-- zero broad task scan;
-- zero local reads.
-This is acceptable SOURCE_CONDITIONAL, not RED, if provenance proves source outage.
+Require the UI/answer not to imply that health “В работе” and WIP are the same metric if counts differ.
 
-## Phase 8 — release.health hand-off
-If release.search source is healthy:
-1. query `здоровье релиза по DMS`;
-2. prove release.search is used when no concrete release id is supplied;
-3. if multiple -> typed release options;
-4. after user picks one, release.resolve/release.health executes with the selected source-backed id.
-
-If search_versions is unavailable, health may remain SOURCE_CONDITIONAL but must fail closed without binding DMS as release id.
-
-## Phase 9 — Browser C
-Use real UI for representative:
-- scope;
-- velocity;
-- throughput;
-- WIP;
-- release search (or source-unavailable state);
-- release health hand-off if source-supported.
-
-No raw internal contract leakage beyond existing debug/evidence UI behavior.
-
-## Phase 10 — retained regression
-At minimum re-run:
-- DMS-380 lookup;
-- person search;
-- sprint health;
-- same-session `этот спринт`;
-- multi-hop clarification;
-- unassigned;
+## Phase 7 — retained A207/A206B regression
+At minimum:
+- sprint.scope;
+- sprint.velocity;
+- sprint.throughput;
+- sprint.wip explicit id;
+- sprint.health;
 - task.history;
 - task.time_in_status;
+- person+status;
+- unassigned;
 - attachments;
-- ordinary status search.
+- same-session `этот спринт`;
+- DMS-380 lookup;
+- release.search fail-closed if /versions remains 502.
 
-Require no regression from A206B/A205.
+## Phase 8 — Browser C manual reproduction
+Use real UI and reproduce the owner's screenshots:
+- short WIP DMS;
+- velocity DMS;
+- health September DMS;
+- blocked tasks explicit sprint;
+- blocked tasks period/current form;
+- raw status label query.
 
-## Phase 11 — plugin invariant
-Re-run dummy-55.
-Must remain GREEN with zero Agent Core/planner/runtime edits.
+Require no V4 ERROR for supported healthy-source cases.
+Release list may remain SOURCE_UNAVAILABLE if /versions is still independently 502.
 
-## Phase 12 — source/local/performance audit
-Across run:
-- local `GET /api/v1/tasks` factual reads = 0;
-- no fake/frozen/local Oracle;
-- no tenant-wide task scan for release.search;
-- sprint task sets use complete source-backed route;
-- no N+1 sprint membership regression;
+## Phase 9 — architecture/source audit
+Require:
+- local factual `/api/v1/tasks` reads = 0;
+- no tenant-wide scan;
+- dummy-55/plugin invariant GREEN;
+- no hardcoded people/spaces/sprint ids/status names;
 - source outages fail closed.
 
 ## Verdict
 Use exactly one:
-- `AGENT_CORE_V4_WAVE_S1_GREEN`
-- `AGENT_CORE_V4_WAVE_S1_RED`
+- `AGENT_CORE_V4_PRE_S2_MANUAL_CONSISTENCY_GREEN`
+- `AGENT_CORE_V4_PRE_S2_MANUAL_CONSISTENCY_RED`
 - `BLOCKED_BY_PROVEN_SOURCE_OUTAGE`
 
-Overall GREEN may include `release.search = SOURCE_CONDITIONAL` only if the release directory is independently proven unavailable and all four sprint skills are GREEN.
+GREEN requires all supported healthy-source manual scenarios to be deterministic and exact.
 
-If any logic/architecture RED:
-STOP. Do not fix production code. Do not start S2.
+If GREEN recommend exactly:
+`PROCEED_TO_WAVE_S2_OWNER_IMPLEMENTATION`
 
-If GREEN:
-recommend exactly:
-`FREEZE_WAVE_S1_CHECKPOINT_AND_PROCEED_TO_S2_OWNER_IMPLEMENTATION`
+If RED:
+STOP. Do not fix code. Do not start S2. Return first exact root cause.
 
 ## Output
 Commit/push only:
-`po-agent-platform-v2/qa_reports/AGENT_CORE_V4_WAVE_S1_207.md`
+`po-agent-platform-v2/qa_reports/AGENT_CORE_V4_PRE_S2_MANUAL_CONSISTENCY_208.md`
 
 Leave UI/backend/Task API/MCP running.
-Return verdict, START_HEAD, report commit, skill matrix, Oracle parity, release-source classification, URLs/PIDs/health.
+Return verdict, START_HEAD, report commit, blocked-health parity, raw-status parity, short-form metric matrix, service health.
 Then stop.
