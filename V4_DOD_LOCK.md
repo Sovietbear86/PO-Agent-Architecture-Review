@@ -204,9 +204,11 @@ V4_A206B_ROLLBACK_CHECKPOINT = checkpoint/v4-a206b-green@f7f846dee71b676fb0fc8d1
 V4_WAVE_S_RELEASE_SEARCH_HELPER = SOURCE_CONDITIONAL_VERSION_DIRECTORY_502
 V4_WAVE_S1 = GREEN_A207
 V4_WAVE_S1_ROLLBACK_CHECKPOINT = checkpoint/v4-wave-s1-green@ce64264c868afd73743d5daafdeaee767e07adef
-V4_PRE_S2_MANUAL_HARDENING = A208_RED_COMPLETION_CONTRACT_COMPACTION_MISMATCH
-V4_A208_OWNER_COMPLETION_FIX = IMPLEMENTED_PENDING_A208B
-V4_FULL_54_SKILL_MIGRATION = PAUSED_AT_A208B_BEFORE_S2
+V4_PRE_S2_MANUAL_HARDENING = GREEN_A208B
+V4_A208B_ROLLBACK_CHECKPOINT = checkpoint/v4-a208b-green@2e284fdab79072d95ba0bf86058b4648f4bb9d6c
+V4_BATCH_POLICY = FIVE_SKILLS_DEFAULT
+V4_WAVE_S2_FIVE_SKILL_BATCH = IMPLEMENTED_PENDING_A209
+V4_FULL_54_SKILL_MIGRATION = IN_PROGRESS_A209
 V4_FULL_54_ABC = NOT_DONE
 V4_LEARNING_REVIEWER = NOT_DONE
 V4_GOVERNED_SKILL_SELF_MODIFICATION = NOT_DONE
@@ -240,3 +242,16 @@ Key properties:
 V4 remains single-planner / skill-native / governed. This mechanism is a generic control-plane rule, not a query-specific fallback.
 
 `DEFERRED_TO_V5`: GVS5H-inspired multi-agent orchestration (fresh workers + typed shared ledger + verifier) must NOT be implemented during V4.
+
+
+### Five-skill batch lock
+From A209 forward, owner migration should default to 5-skill batches. This changes only packaging/cadence, not architecture or evidence standards. Every batch still requires:
+- registry-only skill addition;
+- no Agent Core skill routing;
+- explicit CompletionContract/UIContract;
+- REAL AS21 authority and fail-closed source handling;
+- Browser C;
+- dummy-55/plugin invariant;
+- rollback checkpoint after GREEN.
+
+A SOURCE_CONDITIONAL skill does not force unrelated source-backed skills in the same batch to RED, provided the outage is independently proven and the skill fails closed without local/task-scan fabrication.
