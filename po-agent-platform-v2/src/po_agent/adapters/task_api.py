@@ -394,13 +394,15 @@ class TaskApiAS21Adapter(AS21Adapter):
             return None
         source_created = _parse_datetime(data.get("created_at"))
         source_updated = _parse_datetime(data.get("updated_at"))
+        source_deadline = _parse_datetime(data.get("deadline"))
         created = source_created or datetime.now()
         updated = source_updated or created
         # Preserve provenance so age/flow analytics can fail closed instead of
-        # interpreting an adapter fallback timestamp as a source fact.
+        # interpreting adapter fallback timestamps or missing deadlines as facts.
         source_data = dict(source_data)
         source_data["_canonical_created_at_from_source"] = source_created is not None
         source_data["_canonical_updated_at_from_source"] = source_updated is not None
+        source_data["_canonical_deadline_from_source"] = source_deadline is not None
         project_space = source_data.get("swtr_space") if isinstance(source_data.get("swtr_space"), str) else None
         sprint_id = (
             _identifier(data.get("sprint"))
@@ -422,7 +424,7 @@ class TaskApiAS21Adapter(AS21Adapter):
             status_category=get_status_category(status),
             created_at=created,
             updated_at=updated,
-            due_date=_parse_datetime(data.get("deadline")),
+            due_date=source_deadline,
             assignee=assignee,
             assignee_id=external_id,
             assignee_login=login,
