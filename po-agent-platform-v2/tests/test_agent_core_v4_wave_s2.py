@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+
+import pytest
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
@@ -41,6 +43,11 @@ def _task(
         status_raw="Need info" if blocked else ("Closed" if completed else "In progress"),
         status=SimpleNamespace(value="Closed" if completed else "In progress"),
         assignee="User",
+        source_data={
+            "_canonical_created_at_from_source": True,
+            "_canonical_updated_at_from_source": True,
+            "_canonical_deadline_from_source": bool(due_days_ago),
+        },
     )
 
 
@@ -146,8 +153,29 @@ def test_risk_queue_ranks_tasks_not_people():
     assert result.data["queue"][0]["task_key"] == "DMS-3"
     assert result.data["queue"][0]["blocked"] is True
     assert result.data["queue"][1]["task_key"] == "DMS-4"
-    assert "employee" not in result.data["formula"].lower()
+    assert "blocked first" in result.data["formula"].lower()
+    assert "overdue_days desc" in result.data["formula"].lower()
+    assert "age_days desc" in result.data["formula"].lower()
 
+
+
+
+def test_cycle_time_fails_closed_without_source_created_at():
+    runtime = _runtime()
+    runtime.adapter.current[0].source_data["_canonical_created_at_from_source"] = False
+    with pytest.raises(Exception, match="lack source created_at"):
+        asyncio.run(build_sprint_cycle_time(runtime)({"sprint_id": "DMS-SPRNT-3", "space": "DMS"}))
+
+
+def test_risk_queue_does_not_treat_fallback_created_at_as_aging_fact():
+    runtime = _runtime()
+    task = runtime.adapter.current[2]
+    task.source_data["_canonical_created_at_from_source"] = False
+    result = asyncio.run(build_sprint_risk_queue(runtime)({"sprint_id": "DMS-SPRNT-3", "space": "DMS"}))
+    row = next(item for item in result.data["queue"] if item["task_key"] == "DMS-3")
+    assert row["age_days"] == 0
+    assert not any(reason.startswith("aging:") for reason in row["reasons"])
+    assert "risk_queue_created_at_source_missing" in result.warnings
 
 def test_carryover_completion_contract_survives_compaction():
     registry = discover_v4_plugins()
