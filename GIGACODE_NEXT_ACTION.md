@@ -1,84 +1,74 @@
 # GigaCode — Current Action
 
 ## Status
-`ACTIVE_QA_ASSIGNMENT_209_WAVE_S2_FIVE_SKILL_BATCH`
+`ACTIVE_QA_ASSIGNMENT_210_WAVE_S2_REGATE`
 
 ## Role lock
 GigaCode is **QA/adversarial tester + service operator only**.
 
 Do NOT modify production/frontend/plugin/test/config/architecture code.
 Do NOT add skills.
-Do NOT start the next batch.
+Do NOT start release recovery or the next five-skill batch.
+Commit/push **only the QA report and QA-only artifacts explicitly allowed by project rules**.
 
 ## Stable rollback
 A208B is GREEN and frozen at:
 `checkpoint/v4-a208b-green@2e284fdab79072d95ba0bf86058b4648f4bb9d6c`
 
-## Owner S2 batch
-Five plugin-only skills:
+## Context
+Assignment 209 ended RED:
+`AGENT_CORE_V4_WAVE_S2_FIVE_SKILL_RED`
+classification:
+`RED_SOURCE_TIMESTAMP_PLUMBING`
+
+A209 proved:
+- Harness/Core/planner/plugin architecture itself did not regress;
+- `sprint.carryover` GREEN;
+- `sprint.predictability` correctly SOURCE_CONDITIONAL because REAL AS21 exposes no committed baseline;
+- `sprint.cycle_time`, `sprint.lead_time`, and `sprint.risk_queue` were blocked by missing source timestamps in sprint-task rows;
+- retained regression remained GREEN;
+- local factual `/api/v1/tasks` reads = 0.
+
+## Owner remediation
+Owner fixed the bounded source/capability path only. Agent Core/planner/runtime routing was not changed.
+
+Relevant remediation includes:
+- sprint-task live route preserves/enriches source-backed `created_at` / `updated_at` / `deadline`;
+- provenance flags remain authoritative and source-missing timestamps fail closed;
+- risk queue never interprets adapter fallback timestamps as source facts;
+- lead/cycle timestamp arithmetic is timezone-normalized;
+- adapter fallback timestamps are timezone-aware but remain marked non-source;
+- focused regression coverage added.
+
+Latest owner hardening commits:
+- `00bc9b8ab5ea318abab6198b47dc55b4e9a23d50`
+- `0f5ca3cde7d65f0203d6d6666a17849adae60055`
+- `5d7980f69e6fbb82871c3e54a72da7cc367033a9`
+
+## Goal
+Re-gate the **same five Wave S2 skills**. This is not a new wave.
+
 1. `sprint.cycle_time`
 2. `sprint.lead_time`
 3. `sprint.carryover`
 4. `sprint.predictability`
 5. `sprint.risk_queue`
 
-Owner commits:
-- `186c1c6662a493371328d9a188488c12f0e66e66` — five-skill S2 plugin;
-- `54bfe2932702b17b536ce9a2e71e6dbe7fd62924` — focused tests.
-
-Batch policy is now 5 skills by default; architecture standards are unchanged.
-
-## Important semantics
-
-### sprint.cycle_time
-Population: completed tasks only.
-Formula:
-`terminal workflow transition timestamp - first workflow status transition timestamp`.
-Do not substitute current time for completed tasks.
-If any completed task lacks history, fail closed rather than bias the aggregate.
-
-### sprint.lead_time
-Population: completed tasks only.
-Formula:
-`terminal workflow transition timestamp - authoritative task.created_at`.
-Same completeness rule: no partial aggregate if completed-task history is missing.
-
-### sprint.carryover
-Formula:
-intersection of complete previous-sprint membership and complete current-sprint membership.
-If previous_sprint_id is omitted, resolve immediate predecessor from authoritative sprint dates.
-No snapshot/local cache inference.
-
-### sprint.predictability
-Formula:
-`completed / authoritative committed baseline`.
-Current sprint scope is **not** an acceptable substitute for a missing baseline.
-If REAL AS21 sprint metadata does not expose a committed/baseline scope, skill must be SOURCE_CONDITIONAL/fail-closed.
-
-### sprint.risk_queue
-Task ranking only:
-1. blocked tasks first;
-2. then overdue_days descending;
-3. then age_days descending;
-4. stable task-key tie-break.
-
-Every row must expose reasons/evidence.
-No employee/person performance scoring.
-
-## Phase 0 — pull / diff / plugin architecture
+## Phase 0 — pull / diff / architecture invariant
 1. `git pull --ff-only origin feat/core8-real-query-hardening-v2`
-2. Record START_HEAD; tracked worktree clean.
-3. Diff from A208B checkpoint.
+2. Record START_HEAD and verify tracked worktree clean.
+3. Diff against A208B checkpoint and against A209 report head.
 4. Prove:
-   - all 5 skills live only in registry-discovered plugin code;
-   - no Agent Core/planner/runtime skill-specific branch;
-   - no hardcoded DMS/person/task ids/status names;
-   - no local/fake/cache source truth;
-   - completion/UI contracts exist for all 5.
+   - no skill-specific branch was added to Agent Core/planner/runtime orchestration;
+   - all five skills remain registry/plugin-discovered;
+   - CompletionContract/UIContract still come from plugin contracts;
+   - no hardcoded DMS/person/task/sprint facts;
+   - no local/fake/cache fallback;
+   - dummy-55/plugin invariant still passes.
 
 Any architecture drift => RED.
 
-## Phase 1 — automated tests
+## Phase 1 — automated suites
 Run:
 ```bash
 cd po-agent-platform-v2
@@ -92,147 +82,150 @@ python -m pytest tests/test_v4*.py -v
 Zero unexplained failures.
 
 ## Phase 2 — fresh REAL AS21 oracle
-Build fresh Oracle for:
-- DMS current/September sprint;
-- one prior DMS sprint;
-- complete task memberships for both;
-- all completed current-sprint tasks;
-- raw task.created_at;
-- raw `get_task_history` for every completed task used by cycle/lead;
-- due dates, blocked state and age for current open tasks;
-- sprint metadata fields relevant to committed baseline.
+Build a **fresh** Oracle for current DMS sprint. Do not reuse A209 counts as truth.
 
-Do not reuse A208B counts.
+Capture:
+- complete current sprint membership;
+- complete previous sprint membership;
+- source-backed `created_at`, `updated_at`, `deadline` coverage for sprint-task rows;
+- completed-task histories;
+- blocked/open state;
+- authoritative due dates;
+- sprint metadata relevant to committed baseline.
 
-## Phase 3 — sprint.cycle_time
-Run explicit-id, period and current/product-only forms, minimum 3 each.
+Explicitly prove timestamp provenance:
+- count of sprint rows with source `created_at`;
+- count with source `deadline`;
+- no adapter fallback timestamp may be treated as source truth.
 
-Independently calculate from raw MCP history:
+## Phase 3 — sprint.cycle_time re-gate
+Run explicit-id, period, and current/product forms, **minimum 10 total runs**.
+
+Independent Oracle B:
+- completed tasks only;
 - first workflow-status transition;
 - terminal workflow transition;
-- per-task cycle hours;
-- average/median/min/max.
+- exact per-task cycle hours;
+- avg/median/min/max.
 
 Require:
-- exact completed task population;
+- exact completed population;
 - exact per-task timestamps;
-- exact aggregate within rounding tolerance;
-- no use of current time for completed tasks;
-- no partial aggregate when a completed history is missing.
+- aggregate parity within rounding tolerance;
+- no current-time substitution;
+- source-missing history/timestamp => fail closed, never partial aggregate.
 
-Any fabricated/missing-history average => RED.
-
-## Phase 4 — sprint.lead_time
-Same matrix as P3.
+## Phase 4 — sprint.lead_time re-gate
+Same form matrix, **minimum 10 total runs**.
 
 Oracle:
-`terminal transition - raw authoritative created_at`.
+`terminal workflow transition - authoritative task.created_at`
 
-Require exact population, per-task duration and aggregate.
-No use of updated_at/current time as substitute.
+Require exact population, exact timestamps, exact aggregates.
+Explicitly verify tz-aware and source-backed arithmetic.
+No `updated_at` or current time substitute.
 
-## Phase 5 — sprint.carryover
-Fresh previous/current sprint memberships.
+## Phase 5 — sprint.carryover retained
+At least 3 representative runs.
 
-Run:
-- explicit current sprint, auto-previous;
-- explicit previous_sprint_id if UI/API allows;
-- period/current short forms.
+Require exact set intersection:
+`previous complete sprint membership ∩ current complete sprint membership`
 
-Require exact set intersection by task key.
-No task title/fuzzy matching.
-No current-only approximation.
+Auto-previous resolution must remain source-backed.
+No fuzzy/title matching.
 
-## Phase 6 — sprint.predictability
-Inspect live sprint metadata first.
+## Phase 6 — sprint.predictability retained
+Inspect live sprint metadata.
 
-If committed/baseline scope exists:
-- independently compute completed/baseline;
-- run 5x and require exact result.
+If committed/baseline exists:
+- calculate independently and require exact parity.
 
-If baseline does NOT exist:
-- expected result = typed SOURCE_UNAVAILABLE/SOURCE_CONDITIONAL;
+If it does not exist:
+- expected typed SOURCE_CONDITIONAL/SOURCE_UNAVAILABLE;
 - prove no current-scope substitution;
-- zero fabricated predictability percentage.
+- zero fabricated percentage.
 
-Source absence here is acceptable SOURCE_CONDITIONAL, not overall RED, if the other source-backed skills are exact.
+This is not overall RED when source absence is independently proven.
 
-## Phase 7 — sprint.risk_queue
+## Phase 7 — sprint.risk_queue re-gate
 Fresh Oracle on current DMS sprint.
 
+Require exact source-backed queue:
+- blocked tasks;
+- overdue tasks from authoritative deadline;
+- aging >=14d from authoritative created_at.
+
+Ordering:
+1. blocked first;
+2. overdue_days desc;
+3. age_days desc;
+4. stable task-key tie-break.
+
 Require:
-- queue contains only open tasks with at least one reason: blocked, overdue, aging>=14d;
-- blocked first;
-- overdue descending;
-- age descending;
-- stable task key tie-break;
-- exact reasons/evidence per task;
-- no ranking/scoring of people.
+- exact queue membership vs Oracle B;
+- exact reasons/evidence per row;
+- no silent truncation of aging-only tasks;
+- no fallback timestamp interpreted as source fact;
+- if a source timestamp is genuinely absent, explicit limitation/warning instead of age_days=0 being presented as fact;
+- no employee/person scoring.
 
-Cross-check blocked subset against sprint.health and task.search(status=blocked).
-
-## Phase 8 — short-form/period/current resolution
-At least 3x each representative:
+## Phase 8 — resolution forms
+At least 3 each where applicable:
 - `cycle time спринта DMS`
 - `lead time сентябрьского спринта DMS`
 - `carryover текущего спринта DMS`
 - `predictability спринта DMS`
 - `риски текущего спринта DMS`
 
-Identity-only resolution may not terminate the metric request.
+Identity-only resolution must not terminate the analytical request.
 
 ## Phase 9 — Browser C
-Real UI representative for all 5 skills.
-Expected presentation:
-- cycle/lead: sprint_metric;
-- carryover/risk queue: task-table style;
-- predictability: metric or typed source-unavailable.
+Real UI representative for all five skills.
 
-No V4 ERROR for healthy-source cases.
+Required:
+- cycle/lead show real source-backed metric presentation;
+- carryover task-table style;
+- risk queue includes aging/overdue rows proven by Oracle, not only blocked rows;
+- predictability is metric or typed source-unavailable depending on live source;
+- no stack/contract/session leakage.
 
 ## Phase 10 — retained regression
 At minimum:
 - Wave S1 four sprint metrics;
+- sprint.health;
 - blocked tasks;
 - raw status `На исправлении`;
-- sprint.health;
+- task.lookup DMS-380;
 - task.history;
 - task.time_in_status;
-- DMS-380 lookup;
 - person+status;
 - attachments;
-- same-session context;
+- same-session continuation;
+- WIP/scope;
 - dummy-55.
 
 ## Phase 11 — source/local/perf audit
 Require:
 - local factual `/api/v1/tasks` reads = 0;
-- no tenant-wide task scan;
-- histories bounded/concurrency-bounded;
+- no tenant-wide scan used to fake sprint metrics;
+- bounded/concurrency-bounded history reads;
 - no fake/frozen cache;
 - source outages fail closed;
 - plugin invariant GREEN.
 
-Note: `release.search` is still independently SOURCE_CONDITIONAL because /versions/search_versions returns 502. This known outage must not be counted as an S2 code RED, but should be re-probed once.
+Re-probe `/api/v1/swtr-read/versions` once and record its current status only.
+Do **not** remediate release search in this assignment.
 
 ## Verdict
 Use exactly one:
 - `AGENT_CORE_V4_WAVE_S2_FIVE_SKILL_GREEN`
 - `AGENT_CORE_V4_WAVE_S2_FIVE_SKILL_RED`
-- `BLOCKED_BY_PROVEN_SOURCE_OUTAGE`
 
-Overall GREEN may include `sprint.predictability = SOURCE_CONDITIONAL` if committed-baseline source absence is independently proven and all other skills pass.
-
-If GREEN recommend exactly:
-`FREEZE_WAVE_S2_CHECKPOINT_AND_PROCEED_TO_NEXT_FIVE_SKILL_OWNER_BATCH`
+If GREEN:
+- recommend creating a Wave S2 rollback checkpoint;
+- recommend next work = bounded release source recovery (`release.search` + `release.health`) before the next five-skill batch.
 
 If RED:
-STOP. Do not modify production code. Do not start next batch.
-
-## Output
-Commit/push only:
-`po-agent-platform-v2/qa_reports/AGENT_CORE_V4_WAVE_S2_FIVE_SKILL_209.md`
-
-Leave UI/backend/Task API/MCP running.
-Return verdict, START_HEAD, report commit, 5-skill matrix, Oracle parity, source-conditional classification, URLs/PIDs/health.
-Then stop.
+- identify the first failing boundary and STOP.
+- no production edits.
+- no next wave.
