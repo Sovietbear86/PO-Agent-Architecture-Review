@@ -80,7 +80,7 @@ class TaskIntelligenceCapabilities:
         if task is None:
             return self._not_found(key)
         transitions = await self.adapter.get_task_history(key)
-        timeline = [{"from": transition.from_status.value, "to": transition.to_status.value, "timestamp": transition.timestamp.isoformat(), "author": transition.author} for transition in transitions]
+        timeline = [{"from": transition.display_from_status, "to": transition.display_to_status, "timestamp": transition.timestamp.isoformat(), "author": transition.author} for transition in transitions]
         return CapabilityResult(
             answer=f"У {key} найдено переходов по статусам: {len(timeline)}.",
             data={"task_key": key, "current_status": task.status.value, "timeline": timeline},
@@ -107,7 +107,7 @@ class TaskIntelligenceCapabilities:
                 else:
                     end = now
                 durations.append({
-                    "status": transition.to_status.value,
+                    "status": transition.display_to_status,
                     "hours": round(max(0.0, (end - transition.timestamp).total_seconds() / 3600), 2),
                     "from": transition.timestamp.isoformat(),
                     "to": end.isoformat(),
