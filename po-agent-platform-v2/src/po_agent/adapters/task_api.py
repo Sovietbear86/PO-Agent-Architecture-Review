@@ -8,7 +8,7 @@ clauses fail closed; they are never sent as ignored parameters.
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 import re
 from pathlib import Path
 from typing import Any, Optional
@@ -57,9 +57,10 @@ def _parse_datetime(value: Any) -> datetime | None:
     if not value or not isinstance(value, str):
         return None
     try:
-        return datetime.fromisoformat(value.replace("Z", "+00:00"))
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
         return None
+    return parsed if parsed.tzinfo is not None else parsed.replace(tzinfo=timezone.utc)
 
 
 def _attributes(source_data: dict) -> dict[str, Any]:
@@ -395,7 +396,7 @@ class TaskApiAS21Adapter(AS21Adapter):
         source_created = _parse_datetime(data.get("created_at"))
         source_updated = _parse_datetime(data.get("updated_at"))
         source_deadline = _parse_datetime(data.get("deadline"))
-        created = source_created or datetime.now()
+        created = source_created or datetime.now(timezone.utc)
         updated = source_updated or created
         # Preserve provenance so age/flow analytics can fail closed instead of
         # interpreting adapter fallback timestamps or missing deadlines as facts.
