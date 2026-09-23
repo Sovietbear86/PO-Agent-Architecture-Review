@@ -91,7 +91,17 @@ SKILLS = (
     SkillSpecV4("task.blockers", "Inspect blockers/dependencies of a task.", ("Call task.blockers with the literal task key.",), ("task.blockers",), completion=(CompletionRequirement("task.blockers", data_keys=("task_key",), data_absent_keys=("found",)),)),
     SkillSpecV4("sprint.health", "Show actual health/progress metrics of a sprint; sprint identity alone is not a health result.", ("Resolve/validate the sprint if needed, then call sprint.health. Never answer a health request from sprint.search/sprint.current alone.",), ("sprint.resolve", "sprint.health"), completion=(CompletionRequirement("sprint.health", data_keys=("sprint_id", "total")),)),
     SkillSpecV4("sprint.current", "Report which sprint is currently active in a product space (identity only; use tasks.search to list tasks within it).", ("Validate the product space, then call sprint.current.",), ("space.resolve", "sprint.current"), completion=()),
-    SkillSpecV4("release.health", "Show actual release health/progress for a concrete release id; a product space is not a release id.", ("If the user did not identify a concrete release, request typed clarification. Validate the release id, then call release.health. Never bind a known product space as the release reference.",), ("release.resolve", "release.health"), completion=(CompletionRequirement("release.health", data_keys=("release_id", "total")),)),
+    SkillSpecV4(
+        "release.health",
+        "Show actual release health/progress for a concrete release id; a product space is not a release id.",
+        (
+            "If the user supplied a concrete release id, validate it with release.resolve and then call release.health.",
+            "If the user supplied only a product space/name, call release.search with require_single=true; ambiguity must become typed clarification, never bind the product space as the release id.",
+            "Use the source-backed release_id observation to validate/execute release health.",
+        ),
+        ("space.resolve", "release.search", "release.resolve", "release.health"),
+        completion=(CompletionRequirement("release.health", data_keys=("release_id", "total")),),
+    ),
 )
 
 BINDINGS = (
