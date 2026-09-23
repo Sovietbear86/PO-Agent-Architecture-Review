@@ -1,245 +1,227 @@
 # GigaCode — Current Action
 
 ## Status
-`ACTIVE_QA_ASSIGNMENT_206_HISTORY_STATUS_SOURCE_DIAGNOSTIC`
+`ACTIVE_QA_ASSIGNMENT_206_HISTORY_STATUS_POST_FIX_REGATE`
 
 ## Role lock
-GigaCode is **QA/source-diagnostic tester + service operator only**.
+GigaCode is **QA/adversarial tester + service operator only**.
 
 Do NOT modify production/frontend/plugin/test/config/architecture code.
 Do NOT start Wave S.
-Do NOT add skills.
-Do NOT convert SOURCE_UNAVAILABLE into empty history.
+Do NOT add new skills.
+Any RED blocks progression.
 
 ## Context
-A205 is GREEN and frozen at:
-`checkpoint/v4-a205-green@1fd519105ba6612f535ad98a55cb1302f387ca43`
+A206 diagnostic returned:
+`AGENT_CORE_V4_HISTORY_STATUS_SOURCE_FIXABLE_RED`
 
-Current catalog status:
-- ordinary task status filtering/search is GREEN;
-- `task.history` and `task.time_in_status` remain SOURCE_CONDITIONAL;
-- current V4 path is:
-  `task.history/time_in_status -> TaskIntelligenceCapabilities -> adapter.get_task_history() -> GET /api/v1/swtr-read/tasks/{task}/history -> MCP get_unit_change_history`;
-- the Task API history route builds arguments dynamically from the live MCP tool schema via `_schema_aware_task_history_arguments`;
-- observed live behavior for DMS-380/DMS-399 is HTTP 502 / typed SOURCE_UNAVAILABLE.
+It proved three independent owner-side defects:
+1. Task API called nonexistent MCP tool `get_unit_change_history`; live MCP exposes `get_task_history({"task_code": ...})`.
+2. History parser used wrong fields and would silently corrupt real source data:
+   - real field identity = `entity.code`;
+   - timestamp = `createdAt`;
+   - actor = `user.externalId`;
+   - old/new values are structured objects.
+3. Person+status queries could drop `not_completed` when planner selected `task.search_assignee`, causing false “open tasks” answers.
 
-The goal of A206 is to determine whether this is:
-A. wrong tool name;
-B. wrong argument schema / identifier alias;
-C. MCP wrapper/tool implementation defect;
-D. AS21 upstream failure/permission issue;
-E. payload parsing/field-code mismatch;
-F. a genuinely unavailable source feature.
+Owner fixes now in branch:
+- history route/tool/schema + live payload parser corrected;
+- authoritative timestamp parsing is fail-closed, never replaced with `now`;
+- structured status/user values normalized;
+- task history page completeness is checked;
+- terminal time-in-status final interval ends at terminal transition instead of extending to current time;
+- `task.search_assignee` can now carry optional `status` and filters the result exactly;
+- planner contract explicitly forbids dropping an expressible collection constraint;
+- task catalog test covers status argument;
+- task-api history schema tests updated to the real MCP contract.
 
-Wave S remains paused until this is classified.
+Key owner commits after diagnostic:
+- `acbc4f620d551c5dc934229060b3747d44b8b4b4`
+- `111cadfced3f048b3642fd591dce324dcb0a2675`
+- `ba038299772560b9e43cfe911203d465e5a0a96a`
+- `da7b17cfe2cac62e3128dcd93c18e294d3e3c72d`
+- `a5bb7a0e28b97f3474920ada669808868d6140c9`
+- `c9938dc306d3c1a6ee042d732958213f24d0c85b`
+- `a5e08a977af8d8e75afc8d77d3432330d05f2c31`
 
-## Phase 0 — pull / baseline
+A205 rollback checkpoint remains:
+`checkpoint/v4-a205-green@1fd519105ba6612f535ad98a55cb1302f387ca43`.
+
+## Mission
+Re-gate only the A206 affected surface plus retained A205 safety controls.
+
+GREEN means:
+- live history is actually usable from REAL AS21;
+- parsed timelines match raw MCP events;
+- time-in-status calculations are exact;
+- person+status query no longer drops status;
+- ordinary status search remains exact;
+- no regression to Harness/plugin architecture.
+
+## Phase 0 — pull / diff
 1. `git pull --ff-only origin feat/core8-real-query-hardening-v2`
 2. Record exact START_HEAD; tracked worktree clean.
-3. Confirm A205 checkpoint still exists and no new production changes after A205 except docs/spec for A206.
-4. Keep UI/Agent/Task API/MCP running.
+3. Diff A206 diagnostic START `7d505dc2e3204ae66942af83117f80b3fe62447a` to START_HEAD.
+4. Confirm changes are bounded to:
+   - Task API history route/parser/tests;
+   - task time-in-status calculation;
+   - task.search_assignee status constraint support;
+   - generic planner constraint-preservation wording;
+   - docs/spec.
+5. No new skill ids, no Agent Core entity hardcode, no local history fallback.
 
-## Phase 1 — live MCP tool inventory
-Query the **actual live MCP-SWTR tool descriptors**, not repository assumptions.
+Any architecture drift => RED.
 
-Capture:
-- full tool list;
-- whether `get_unit_change_history` exists;
-- exact inputSchema for it;
-- exact required fields;
-- whether schema is flat, nested `request`, or string;
-- any alternative history/changelog/audit tools exposed by MCP, including names containing:
-  `history`, `change`, `audit`, `changelog`, `timeline`, `transition`, `event`.
+## Phase 1 — focused automated tests
+Run at minimum:
+```bash
+cd task-api
+python -m pytest tests/test_swtr_read_facade.py -v
 
-Do not infer. Persist raw descriptor evidence in the QA report.
+cd ../po-agent-platform-v2
+source .venv/bin/activate
+python -m pytest tests/test_agent_core_v4_task_catalog.py -v
+python -m pytest tests/test_agent_core_v4*.py -v
+python -m pytest tests/test_harness_task_intelligence.py -v
+```
 
-## Phase 2 — argument-builder verification
-For DMS-380 and DMS-399:
-1. Call/inspect `_schema_aware_task_history_arguments` against the live descriptor.
-2. Record the exact arguments produced.
-3. Compare them field-for-field with the live MCP schema.
-4. If the schema exposes multiple aliases, test only schema-declared variants in a bounded way.
+Zero unexplained failures.
 
-Classify:
-- builder correct;
-- builder incomplete;
-- builder sends wrong identifier field;
-- builder uses wrong nesting;
-- tool descriptor itself is inconsistent.
-
-No production edits.
-
-## Phase 3 — direct MCP history probes
-Call the history tool directly through the same MCP transport used by Task API.
-
-Use:
+## Phase 2 — live MCP + Task API history parity
+For:
 - DMS-380
 - DMS-399
-- one additional known real task whose exact task lookup is GREEN.
+- WMB-30000
 
-For each:
-- exact tool name;
-- exact arguments;
-- transport mode;
-- raw success/error class;
-- normalized MCP `isError` if present;
-- text payload/errorType/uiErrorMessage/exceptionUUID if present;
-- latency.
-
-Do not expose secrets/tokens in report.
-
-If direct MCP fails, prove whether failure is:
-- transport;
-- validation/schema;
-- authorization;
-- upstream AS21 exception;
-- not-found;
-- unsupported tool implementation.
-
-## Phase 4 — Task API route comparison
-Call:
-- `GET /api/v1/swtr-read/tasks/DMS-380/history`
-- `GET /api/v1/swtr-read/tasks/DMS-399/history`
-
-Compare with Phase 3.
+Call live MCP `get_task_history` directly and Task API:
+`GET /api/v1/swtr-read/tasks/{task}/history`
 
 Require:
-- Task API preserves the true MCP failure class;
-- no local fallback;
-- 404 only for proven not-found;
-- 502/503 only for actual protocol/upstream/transport failure.
+- Task API 200;
+- exact event count parity;
+- exact event ordering parity by source timestamp;
+- `field_code` exactly from `entity.code`;
+- `changed_at` exactly from `createdAt`, offset-aware;
+- actor from `user.externalId` when present;
+- status values normalize to meaningful source names, not Python dict strings;
+- no `datetime.now()` substitution;
+- no local fallback.
 
-If direct MCP succeeds but Task API fails => Task API integration defect.
-If both fail identically => source/MCP-side defect unless argument builder is wrong.
+If source returns `hasNext=true` but tool exposes no page selector, typed fail-closed is correct.
 
-## Phase 5 — raw payload / workflow field semantics
-If any history call succeeds, inspect the raw payload before canonical conversion.
-
-Determine:
-- event container key(s): `content`, `events`, list, other;
-- actual status field code(s);
-- whether status changes use `workflow_status` exactly or another code;
-- old/new value shape: string/id/object;
-- timestamp field shape/timezone;
-- actor field shape;
-- ordering guarantee.
-
-Then compare current Task API parser:
-- `fieldCode/field_code`;
-- `oldValue/old_value`;
-- `newValue/new_value`;
-- `changedAt/changed_at`;
-- `actor`.
-
-Any mismatch that would silently drop real history => RED_IMPLEMENTATION_DEFECT.
-
-## Phase 6 — task.history end-to-end
+## Phase 3 — task.history E2E
 Run at least 5x each:
 - `покажи историю статусов задачи DMS-380`
 - `покажи историю статусов задачи DMS-399`
+- `покажи историю статусов задачи WMB-30000`
 
-If source works:
-- `task.history` must execute;
-- timeline length and transition order exact vs raw Oracle;
-- evidence count matches status-transition events;
-- no invented events.
+Require:
+- actual `task.history` execution;
+- COMPLETED when source is healthy;
+- exact status-transition timeline vs raw MCP oracle;
+- no assignee-change event misclassified as status transition;
+- no fabricated transitions;
+- source/evidence provenance preserved.
 
-If source remains unavailable:
-- typed SOURCE_UNAVAILABLE/SOURCE_CONDITIONAL;
-- no empty-history success;
-- no fabricated timeline.
+## Phase 4 — task.time_in_status E2E
+Use raw MCP timestamps as the Oracle.
 
-## Phase 7 — task.time_in_status end-to-end
-Run at least 5x:
-- `сколько времени DMS-399 провела в каждом статусе?`
-
-If history works, independently compute Oracle durations from raw timestamps.
-
+### DMS-399 — open
 Verify:
-- transitions sorted by authoritative timestamp;
-- each interval ends at next transition;
-- final open interval ends at current time only when task is still open;
-- for terminal tasks, do NOT incorrectly extend the terminal status to current time if the source exposes terminal completion timestamp;
-- timezone handling is consistent/offset-aware;
-- no negative durations;
-- repeated visits to same status are either kept as intervals or aggregated explicitly/consistently.
+- Open -> next transition duration exact;
+- current open status extends only to current time;
+- offset-aware timestamps;
+- no negative intervals.
 
-If current implementation cannot prove correct terminal interval semantics, classify RED even if history route works.
+### DMS-380 — terminal
+Verify:
+- historical intervals exact;
+- final terminal status **does not extend to current time**;
+- closure timestamp is authoritative.
 
-## Phase 8 — ordinary status regression
-Prove status search itself is not affected:
-- active/not_completed person query;
-- completed/closed query;
-- one exact encoded-status source case;
-- current sprint status query.
+### WMB-30000 — status revisit
+Verify:
+- repeated Escalated visits are not lost;
+- intervals are kept separately or explicitly aggregated without changing total duration;
+- terminal final interval does not extend to current time.
 
-Require fresh source parity and no regression from A205.
+Run at least 5x per representative query where practical.
 
-## Phase 9 — capability honesty
+Any duration corruption => RED.
+
+## Phase 5 — person + status regression
+Fresh Oracle immediately before testing.
+
+Run at least 10 fresh sessions:
+`Открытые задачи Родиона Гаранина в DMS`
+
+Require every successful run:
+- planner may choose `task.search` or `task.search_assignee`;
+- whichever capability executes must carry/cover `status=not_completed`;
+- exact active key parity;
+- terminal DMS-248, DMS-262, DMS-36 must not appear if still terminal in fresh source;
+- no answer may label an unconstrained 11-task collection as “open”.
+
+Also run:
+- `Активные задачи Родиона Гаранина в DMS`
+- `Все задачи Родиона Гаранина в DMS`
+
+The first must be open-only; the second must remain unfiltered by status.
+
+Any stochastic constraint drop => RED.
+
+## Phase 6 — ordinary status controls
+Fresh parity:
+- open tasks in DMS;
+- completed/closed tasks in DMS;
+- current sprint tasks + statuses;
+- encoded terminal statuses.
+
+Require retained A205/A206 exact behavior.
+
+## Phase 7 — capability honesty
 Query:
 - `Ты умеешь показывать историю задачи?`
 - `Ты умеешь определять время задачи в статусах?`
 
-Expected wording must distinguish:
-- skill/capability is defined;
-- live authoritative history source availability may be unavailable.
+If live history is healthy now, agent may state it is available.
+If source is intermittently unavailable, it must distinguish capability definition from current source availability.
+No unconditional fabrication.
 
-If source is down, agent must not claim unconditional live availability.
-
-## Phase 10 — alternative live read surface
-Only if `get_unit_change_history` is broken/unavailable, inspect the live MCP inventory for an **authoritative read-only alternative**.
-
-An alternative is acceptable only if it:
-- is live REAL AS21;
-- returns authoritative change/status timestamps;
-- is bounded by task identity;
-- requires no local cache/sync;
-- does not infer history from updated_at/current status.
-
-Document candidate route/tool and exact schema.
-Do NOT implement it in A206.
-
-## Phase 11 — decision
-Classify exactly one primary outcome:
-
-### `FIXABLE_IN_OUR_CODE`
-Use only when evidence proves builder/parser/Task API/adapter defect.
-Report exact minimal owner fix boundary.
-
-### `MCP_TOOL_DEFECT_OR_UPSTREAM_AS21`
-Use when our invocation is schema-correct but live MCP/upstream fails.
-Keep skills SOURCE_CONDITIONAL; no code fabrication.
-
-### `SUPPORTED_VIA_ALTERNATIVE_LIVE_ROUTE`
-Use when current tool is broken but another authoritative live bounded source route is proven.
-Report proposed owner integration boundary.
-
-### `HISTORY_SOURCE_GREEN`
-Use when current route actually works and E2E history/time-in-status both pass exact Oracle.
+## Phase 8 — retained architecture/source safety
+Check:
+- local `/api/v1/tasks` factual reads = 0;
+- history comes only from live REAL AS21/MCP;
+- no fake/frozen/cache timeline;
+- dummy-55/plugin gate still GREEN;
+- no production skill hardcode in Agent Core.
 
 ## Verdict
 Use exactly one:
-- `AGENT_CORE_V4_HISTORY_STATUS_SOURCE_GREEN`
-- `AGENT_CORE_V4_HISTORY_STATUS_SOURCE_FIXABLE_RED`
-- `AGENT_CORE_V4_HISTORY_STATUS_SOURCE_EXTERNAL_BLOCKED`
+- `AGENT_CORE_V4_HISTORY_STATUS_REGATE_GREEN`
+- `AGENT_CORE_V4_HISTORY_STATUS_REGATE_RED`
+- `BLOCKED_BY_PROVEN_SOURCE_OUTAGE`
 
-Do not call overall GREEN merely because fail-closed works. GREEN means the source-backed history/time-in-status feature is actually usable and correct.
+GREEN requires:
+- history route/source working;
+- parser exact;
+- time-in-status exact;
+- person+status deterministic 10/10;
+- status controls GREEN;
+- no local fallback;
+- plugin invariant GREEN.
+
+If RED:
+STOP. Do not start Wave S. Return exact root cause.
+
+If GREEN:
+recommend:
+`PROCEED_TO_WAVE_S_APPROVAL_WITH_RELEASE_SEARCH_HELPER`
 
 ## Output
 Commit/push only:
-`po-agent-platform-v2/qa_reports/AGENT_CORE_V4_HISTORY_STATUS_SOURCE_DIAGNOSTIC_206.md`
-
-Report must include:
-- live MCP tool inventory evidence;
-- history tool schema;
-- generated arguments;
-- direct MCP result;
-- Task API result;
-- parser field mapping;
-- E2E history/time-in-status results;
-- ordinary status regression;
-- classification and minimal next step.
+`po-agent-platform-v2/qa_reports/AGENT_CORE_V4_HISTORY_STATUS_REGATE_206.md`
 
 Leave UI/backend/Task API/MCP running.
-Return verdict, START_HEAD, report commit, source classification, URLs/PIDs/health.
+Return verdict, START_HEAD, report commit, source/event parity, person+status 10x result, service health.
 Then stop.
