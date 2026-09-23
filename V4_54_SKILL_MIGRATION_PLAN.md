@@ -258,12 +258,36 @@ WAVE_S1_SKILLS = sprint.scope,sprint.velocity,sprint.throughput,sprint.wip,relea
 WAVE_S1_ROLLBACK_CHECKPOINT = checkpoint/v4-wave-s1-green@ce64264c868afd73743d5daafdeaee767e07adef
 A208_MANUAL_TEST_HARDENING = RED_COMPLETION_CONTRACT_COMPACTION_MISMATCH
 A208_SCOPE = raw_source_status_filter,blocked_task_drilldown,current_or_period_sprint_resolution_for_S1_metrics
-A208_OWNER_COMPLETION_FIX = IMPLEMENTED_PENDING_A208B
-CURRENT_GATE = A208B_PRE_S2_COMPLETION_CONTRACT_REGATE
-NEXT_AFTER_A208B_GREEN = OWNER_IMPLEMENT_WAVE_S2
+A208_OWNER_COMPLETION_FIX = GREEN_A208B
+A208B_ROLLBACK_CHECKPOINT = checkpoint/v4-a208b-green@2e284fdab79072d95ba0bf86058b4648f4bb9d6c
+BATCH_POLICY = DEFAULT_5_SKILLS_PER_OWNER_WAVE_UNLESS_DEPENDENCY_OR_SOURCE_RISK_REQUIRES_SMALLER
+WAVE_S2_OWNER_IMPLEMENTATION = IMPLEMENTED_PENDING_A209
+WAVE_S2_SKILLS = sprint.cycle_time,sprint.lead_time,sprint.carryover,sprint.predictability,sprint.risk_queue
+CURRENT_GATE = A209_WAVE_S2_FIVE_SKILL_QA
+NEXT_AFTER_A209_GREEN = FREEZE_S2_CHECKPOINT_THEN_OWNER_IMPLEMENT_NEXT_5_SKILL_BATCH
 WAVE_S_FOUNDATION_HELPER = release.search_REQUIRED
 ALREADY_PRESENT_WAVE_S = #21 sprint.health, #22 sprint.current
 THEN = M_TEAM_33_40 -> R/P_RELEASE_PORTFOLIO_41_48 -> X_ADDITIONS_49_54
 FULL_54_ABC = NOT_DONE
 RELEASE_READY = NO
 ```
+
+
+## 7. Acceleration policy — five-skill batches (2026-09-24)
+
+To reduce calendar overhead while preserving the V4 Harness invariants, the default migration unit from A209 onward is **five skills per owner implementation batch**.
+
+Rules:
+- one owner batch = at least 5 skills when dependencies allow;
+- one independent GigaCode gate per batch;
+- every batch gets a rollback checkpoint after GREEN;
+- SOURCE_CONDITIONAL skills may ship code-complete/fail-closed without blocking unrelated source-backed skills, but must remain explicitly uncertified live until their source returns;
+- no batch may bypass plugin registration, completion contracts, Browser C, source/local audit or dummy-55;
+- if one skill is RED due code/architecture, the batch stops; if one skill is SOURCE_CONDITIONAL due independently proven source outage, the other skills may still certify GREEN.
+
+Planned accelerated grouping:
+- **S2 / A209:** cycle_time, lead_time, carryover, predictability, risk_queue;
+- **next 5-skill batch:** scope_change + team.workload + team.wip + team.blocked + team.capacity;
+- subsequent batches continue in groups of 5 across Team, Release/Portfolio and X additions until all 54 are migrated and full A/B/C is complete.
+
+The end-of-September target is a delivery target, not a reason to weaken factual/source or rollback gates.
