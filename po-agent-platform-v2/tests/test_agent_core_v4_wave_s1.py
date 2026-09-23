@@ -142,3 +142,13 @@ def test_release_health_contract_can_use_release_search_helper():
     assert "release.search" in release_health.capabilities
     assert "release.resolve" in release_health.capabilities
     assert "release.health" in release_health.capabilities
+
+
+def test_wave_s1_metric_skills_can_resolve_explicit_period_or_current_sprint():
+    registry = discover_v4_plugins()
+    by_id = {skill.id: skill for skill in registry.skills()}
+    expected_resolvers = {"space.resolve", "sprint.resolve", "sprint.search", "sprint.current"}
+    for skill_id in ("sprint.scope", "sprint.velocity", "sprint.throughput", "sprint.wip"):
+        capabilities = set(by_id[skill_id].capabilities)
+        assert expected_resolvers <= capabilities
+        assert skill_id in capabilities
