@@ -59,6 +59,18 @@ class TestStatusTransition:
         assert transition.author is None
         assert transition.transition_type is None
 
+    def test_status_transition_preserves_authoritative_source_labels(self):
+        transition = StatusTransition(
+            from_status=TaskStatus.UNKNOWN,
+            to_status=TaskStatus.UNKNOWN,
+            from_name="Escalated",
+            to_name="На исправлении",
+            timestamp=datetime.now(),
+        )
+
+        assert transition.display_from_status == "Escalated"
+        assert transition.display_to_status == "На исправлении"
+
 
 class TestNormalizeTaskStatus:
     """Tests for normalize_task_status function."""
