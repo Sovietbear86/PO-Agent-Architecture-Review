@@ -50,7 +50,25 @@ _NONTERMINAL_TASK_STATUSES = frozenset({
     TaskStatus.QA, TaskStatus.REOPENED,
 })
 class StatusTransition(BaseModel):
-    from_status: TaskStatus; to_status: TaskStatus; timestamp: datetime; author: Optional[str]=None; transition_type: Optional[str]=None
+    from_status: TaskStatus
+    to_status: TaskStatus
+    timestamp: datetime
+    author: Optional[str] = None
+    transition_type: Optional[str] = None
+    # Preserve authoritative source labels independently from the normalized
+    # TaskStatus enum. The enum is useful for generic logic, but source
+    # workflows may contain arbitrary/custom status names that must not be
+    # rendered as "Unknown" in history/timeline output.
+    from_name: Optional[str] = None
+    to_name: Optional[str] = None
+
+    @property
+    def display_from_status(self) -> str:
+        return self.from_name or self.from_status.value
+
+    @property
+    def display_to_status(self) -> str:
+        return self.to_name or self.to_status.value
 class AttachmentType(str,Enum):
     EXCEL="excel"; WORD="word"; PDF="pdf"; MSG="msg"; IMAGE="image"; TEXT="text"; OTHER="other"
 class Attachment(BaseModel):
