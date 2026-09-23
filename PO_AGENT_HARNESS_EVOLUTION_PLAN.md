@@ -715,3 +715,128 @@ UI work may proceed in parallel where it does not couple the frontend to hardcod
 GVS5H-inspired analytical orchestration is recorded as a V5 research/POC milestone only: fresh workers, typed shared ledger, verifier, and A/B evaluation against V4 on complex analytical PO scenarios. It must not expand V4 scope or delay delivery of the fully working V4 agent with all 54 skills and all UI widgets.
 
 V4 remains focused on a stable single-agent skill-native architecture, complete catalog coverage, source correctness and production UI readiness.
+
+
+---
+
+## 15. Authoritative V4 execution snapshot — 2026-09-24
+
+This section is authoritative for the current execution state and supersedes the stale values in §12 where they conflict with the V4 plan/DoD.
+
+### 15.1 Current architecture state
+
+```text
+ACTIVE_BRANCH = feat/core8-real-query-hardening-v2
+CURRENT_HEAD_AT_UPDATE = 950041f9fc1b9cb3cc9ba6223777d133eb9111b2
+ARCHITECTURE = V4_SINGLE_PLANNER_SKILL_NATIVE_HARNESS
+PLUGIN_REGISTRY = GREEN
+DUMMY_55_EXTENSIBILITY = GREEN
+BROWSER_C = GREEN_FOR_CERTIFIED_EXISTING_AND_S1_SCENARIOS
+REAL_AS21 = AUTHORITATIVE_FACT_SOURCE
+LOCAL_TASK_STORE_FACTUAL_READS = FORBIDDEN
+SEMANTIC_PREPASS = FALSE
+ENTITY_PHRASE_ROUTING = FORBIDDEN
+GIGACODE_ROLE = QA_ONLY
+GVS5H_MULTI_AGENT = DEFERRED_TO_V5
+RELEASE_READY = NO
+```
+
+Hard invariant remains unchanged: **adding a skill must not require Agent Core/planner/runtime business-logic edits**. New skills are introduced through registry-discovered plugin artifacts with `SkillSpec / CapabilitySpec / CapabilityHandler / CompletionContract / UIContract`.
+
+### 15.2 Proven rollback checkpoints
+
+Keep these immutable recovery points:
+
+```text
+A205_GREEN = checkpoint/v4-a205-green@1fd519105ba6612f535ad98a55cb1302f387ca43
+A206B_HISTORY_STATUS_GREEN = checkpoint/v4-a206b-green@f7f846dee71b676fb0fc8d1d8f0d8aa23d521eaf
+WAVE_S1_GREEN = checkpoint/v4-wave-s1-green@ce64264c868afd73743d5daafdeaee767e07adef
+A208B_PRE_S2_GREEN = checkpoint/v4-a208b-green@2e284fdab79072d95ba0bf86058b4648f4bb9d6c
+```
+
+Rollback rule: if a later wave introduces an architectural regression that cannot be bounded quickly, return to the latest GREEN checkpoint and re-apply only proven generic fixes.
+
+### 15.3 Closed gates before S2
+
+The following are now certified:
+
+- existing 27-skill V4 catalog: no code RED in the A205 adversarial matrix;
+- history/status route: REAL MCP `get_task_history`, exact source status labels, exact history ordering/timestamps, fail-closed;
+- `task.time_in_status`: terminal statuses stop at closure, revisits preserved;
+- person + status search: explicit `not_completed/completed` constraints retained;
+- raw source status filtering: authoritative `status_raw/status_type` supported without per-status hardcode;
+- blocked task drill-down: uses the same canonical `task.is_blocked` predicate as sprint-health logic;
+- Wave S1: `sprint.scope`, `sprint.velocity`, `sprint.throughput`, `sprint.wip` GREEN;
+- short/current/period sprint resolution for S1 metrics GREEN;
+- compact-observation completion contracts aligned and GREEN;
+- Browser C representative regression GREEN;
+- factual local `/api/v1/tasks` reads = 0.
+
+Known source-conditional item:
+- `release.search` is implemented but live certification remains `SOURCE_CONDITIONAL` while the authoritative version/release directory returns HTTP 502. This is visible in manual UI as `V4 SOURCE_UNAVAILABLE` and must not be "fixed" with task-scan or local-cache inference.
+
+### 15.4 Active gate
+
+```text
+CURRENT_GATE = A209_WAVE_S2_FIVE_SKILL_QA
+OWNER_S2_IMPLEMENTATION = DONE_PENDING_QA
+S2_SKILLS =
+  sprint.cycle_time
+  sprint.lead_time
+  sprint.carryover
+  sprint.predictability
+  sprint.risk_queue
+NEXT_ON_GREEN = FREEZE_S2_CHECKPOINT_THEN_OWNER_IMPLEMENT_NEXT_5_SKILL_BATCH
+```
+
+A209 is defined in `GIGACODE_NEXT_ACTION.md`. GigaCode must not modify production code and must not start the next batch.
+
+### 15.5 Accelerated batch policy through end of September
+
+Calendar target: complete V4 catalog migration and major certification work by **2026-09-30**, without weakening rollback/source/evidence gates.
+
+Default packaging from A209 forward is **five skills per owner batch**.
+
+Planned sequence:
+
+1. **S2 / A209** — `sprint.cycle_time`, `sprint.lead_time`, `sprint.carryover`, `sprint.predictability`, `sprint.risk_queue`.
+2. **Batch 2** — `sprint.scope_change`, `team.workload`, `team.wip`, `team.blocked`, `team.capacity`.
+3. **Batch 3** — `team.competency_match`, `team.assignee_recommendation`, `team.bottlenecks`, `team.distribution`, `release.scope`.
+4. **Batch 4** — `release.progress`, `release.blockers`, `release.dependencies`, `release.risk_queue`, `portfolio.overview`.
+5. **Batch 5** — `po.attention_queue`, `task.search_product`, `release.forecast`, `po.daily_brief`, `po.status_report`.
+6. **Batch 6 / final catalog tail** — `po.reminder_draft`, `po.local_task_draft` plus any still-uncertified SOURCE_CONDITIONAL skills/helpers; then full 54-skill A/B/C certification and release hardening.
+
+A batch may be larger than five when the skills share the same proven source/handler surface and the QA matrix remains bounded. A batch should be smaller only for real dependency/source-risk reasons.
+
+### 15.6 Mandatory gate for every accelerated batch
+
+Speed does not alter the quality bar. Every batch must still prove:
+
+1. registry-only extension; no core skill routing;
+2. focused unit/contract tests;
+3. fresh REAL AS21 Oracle immediately before factual live cases;
+4. exact fact/key parity where applicable;
+5. fail-closed behavior for absent source surfaces;
+6. Browser C representative coverage;
+7. local factual reads = 0 and no tenant-wide fallback scan;
+8. dummy-55/plugin invariant retained;
+9. independent GigaCode QA;
+10. new immutable checkpoint after GREEN.
+
+A `SOURCE_CONDITIONAL` skill does not block unrelated skills if the outage/source gap is independently proven and the implementation fails closed without fabrication.
+
+### 15.7 Endgame after catalog migration
+
+After all 54 production skills are terminally classified:
+
+```text
+FULL_54_AGENT_A_REAL_ORACLE_B_BROWSER_C = REQUIRED
+FULL_UI_WIDGET_E2E = REQUIRED
+SOURCE_CONDITIONAL_REPROBES = REQUIRED
+ROLLBACK_REHEARSAL = REQUIRED
+P0_DEFECTS = 0
+UNAUTHORIZED_WRITES = 0
+RELEASE_READY = YES only after all mandatory gates are GREEN
+```
+
+V5 multi-agent/GVS5H work remains explicitly deferred until V4 is complete.
