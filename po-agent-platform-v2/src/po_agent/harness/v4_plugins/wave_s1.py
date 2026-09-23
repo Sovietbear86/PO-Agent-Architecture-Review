@@ -371,35 +371,45 @@ SKILLS = (
     SkillSpecV4(
         "sprint.scope",
         "Show exact current scope of a sprint from the complete live sprint collection.",
-        ("Resolve/validate the sprint if needed, then call sprint.scope.",),
-        ("sprint.resolve", "sprint.scope"),
+        (
+            "If the user supplied a sprint id, validate it with sprint.resolve.",
+            "If the user supplied a month/period, resolve it with space.resolve + sprint.search.",
+            "If the user supplied only a product/space (for example 'scope sprint DMS') or explicitly asks for the current sprint, use space.resolve + sprint.current.",
+            "Then call sprint.scope with the resolved sprint_id; identity-only observations must not terminate the metric request.",
+        ),
+        ("space.resolve", "sprint.resolve", "sprint.search", "sprint.current", "sprint.scope"),
         completion=(CompletionRequirement("sprint.scope", data_keys=("sprint_id", "total", "task_keys")),),
     ),
     SkillSpecV4(
         "sprint.velocity",
         "Show sprint velocity using the explicitly defined task-count unit supported by the source.",
         (
-            "Resolve/validate the sprint if needed, then call sprint.velocity.",
+            "Resolve the sprint generically: explicit id -> sprint.resolve; month/period -> space.resolve + sprint.search; product-only/current-sprint request -> space.resolve + sprint.current.",
+            "Then call sprint.velocity with the resolved sprint_id.",
             "Never imply story-point velocity when story points are not source-backed.",
         ),
-        ("sprint.resolve", "sprint.velocity"),
+        ("space.resolve", "sprint.resolve", "sprint.search", "sprint.current", "sprint.velocity"),
         completion=(CompletionRequirement("sprint.velocity", data_keys=("sprint_id", "velocity", "unit")),),
     ),
     SkillSpecV4(
         "sprint.throughput",
         "Show current sprint throughput as completed tasks per elapsed calendar day.",
         (
-            "Resolve/validate the sprint if needed, then call sprint.throughput.",
+            "Resolve the sprint generically: explicit id -> sprint.resolve; month/period -> space.resolve + sprint.search; product-only/current-sprint request -> space.resolve + sprint.current.",
+            "Then call sprint.throughput with the resolved sprint_id.",
             "Keep the snapshot formula/unit visible; do not present it as historical event throughput.",
         ),
-        ("sprint.resolve", "sprint.throughput"),
+        ("space.resolve", "sprint.resolve", "sprint.search", "sprint.current", "sprint.throughput"),
         completion=(CompletionRequirement("sprint.throughput", data_keys=("sprint_id", "throughput", "unit")),),
     ),
     SkillSpecV4(
         "sprint.wip",
         "Show current sprint work-in-progress from source-backed task states.",
-        ("Resolve/validate the sprint if needed, then call sprint.wip.",),
-        ("sprint.resolve", "sprint.wip"),
+        (
+            "Resolve the sprint generically: explicit id -> sprint.resolve; month/period -> space.resolve + sprint.search; product-only/current-sprint request -> space.resolve + sprint.current.",
+            "Then call sprint.wip with the resolved sprint_id; never guess a sprint id from product name.",
+        ),
+        ("space.resolve", "sprint.resolve", "sprint.search", "sprint.current", "sprint.wip"),
         completion=(CompletionRequirement("sprint.wip", data_keys=("sprint_id", "wip", "task_keys")),),
     ),
     SkillSpecV4(
