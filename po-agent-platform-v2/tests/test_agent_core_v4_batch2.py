@@ -109,21 +109,24 @@ def test_team_wip_and_blocked_use_current_sprint_predicates():
     assert blocked.data["total_blocked"] == 1
 
 
-def test_team_capacity_never_defaults_to_40_and_requires_source_estimates():
+def test_team_capacity_fails_on_source_estimates_before_asking_for_baseline():
     adapter = FakeAdapter()
     runtime = _runtime(adapter)
 
-    with pytest.raises(V4CapabilityUnavailable, match="explicit capacity baseline"):
+    with pytest.raises(V4CapabilityUnavailable, match="do not expose source-backed estimates"):
         asyncio.run(build_team_capacity(runtime)({"space": "DMS"}))
 
-    with pytest.raises(V4CapabilityUnavailable, match="source-backed estimates"):
+    with pytest.raises(V4CapabilityUnavailable, match="explicit capacity baseline alone is insufficient"):
         asyncio.run(build_team_capacity(runtime)({"space": "DMS", "capacity_hours": "40"}))
 
 
-def test_team_capacity_computes_only_with_explicit_baseline_and_complete_estimates():
+def test_team_capacity_asks_for_baseline_only_when_source_estimates_are_complete():
     adapter = FakeAdapter()
     adapter.tasks = [task for task in adapter.tasks if task.assignee is not None]
     runtime = _runtime(adapter)
+
+    with pytest.raises(Exception, match="базовую ёмкость"):
+        asyncio.run(build_team_capacity(runtime)({"space": "DMS"}))
 
     result = asyncio.run(build_team_capacity(runtime)({"space": "DMS", "capacity_hours": "40"}))
     rows = {row["member"]: row for row in result.data["members"]}
