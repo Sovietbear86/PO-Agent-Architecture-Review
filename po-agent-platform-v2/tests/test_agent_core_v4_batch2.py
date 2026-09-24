@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from po_agent.harness.agent_core_v4 import V4CapabilityUnavailable
+from po_agent.harness.agent_core_v4 import V4CapabilityUnavailable, V4NeedsClarification
 from po_agent.harness.v4_plugin_registry import discover_v4_plugins
 from po_agent.harness.v4_plugins.wave_batch2 import (
     build_sprint_scope_change,
@@ -125,7 +125,7 @@ def test_team_capacity_asks_for_baseline_only_when_source_estimates_are_complete
     adapter.tasks = [task for task in adapter.tasks if task.assignee is not None]
     runtime = _runtime(adapter)
 
-    with pytest.raises(Exception, match="базовую ёмкость"):
+    with pytest.raises(V4NeedsClarification, match="базовую ёмкость"):
         asyncio.run(build_team_capacity(runtime)({"space": "DMS"}))
 
     result = asyncio.run(build_team_capacity(runtime)({"space": "DMS", "capacity_hours": "40"}))
