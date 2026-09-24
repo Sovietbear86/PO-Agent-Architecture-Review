@@ -1,7 +1,7 @@
 # GigaCode — Current Action
 
 ## Status
-ACTIVE_QA_ASSIGNMENT_215_BATCH2_FIVE_SKILL_GATE
+ACTIVE_QA_ASSIGNMENT_216_BATCH3_FIVE_SKILL_GATE
 
 ## Role lock
 GigaCode is QA/adversarial tester + service operator only.
@@ -9,162 +9,179 @@ GigaCode is QA/adversarial tester + service operator only.
 Do NOT modify production/frontend/plugin/test/config/architecture code.
 Do NOT implement fixes.
 Do NOT add skills.
-Do NOT start Batch 3.
+Do NOT start Batch 4.
 Commit/push only the QA report.
 
 ## Baseline
-A214 release remediation is closed:
-- release.search = GREEN
-- release.health = terminal SOURCE_CONDITIONAL
-- Harness/Core platform invariant remains frozen.
+A215 Batch 2 = GREEN.
+Rollback checkpoint:
+`checkpoint/v4-batch2-green-a215`
 
-## Owner Batch 2
+Harness/Core/planner/runtime remain frozen as a platform.
+
+## Owner Batch 3
 Five registry-discovered skills:
-1. sprint.scope_change
-2. team.workload
-3. team.wip
-4. team.blocked
-5. team.capacity
+1. team.competency_match
+2. team.assignee_recommendation
+3. team.bottlenecks
+4. team.distribution
+5. release.scope
 
 Owner commits:
-- e0290faa653c717ec6e0c5d8222d6e88f00eb2dc
-- a73e043a6eb32fd65dffa368f71d9d5553f7ea1a
+- `44cf860cb64388f9d9a3d1e5c7a7f5cfbad0a41f`
+- `3c00457751d465e9a4034716cdf72f0626302228`
 
-Implementation file:
-po-agent-platform-v2/src/po_agent/harness/v4_plugins/wave_batch2.py
+Implementation:
+`po-agent-platform-v2/src/po_agent/harness/v4_plugins/wave_batch3.py`
 
 Focused tests:
-po-agent-platform-v2/tests/test_agent_core_v4_batch2.py
+`po-agent-platform-v2/tests/test_agent_core_v4_batch3.py`
 
-## Semantic contracts
+## Contracts
 
-### sprint.scope_change
-Must validate a real sprint and then fail closed unless REAL AS21 exposes an authoritative sprint-start commitment baseline.
-Do not substitute previous-sprint membership for a start-of-sprint baseline.
+### team.competency_match
+Expected SOURCE_CONDITIONAL unless an authoritative competency/skill source exists.
+It must not infer competence from current task ownership, task titles, historical assignment, or local roster metadata.
 
-### team.workload
-Current-sprint task-count workload only.
-Resolve a product space, use its authoritative current sprint, retrieve the complete sprint set, and group by canonical assignee.
-Do not present task count as capacity or employee performance.
+### team.assignee_recommendation
+Expected SOURCE_CONDITIONAL under the current source contract unless both competency and availability/capacity are authoritative.
+No employee scoring or recommendation from workload counts alone.
 
-### team.wip
-Current-sprint WIP only.
-Use the same non-terminal/backlog exclusion semantics as certified sprint WIP.
-Exact task-key parity required.
+### team.bottlenecks
+Descriptive current-sprint operational concentration only.
+Exact current-sprint membership; count active work by canonical assignee and blocked hotspots.
+This is not an employee performance score.
 
-### team.blocked
-Current-sprint blocked tasks only.
-Must use the canonical blocked predicate and exact task-key parity.
+### team.distribution
+Exact current-sprint task/status distribution by canonical assignee.
+Must preserve authoritative status labels and exact member/task counts.
 
-### team.capacity
-Capacity may only be calculated when an explicit capacity_hours baseline is supplied and active assigned tasks have source-backed estimates.
-No implicit/default 40 hours is acceptable.
-Missing baseline or incomplete estimates must fail closed.
-Flag any case where the planner invents a capacity baseline not present in the user request as RED.
+### release.scope
+Use release.search to resolve a real release id, then bounded space-scoped release membership.
+Current A214 source state is expected to make this terminal SOURCE_CONDITIONAL because release-to-task linkage is unpopulated.
+Never interpret an empty membership query as proof that a real release has zero tasks.
 
 ## Phase 0 — architecture invariant
 1. Pull branch, record START_HEAD, clean worktree.
-2. Diff from A214.
-3. Prove all five skills are added through plugin registry only.
-4. Prove no Agent Core/planner/runtime routing changes for these skills.
-5. Prove CompletionContract and UIContract exist.
+2. Diff from A215 checkpoint.
+3. Prove all five are plugin-registry additions only.
+4. No Agent Core/planner/runtime routing edits.
+5. CompletionContract + UIContract present for all five.
 6. dummy-55/plugin invariant GREEN.
 
-Architecture drift => RED.
+Any architecture drift => RED.
 
-## Phase 1 — focused and retained tests
+## Phase 1 — tests
 Run:
+- tests/test_agent_core_v4_batch3.py
 - tests/test_agent_core_v4_batch2.py
 - tests/test_agent_core_v4_wave_s2.py
 - tests/test_agent_core_v4_wave_s1.py
 - tests/test_agent_core_v4*.py
 - tests/test_v4*.py
 
-Zero unexplained failures.
+Classify only proven stale/test-logic artifacts as non-production; report them explicitly.
 
-## Phase 2 — fresh REAL AS21 Oracle
-Use DMS plus at least one other applicable space where current sprint exists.
+## Phase 2 — fresh REAL AS21 oracle
+Use DMS plus at least one other space with an authoritative current sprint.
 
-For each tested space:
-- resolve authoritative current sprint;
-- retrieve complete sprint membership;
-- independently classify completed/open/WIP/blocked;
-- canonical assignee identity;
-- source estimate coverage;
-- prove no tenant-wide scan and no local factual reads.
+Capture exact:
+- current sprint id;
+- complete task-key membership;
+- canonical assignee;
+- raw/source status;
+- completed/open/WIP/blocked classification.
 
-## Phase 3 — team.workload
-At least 5 natural-language forms across >=2 spaces.
+For release.scope use WMB/OLP real release catalog entries from release.search and the bounded release task-query path.
+
+## Phase 3 — team.bottlenecks
+At least 5 NL forms across >=2 spaces.
+
+Require exact parity for:
+- current sprint;
+- active task counts by member;
+- blocked counts;
+- WIP counts;
+- rows selected by the declared deterministic threshold.
+
+No employee score/ranking language in factual output.
+Thresholds must be visible in data/contract and not model-invented.
+
+## Phase 4 — team.distribution
+At least 5 NL forms across >=2 spaces.
 
 Require exact:
-- sprint id;
-- active/completed totals;
+- total task set;
 - per-member task counts;
-- WIP counts;
-- blocked counts;
-- unassigned active count.
+- per-member WIP;
+- per-member blocked;
+- raw/source status distribution.
 
-No person scoring, no capacity inference.
+## Phase 5 — team.competency_match
+Run representative natural-language requests.
 
-## Phase 4 — team.wip
-At least 5 forms.
-Require exact task-key set parity and per-member counts.
+Expected unless a real competency source is discovered:
+- current-sprint/source context may be validated;
+- then typed SOURCE_CONDITIONAL/capability-unavailable;
+- zero inferred competency from task history/current ownership;
+- zero local-roster-as-truth.
 
-## Phase 5 — team.blocked
-At least 5 forms.
-Require exact task-key set parity and same blocked predicate as sprint.health/risk logic.
+If a live competency source unexpectedly exists, document it and compare exact source facts.
 
-## Phase 6 — team.capacity
-Test both:
-A) query without explicit capacity baseline;
-B) query with an explicit numeric baseline in the user text.
+## Phase 6 — team.assignee_recommendation
+Run representative assignment/recommendation requests.
 
-Requirements:
-- A must NOT invent 40 or any other baseline; expected typed clarification/source-conditional/fail-closed.
-- B may calculate only if the numeric baseline is preserved from the user query AND every active assigned task has source-backed estimate_hours.
-- if estimates are incomplete, fail closed and do not treat missing estimate as zero.
-- no employee scoring.
+Expected under current source state:
+- typed SOURCE_CONDITIONAL;
+- no ranking/recommendation of people;
+- no task-count-to-competence inference;
+- no default capacity assumptions.
 
-Any planner-invented baseline => RED.
+Any fabricated "best assignee" => RED.
 
-## Phase 7 — sprint.scope_change
-Test explicit id, period/current forms.
+## Phase 7 — release.scope
+Use at least:
+- WMB 24Q1;
+- OLP 1.6.0;
+- one product-only/single-release form if supported.
 
-Require:
-- real sprint resolution;
-- then terminal SOURCE_CONDITIONAL / capability-unavailable if sprint-start commitment baseline is not source-backed;
-- no previous-sprint proxy;
-- no fabricated percentage/count.
+Expected:
+- space.resolve -> release.search -> release.scope;
+- canonical release UUID from validated release.search observation;
+- bounded space-scoped task-query;
+- under current source linkage: typed SOURCE_CONDITIONAL, not count=0;
+- no tenant-wide scan.
 
 ## Phase 8 — Browser C
 Representative UI for all five skills.
-SOURCE_CONDITIONAL states must be explicit and must not render fake metrics.
+Source limitations must be explicit and no fake metrics/recommendations may render.
 
 ## Phase 9 — retained regression
 At minimum:
-- release.search WMB/OLP;
-- release.health source-conditional;
-- one Wave S2 metric;
+- Batch 2 workload/wip/blocked;
+- release.search;
+- release.health SOURCE_CONDITIONAL;
+- Wave S2 metric;
 - sprint.health;
-- DMS-380 lookup;
+- DMS-380;
 - person+status;
 - dummy-55.
 
 ## Phase 10 — source audit
 Require:
 - local factual /api/v1/tasks reads = 0;
-- unscoped tenant-wide scans = 0;
-- current-sprint team metrics use bounded current-sprint source path;
-- exact task sets where applicable.
+- unscoped tenant-wide task-query scans = 0;
+- current-sprint team analytics use bounded sprint source;
+- release.scope uses bounded release membership path only.
 
 ## Verdict
 Use exactly one:
-- AGENT_CORE_V4_BATCH2_FIVE_SKILL_GREEN
-- AGENT_CORE_V4_BATCH2_FIVE_SKILL_RED
+- `AGENT_CORE_V4_BATCH3_FIVE_SKILL_GREEN`
+- `AGENT_CORE_V4_BATCH3_FIVE_SKILL_RED`
 
 If GREEN:
-recommend immutable Batch 2 checkpoint and owner implementation of Batch 3.
+recommend immutable Batch 3 checkpoint and owner implementation of Batch 4.
 
 If RED:
 identify first failing boundary and STOP.
-Do not fix code.
+Do not modify code.
