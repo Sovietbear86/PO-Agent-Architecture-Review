@@ -165,10 +165,19 @@ def build_team_blocked(runtime: Any):
 def build_team_capacity(runtime: Any):
     async def execute(args: dict[str, str]) -> CapabilityResult:
         space, sprint_id, tasks = await _current_sprint_tasks(runtime, args)
+        active = [task for task in tasks if not task.is_completed and _member(task) != "unassigned"]
+        missing_estimate = [task.key for task in active if getattr(task, "estimate_hours", None) is None]
+        if missing_estimate:
+            raise V4CapabilityUnavailable(
+                "team.capacity cannot be calculated from REAL AS21 because active assigned tasks "
+                "do not expose source-backed estimates; an explicit capacity baseline alone is insufficient"
+            )
+
         raw_capacity = str(args.get("capacity_hours") or "").strip()
         if not raw_capacity:
-            raise V4CapabilityUnavailable(
-                "team.capacity requires an explicit capacity baseline; REAL AS21 does not expose team capacity"
+            raise V4NeedsClarification(
+                "AS21 предоставляет оценки задач, но для расчёта утилизации нужно указать "
+                "базовую ёмкость в часах на одного участника за спринт."
             )
         try:
             capacity_hours = float(raw_capacity)
@@ -176,14 +185,6 @@ def build_team_capacity(runtime: Any):
             raise V4NeedsClarification("Capacity должен быть числом часов на исполнителя.") from exc
         if capacity_hours <= 0:
             raise V4NeedsClarification("Capacity должен быть больше нуля.")
-
-        active = [task for task in tasks if not task.is_completed and _member(task) != "unassigned"]
-        missing_estimate = [task.key for task in active if getattr(task, "estimate_hours", None) is None]
-        if missing_estimate:
-            raise V4CapabilityUnavailable(
-                "team.capacity requires source-backed estimates for every active assigned task; "
-                f"missing estimates: {', '.join(missing_estimate[:8])}"
-            )
 
         by_member: dict[str, dict[str, Any]] = {}
         for task in active:
@@ -269,8 +270,8 @@ SKILLS = (
         "Calculate current-sprint utilization only when the user supplies a capacity baseline and task estimates are source-backed.",
         (
             "Resolve the product space.",
-            "If the user supplied capacity hours per member, pass capacity_hours exactly as given.",
-            "Call team.capacity. If capacity or task estimates are unavailable, fail closed rather than assuming 40 hours or zero estimates.",
+            "Call team.capacity to verify that the source exposes complete task estimates before asking for a capacity baseline.",
+            "Only when source estimates are complete and the user omitted capacity hours, ask for the baseline; otherwise fail closed on the source limitation.",
         ),
         ("space.resolve", "team.capacity"),
         completion=(CompletionRequirement("team.capacity", data_keys=("space", "sprint_id", "members")),),
