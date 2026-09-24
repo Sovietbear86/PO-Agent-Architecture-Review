@@ -6,10 +6,74 @@ editing Agent Core or planner/runtime orchestration.
 """
 from __future__ import annotations
 
-from ..agent_core_v4 import CapabilitySpecV4, SkillSpecV4
+from typing import Any
+
+from ..agent_core_v4 import CapabilitySpecV4, SkillSpecV4, V4CapabilityUnavailable, V4NeedsClarification
 from ..agent_core_v4_completion import CompletionRequirement
+from ..contracts import CapabilityResult, Evidence
 from ..v4_plugin_registry import CapabilityBindingV4, UIContractV4, V4SkillPlugin
 from ._task_live_handlers import build_task_lookup
+
+def build_release_health(runtime: Any):
+    """Bounded, source-backed release health.
+
+    Release membership is read only through the adapter's space-scoped live
+    task-query path. An empty membership cannot currently be distinguished from
+    an unpopulated SWTR release-link field, so it fails closed instead of
+    reporting a fabricated 0/0 healthy release.
+    """
+    async def execute(args: dict[str, str]) -> CapabilityResult:
+        release_id = str(args.get("release_id") or "").strip()
+        space = str(args.get("space") or "").strip().upper()
+        if not release_id:
+            raise V4NeedsClarification("Укажите релиз.")
+        if not space:
+            raise V4NeedsClarification("Укажите продукт/пространство релиза.")
+
+        tasks = list(await runtime.adapter.get_release_tasks(release_id, space))
+        if not tasks:
+            raise V4CapabilityUnavailable(
+                "release.health requires authoritative release-to-task membership; "
+                "the current REAL AS21 task source does not expose populated release linkage"
+            )
+
+        total = len(tasks)
+        completed = sum(1 for task in tasks if task.is_completed)
+        blocked = sum(1 for task in tasks if task.is_blocked)
+        active = sum(1 for task in tasks if task.is_open)
+        completion_percent = round(completed / total * 100.0, 1) if total else 0.0
+        data = {
+            "release_id": release_id,
+            "space": space,
+            "total": total,
+            "completed": completed,
+            "active": active,
+            "blocked": blocked,
+            "completion_percent": completion_percent,
+            "task_keys": [task.key for task in tasks],
+            "source": "REAL_AS21",
+            "membership": "source_backed_release_task_query",
+        }
+        return CapabilityResult(
+            answer=(
+                f"{release_id}: готовность {completion_percent}%, "
+                f"выполнено {completed}/{total}, заблокировано {blocked}."
+            ),
+            data=data,
+            evidence=[
+                Evidence(
+                    type="release_task",
+                    source="as21",
+                    entity_id=task.key,
+                    label=task.title,
+                    value=task.status_raw or task.status.value,
+                )
+                for task in tasks
+            ],
+        )
+
+    return execute
+
 
 CAPABILITIES = (
     CapabilitySpecV4("member.resolve", "Resolve a human reference against REAL AS21, optionally inside a source-backed sprint/space context when global identity search is ambiguous.", {"reference": "required raw human reference", "sprint_id": "optional sprint id or prior sprint.resolve observation", "space": "optional approved product space"}),
@@ -26,7 +90,11 @@ CAPABILITIES = (
     CapabilitySpecV4("task.blockers", "Analyze blockers/dependencies for one task.", {"task_key": "required task key"}),
     CapabilitySpecV4("sprint.health", "Calculate current sprint health from REAL AS21 sprint tasks.", {"sprint_id": "required canonical sprint id"}),
     CapabilitySpecV4("sprint.current", "Read the current sprint for a product space.", {"product": "required approved space"}),
-    CapabilitySpecV4("release.health", "Calculate release progress from REAL AS21 release tasks.", {"release_id": "required release id"}),
+    CapabilitySpecV4(
+        "release.health",
+        "Calculate release progress only from bounded, source-backed release membership.",
+        {"release_id": "required source-backed release id", "space": "required canonical product space"},
+    ),
 )
 
 SKILLS = (
@@ -93,13 +161,14 @@ SKILLS = (
     SkillSpecV4("sprint.current", "Report which sprint is currently active in a product space (identity only; use tasks.search to list tasks within it).", ("Validate the product space, then call sprint.current.",), ("space.resolve", "sprint.current"), completion=()),
     SkillSpecV4(
         "release.health",
-        "Show actual release health/progress for a concrete release id; a product space is not a release id.",
+        "Show actual release health/progress only when authoritative release-to-task membership is source-backed.",
         (
-            "If the user supplied a concrete release id, validate it with release.resolve and then call release.health.",
-            "If the user supplied only a product space/name, call release.search with require_single=true; ambiguity must become typed clarification, never bind the product space as the release id.",
-            "Use the source-backed release_id observation to validate/execute release health.",
+            "Resolve/validate the product space first.",
+            "Use release.search with require_single=true to obtain the authoritative release id from the live version directory; never bind a product name as a release id.",
+            "Call release.health with both the resolved release_id and space.",
+            "If REAL AS21 does not expose populated release-to-task membership, fail closed as SOURCE_CONDITIONAL; never report 0/0 and never use a tenant-wide task scan.",
         ),
-        ("space.resolve", "release.search", "release.resolve", "release.health"),
+        ("space.resolve", "release.search", "release.health"),
         completion=(CompletionRequirement("release.health", data_keys=("release_id", "total")),),
     ),
 )
@@ -119,7 +188,7 @@ BINDINGS = (
     CapabilityBindingV4("task.blockers", legacy_capability_id="task.blockers"),
     CapabilityBindingV4("sprint.health", legacy_capability_id="sprint.health"),
     CapabilityBindingV4("sprint.current", handler_method="_sprint_current_source_backed"),
-    CapabilityBindingV4("release.health", legacy_capability_id="release.health"),
+    CapabilityBindingV4("release.health", handler_builder=build_release_health),
 )
 
 UI = {
