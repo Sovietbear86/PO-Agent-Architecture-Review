@@ -833,6 +833,18 @@ Planned catalog sequence remains:
 
 A batch may be larger than five only when the skills share the same proven source/handler surface and the QA matrix remains bounded. A batch should be smaller only for real dependency/source-risk reasons.
 
+### 15.5.1 Verdict terminology
+
+QA verdicts and capability availability are separate dimensions.
+
+- `GREEN` on an assignment means the implementation behaves exactly according to its contract, including safe fail-closed behavior.
+- It does **not** mean that every capability is currently executable from REAL AS21.
+- A capability whose required authoritative source field is absent must be recorded explicitly as `TERMINAL_SOURCE_CONDITIONAL`, even when its QA gate is GREEN.
+- UI/product summaries must not call such a capability "working"; they should say that the skill is implemented but unavailable with the current source contract.
+
+Current example:
+`team.capacity = TERMINAL_SOURCE_CONDITIONAL_A215B` because current REAL AS21 sprint task rows do not expose source-backed estimates required for utilization.
+
 ### 15.6 Mandatory gate for every accelerated batch
 
 Speed does not alter the quality bar. Every batch must still prove:
