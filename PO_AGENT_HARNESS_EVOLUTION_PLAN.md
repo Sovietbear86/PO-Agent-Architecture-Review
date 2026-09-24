@@ -778,35 +778,60 @@ Known source-conditional item:
 ### 15.4 Active gate
 
 ```text
-CURRENT_GATE = A209_WAVE_S2_FIVE_SKILL_QA
-OWNER_S2_IMPLEMENTATION = DONE_PENDING_QA
-S2_SKILLS =
-  sprint.cycle_time
-  sprint.lead_time
-  sprint.carryover
-  sprint.predictability
-  sprint.risk_queue
-NEXT_ON_GREEN = FREEZE_S2_CHECKPOINT_THEN_OWNER_IMPLEMENT_NEXT_5_SKILL_BATCH
+CURRENT_GATE = POST_A214_CATALOG_MIGRATION_RESUMED
+WAVE_S2 = GREEN_A210
+RELEASE_SEARCH = GREEN_A212
+RELEASE_HEALTH = TERMINAL_SOURCE_CONDITIONAL_GREEN_A214
+RELEASE_REMEDIATION = CLOSED
+NEXT_OWNER_BATCH = BATCH_2_FIVE_SKILLS
+GIGACODE_ROLE = QA_ONLY
 ```
 
-A209 is defined in `GIGACODE_NEXT_ACTION.md`. GigaCode must not modify production code and must not start the next batch.
+A214 closed the release remediation block. The release directory is live and certified; `release.health` is intentionally terminal `SOURCE_CONDITIONAL` until REAL AS21 exposes authoritative release-to-task membership. This source limitation must not block unrelated catalog migration.
 
-### 15.5 Accelerated batch policy through end of September
+Next owner batch:
+- `sprint.scope_change`
+- `team.workload`
+- `team.wip`
+- `team.blocked`
+- `team.capacity`
 
-Calendar target: complete V4 catalog migration and major certification work by **2026-09-30**, without weakening rollback/source/evidence gates.
+The Harness/Core remains frozen as a platform. These skills must be introduced through registry-discovered plugins/contracts only. If one skill exposes a generic Harness defect, repair only that generic boundary and re-gate the same batch before moving on.
 
-Default packaging from A209 forward is **five skills per owner batch**.
+### 15.5 Accelerated batch policy and current schedule through end of September
 
-Planned sequence:
+Calendar target remains: complete V4 catalog migration and major certification work by **2026-09-30**, without weakening rollback/source/evidence gates.
 
-1. **S2 / A209** — `sprint.cycle_time`, `sprint.lead_time`, `sprint.carryover`, `sprint.predictability`, `sprint.risk_queue`.
-2. **Batch 2** — `sprint.scope_change`, `team.workload`, `team.wip`, `team.blocked`, `team.capacity`.
-3. **Batch 3** — `team.competency_match`, `team.assignee_recommendation`, `team.bottlenecks`, `team.distribution`, `release.scope`.
-4. **Batch 4** — `release.progress`, `release.blockers`, `release.dependencies`, `release.risk_queue`, `portfolio.overview`.
-5. **Batch 5** — `po.attention_queue`, `task.search_product`, `release.forecast`, `po.daily_brief`, `po.status_report`.
-6. **Batch 6 / final catalog tail** — `po.reminder_draft`, `po.local_task_draft` plus any still-uncertified SOURCE_CONDITIONAL skills/helpers; then full 54-skill A/B/C certification and release hardening.
+Default packaging remains **five skills per owner batch**.
 
-A batch may be larger than five when the skills share the same proven source/handler surface and the QA matrix remains bounded. A batch should be smaller only for real dependency/source-risk reasons.
+Current execution calendar from the A214 GREEN baseline on **2026-09-24**:
+
+| Date | Owner work | Independent QA / exit |
+|---|---|---|
+| **Sep 24 evening – Sep 25** | **Batch 2:** `sprint.scope_change`, `team.workload`, `team.wip`, `team.blocked`, `team.capacity` | GigaCode A/B/C + Browser C; GREEN checkpoint before Batch 3 |
+| **Sep 25 – Sep 26** | **Batch 3:** `team.competency_match`, `team.assignee_recommendation`, `team.bottlenecks`, `team.distribution`, `release.scope` | QA + source-conditional classification where source contracts are absent |
+| **Sep 26 – Sep 27** | **Batch 4:** `release.progress`, `release.blockers`, `release.dependencies`, `release.risk_queue`, `portfolio.overview` | QA; release-derived analytics must inherit the A214 membership limitation rather than fabricate data |
+| **Sep 27 – Sep 28** | **Batch 5:** `po.attention_queue`, `task.search_product`, `release.forecast`, `po.daily_brief`, `po.status_report` | QA + representative UI; no hidden local/task-scan fallback |
+| **Sep 28** | **Batch 6 / catalog tail:** `po.reminder_draft`, `po.local_task_draft` + reconcile every still-unmigrated/uncertified catalog item | Produce authoritative 54-skill inventory with every skill terminally classified |
+| **Sep 29** | **H6 full 54-skill A/B/C certification** across applicable WMB / STS / OLP / DMS / CRPV scenarios | No-skip matrix, exact Oracle parity for source-backed facts, SOURCE_CONDITIONAL with live proof where unsupported |
+| **Sep 30** | **H7/H8 release-candidate pass:** UI/widget lineage, Browser E2E, session/restart/failure recovery, security/read-only, latency/performance and rollback rehearsal | P0=0 and final release-readiness decision |
+
+This is an aggressive target, not permission to skip gates. A RED batch consumes the next slot until it is GREEN; later dates slide rather than allowing known defects into the next batch.
+
+Planned catalog sequence remains:
+
+1. **S2 — CLOSED GREEN A210:** `sprint.cycle_time`, `sprint.lead_time`, `sprint.carryover`, `sprint.predictability`, `sprint.risk_queue`.
+2. **Release remediation — CLOSED A214:** `release.search` GREEN; `release.health` terminal SOURCE_CONDITIONAL.
+3. **Batch 2 — NEXT:** `sprint.scope_change`, `team.workload`, `team.wip`, `team.blocked`, `team.capacity`.
+4. **Batch 3:** `team.competency_match`, `team.assignee_recommendation`, `team.bottlenecks`, `team.distribution`, `release.scope`.
+5. **Batch 4:** `release.progress`, `release.blockers`, `release.dependencies`, `release.risk_queue`, `portfolio.overview`.
+6. **Batch 5:** `po.attention_queue`, `task.search_product`, `release.forecast`, `po.daily_brief`, `po.status_report`.
+7. **Batch 6 / final catalog tail:** `po.reminder_draft`, `po.local_task_draft` plus every remaining item discovered by registry-vs-authoritative-catalog reconciliation.
+8. **H6:** full 54-skill A/B/C no-skip certification.
+9. **H7:** full UI/widget/data-lineage acceptance.
+10. **H8:** security, operability, restart/recovery, latency and final release hardening.
+
+A batch may be larger than five only when the skills share the same proven source/handler surface and the QA matrix remains bounded. A batch should be smaller only for real dependency/source-risk reasons.
 
 ### 15.6 Mandatory gate for every accelerated batch
 
