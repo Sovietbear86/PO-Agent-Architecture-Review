@@ -492,6 +492,14 @@ async def _schema_aware_search_versions_arguments(
             _put_declared(request, nested_props, ("page", "page_number", "pageNumber"), page)
             _put_declared(request, nested_props, ("offset", "start"), offset)
             _put_declared(request, nested_props, ("limit", "size", "page_size", "pageSize"), limit)
+            # Live search_versions currently declares calculatedAttributes as a
+            # required nullable field. _put_declared intentionally skips None,
+            # so preserve that schema requirement explicitly instead of sending
+            # an incomplete request that MCP rejects with ToolError.
+            if "calculatedAttributes" in nested_props:
+                request["calculatedAttributes"] = None
+            elif "calculated_attributes" in nested_props:
+                request["calculated_attributes"] = None
             return {"request": request}
         if request_type == "string":
             text = query or space
@@ -505,6 +513,10 @@ async def _schema_aware_search_versions_arguments(
     _put_declared(result, top, ("page", "page_number", "pageNumber"), page)
     _put_declared(result, top, ("offset", "start"), page * limit)
     _put_declared(result, top, ("limit", "size", "page_size", "pageSize"), limit)
+    if "calculatedAttributes" in top:
+        result["calculatedAttributes"] = None
+    elif "calculated_attributes" in top:
+        result["calculated_attributes"] = None
     return result
 
 
@@ -866,12 +878,34 @@ async def search_versions(
     except (SWTRMCPUnavailable, SWTRMCPProtocolError) as exc:
         raise _transport_http_error(exc) from exc
     payload = _parse_tool_content(content)
+    if isinstance(payload, dict):
+        rows = payload.get("content", [])
+        if not isinstance(rows, list):
+            raise HTTPException(status_code=502, detail="SWTR search_versions content is not a list")
+        total_elements = payload.get("totalElements", payload.get("total_elements", payload.get("total")))
+        has_next = payload.get("hasNext", payload.get("has_next"))
+        source_page = payload.get("pageNumber", payload.get("page_number", payload.get("page")))
+        source_page_size = payload.get("pageSize", payload.get("page_size", payload.get("size")))
+    elif isinstance(payload, list):
+        rows = payload
+        total_elements = len(rows)
+        has_next = False
+        source_page = page
+        source_page_size = len(rows)
+    else:
+        raise HTTPException(status_code=502, detail="SWTR search_versions payload shape is unsupported")
+    if not all(isinstance(item, (dict, str)) for item in rows):
+        raise HTTPException(status_code=502, detail="SWTR search_versions content contains unsupported items")
     return {
         "query": query,
         "space": normalized_space,
         "page": page,
         "limit": limit,
-        "versions": payload,
+        "versions": rows,
+        "total_elements": total_elements,
+        "has_next": bool(has_next),
+        "source_page": source_page,
+        "source_page_size": source_page_size,
     }
 
 
