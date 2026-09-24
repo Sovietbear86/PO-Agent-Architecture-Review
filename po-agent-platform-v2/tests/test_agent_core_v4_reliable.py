@@ -189,3 +189,61 @@ def test_current_sprint_not_found_remains_explicit_real_source_empty_state() -> 
     assert adapter.calls == [("get_current_sprint_id", "DMS")]
     assert result.data["sprint_id"] is None
     assert result.warnings == ["current_sprint_not_found"]
+
+
+def test_release_id_literal_is_accepted_only_from_trusted_release_search_observation() -> None:
+    runtime = _runtime()
+    release_id = "7a84006f-7823-4052-ae46-b94f5165518e"
+    observation = V4Observation(
+        step=2,
+        capability_id="release.search",
+        arguments={"space": "WMB", "query": "24Q1", "require_single": "true"},
+        answer="Найден релиз: 24Q1.",
+        data={
+            "space": "WMB",
+            "count": 1,
+            "release_id": release_id,
+            "releases": [{"id": release_id, "name": "24Q1"}],
+            "source": "REAL_AS21",
+        },
+    )
+
+    runtime._validate_call_literals(
+        "release.health",
+        {"release_id": release_id, "space": "WMB"},
+        "здоровье релиза 24Q1 в WMB",
+        [observation],
+    )
+
+    with pytest.raises(V4ContractError):
+        runtime._validate_call_literals(
+            "release.health",
+            {"release_id": "invented-release-id", "space": "WMB"},
+            "здоровье релиза 24Q1 в WMB",
+            [observation],
+        )
+
+
+def test_release_id_can_be_trusted_from_release_search_list_row() -> None:
+    runtime = _runtime()
+    release_id = "20ba588e-9b7e-43b2-b78a-465bdec0669a"
+    observation = V4Observation(
+        step=2,
+        capability_id="release.search",
+        arguments={"space": "OLP"},
+        answer="Найден релиз: 1.6.0.",
+        data={
+            "space": "OLP",
+            "count": 1,
+            "release_id": None,
+            "releases": [{"id": release_id, "name": "1.6.0"}],
+            "source": "REAL_AS21",
+        },
+    )
+
+    runtime._validate_call_literals(
+        "release.health",
+        {"release_id": release_id, "space": "OLP"},
+        "здоровье релиза 1.6.0 в OLP",
+        [observation],
+    )
