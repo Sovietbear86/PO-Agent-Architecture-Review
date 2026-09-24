@@ -357,6 +357,33 @@ Additional reliability rules:
             visit(observation.data)
         return values
 
+    @staticmethod
+    def _trusted_release_values(observations: list[V4Observation]) -> set[str]:
+        """Canonical release ids emitted by a validated release.search observation.
+
+        The planner may echo a resolved source id literally instead of using
+        $obs.N syntax. Trust only values produced by the governed release.search
+        capability, never arbitrary ids from unrelated observations.
+        """
+        values: set[str] = set()
+        for observation in observations:
+            if observation.capability_id != "release.search":
+                continue
+            data = observation.data if isinstance(observation.data, Mapping) else {}
+            release_id = data.get("release_id")
+            if isinstance(release_id, (str, int)) and str(release_id).strip():
+                values.add(str(release_id).strip().casefold())
+            releases = data.get("releases")
+            if isinstance(releases, list):
+                for row in releases:
+                    if not isinstance(row, Mapping):
+                        continue
+                    candidate = row.get("id")
+                    if isinstance(candidate, (str, int)) and str(candidate).strip():
+                        values.add(str(candidate).strip().casefold())
+        return values
+
+
     def _reference_is_query_derived_person(self, reference: str, query: str) -> bool:
         """True when a person reference is grounded in the user's own text.
 
@@ -403,6 +430,7 @@ Additional reliability rules:
     ) -> None:
         safe_enum_fields = {"status", "unassigned"}
         trusted_identities = self._trusted_identity_values(observations)
+        trusted_releases = self._trusted_release_values(observations)
         trusted_context_values = {
             str(value).strip().casefold()
             for value in (session_context or {}).values()
@@ -430,8 +458,11 @@ Additional reliability rules:
                 raise V4ContractError(
                     f"planner person reference is neither query-derived nor uniquely team-scoped: {raw}"
                 )
-            if key == "release_id" and raw.upper() in APPROVED_PRODUCT_SPACES:
-                raise V4ContractError("release_id cannot be a product space; resolve or clarify a concrete release")
+            if key == "release_id":
+                if raw.upper() in APPROVED_PRODUCT_SPACES:
+                    raise V4ContractError("release_id cannot be a product space; resolve or clarify a concrete release")
+                if raw.casefold() in trusted_releases:
+                    continue
             if key in {"reference", "space", "sprint_id", "release_id", "task_key", "product"}:
                 if _literal_is_query_derived(raw, query):
                     continue
