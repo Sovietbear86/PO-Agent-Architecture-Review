@@ -140,3 +140,43 @@ def test_release_time_spent_fails_closed_without_release_membership():
                 {"space": "WMB", "release_id": "release-uuid"}
             )
         )
+
+
+def test_zero_worklog_sprint_is_a_legitimate_source_completion_shape():
+    adapter = FakeAdapter()
+    adapter.worklogs = {"DMS-1": [], "DMS-2": []}
+    runtime = _runtime(adapter)
+
+    sprint = asyncio.run(
+        build_sprint_time_spent(runtime)(
+            {"space": "DMS", "sprint_id": "DMS-SPRNT-3"}
+        )
+    )
+    team = asyncio.run(build_team_time_spent(runtime)({"space": "DMS"}))
+    util = asyncio.run(build_team_utilization_actual(runtime)({"space": "DMS"}))
+
+    assert sprint.data["total_hours"] == 0.0
+    assert sprint.data["worklog_count"] == 0
+    assert sprint.data["by_member"] == []
+
+    assert team.data["total_hours"] == 0.0
+    assert team.data["worklog_count"] == 0
+    assert team.data["by_member"] == []
+
+    assert util.data["total_actual_hours"] == 0.0
+    assert util.data["worklog_count"] == 0
+    assert util.data["members"] == []
+    assert util.data["capacity_policy"]["source"] == "OWNER_POLICY"
+
+
+def test_time_aggregation_completion_contracts_are_real_empty_safe():
+    registry = discover_v4_plugins()
+    skills = {skill.id: skill for skill in registry.skills()}
+
+    sprint_req = skills["sprint.time_spent"].completion[0]
+    team_req = skills["team.time_spent"].completion[0]
+    util_req = skills["team.utilization_actual"].completion[0]
+
+    assert sprint_req.data_keys == ("sprint_id", "worklog_count")
+    assert team_req.data_keys == ("space", "sprint_id", "worklog_count")
+    assert util_req.data_keys == ("space", "sprint_id", "worklog_count", "capacity_policy")
