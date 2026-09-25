@@ -12,6 +12,7 @@ from typing import Any
 from ..agent_core_v4 import CapabilitySpecV4, SkillSpecV4, V4CapabilityUnavailable, V4NeedsClarification
 from ..agent_core_v4_completion import CompletionRequirement
 from ..contracts import CapabilityResult, Evidence
+from ..capacity_policy import default_monthly_capacity
 from ..v4_plugin_registry import CapabilityBindingV4, UIContractV4, V4SkillPlugin
 
 
@@ -173,18 +174,21 @@ def build_team_capacity(runtime: Any):
                 "do not expose source-backed estimates; an explicit capacity baseline alone is insufficient"
             )
 
+        policy = default_monthly_capacity()
         raw_capacity = str(args.get("capacity_hours") or "").strip()
-        if not raw_capacity:
-            raise V4NeedsClarification(
-                "AS21 предоставляет оценки задач, но для расчёта утилизации нужно указать "
-                "базовую ёмкость в часах на одного участника за спринт."
-            )
-        try:
-            capacity_hours = float(raw_capacity)
-        except ValueError as exc:
-            raise V4NeedsClarification("Capacity должен быть числом часов на исполнителя.") from exc
-        if capacity_hours <= 0:
-            raise V4NeedsClarification("Capacity должен быть больше нуля.")
+        if raw_capacity:
+            try:
+                capacity_hours = float(raw_capacity)
+            except ValueError as exc:
+                raise V4NeedsClarification("Capacity должен быть числом часов на исполнителя.") from exc
+            if capacity_hours <= 0:
+                raise V4NeedsClarification("Capacity должен быть больше нуля.")
+            capacity_source = "explicit_user_baseline"
+            capacity_policy = None
+        else:
+            capacity_hours = float(policy["available_capacity_hours_per_month"])
+            capacity_source = "owner_policy_default"
+            capacity_policy = policy
 
         by_member: dict[str, dict[str, Any]] = {}
         for task in active:
@@ -212,10 +216,15 @@ def build_team_capacity(runtime: Any):
             data={
                 "space": space, "sprint_id": sprint_id, "capacity_hours_per_member": capacity_hours,
                 "members": rows, "source": "REAL_AS21", "scope": "current_sprint",
-                "capacity_source": "explicit_user_baseline",
+                "capacity_source": capacity_source,
+                "capacity_policy": capacity_policy,
             },
             evidence=_task_evidence(active, "team_capacity_task"),
-            warnings=["capacity_baseline_user_supplied"],
+            warnings=(
+                ["capacity_baseline_user_supplied"]
+                if capacity_source == "explicit_user_baseline"
+                else ["capacity_baseline_owner_policy"]
+            ),
         )
     return execute
 
@@ -225,7 +234,7 @@ CAPABILITIES = (
     CapabilitySpecV4("team.workload", "Task-count workload by assignee in the authoritative current sprint of one space.", {"space": "required canonical product space"}),
     CapabilitySpecV4("team.wip", "Current-sprint WIP grouped by assignee for one product space.", {"space": "required canonical product space"}),
     CapabilitySpecV4("team.blocked", "Current-sprint blocked tasks grouped by assignee for one product space.", {"space": "required canonical product space"}),
-    CapabilitySpecV4("team.capacity", "Capacity/utilization from current-sprint source estimates plus an explicit user capacity baseline.", {"space": "required canonical product space", "capacity_hours": "optional explicit user-supplied hours per member; absence must fail closed"}),
+    CapabilitySpecV4("team.capacity", "Planned utilization from source-backed estimates and an owner-approved 2026 monthly capacity baseline; explicit user capacity may override it.", {"space": "required canonical product space", "capacity_hours": "optional explicit hours per member; otherwise owner policy default is used"}),
 )
 
 SKILLS = (
@@ -267,11 +276,12 @@ SKILLS = (
     ),
     SkillSpecV4(
         "team.capacity",
-        "Calculate current-sprint utilization only when the user supplies a capacity baseline and task estimates are source-backed.",
+        "Calculate planned utilization from source-backed estimates using the owner-approved 2026 capacity baseline unless the user explicitly overrides it.",
         (
             "Resolve the product space.",
-            "Call team.capacity to verify that the source exposes complete task estimates before asking for a capacity baseline.",
-            "Only when source estimates are complete and the user omitted capacity hours, ask for the baseline; otherwise fail closed on the source limitation.",
+            "Call team.capacity. Source-backed estimates remain mandatory.",
+            "If the user provides capacity hours, use them exactly; otherwise use the owner policy baseline: average 2026 Russian working days per month × 0.87 × 8h.",
+            "Never infer estimates or treat missing estimates as zero.",
         ),
         ("space.resolve", "team.capacity"),
         completion=(CompletionRequirement("team.capacity", data_keys=("space", "sprint_id", "members")),),
