@@ -62,6 +62,15 @@ class FakeAdapter:
         self.calls.append(("sprint", sprint_id, space))
         return list(self.tasks)
 
+    async def list_sprints(self, space: str):
+        self.calls.append(("list_sprints", space))
+        return [{
+            "code": "DMS-SPRNT-3",
+            "start_at": "2026-09-01T00:00:00+03:00",
+            "finish_at": "2026-09-14T23:59:59+03:00",
+            "deleted": False,
+        }]
+
 
 def _runtime(adapter=None):
     return SimpleNamespace(adapter=adapter or FakeAdapter())
@@ -130,12 +139,14 @@ def test_team_capacity_uses_owner_policy_default_when_estimates_are_complete():
     rows = {row["member"]: row for row in result.data["members"]}
 
     assert result.data["capacity_source"] == "owner_policy_default"
-    assert result.data["capacity_hours_per_member"] == 143.26
+    assert result.data["capacity_hours_per_member"] == 65.94
     assert result.data["capacity_policy"]["working_days_2026"] == 247
+    assert result.data["capacity_policy"]["calendar_days"] == 14
+    assert result.data["capacity_policy"]["normalization"] == "2026_annual_average_workday_density"
     assert result.data["capacity_policy"]["availability_factor"] == 0.87
     assert result.data["capacity_policy"]["weekly_hours"] == 40.0
     assert rows["alice"]["estimated_hours"] == 12.0
-    assert rows["alice"]["utilization_percent"] == 8.4
+    assert rows["alice"]["utilization_percent"] == 18.2
 
 
 def test_team_capacity_explicit_baseline_overrides_owner_policy():
