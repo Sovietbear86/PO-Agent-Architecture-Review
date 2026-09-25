@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from po_agent.harness.agent_core_v4 import V4CapabilityUnavailable, V4NeedsClarification
+from po_agent.harness.agent_core_v4 import V4CapabilityUnavailable
 from po_agent.harness.v4_plugin_registry import discover_v4_plugins
 from po_agent.harness.v4_plugins.wave_batch2 import (
     build_sprint_scope_change,
@@ -109,8 +109,9 @@ def test_team_wip_and_blocked_use_current_sprint_predicates():
     assert blocked.data["total_blocked"] == 1
 
 
-def test_team_capacity_fails_on_source_estimates_before_asking_for_baseline():
+def test_team_capacity_fails_on_source_estimates_before_using_any_baseline():
     adapter = FakeAdapter()
+    adapter.tasks.append(_task("DMS-6", assignee="alice", estimate_hours=None))
     runtime = _runtime(adapter)
 
     with pytest.raises(V4CapabilityUnavailable, match="do not expose source-backed estimates"):
@@ -120,18 +121,33 @@ def test_team_capacity_fails_on_source_estimates_before_asking_for_baseline():
         asyncio.run(build_team_capacity(runtime)({"space": "DMS", "capacity_hours": "40"}))
 
 
-def test_team_capacity_asks_for_baseline_only_when_source_estimates_are_complete():
+def test_team_capacity_uses_owner_policy_default_when_estimates_are_complete():
     adapter = FakeAdapter()
     adapter.tasks = [task for task in adapter.tasks if task.assignee is not None]
     runtime = _runtime(adapter)
 
-    with pytest.raises(V4NeedsClarification, match="базовую ёмкость"):
-        asyncio.run(build_team_capacity(runtime)({"space": "DMS"}))
+    result = asyncio.run(build_team_capacity(runtime)({"space": "DMS"}))
+    rows = {row["member"]: row for row in result.data["members"]}
+
+    assert result.data["capacity_source"] == "owner_policy_default"
+    assert result.data["capacity_hours_per_member"] == 143.26
+    assert result.data["capacity_policy"]["working_days_2026"] == 247
+    assert result.data["capacity_policy"]["availability_factor"] == 0.87
+    assert result.data["capacity_policy"]["weekly_hours"] == 40.0
+    assert rows["alice"]["estimated_hours"] == 12.0
+    assert rows["alice"]["utilization_percent"] == 8.4
+
+
+def test_team_capacity_explicit_baseline_overrides_owner_policy():
+    adapter = FakeAdapter()
+    adapter.tasks = [task for task in adapter.tasks if task.assignee is not None]
+    runtime = _runtime(adapter)
 
     result = asyncio.run(build_team_capacity(runtime)({"space": "DMS", "capacity_hours": "40"}))
     rows = {row["member"]: row for row in result.data["members"]}
 
     assert result.data["capacity_source"] == "explicit_user_baseline"
+    assert result.data["capacity_policy"] is None
     assert rows["alice"]["estimated_hours"] == 12.0
     assert rows["alice"]["utilization_percent"] == 30.0
     assert rows["bob"]["estimated_hours"] == 3.0
