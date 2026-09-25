@@ -195,3 +195,13 @@ def test_release_search_recovers_unique_space_from_planner_query_argument():
     assert adapter.calls == [("1.6.0", "OLP")]
     assert result.data["space"] == "OLP"
     assert result.data["release_id"] == "r-olp-160"
+
+
+def test_release_search_loaded_detail_exposes_deferred_runtime_contract_metadata():
+    registry = discover_v4_plugins()
+    catalog = registry.catalog
+    detail = catalog.load("release.search")
+    assert detail["runtime_autocomplete"] is False
+    procedure = " ".join(detail["procedure"])
+    assert "terminal deliverable" in procedure
+    assert "do not invent scope/health/progress/risk analysis" in procedure
