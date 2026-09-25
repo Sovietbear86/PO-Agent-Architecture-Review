@@ -8,6 +8,7 @@ import pytest
 from po_agent.domain.models import TaskPriority
 from po_agent.harness.agent_core_v4 import V4CapabilityUnavailable
 from po_agent.harness.v4_plugin_registry import discover_v4_plugins
+from po_agent.harness.v4_plugins.wave_s1 import build_release_search
 from po_agent.harness.v4_plugins.wave_batch4 import (
     build_portfolio_overview,
     build_release_blockers,
@@ -166,3 +167,31 @@ def test_portfolio_overview_uses_bounded_per_space_current_sprints():
     assert rows["WMB"]["state"] == "NO_CURRENT_SPRINT"
     assert result.data["total_current_sprint_tasks"] == 5
     assert result.data["total_blocked"] == 1
+
+
+def test_release_search_is_declaratively_non_autocomplete_resolver():
+    registry = discover_v4_plugins()
+    skills = {skill.id: skill for skill in registry.skills()}
+    assert skills["release.search"].runtime_autocomplete is False
+
+
+def test_release_search_recovers_unique_space_from_planner_query_argument():
+    class ReleaseAdapter:
+        def __init__(self):
+            self.calls = []
+
+        async def search_versions_bounded(self, *, query=None, space=None):
+            self.calls.append((query, space))
+            return [{"id": "r-olp-160", "name": "1.6.0"}]
+
+    adapter = ReleaseAdapter()
+    result = asyncio.run(
+        build_release_search(SimpleNamespace(adapter=adapter))({
+            "query": "OLP 1.6.0",
+            "require_single": "true",
+        })
+    )
+
+    assert adapter.calls == [("1.6.0", "OLP")]
+    assert result.data["space"] == "OLP"
+    assert result.data["release_id"] == "r-olp-160"
