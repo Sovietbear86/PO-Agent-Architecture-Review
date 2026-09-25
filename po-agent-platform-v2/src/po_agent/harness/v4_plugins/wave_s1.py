@@ -447,8 +447,9 @@ SKILLS = (
         (
             "Always establish product space before release.search: use space.resolve when a product/space is present; if space is absent, clarify rather than calling a global release directory.",
             "For a direct search/list request leave require_single false.",
-            "When another skill needs exactly one release, use require_single=true so ambiguity becomes typed clarification.",
-            "After resolving a release for another analytical goal, continue to that analytical skill; release.search alone is only identity/directory output.",
+            "For a direct single-release identity request such as 'релиз <name> в <space>', release.search itself is the terminal deliverable: after the source-backed identity observation use READY and do not invent scope/health/progress/risk analysis.",
+            "When another explicitly requested analytical skill needs exactly one release, use require_single=true so ambiguity becomes typed clarification, then continue to that requested analytical skill.",
+            "After resolving a release for an explicitly requested analytical goal, continue only to that analytical skill; release.search alone is identity/directory output, not a reason to add extra analysis.",
             "Never treat a product space such as DMS as a release id.",
         ),
         ("space.resolve", "release.search"),
