@@ -98,6 +98,13 @@ class SkillSpecV4:
     # that deterministically prove this skill's goal is source-satisfied.
     # Empty means "no auto-completion contract" — normal planner behavior.
     completion: tuple[CompletionRequirement, ...] = ()
+    # Generic completion-frontier control. Some skills are useful both as a
+    # standalone user goal and as an identity/resolver step for a deeper skill
+    # (release.search is the canonical example). Their contract may be satisfied
+    # before the user's analytical goal is satisfied, so the runtime must give
+    # the planner one more bounded turn instead of minting deterministic READY.
+    # This is declarative skill metadata, not a skill-id branch in Agent Core.
+    runtime_autocomplete: bool = True
 
     def compact(self) -> dict[str, str]:
         return {"id": self.id, "summary": self.summary}
@@ -1295,11 +1302,16 @@ class AgentCoreV4Runtime:
                 # READY.  This is runtime-generated from verified completion
                 # state — never model-recovered text — and fails closed to the
                 # normal planner path whenever any contract is unmet.
-                if self._trajectory_completion_satisfied(
+                completion_satisfied = self._trajectory_completion_satisfied(
                     tuple(loaded),
                     observations,
                     required_completion_skills=required_completion_skills,
-                ):
+                )
+                runtime_autocomplete_allowed = all(
+                    getattr(self.catalog._skills.get(skill_id), "runtime_autocomplete", True)
+                    for skill_id in loaded
+                )
+                if completion_satisfied and runtime_autocomplete_allowed:
                     trajectory.append({
                         "planner_turn": len(trajectory) + 1,
                         "decision": "ready",
@@ -1321,6 +1333,16 @@ class AgentCoreV4Runtime:
                         started=started,
                         completion="runtime_contract",
                     )
+                if completion_satisfied and not runtime_autocomplete_allowed:
+                    trajectory.append({
+                        "planner_turn": len(trajectory) + 1,
+                        "decision": "continue",
+                        "skill_id": None,
+                        "capability_id": None,
+                        "arguments": {},
+                        "rationale": "runtime autocomplete deferred by declarative skill metadata",
+                        "completion": "runtime_contract_deferred",
+                    })
 
             raise V4ContractError("v4 planner step budget exhausted without READY")
 
