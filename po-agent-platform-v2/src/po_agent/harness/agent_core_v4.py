@@ -154,6 +154,12 @@ class SkillCatalogV4:
                 result.update(skill.capabilities)
         return frozenset(result)
 
+    def runtime_autocomplete_allowed(self, loaded_skills: tuple[str, ...]) -> bool:
+        return all(
+            self._skills.get(skill_id) is None or self._skills[skill_id].runtime_autocomplete
+            for skill_id in loaded_skills
+        )
+
 
 @dataclass(frozen=True)
 class V4Observation:
@@ -1307,10 +1313,7 @@ class AgentCoreV4Runtime:
                     observations,
                     required_completion_skills=required_completion_skills,
                 )
-                runtime_autocomplete_allowed = all(
-                    getattr(self.catalog._skills.get(skill_id), "runtime_autocomplete", True)
-                    for skill_id in loaded
-                )
+                runtime_autocomplete_allowed = self.catalog.runtime_autocomplete_allowed(tuple(loaded))
                 if completion_satisfied and runtime_autocomplete_allowed:
                     trajectory.append({
                         "planner_turn": len(trajectory) + 1,
