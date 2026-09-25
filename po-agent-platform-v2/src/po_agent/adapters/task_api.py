@@ -562,6 +562,53 @@ class TaskApiAS21Adapter(AS21Adapter):
             )
         return transitions
 
+    async def get_task_worklogs(self, task_key: str) -> dict[str, Any]:
+        normalized = task_key.upper().strip()
+        if not re.fullmatch(r"[A-Z]+-\d+", normalized):
+            raise AS21SourceError(f"Invalid task key: {task_key}")
+        try:
+            response = await self._get_resilient(
+                f"/api/v1/swtr-read/tasks/{normalized}/work-logs"
+            )
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 404:
+                raise AS21SourceError(f"Task {task_key} worklogs not found") from exc
+            if exc.response.status_code in (502, 503, 504):
+                raise AS21SourceUnavailable(
+                    f"Task API worklog endpoint unavailable: HTTP {exc.response.status_code}"
+                ) from exc
+            raise AS21SourceError(
+                f"Task API worklog request failed: HTTP {exc.response.status_code}"
+            ) from exc
+        except httpx.HTTPError as exc:
+            raise AS21SourceUnavailable(
+                f"Task API worklog request failed: {type(exc).__name__}"
+            ) from exc
+
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            raise AS21SourceError("Task API worklog endpoint returned invalid JSON") from exc
+        if not isinstance(payload, dict):
+            raise AS21SourceError("Task API worklog response must be a JSON object")
+        entries = payload.get("entries")
+        if not isinstance(entries, list):
+            raise AS21SourceError("Task API worklog response misses entries list")
+        total_hours = payload.get("total_hours")
+        if total_hours is not None and not isinstance(total_hours, (int, float)):
+            raise AS21SourceError("Task API worklog total_hours must be numeric or null")
+        return {
+            "task_code": normalized,
+            "source": payload.get("source") or "REAL_AS21",
+            "total_hours": float(total_hours) if isinstance(total_hours, (int, float)) else None,
+            "entry_total_hours": payload.get("entry_total_hours"),
+            "entries": entries,
+            "complete": bool(payload.get("complete")),
+            "pages_read": payload.get("pages_read"),
+            "convention": payload.get("convention") if isinstance(payload.get("convention"), dict) else {},
+        }
+
+
     async def get_attachment_metadata(
         self,
         task_key: str,
