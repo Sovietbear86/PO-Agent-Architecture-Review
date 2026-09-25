@@ -1,160 +1,96 @@
 # GigaCode — Current Action
 
 ## Status
-ACTIVE_QA_ASSIGNMENT_215D_TASK_TIME_ACCOUNTING_GATE
+ACTIVE_QA_ASSIGNMENT_215E_CAPACITY_POLICY_GATE
 
 ## Role lock
-GigaCode is QA/adversarial tester + service operator only.
+GigaCode is QA/adversarial tester only.
 
 Do NOT modify production/frontend/plugin/test/config/architecture code.
-Do NOT implement fixes.
 Do NOT start A216 / Batch 3.
 Commit/push only the QA report.
 
 ## Baseline
-A215C forensic verdict:
-`TIME_ACCOUNTING_SOURCE_READY_FOR_OWNER_IMPLEMENTATION`
+A215D task time-accounting = GREEN.
 
-Source facts already proven:
-- DMS-380 total work time = 48h;
-- six dated, user-attributed worklog entries exist in REAL AS21;
-- UI "1н. 1д." exactly corresponds to the 48h source total under the source-proven 8h/day, 5d/week convention;
-- per-task worklogs are bounded and authoritative;
-- utilization remains blocked because no authoritative capacity denominator exists.
+Owner capacity policy:
+- official 2026 Russian production calendar: 247 working days;
+- 40h/week => 8h/workday;
+- availability factor = 0.87;
+- average monthly available days = 247 / 12 * 0.87 = 17.9075;
+- default monthly available capacity = 17.9075 * 8 = 143.26h/person.
 
-## Owner implementation
-Commits:
-- `c81c721417bf42ac99bff4d4b6c46e6e8b0c3ba1` — bounded Task API worklog facade;
-- `e93d579e1fd580186c1b29c7de0e66dd4f427407` — production adapter worklog read;
-- `040fc339a4a7042cee93859bb87177d69dd33536` — plugin skills `task.time_spent` and `task.worklogs`;
-- `51c97a6ce4c6c9e3678ada1f733d2fffab676d23` — focused tests.
+This is an OWNER_POLICY baseline, not a REAL AS21 fact.
 
-No Agent Core/planner/runtime business routing was added.
+Owner commits:
+- b2435d411954fdd709a4cb9054f03bd889da0454
+- db12bde68aa6b4e271fa559b5ee795c24250acd9
+- 1e1ccf6ae8a04a95eee71ddbfc62d05c0852e3b6
 
 ## Goal
-Certify task-level time accounting end-to-end against REAL AS21, especially DMS-380.
+Certify that team.capacity uses the owner policy only as a denominator baseline and never hides missing source estimates.
 
 ## Phase 0 — architecture invariant
 1. Pull branch and record START_HEAD.
-2. Diff from A215C baseline.
+2. Diff only the three owner commits.
 3. Prove:
-   - changes are source facade + adapter + plugin + tests only;
-   - no skill-specific branch in Agent Core/planner/runtime;
-   - plugin registry discovers both new skills;
-   - CompletionContract/UIContract exist;
+   - no Agent Core/planner/runtime business routing changes;
+   - policy lives outside Agent Core;
+   - Batch 2 remains plugin-owned;
    - dummy-55 remains GREEN.
 
-## Phase 1 — focused tests
-Run:
-- `tests/test_agent_core_v4_time_accounting.py`
-- relevant plugin-registry/V4 suites
+## Phase 1 — formula verification
+Independently verify:
+- 247 working days / 12 = 20.583333...
+- × 0.87 = 17.9075 available workdays/month
+- × 8h = 143.26h/person/month after rounding to 2 decimals
 
-Require:
-- complete bounded collection required;
-- aggregate/entry mismatch fails closed;
-- user/date/type/duration preserved;
-- no local fallback.
+Require policy metadata to expose:
+- 247
+- 0.87
+- 40h/week
+- 8h/day
+- 143.26h/month
+- source=OWNER_POLICY
 
-## Phase 2 — direct source vs Task API parity
-For DMS-380:
-1. direct MCP `get_work_sum`
-2. direct MCP `get_work_report`
-3. Task API `GET /api/v1/swtr-read/tasks/DMS-380/work-logs`
+## Phase 2 — source-estimate guard
+On current REAL AS21 DMS, where active assigned task estimates are not source-backed:
+- `утилизация команды DMS`
+- `утилизация команды DMS с capacity 40 часов`
 
-Require exact:
-- total = 48h;
-- entry total = 48h;
-- six entries;
-- same worklog ids;
-- same dates;
-- same user externalIds;
-- same work types;
-- same durations;
-- complete=true.
+Both must remain terminal SOURCE_CONDITIONAL / capability unavailable on missing estimates.
+The 143.26h default must NOT make the metric appear calculable when the numerator is missing.
 
-Any dropped or fabricated entry => RED.
+## Phase 3 — controlled positive fixture
+Using a QA fixture with complete source-backed estimates:
+A) no explicit capacity -> use 143.26h default;
+B) explicit capacity 40h -> use 40h and mark explicit_user_baseline.
 
-## Phase 3 — production adapter parity
-Call `TaskApiAS21Adapter.get_task_worklogs("DMS-380")`.
+Require exact utilization math and capacity_source metadata.
 
-Require exact parity with Phase 2 and no tenant scan/local task DB read.
+## Phase 4 — time-accounting separation
+Prove:
+- `task.time_spent` / `task.worklogs` remain actual-time metrics;
+- `team.capacity` remains planned utilization from estimates;
+- worklogs are NOT silently substituted for estimates in team.capacity;
+- actual utilization will be a separate skill.
 
-## Phase 4 — task.time_spent natural-language gate
-Run at least 5 forms, including:
-- `сколько времени списано на DMS-380`
-- `сколько затрачено на DMS-380`
-- `фактические трудозатраты по DMS-380`
-- `time spent DMS-380`
-- one concise variant.
-
-Require:
-- correct skill load;
-- task key grounded in user query;
-- terminal result = 48h;
-- no estimate/capacity substitution;
-- no planner invention.
-
-## Phase 5 — task.worklogs natural-language gate
-Run at least 4 forms, including:
-- `покажи списания по DMS-380`
-- `кто и когда списывал время на DMS-380`
-- `worklogs DMS-380`
-
-Require exact six-entry parity with direct source.
-
-Verify specifically:
-- Semavin.M.M has 2 entries × 8h;
-- Garanin.R.V has 4 entries × 8h;
-- dates and work types exact.
-
-## Phase 6 — Browser C
-Real UI for:
-- task.time_spent DMS-380;
-- task.worklogs DMS-380.
-
-Require:
-- readable 48h total;
-- worklog table/detail contains user/date/type/duration;
-- no generic ERROR;
-- no source limitation;
-- no stack/session/contract leak.
-
-## Phase 7 — empty/zero task proof
-Use at least one REAL AS21 task with no worklogs if source can prove one safely.
-
-Expected:
-- source-backed zero is REAL_EMPTY/0h, not SOURCE_UNAVAILABLE;
-- no fabricated entries.
-
-If no such task can be proven within bounded QA budget, mark this subcase SOURCE_CONDITIONAL, not RED.
-
-## Phase 8 — retained smoke
+## Phase 5 — retained smoke
 Re-run:
+- DMS-380 time_spent = 48h;
 - team.workload DMS;
-- team.capacity DMS remains terminal SOURCE_CONDITIONAL;
 - release.search;
-- release.health source-conditional;
-- one Batch 3 plugin discovery check;
-- dummy-55.
-
-## Phase 9 — source audit
-Require:
-- local factual /api/v1/tasks reads = 0 for time-accounting requests;
-- unscoped tenant-wide scans = 0;
-- only bounded per-task worklog source calls;
-- no mutation tools called.
+- dummy-55;
+- local factual reads = 0;
+- tenant-wide scans = 0.
 
 ## Verdict
 Use exactly one:
-- `TASK_TIME_ACCOUNTING_GREEN_A215D`
-- `TASK_TIME_ACCOUNTING_RED_A215D`
+- `TEAM_CAPACITY_POLICY_GREEN_A215E`
+- `TEAM_CAPACITY_POLICY_RED_A215E`
 
 If GREEN:
-- recommend immutable time-accounting checkpoint;
-- recommend resuming A216 / Batch 3 QA;
-- keep sprint/team time_spent as next source-bounded extension after Batch 3 unless the owner explicitly prioritizes it.
+- recommend capacity policy checkpoint;
+- recommend implementing actual-time aggregation (sprint/team time_spent) next or resuming A216 per owner priority.
 
-If RED:
-- identify the first failing boundary and STOP.
-
-Do not modify production code.
+STOP after report. No code changes.
