@@ -1,134 +1,181 @@
 # GigaCode — Current Action
 
 ## Status
-ACTIVE_QA_ASSIGNMENT_215G_MEMBER_TIME_ACCOUNTING_GATE
+ACTIVE_QA_ASSIGNMENT_216_BATCH3_FIVE_SKILL_GATE
 
-## Role
-QA/adversarial tester only. Do not modify production code. Do not start A216.
+## Role lock
+GigaCode is QA/adversarial tester + service operator only.
 
-## Baseline
-A215F2 = GREEN.
-Checkpoint: checkpoint/v4-actual-time-green-a215f2
+Do NOT modify production/frontend/plugin/test/config/architecture code.
+Do NOT implement fixes.
+Do NOT add skills.
+Do NOT start Batch 4.
+Commit/push only the QA report.
 
-## Owner implementation
-Commits:
-- b5fa16f2ad2c493d832210b6f70569acc5ed6047
-- fad2580b58228a819470523d9116e2636a41df9e
+## Frozen baseline
+A215D/E/F2/G = GREEN.
+Member-time checkpoint:
+`checkpoint/v4-member-time-green-a215g`
 
-New plugin-only skills:
-- member.time_spent
-- member.worklogs
-- member.utilization_actual
+Harness/Core/planner/runtime remain frozen as a platform.
 
-No Agent Core/planner/runtime/session-context changes were made.
+## Owner Batch 3
+Five registry-discovered skills:
+1. team.competency_match
+2. team.assignee_recommendation
+3. team.bottlenecks
+4. team.distribution
+5. release.scope
 
-## Intent
-Fix the manual-test gap:
-"трудозатраты Семавина по задачам в сентябрьском спринте DMS"
-must complete end-to-end in one trajectory rather than stop after listing Semavin's assigned tasks and ask the user to continue.
+Implementation already present from owner:
+- `po-agent-platform-v2/src/po_agent/harness/v4_plugins/wave_batch3.py`
+- `po-agent-platform-v2/tests/test_agent_core_v4_batch3.py`
 
-Attribution MUST use worklog author externalId, never current task assignee.
+## Contracts
 
-Rolling-period requests such as "за 2 недели" without a bounded sprint/task scope must clarify product/sprint context; do not tenant-scan or infer assignment as worklog ownership.
+### team.competency_match
+Expected SOURCE_CONDITIONAL unless an authoritative competency/skill source exists.
+Never infer competence from current task ownership, titles, historical assignment, worklogs or local roster metadata.
+
+### team.assignee_recommendation
+Expected SOURCE_CONDITIONAL unless both competencies and availability/capacity are authoritative.
+No employee scoring or "best assignee" from workload, utilization, worklogs or task counts alone.
+
+### team.bottlenecks
+Descriptive current-sprint operational concentration only.
+Exact current-sprint membership, active-task concentration, WIP and blocked hotspots.
+Not an employee performance score.
+
+### team.distribution
+Exact current-sprint task/status distribution by canonical assignee.
+Preserve source status labels and exact member/task counts.
+
+### release.scope
+Resolve a real release via release.search, then use bounded space-scoped release membership.
+Under the current A214 source state this is expected to terminate SOURCE_CONDITIONAL because release-to-task linkage is unpopulated.
+Never return count=0 as proof that a real release has no tasks.
 
 ## Phase 0 — architecture invariant
-1. Pull branch; record START_HEAD and clean worktree.
-2. Prove only plugin + tests + docs changed.
-3. No Agent Core/planner/runtime/session-context modifications.
-4. Registry discovers all three skills.
-5. dummy-55 GREEN.
+1. Pull branch, record START_HEAD and clean worktree.
+2. Diff from checkpoint/v4-member-time-green-a215g.
+3. Prove Batch 3 is plugin-registry only.
+4. No Agent Core/planner/runtime/session-context routing edits for Batch 3.
+5. CompletionContract + UIContract exist for all five skills.
+6. dummy-55/plugin invariant GREEN.
+
+Architecture drift => RED.
 
 ## Phase 1 — tests
 Run:
-- tests/test_agent_core_v4_time_accounting_member.py
-- tests/test_agent_core_v4_time_accounting_aggregate.py
-- relevant V4/plugin suites
+- tests/test_agent_core_v4_batch3.py
+- member/time-accounting retained suites
+- Batch 2 / Wave S2 retained suites
+- tests/test_agent_core_v4*.py
+- tests/test_v4*.py
 
-Require zero unexplained failures and zero-worklog completion safety.
+Zero unexplained failures.
 
-## Phase 2 — DMS Semavin oracle
-Use REAL DMS-SPRNT-3 / current source equivalent.
-
-Resolve Semavin through member.resolve.
-Independent oracle:
-- complete authoritative sprint membership;
-- complete bounded worklogs for every sprint task;
-- filter by sprint dates;
-- filter by worklog user.externalId == resolved Semavin login.
+## Phase 2 — fresh REAL AS21 oracle
+Use DMS plus at least one other source-backed current sprint.
 
 Capture exact:
-- total hours;
-- worklog count;
-- task breakdown;
-- work type breakdown;
-- dates.
+- current sprint id;
+- complete task membership;
+- canonical assignee;
+- raw/source status;
+- completed/open/WIP/blocked classification.
 
-## Phase 3 — member.time_spent NL gate
-Run at least:
-- "трудозатраты Семавина по задачам в сентябрьском спринте DMS"
-- "сколько Семавин списал в DMS-SPRNT-3"
-- "фактические трудозатраты Семавина в текущем спринте DMS"
+For release.scope use real WMB/OLP release catalog entries and the bounded release task-query path.
 
-Require:
-- space/sprint/member resolution;
-- direct member.time_spent execution;
-- exact oracle parity;
-- NO intermediate task-list final answer;
-- NO "готов продолжить";
-- NO confirmation before bounded worklog fan-out.
+## Phase 3 — team.bottlenecks
+At least 5 NL forms across >=2 spaces.
 
-## Phase 4 — member.worklogs
-Run:
-- "покажи списания Семавина в сентябрьском спринте DMS"
-- "кто/когда: списания Семавина в DMS-SPRNT-3"
+Require exact parity for:
+- current sprint;
+- active-task counts by member;
+- blocked counts;
+- WIP counts;
+- rows selected by the deterministic declared thresholds.
 
-Require exact member-only entries with task/date/type/hours.
-Prove entries on tasks currently assigned to other people are still attributed to Semavin if the worklog author is Semavin.
+No employee scoring/ranking language.
+No use of worklog hours or utilization as a hidden performance score.
 
-## Phase 5 — member.utilization_actual
-Require formula:
-Semavin actual worklog hours / period-normalized OWNER_POLICY capacity.
-Exact numerator, denominator, percentage, provenance.
+## Phase 4 — team.distribution
+At least 5 NL forms across >=2 spaces.
 
-## Phase 6 — insufficient-scope behavior
-Run:
-- "трудозатраты Семавина за 2 недели"
+Require exact:
+- total task set;
+- per-member task counts;
+- WIP;
+- blocked;
+- raw/source status distribution.
+
+## Phase 5 — team.competency_match
+Representative natural-language requests.
+
+Expected unless a real competency source is discovered:
+- typed SOURCE_CONDITIONAL/capability unavailable;
+- zero inferred competency from tasks, worklogs, utilization or assignment history;
+- zero local-roster-as-truth.
+
+If a live competency source exists, document it and compare exact source facts.
+
+## Phase 6 — team.assignee_recommendation
+Representative recommendation requests.
+
+Expected under current source state:
+- typed SOURCE_CONDITIONAL;
+- no ranking/recommendation of people;
+- no conversion of workload/time-spent/utilization into competence;
+- no default-capacity inference.
+
+Any fabricated "best assignee" => RED.
+
+## Phase 7 — release.scope
+Use at least:
+- WMB 24Q1;
+- OLP 1.6.0;
+- one product-only/single-release form if supported.
 
 Expected:
-- typed clarification for bounded product/sprint/task scope;
-- no claim that capability is missing;
-- no tenant-wide scan;
-- no inference from current task assignments.
-
-## Phase 7 — continuation safety
-Re-test the original manual pattern:
-1. member/sprint time-spent request
-2. "Продолжи"
-
-Expected:
-- first request already completes the requested aggregation;
-- no artificial continuation is needed;
-- second turn must not resurrect stale intermediate observations or cross-session state.
-Do NOT require any new session-memory mechanism.
+- space.resolve -> release.search -> release.scope;
+- canonical release UUID from validated release.search;
+- bounded space-scoped task-query;
+- current missing linkage => typed SOURCE_CONDITIONAL, not count=0;
+- no tenant-wide scan.
 
 ## Phase 8 — Browser C
-Real UI for member.time_spent and member.worklogs.
-Readable totals/breakdowns; no generic ERROR; no fake continuation prompt.
+Representative UI for all five skills.
+Source limitations explicit; no fake metrics/recommendations; no generic error where typed source-conditional applies.
 
 ## Phase 9 — retained regression
-- A215F2 sprint/team actual-time parity
-- DMS-380 = 48h / 6 entries
-- team.capacity guard
-- release.search / release.health source-conditional
-- dummy-55
+At minimum:
+- member.time_spent Semavin DMS-SPRNT-3 = fresh oracle parity;
+- member.utilization_actual provenance;
+- sprint/team actual time;
+- DMS-380 48h / 6 worklogs;
+- team.capacity source-estimate guard;
+- release.search;
+- release.health SOURCE_CONDITIONAL;
+- dummy-55.
 
-## Audit
-0 local factual reads, 0 tenant-wide scans, bounded worklog fan-out <=8, 0 mutations.
+## Phase 10 — audit
+Require:
+- local factual /api/v1/tasks reads = 0;
+- unscoped tenant-wide scans = 0;
+- bounded current-sprint source for team analytics;
+- bounded release membership path only;
+- no mutation calls.
 
 ## Verdict
 Use exactly one:
-- MEMBER_TIME_ACCOUNTING_GREEN_A215G
-- MEMBER_TIME_ACCOUNTING_RED_A215G
+- `AGENT_CORE_V4_BATCH3_FIVE_SKILL_GREEN`
+- `AGENT_CORE_V4_BATCH3_FIVE_SKILL_RED`
 
-If GREEN: recommend checkpoint and resume A216.
-If RED: identify first failing boundary and STOP.
+If GREEN:
+recommend immutable Batch 3 checkpoint and owner implementation of Batch 4.
+
+If RED:
+identify first failing boundary and STOP.
+
+Do not modify code.
