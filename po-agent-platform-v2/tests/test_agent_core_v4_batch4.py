@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import pytest
 
 from po_agent.domain.models import TaskPriority
-from po_agent.harness.agent_core_v4 import V4CapabilityUnavailable
+from po_agent.harness.agent_core_v4 import SkillCatalogV4, V4CapabilityUnavailable
 from po_agent.harness.v4_plugin_registry import discover_v4_plugins
 from po_agent.harness.v4_plugins.wave_s1 import build_release_search
 from po_agent.harness.v4_plugins.wave_batch4 import (
@@ -199,7 +199,7 @@ def test_release_search_recovers_unique_space_from_planner_query_argument():
 
 def test_release_search_loaded_detail_exposes_deferred_runtime_contract_metadata():
     registry = discover_v4_plugins()
-    catalog = registry.catalog
+    catalog = SkillCatalogV4(registry.skills(), registry.capability_specs())
     detail = catalog.load("release.search")
     assert detail["runtime_autocomplete"] is False
     procedure = " ".join(detail["procedure"])
