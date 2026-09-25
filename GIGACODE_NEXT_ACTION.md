@@ -1,153 +1,160 @@
 # GigaCode — Current Action
 
 ## Status
-ACTIVE_QA_ASSIGNMENT_215C_TIME_ACCOUNTING_SOURCE_FORENSIC
+ACTIVE_QA_ASSIGNMENT_215D_TASK_TIME_ACCOUNTING_GATE
 
 ## Role lock
-GigaCode is QA/source-forensic tester only.
+GigaCode is QA/adversarial tester + service operator only.
 
 Do NOT modify production/frontend/plugin/test/config/architecture code.
-Do NOT implement a skill or fix.
+Do NOT implement fixes.
 Do NOT start A216 / Batch 3.
-Commit/push only the QA report and evidence.
+Commit/push only the QA report.
 
-## Context
-The AS21 UI for task DMS-380 visibly contains a time-accounting block ("Учет времени") with a non-zero "Затрачено" value (shown by the owner as 1н. 1д.).
+## Baseline
+A215C forensic verdict:
+`TIME_ACCOUNTING_SOURCE_READY_FOR_OWNER_IMPLEMENTATION`
 
-The canonical Task model already has:
-- estimate_hours
-- time_spent_hours
+Source facts already proven:
+- DMS-380 total work time = 48h;
+- six dated, user-attributed worklog entries exist in REAL AS21;
+- UI "1н. 1д." exactly corresponds to the 48h source total under the source-proven 8h/day, 5d/week convention;
+- per-task worklogs are bounded and authoritative;
+- utilization remains blocked because no authoritative capacity denominator exists.
 
-but current live V4 mapping has not been certified for actual time-accounting/worklog data.
+## Owner implementation
+Commits:
+- `c81c721417bf42ac99bff4d4b6c46e6e8b0c3ba1` — bounded Task API worklog facade;
+- `e93d579e1fd580186c1b29c7de0e66dd4f427407` — production adapter worklog read;
+- `040fc339a4a7042cee93859bb87177d69dd33536` — plugin skills `task.time_spent` and `task.worklogs`;
+- `51c97a6ce4c6c9e3678ada1f733d2fffab676d23` — focused tests.
 
-This may materially change the semantics of team utilization:
-- planned load/capacity requires estimates;
-- actual utilization may be computable from source-backed spent/worklog time, but only if the source exposes enough authoritative detail.
+No Agent Core/planner/runtime business routing was added.
 
 ## Goal
-Find the authoritative REAL AS21 source contract for time spent/worklogs, using DMS-380 as the primary proof case.
+Certify task-level time accounting end-to-end against REAL AS21, especially DMS-380.
 
-Do not assume that the UI aggregate is directly suitable for team utilization.
+## Phase 0 — architecture invariant
+1. Pull branch and record START_HEAD.
+2. Diff from A215C baseline.
+3. Prove:
+   - changes are source facade + adapter + plugin + tests only;
+   - no skill-specific branch in Agent Core/planner/runtime;
+   - plugin registry discovers both new skills;
+   - CompletionContract/UIContract exist;
+   - dummy-55 remains GREEN.
 
-## Phase 0 — baseline
-1. Pull the branch and record START_HEAD.
-2. No code changes.
-3. Preserve A215B GREEN and Batch 3 pending state.
+## Phase 1 — focused tests
+Run:
+- `tests/test_agent_core_v4_time_accounting.py`
+- relevant plugin-registry/V4 suites
 
-## Phase 1 — inspect live MCP tool schema
-List/search the connected MCP-SWTR tools for any capability related to:
-- worklog
-- logged time / time spent
-- time tracking / accounting
-- labor / effort actuals
-- task/unit detail that may contain spent-time attributes
+Require:
+- complete bounded collection required;
+- aggregate/entry mismatch fails closed;
+- user/date/type/duration preserved;
+- no local fallback.
 
-Record exact tool names and schemas. Do not infer from repo code.
+## Phase 2 — direct source vs Task API parity
+For DMS-380:
+1. direct MCP `get_work_sum`
+2. direct MCP `get_work_report`
+3. Task API `GET /api/v1/swtr-read/tasks/DMS-380/work-logs`
 
-## Phase 2 — raw DMS-380 source proof
-Use only bounded reads for DMS-380.
+Require exact:
+- total = 48h;
+- entry total = 48h;
+- six entries;
+- same worklog ids;
+- same dates;
+- same user externalIds;
+- same work types;
+- same durations;
+- complete=true.
 
-Capture the raw source payload(s) that correspond to the AS21 UI time-accounting block.
+Any dropped or fabricated entry => RED.
 
-Determine whether the source exposes:
-A. only a cumulative aggregate on the task;
-B. individual worklog entries;
-C. both.
+## Phase 3 — production adapter parity
+Call `TaskApiAS21Adapter.get_task_worklogs("DMS-380")`.
 
-For every discovered field record:
-- source field/attribute code;
-- raw value and unit;
-- normalized interpretation;
-- whether it is task total or per-user;
-- author/member identity if present;
-- worklog date/timestamp if present;
-- whether the value can be scoped to a sprint/date window;
-- whether deleted/edited worklogs can be distinguished.
+Require exact parity with Phase 2 and no tenant scan/local task DB read.
 
-Do not expose secrets/tokens in the report.
+## Phase 4 — task.time_spent natural-language gate
+Run at least 5 forms, including:
+- `сколько времени списано на DMS-380`
+- `сколько затрачено на DMS-380`
+- `фактические трудозатраты по DMS-380`
+- `time spent DMS-380`
+- one concise variant.
 
-## Phase 3 — UI parity for DMS-380
-Independently reconcile the source value with the UI screenshot value "Затрачено 1н. 1д.".
+Require:
+- correct skill load;
+- task key grounded in user query;
+- terminal result = 48h;
+- no estimate/capacity substitution;
+- no planner invention.
 
-Determine the AS21 duration convention:
-- hours per workday;
-- days per week if encoded;
-- raw seconds/minutes/hours if available.
+## Phase 5 — task.worklogs natural-language gate
+Run at least 4 forms, including:
+- `покажи списания по DMS-380`
+- `кто и когда списывал время на DMS-380`
+- `worklogs DMS-380`
 
-Do not assume 8h/day or 5d/week unless the source/config explicitly proves it.
+Require exact six-entry parity with direct source.
 
-Verdict must say whether exact parity is proven or only approximate.
+Verify specifically:
+- Semavin.M.M has 2 entries × 8h;
+- Garanin.R.V has 4 entries × 8h;
+- dates and work types exact.
 
-## Phase 4 — adapter/path inventory
-Inspect current production source path and answer:
-- does task-api already receive the time-spent/worklog field but drop it?
-- does TaskApiAS21Adapter currently map it to Task.time_spent_hours?
-- is a new bounded swtr-read endpoint needed?
-- can existing task detail/query return it without tenant scan?
-- is per-member attribution available?
+## Phase 6 — Browser C
+Real UI for:
+- task.time_spent DMS-380;
+- task.worklogs DMS-380.
 
-Identify the first missing boundary only. Do not fix.
+Require:
+- readable 48h total;
+- worklog table/detail contains user/date/type/duration;
+- no generic ERROR;
+- no source limitation;
+- no stack/session/contract leak.
 
-## Phase 5 — utilization feasibility
-Classify each metric independently:
+## Phase 7 — empty/zero task proof
+Use at least one REAL AS21 task with no worklogs if source can prove one safely.
 
-1. task actual time:
-   "сколько времени списано на DMS-380"
+Expected:
+- source-backed zero is REAL_EMPTY/0h, not SOURCE_UNAVAILABLE;
+- no fabricated entries.
 
-2. member actual time:
-   "сколько списал Иванов"
+If no such task can be proven within bounded QA budget, mark this subcase SOURCE_CONDITIONAL, not RED.
 
-3. sprint actual spent:
-   total worklogs whose timestamps fall inside a sprint window / membership rules
+## Phase 8 — retained smoke
+Re-run:
+- team.workload DMS;
+- team.capacity DMS remains terminal SOURCE_CONDITIONAL;
+- release.search;
+- release.health source-conditional;
+- one Batch 3 plugin discovery check;
+- dummy-55.
 
-4. team actual utilization:
-   actual spent / authoritative capacity for the same member and time window
-
-5. planned utilization:
-   estimate / authoritative capacity
-
-For each return one:
-- SOURCE_READY
-- SOURCE_PARTIAL
-- SOURCE_BLOCKED
-
-Important:
-- a cumulative task total without dated/user worklogs is NOT enough to attribute utilization to a person or sprint;
-- actual spent alone is NOT enough for utilization without an authoritative capacity denominator;
-- never substitute task-count workload for hours.
-
-## Phase 6 — recommended skill contracts
-Without implementing, propose the smallest plugin-only additions, likely candidates:
-- task.time_spent
-- task.worklogs (only if source exposes entries)
-- sprint.time_spent
-- team.time_spent
-- team.utilization_actual (only if numerator + capacity denominator are authoritative)
-
-State which should be implemented now vs SOURCE_CONDITIONAL.
-
-## Phase 7 — retained smoke
-Verify no regression from the forensic activity:
-- team.workload DMS
-- team.capacity DMS remains fail-closed under current implementation
-- release.search
-- dummy-55
-- local factual reads = 0
-- tenant-wide scans = 0
+## Phase 9 — source audit
+Require:
+- local factual /api/v1/tasks reads = 0 for time-accounting requests;
+- unscoped tenant-wide scans = 0;
+- only bounded per-task worklog source calls;
+- no mutation tools called.
 
 ## Verdict
 Use exactly one:
-- `TIME_ACCOUNTING_SOURCE_READY_FOR_OWNER_IMPLEMENTATION`
-- `TIME_ACCOUNTING_SOURCE_PARTIAL`
-- `TIME_ACCOUNTING_SOURCE_BLOCKED`
+- `TASK_TIME_ACCOUNTING_GREEN_A215D`
+- `TASK_TIME_ACCOUNTING_RED_A215D`
 
-Report:
-1. exact live tool/field contract;
-2. DMS-380 source/UI parity;
-3. normalization/unit semantics;
-4. attribution/time-window capability;
-5. first missing production boundary;
-6. metric feasibility matrix;
-7. minimal owner implementation plan.
+If GREEN:
+- recommend immutable time-accounting checkpoint;
+- recommend resuming A216 / Batch 3 QA;
+- keep sprint/team time_spent as next source-bounded extension after Batch 3 unless the owner explicitly prioritizes it.
 
-STOP after report. Do not modify code.
+If RED:
+- identify the first failing boundary and STOP.
+
+Do not modify production code.
