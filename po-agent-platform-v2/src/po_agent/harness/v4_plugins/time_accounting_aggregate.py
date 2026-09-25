@@ -259,6 +259,7 @@ def build_team_utilization_actual(runtime: Any):
                 "capacity_policy": policy,
                 "members": rows,
                 "total_actual_hours": agg["total_hours"],
+                "worklog_count": agg["worklog_count"],
                 "unknown_user_hours": agg["unknown_user_hours"],
                 "source": "REAL_AS21_PLUS_OWNER_POLICY",
                 "numerator_source": "REAL_AS21_WORKLOGS",
@@ -312,14 +313,14 @@ SKILLS = (
         "Show actual time spent in a sprint, grouped by member/task/type/date.",
         ("Resolve the product space and sprint, then call sprint.time_spent.",),
         ("space.resolve", "sprint.resolve", "sprint.search", "sprint.current", "sprint.time_spent"),
-        completion=(CompletionRequirement("sprint.time_spent", data_keys=("sprint_id", "total_hours", "by_member")),),
+        completion=(CompletionRequirement("sprint.time_spent", data_keys=("sprint_id", "worklog_count")),),
     ),
     SkillSpecV4(
         "team.time_spent",
         "Show actual team time spent in the current sprint.",
         ("Resolve the product space, then call team.time_spent.",),
         ("space.resolve", "team.time_spent"),
-        completion=(CompletionRequirement("team.time_spent", data_keys=("space", "sprint_id", "total_hours", "by_member")),),
+        completion=(CompletionRequirement("team.time_spent", data_keys=("space", "sprint_id", "worklog_count")),),
     ),
     SkillSpecV4(
         "team.utilization_actual",
@@ -329,7 +330,7 @@ SKILLS = (
             "Treat REAL AS21 worklogs as numerator and OWNER_POLICY as denominator; keep both provenance labels visible.",
         ),
         ("space.resolve", "team.utilization_actual"),
-        completion=(CompletionRequirement("team.utilization_actual", data_keys=("space", "sprint_id", "members", "capacity_policy")),),
+        completion=(CompletionRequirement("team.utilization_actual", data_keys=("space", "sprint_id", "worklog_count", "capacity_policy")),),
     ),
     SkillSpecV4(
         "release.time_spent",
