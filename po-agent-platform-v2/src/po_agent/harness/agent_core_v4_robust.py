@@ -154,6 +154,7 @@ with the next governed skill/capability action."""
         loaded_skills: tuple[str, ...],
         observations: list[V4Observation],
         session_context: Mapping[str, str] | None = None,
+        runtime_guidance: Mapping[str, Any] | None = None,
     ) -> V4Decision:
         payload = {
             "user_query": user_query,
@@ -161,6 +162,7 @@ with the next governed skill/capability action."""
             "loaded_skills": [catalog.load(skill_id) for skill_id in loaded_skills],
             "observations": [item.planner_view() for item in observations],
             "session_context": dict(session_context or {}),
+            "runtime_guidance": dict(runtime_guidance or {}),
             "step_budget_remaining": self.max_steps - len(observations),
         }
         messages = [
