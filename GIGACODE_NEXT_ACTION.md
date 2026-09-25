@@ -1,10 +1,10 @@
 # GigaCode — Current Action
 
 ## Status
-ACTIVE_QA_ASSIGNMENT_217C_STANDALONE_RELEASE_IDENTITY_REGATE
+ACTIVE_QA_ASSIGNMENT_217D_ROBUST_SIGNATURE_PARITY_REGATE
 
 ## Role lock
-GigaCode is QA/adversarial tester only.
+GigaCode is QA/adversarial tester + service operator only.
 
 Do NOT modify production/frontend/plugin/test/config/architecture code.
 Do NOT implement fixes.
@@ -12,117 +12,113 @@ Do NOT start Batch 5.
 Commit/push only the QA report.
 
 ## Baseline
-A217B verdict:
-AGENT_CORE_V4_BATCH4_ROUTING_RED_A217B
+A217C verdict:
+AGENT_CORE_V4_BATCH4_ROUTING_RED_A217C
 Classification:
-RED_DEFERRED_TURN_OVEREXTENSION
+RED_ROBUST_PLANNER_SIGNATURE_DRIFT
 
-A217 original blocker is CLOSED:
-- release analytics no longer terminate at release.search;
-- no-space /versions calls eliminated;
-- progress/health sibling analytics execute typed fail-closed.
-
-A217B introduced one new blocking boundary:
-standalone singular release identity such as "релиз 1.6.0 в OLP" over-extends on the deferred turn into release.scope/release.health instead of finishing with release.search identity data.
+The first failing boundary was platform-wide:
+RobustSkillNativePlannerV4.next_decision did not accept runtime_guidance while the base runtime now passes it.
+Result: 100% V4 queries failed before LLM/source execution.
 
 ## Owner fix
 Commits:
-- 08e8f96b93c720ed62a27714d1d59a1625f13267
-- 3e483d6604f88854ab6eb903846cc898ea899155
-- 68c6d986dc9148f2cd38a6ba07b3291d873d2ab5
+- b2c531993fa94eeed220f758cb465b007702d72e
+- 1c0fa65f89f9c158be85e3e2c26d93cfc8e01460
+- fd6ba94cb057c713eb95e6ab21508fa17a247460
 
-Design:
-1. No new query router and no release metric skill-id branch.
-2. Generic planner payload now receives one-turn runtime_guidance only when a declaratively non-autocomplete resolver contract is already source-satisfied.
-3. Generic planner rule: READY is explicitly valid for a standalone resolver/identity/directory goal; deeper skill may load only if the original query explicitly asks for that deeper deliverable.
-4. Loaded skill detail exposes runtime_autocomplete metadata.
-5. release.search procedure explicitly defines a direct single-release identity request as terminal and forbids inventing scope/health/progress/risk analysis.
-6. Existing analytics requests must still continue beyond release.search.
+Fix:
+1. RobustSkillNativePlannerV4.next_decision now mirrors the base keyword contract including runtime_guidance.
+2. Robust planner payload forwards runtime_guidance.
+3. Broken Batch4 metadata test now constructs SkillCatalogV4 from registry.skills()/capability_specs().
+4. Permanent signature-parity regression test added so future base/robust drift fails immediately.
 
-## Phase 0 — architecture invariant
+No new release routing logic was added.
+
+## Goal
+Restore production V4 runtime first, then fully re-run the A217C release-routing gate.
+
+## Phase 0 — production runtime recovery
 1. Pull branch, record START_HEAD, clean worktree.
-2. Diff owner fix commits.
-3. Prove:
-   - no phrase router / semantic pre-pass added;
-   - no hard-coded release.progress/release.health branch in runtime;
-   - runtime_guidance mechanism is generic and only populated after a source-satisfied deferred resolver contract;
-   - default skills unaffected;
-   - dummy-55 GREEN.
+2. Run planner signature-parity test.
+3. Construct the production robust/pluginized runtime and execute at least 3 ordinary non-release queries.
+4. Require:
+   - zero TypeError;
+   - normal planner call reaches LLM;
+   - normal source calls execute;
+   - no v4_runtime_failure.
 
-## Phase 1 — tests
+If any generic query fails at planner entry => RED and STOP.
+
+## Phase 1 — full V4 regression
 Run:
+- tests/test_agent_core_v4_planner_signature_parity.py
 - tests/test_agent_core_v4_batch4.py
-- full tests/test_agent_core_v4*.py
+- tests/test_agent_core_v4*.py
 - tests/test_v4*.py
 
 Zero unexplained failures.
 
-## Phase 2 — standalone singular identity gate
-Run each >=5:
+## Phase 2 — standalone release identity
+Run >=5 each:
 - "релиз 1.6.0 в OLP"
 - "релиз 24Q1 в WMB"
 - "релиз 25Q1 в WMB"
 
-Required:
-- space.resolve as needed;
+Require:
 - release.search source-backed identity;
-- then planner READY;
-- status COMPLETED;
-- release.search result data surfaced;
-- zero release.scope/health/progress/blockers/dependencies/risk_queue calls;
-- zero source-conditional failure;
-- deterministic >=5/5 each.
+- standalone identity => COMPLETED;
+- zero release.scope/health/progress/risk/blockers/dependencies calls;
+- deterministic >=5/5.
 
-List goals retained >=3 each:
+List goals:
 - "релизы WMB"
 - "покажи версии OLP"
-Exact catalog parity, COMPLETED.
+must remain exact catalog COMPLETED.
 
-## Phase 3 — analytics non-regression
-Re-run:
-- "прогресс релиза 24Q1 в WMB" >=5
-- "release progress for 24Q1 in WMB" >=3
-- "здоровье релиза 24Q1 в WMB" >=3
-- "очередь рисков релиза 1.6.0 в OLP" >=3
-- blockers/dependencies representative forms
+## Phase 3 — requested release analytics
+Run:
+- progress WMB 24Q1 >=5
+- health WMB 24Q1 >=3
+- readiness OLP 1.6.0 >=3
+- blockers/dependencies/risk representative forms
 
-Requirements:
-- release.search identity does NOT terminate analytics;
-- requested analytics skill executes;
-- current missing release membership => typed SOURCE_CONDITIONAL;
-- zero standalone identity COMPLETED answers for analytics intents.
+Require:
+- release.search may resolve identity;
+- explicitly requested deeper skill executes;
+- current sparse release source => typed SOURCE_CONDITIONAL;
+- no fabricated zero metrics;
+- no early identity-only completion for analytical intents.
 
-For "готовность релиза OLP 1.6.0":
-release.health or release.progress is acceptable if typed SOURCE_CONDITIONAL and no fabricated metric; record routing.
-
-## Phase 4 — runtime guidance proof
-Inspect trajectories for standalone identity and analytics:
-- after release.search, synthetic runtime_contract_deferred exists;
-- next planner turn receives/acts consistently with deferred guidance;
-- standalone => READY;
-- analytics => requested deeper skill.
-No planner-loop exhaustion.
-
-## Phase 5 — source-scope hardening retained
+## Phase 4 — no-space hardening
 Capability-level:
-- query="OLP 1.6.0", no space => normalized to space OLP / query 1.6.0;
-- missing space with no approved token => clarification, zero source calls;
-- ambiguous multiple spaces => clarification;
-- no no-space /versions calls.
+- query="OLP 1.6.0" with no space => normalize to OLP/1.6.0
+- no approved space token => typed clarification, zero source calls
+- multiple approved spaces => typed clarification
+- zero no-space /versions calls when unique space exists in query.
+
+## Phase 5 — sibling Batch 4 + portfolio
+Re-run:
+- portfolio.overview
+- release.blockers
+- release.dependencies
+- release.risk_queue
+Require A217 parity.
 
 ## Phase 6 — Browser C
-Real UI:
-- standalone "релиз 1.6.0 в OLP" => COMPLETED identity data;
-- progress WMB => typed source limitation;
-- health WMB => typed source limitation;
-- release list WMB => COMPLETED catalog.
+UI:
+- ordinary sprint query (proves generic V4 health)
+- standalone release identity
+- release progress source limitation
+- release health source limitation
+- portfolio overview
 
-No generic ERROR and no fabricated analytics.
+No generic V4 ERROR.
 
 ## Phase 7 — retained regression
-- portfolio.overview exact
+- sprint current/search/health
 - member/sprint/team time accounting
-- DMS-380 48h/6
+- DMS-380 48h/6 worklogs
 - team.capacity guard
 - dummy-55
 
@@ -130,15 +126,14 @@ No generic ERROR and no fabricated analytics.
 0 local factual reads.
 0 tenant-wide scans.
 0 mutations.
-0 no-space /versions for queries containing a unique approved space.
 
 ## Verdict
 Use exactly one:
-- AGENT_CORE_V4_BATCH4_ROUTING_GREEN_A217C
-- AGENT_CORE_V4_BATCH4_ROUTING_RED_A217C
+- AGENT_CORE_V4_BATCH4_ROUTING_GREEN_A217D
+- AGENT_CORE_V4_BATCH4_ROUTING_RED_A217D
 
 If GREEN:
-recommend immutable Batch 4 checkpoint, then execute queued agent self-introspection UX patch before Batch 5.
+recommend immutable Batch 4 checkpoint, then queued self-introspection UX patch before Batch 5.
 
 If RED:
 identify first failing boundary and STOP.
