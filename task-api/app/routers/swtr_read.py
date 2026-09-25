@@ -553,6 +553,91 @@ async def get_task_raw(task_code: str):
     return {"task_code": normalized, "unit": _parse_tool_content(content)}
 
 
+def _duration_hours(value: Any) -> float | None:
+    if not isinstance(value, dict):
+        return None
+    millis = value.get("time")
+    unit = str(value.get("temporalUnit") or "").upper()
+    if isinstance(millis, (int, float)) and unit == "MILLIS":
+        return float(millis) / 3_600_000.0
+    return None
+
+
+def _normalize_worklog_entry(row: dict[str, Any]) -> dict[str, Any]:
+    user = row.get("user") if isinstance(row.get("user"), dict) else {}
+    work_type = row.get("type") if isinstance(row.get("type"), dict) else {}
+    time_value = row.get("time_spent") if isinstance(row.get("time_spent"), dict) else row.get("time")
+    return {
+        "id": row.get("id"),
+        "date": row.get("date"),
+        "user": {
+            "external_id": user.get("externalId"),
+            "first_name": user.get("firstName"),
+            "last_name": user.get("lastName"),
+            "middle_name": user.get("middleName"),
+        },
+        "type": {
+            "code": work_type.get("code"),
+            "name": work_type.get("name"),
+            "description": work_type.get("description"),
+        },
+        "comment": row.get("comment"),
+        "duration_hours": _duration_hours(time_value),
+        "duration": time_value.get("duration") if isinstance(time_value, dict) else None,
+        "raw_millis": time_value.get("time") if isinstance(time_value, dict) else None,
+    }
+
+
+@router.get("/tasks/{task_code}/work-logs")
+async def get_task_work_logs(
+    task_code: str,
+    page_size: int = Query(100, ge=1, le=1000),
+    max_pages: int = Query(100, ge=1, le=500),
+):
+    normalized = task_code.upper().strip()
+    if not _TASK_CODE_RE.fullmatch(normalized):
+        raise HTTPException(status_code=400, detail="Invalid SWTR task code")
+    client = SWTRMCPClient()
+
+    try:
+        sum_content = await client.call_tool("get_work_sum", {"unit_code": normalized})
+        sum_payload = _parse_tool_content(sum_content)
+
+        entries: list[dict[str, Any]] = []
+        page = 0
+        has_next = True
+        while has_next and page < max_pages:
+            content = await client.call_tool(
+                "get_work_report",
+                {"unit_code": normalized, "page": page, "size": page_size},
+            )
+            payload = _parse_tool_content(content)
+            rows = _page_content(payload)
+            entries.extend(_normalize_worklog_entry(row) for row in rows)
+            has_next = _page_meta(payload)["has_next"]
+            page += 1
+    except (SWTRMCPUnavailable, SWTRMCPProtocolError) as exc:
+        raise _transport_http_error(exc) from exc
+
+    sum_value = sum_payload.get("sum") if isinstance(sum_payload, dict) else None
+    total_hours = _duration_hours(sum_value)
+    entry_total = sum(
+        float(item["duration_hours"])
+        for item in entries
+        if isinstance(item.get("duration_hours"), (int, float))
+    )
+    return {
+        "task_code": normalized,
+        "source": "REAL_AS21",
+        "total_hours": total_hours,
+        "entry_total_hours": round(entry_total, 6),
+        "entries": entries,
+        "complete": not has_next,
+        "pages_read": page,
+        "convention": {"worklog_day_hours": 8, "worklog_week_days": 5},
+    }
+
+
 @router.get("/tasks/{task_code}/files")
 async def get_task_files(task_code: str):
     normalized = task_code.upper().strip()
