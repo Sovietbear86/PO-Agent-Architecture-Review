@@ -115,6 +115,7 @@ class SkillSpecV4:
             "summary": self.summary,
             "procedure": list(self.procedure),
             "capabilities": [capability_specs[item].compact() for item in self.capabilities],
+            "runtime_autocomplete": self.runtime_autocomplete,
         }
 
 
@@ -302,7 +303,8 @@ Rules:
 - Never invent people, logins, spaces, sprint ids, release ids, task ids, counts or source facts.
 - If a required entity cannot be resolved by the available capabilities, use READY only to explain the limitation/clarification.
 - After observations already support the complete answer, use READY instead of calling unrelated tools.
-- Resolver/identity observations are never a substitute for a requested collection, metric or analysis. If the catalog has a matching skill, load it and execute its terminal capability. If the requested deliverable is not implemented, say that the capability is not implemented; do not claim that source data is absent merely because only an identity resolver has run.
+- If runtime_guidance says a resolver completion was deliberately deferred, READY is explicitly valid when the original user request is only for that resolver's identity/directory result. Load a deeper skill only when the original request explicitly asks for that deeper deliverable; never invent health/scope/progress/risk analysis merely because a release/sprint/person was resolved.
+- Resolver/identity observations are never a substitute for a requested collection, metric or analysis. If the catalog has a matching skill for an explicitly requested deeper deliverable, load it and execute its terminal capability. If the requested deliverable is not implemented, say that the capability is not implemented; do not claim that source data is absent merely because only an identity resolver has run.
 - Catalog presence means a capability is defined, not that its backing source is currently available. For "умеешь/можешь" questions about source-backed features, describe the capability conditionally and do not claim current availability until the source path has been exercised or readiness is explicitly known.
 """
 
@@ -343,6 +345,7 @@ Choose exactly one branch: load_skill, call, or ready. Do not add keys. Do not i
         loaded_skills: tuple[str, ...],
         observations: list[V4Observation],
         session_context: Mapping[str, str] | None = None,
+        runtime_guidance: Mapping[str, Any] | None = None,
     ) -> V4Decision:
         payload = {
             "user_query": user_query,
@@ -350,6 +353,7 @@ Choose exactly one branch: load_skill, call, or ready. Do not add keys. Do not i
             "loaded_skills": [catalog.load(skill_id) for skill_id in loaded_skills],
             "observations": [item.planner_view() for item in observations],
             "session_context": dict(session_context or {}),
+            "runtime_guidance": dict(runtime_guidance or {}),
             "step_budget_remaining": self.max_steps - len(observations),
         }
         messages = [
@@ -1175,6 +1179,7 @@ class AgentCoreV4Runtime:
         all_evidence: list[Evidence] = []
         full_results: list[dict[str, Any]] = []
         trajectory: list[dict[str, Any]] = []
+        deferred_completion_guidance: dict[str, Any] = {}
         try:
             for planner_turn in range(self.planner.max_steps):
                 decision = await self.planner.next_decision(
@@ -1183,7 +1188,9 @@ class AgentCoreV4Runtime:
                     loaded_skills=tuple(loaded),
                     observations=observations,
                     session_context=request.session_context,
+                    runtime_guidance=deferred_completion_guidance,
                 )
+                deferred_completion_guidance = {}
                 trajectory.append({
                     "planner_turn": planner_turn + 1,
                     "decision": decision.kind,
@@ -1337,6 +1344,21 @@ class AgentCoreV4Runtime:
                         completion="runtime_contract",
                     )
                 if completion_satisfied and not runtime_autocomplete_allowed:
+                    deferred_completion_guidance = {
+                        "deferred_completion": True,
+                        "satisfied_loaded_skills": [
+                            skill_id
+                            for skill_id in loaded
+                            if skill_id in self._skill_contracts
+                        ],
+                        "instruction": (
+                            "The listed loaded skill contracts are source-satisfied, but deterministic "
+                            "auto-completion was deliberately deferred because a resolver may be either "
+                            "terminal or intermediate. READY is valid if the original user goal is exactly "
+                            "the resolver/identity/directory result. Load another skill only if the original "
+                            "query explicitly requests that deeper deliverable."
+                        ),
+                    }
                     trajectory.append({
                         "planner_turn": len(trajectory) + 1,
                         "decision": "continue",
