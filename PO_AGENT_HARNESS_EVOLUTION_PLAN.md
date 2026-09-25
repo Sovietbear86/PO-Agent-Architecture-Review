@@ -2,8 +2,8 @@
 
 **Status:** ACTIVE / Hermes-style architecture cutover approved  
 **Current branch:** `feat/core8-real-query-hardening-v2`  
-**Last reviewed:** 2026-09-10  
-**Current baseline:** H1B is in final certification/closure after Assignments 143–174; source plane, typed CALL/FINAL loop, identity grounding, full-collection retrieval and Browser C multi-step are proven in focused gates, while routing/clarification consistency is being closed by Assignment 175.  
+**Last reviewed:** 2026-09-26  
+**Current baseline:** V4 Batch 4 is GREEN after A217D. Production robust runtime is restored; release identity vs analytics routing is certified, portfolio overview is source-exact, time-accounting/member analytics are GREEN, and release analytics remain intentionally SOURCE_CONDITIONAL where REAL AS21 lacks release→task linkage.
 **Architecture decision:** stop broad point-fixing of legacy orchestration; preserve proven REAL AS21/source components and replace the upper Harness orchestration incrementally with a Hermes-inspired Agent Core.  
 **Reference observations:** Hermes Agent is the architectural target pattern; PVM Guru is a behavioral/reference implementation only, not a codebase to copy.  
 **Frontend status:** UI is part of acceptance truth; Harness-only GREEN is insufficient.  
