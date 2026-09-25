@@ -7,12 +7,13 @@ tenant or infer a static team roster from historical tasks.
 from __future__ import annotations
 
 from collections import Counter
+from datetime import datetime
 from typing import Any
 
 from ..agent_core_v4 import CapabilitySpecV4, SkillSpecV4, V4CapabilityUnavailable, V4NeedsClarification
 from ..agent_core_v4_completion import CompletionRequirement
 from ..contracts import CapabilityResult, Evidence
-from ..capacity_policy import default_monthly_capacity
+from ..capacity_policy import available_capacity_for_calendar_days, default_monthly_capacity
 from ..v4_plugin_registry import CapabilityBindingV4, UIContractV4, V4SkillPlugin
 
 
@@ -53,6 +54,23 @@ async def _current_sprint_tasks(runtime: Any, args: dict[str, str]):
         raise V4CapabilityUnavailable(f"REAL AS21 did not expose a current sprint for {space}")
     tasks = list(await runtime.adapter.get_sprint_tasks(sprint_id, space))
     return space, sprint_id, tasks
+
+
+async def _sprint_calendar_days(runtime: Any, space: str, sprint_id: str) -> int:
+    list_sprints = getattr(runtime.adapter, "list_sprints", None)
+    if list_sprints is None:
+        raise V4CapabilityUnavailable("team.capacity requires source-backed sprint period metadata")
+    rows = [row for row in await list_sprints(space) if str(row.get("code") or "").casefold() == sprint_id.casefold()]
+    if len(rows) != 1:
+        raise V4CapabilityUnavailable(f"REAL AS21 did not expose a unique period for sprint {sprint_id}")
+    try:
+        start = datetime.fromisoformat(str(rows[0].get("start_at") or "").replace("Z", "+00:00")).date()
+        finish = datetime.fromisoformat(str(rows[0].get("finish_at") or "").replace("Z", "+00:00")).date()
+    except ValueError as exc:
+        raise V4CapabilityUnavailable(f"REAL AS21 sprint {sprint_id} has invalid start/finish dates") from exc
+    if finish < start:
+        raise V4CapabilityUnavailable(f"REAL AS21 sprint {sprint_id} has an invalid period")
+    return (finish - start).days + 1
 
 
 def _task_evidence(tasks: list[Any], kind: str) -> list[Evidence]:
@@ -174,7 +192,6 @@ def build_team_capacity(runtime: Any):
                 "do not expose source-backed estimates; an explicit capacity baseline alone is insufficient"
             )
 
-        policy = default_monthly_capacity()
         raw_capacity = str(args.get("capacity_hours") or "").strip()
         if raw_capacity:
             try:
@@ -186,7 +203,9 @@ def build_team_capacity(runtime: Any):
             capacity_source = "explicit_user_baseline"
             capacity_policy = None
         else:
-            capacity_hours = float(policy["available_capacity_hours_per_month"])
+            calendar_days = await _sprint_calendar_days(runtime, space, sprint_id)
+            policy = available_capacity_for_calendar_days(calendar_days)
+            capacity_hours = float(policy["available_capacity_hours_for_period"])
             capacity_source = "owner_policy_default"
             capacity_policy = policy
 
@@ -234,7 +253,7 @@ CAPABILITIES = (
     CapabilitySpecV4("team.workload", "Task-count workload by assignee in the authoritative current sprint of one space.", {"space": "required canonical product space"}),
     CapabilitySpecV4("team.wip", "Current-sprint WIP grouped by assignee for one product space.", {"space": "required canonical product space"}),
     CapabilitySpecV4("team.blocked", "Current-sprint blocked tasks grouped by assignee for one product space.", {"space": "required canonical product space"}),
-    CapabilitySpecV4("team.capacity", "Planned utilization from source-backed estimates and an owner-approved 2026 monthly capacity baseline; explicit user capacity may override it.", {"space": "required canonical product space", "capacity_hours": "optional explicit hours per member; otherwise owner policy default is used"}),
+    CapabilitySpecV4("team.capacity", "Planned utilization from source-backed estimates and the owner-approved 2026 capacity policy normalized to the authoritative sprint period; explicit user capacity may override it.", {"space": "required canonical product space", "capacity_hours": "optional explicit hours per member; otherwise period-normalized owner policy is used"}),
 )
 
 SKILLS = (
@@ -280,7 +299,7 @@ SKILLS = (
         (
             "Resolve the product space.",
             "Call team.capacity. Source-backed estimates remain mandatory.",
-            "If the user provides capacity hours, use them exactly; otherwise use the owner policy baseline: average 2026 Russian working days per month × 0.87 × 8h.",
+            "If the user provides capacity hours, use them exactly; otherwise normalize the owner policy (247 working days/year × 0.87 × 8h) to the authoritative sprint calendar length.",
             "Never infer estimates or treat missing estimates as zero.",
         ),
         ("space.resolve", "team.capacity"),
