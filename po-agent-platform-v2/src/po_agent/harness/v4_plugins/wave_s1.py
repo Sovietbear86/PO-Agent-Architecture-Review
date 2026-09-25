@@ -16,6 +16,7 @@ from ..agent_core_v4 import (
 )
 from ..agent_core_v4_completion import CompletionRequirement
 from ..contracts import CapabilityResult, Evidence
+from ..production_entity_grounding_v2 import APPROVED_PRODUCT_SPACES
 from ..v4_plugin_registry import CapabilityBindingV4, UIContractV4, V4SkillPlugin
 
 
@@ -277,6 +278,34 @@ def build_release_search(runtime: Any):
     async def execute(args: dict[str, str]) -> CapabilityResult:
         space = _normalize_space(args.get("space"))
         query = str(args.get("query") or "").strip() or None
+
+        # Ground source scope locally when the planner preserved the product
+        # token inside the release query but omitted the explicit space argument.
+        # This is argument normalization, not intent routing: the only accepted
+        # values are the configured product-space allow-list, and ambiguity
+        # remains a clarification.
+        if space is None and query:
+            tokens = {
+                token.upper()
+                for token in query.replace("/", " ").replace(":", " ").split()
+            }
+            matches = sorted(tokens & set(APPROVED_PRODUCT_SPACES))
+            if len(matches) == 1:
+                space = matches[0]
+                query = " ".join(
+                    token for token in query.split() if token.upper() != space
+                ).strip() or None
+            elif len(matches) > 1:
+                raise V4NeedsClarification(
+                    "В запросе указано несколько продуктовых пространств. Какое использовать?",
+                    options=tuple(matches),
+                )
+
+        if space is None:
+            raise V4NeedsClarification(
+                "Укажите продуктовое пространство релиза (например, WMB, OLP или DMS)."
+            )
+
         require_single = str(args.get("require_single") or "").strip().casefold() in {
             "1", "true", "yes", "y",
         }
@@ -358,9 +387,9 @@ CAPABILITIES = (
     ),
     CapabilitySpecV4(
         "release.search",
-        "Search a bounded REAL AS21 release/version directory by optional product space and query.",
+        "Search a bounded REAL AS21 release/version directory inside one canonical product space.",
         {
-            "space": "optional canonical product space",
+            "space": "required canonical product space",
             "query": "optional release/version text",
             "require_single": "optional true when another skill needs exactly one release",
         },
@@ -414,15 +443,17 @@ SKILLS = (
     ),
     SkillSpecV4(
         "release.search",
-        "Find real releases/versions by space, name or identifier using the bounded source directory.",
+        "Find/list real releases or resolve release identity; this resolver does not itself satisfy release health/progress/risk/blocker/dependency goals.",
         (
-            "Validate product space when the user supplied one, then call release.search.",
+            "Always establish product space before release.search: use space.resolve when a product/space is present; if space is absent, clarify rather than calling a global release directory.",
             "For a direct search/list request leave require_single false.",
             "When another skill needs exactly one release, use require_single=true so ambiguity becomes typed clarification.",
+            "After resolving a release for another analytical goal, continue to that analytical skill; release.search alone is only identity/directory output.",
             "Never treat a product space such as DMS as a release id.",
         ),
         ("space.resolve", "release.search"),
         completion=(CompletionRequirement("release.search", data_keys=("releases", "count")),),
+        runtime_autocomplete=False,
     ),
 )
 
