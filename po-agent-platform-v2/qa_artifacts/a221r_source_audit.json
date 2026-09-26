@@ -1,0 +1,25 @@
+{
+ "window": {
+  "start_line": 10463,
+  "end_line": 10686,
+  "lines": 223
+ },
+ "assignment": "A221R (row-10 regate + rows 11-49)",
+ "local_factual_reads_tasks": 0,
+ "local_fallback_reads": 0,
+ "mutations": 0,
+ "task_query_total": 32,
+ "task_query_unscoped": 0,
+ "release_membership_total": 14,
+ "release_membership_unscoped": 0,
+ "assignee_route_total": 0,
+ "assignee_route_unscoped": 0,
+ "versions_total": 14,
+ "versions_unscoped": 0,
+ "sprint_collections_total": 0,
+ "sprint_collections_unscoped": 0,
+ "mutating_lines_sample": [],
+ "local_reads_sample": [],
+ "unscoped_tq_sample": [],
+ "audit_pass": true
+}

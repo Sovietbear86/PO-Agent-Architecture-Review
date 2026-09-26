@@ -918,10 +918,2486 @@
     "query": "задачи в релизе 24Q1 в WMB",
     "attempts": 1,
     "how": "ok",
-    "dt": 4.2,
+    "dt": 15.4,
+    "status": "FAILED",
+    "traj": [
+     "space.resolve",
+     "release.search",
+     "task.search_release"
+    ],
+    "warnings": [
+     "v4_capability_unavailable"
+    ],
+    "answer": "Необходимая возможность не подтверждена источником данных и не выполняется.",
+    "evidence_keys": [],
+    "data_keys": []
+   },
+   "B": {
+    "ok": true,
+    "facts": {
+     "release_uuid": "7a84006f-7823-4052-ae46-b94f5165518e",
+     "membership_rows": 0
+    },
+    "notes": []
+   },
+   "final": "GREEN_SOURCE_CONDITIONAL",
+   "first_failing_boundary": "",
+   "ts": "2026-09-26T18:54:44+00:00"
+  },
+  "11": {
+   "row_id": 11,
+   "requirement": "Grounded task summary",
+   "live_skill": "task.summary",
+   "source_class": "SOURCE_READY",
+   "A": {
+    "query": "дай сводку по задаче DMS-380",
+    "attempts": 1,
+    "how": "ok",
+    "dt": 13.8,
+    "status": "COMPLETED",
+    "traj": [
+     "task.summary"
+    ],
+    "warnings": [],
+    "answer": "## Сводка по DMS-380\n\n**Название:** В компоненте Lineager не работает аутентификация в режиме mTLS, TLS, SSL\n\n**Суть проблемы:**\nПри попытке установить связь между Lineager и DataMarts (ClickHouse) возникает ошибка SSL. Метод `DatamartsClient.getQueryLog` не может выполнить запрос к `system.query_log` из-за сбоя TLS-рукопожатия.\n\n**Корневая причина (по стектрейсу):**\n`javax.net.ssl.SSLException: U",
+    "evidence_keys": [
+     "DMS-380",
+     "DMS-380",
+     "DMS-380"
+    ],
+    "data_keys": []
+   },
+   "B": {
+    "ok": true,
+    "facts": {
+     "title": "В компоненте Lineager не работает аутентификация в режиме mTLS, TLS, SSL",
+     "status": "Закрыт"
+    },
+    "notes": []
+   },
+   "final": "GREEN_SOURCE_READY",
+   "first_failing_boundary": "",
+   "ts": "2026-09-26T18:55:13+00:00"
+  },
+  "12": {
+   "row_id": 12,
+   "requirement": "Task definition quality",
+   "live_skill": "task.quality",
+   "source_class": "SOURCE_READY",
+   "A": {
+    "query": "оцени качество задачи DMS-380",
+    "attempts": 1,
+    "how": "ok",
+    "dt": 4.1,
+    "status": "COMPLETED",
+    "traj": [
+     "task.quality"
+    ],
+    "warnings": [],
+    "answer": "**DMS-380** — «В компоненте Lineager не работает аутентификация в режиме mTLS, TLS, SSL»\n\n**Оценка: 85/100 (good)**\n\n| Критерий | Результат |\n|----------|-----------|\n| Заголовок | ✅ |\n| Конкретность заголовка | ✅ |\n| Описание | ✅ |\n| Суть описания | ✅ |\n| Цель / контекст | ✅ |\n| Критерии приёмки | ❌ (−15) |\n\n**Замечание (1):**\nНе найдены проверяемые ожидания или критерии приёмки.\n\n**Рекомендация:",
+    "evidence_keys": [
+     "DMS-380",
+     "DMS-380",
+     "DMS-380",
+     "DMS-380",
+     "DMS-380",
+     "DMS-380",
+     "DMS-380",
+     "DMS-380",
+     "DMS-380"
+    ],
+    "data_keys": []
+   },
+   "B": {
+    "ok": true,
+    "facts": {
+     "desc_len": 6137,
+     "acceptance_section_present": false,
+     "description_present": true
+    },
+    "notes": []
+   },
+   "final": "GREEN_SOURCE_READY",
+   "first_failing_boundary": "",
+   "ts": "2026-09-26T19:00:45+00:00"
+  },
+  "13": {
+   "row_id": 13,
+   "requirement": "Missing requirements detection",
+   "live_skill": "task.missing_requirements",
+   "source_class": "SOURCE_READY",
+   "A": {
+    "query": "какие требования отсутствуют в задаче DMS-380",
+    "attempts": 1,
+    "how": "ok",
+    "dt": 7.5,
+    "status": "COMPLETED",
+    "traj": [
+     "task.missing_requirements"
+    ],
+    "warnings": [],
+    "answer": "В задаче **DMS-380** отсутствуют **критерии приёмки** (acceptance expectations).\n\n**Проблема:** не найдены проверяемые ожидания или критерии, по которым можно однозначно принять результат.\n\n**Рекомендация:** добавить критерии, по которым можно однозначно принять результат.",
+    "evidence_keys": [
+     "DMS-380",
+     "DMS-380",
+     "DMS-380"
+    ],
+    "data_keys": []
+   },
+   "B": {
+    "ok": true,
+    "facts": {
+     "desc_len": 6137
+    },
+    "notes": []
+   },
+   "final": "GREEN_SOURCE_READY",
+   "first_failing_boundary": "",
+   "ts": "2026-09-26T19:01:17+00:00"
+  },
+  "14": {
+   "row_id": 14,
+   "requirement": "Acceptance criteria/testability analysis",
+   "live_skill": "task.acceptance",
+   "source_class": "SOURCE_READY",
+   "A": {
+    "query": "проанализируй критерии приёмки задачи DMS-380",
+    "attempts": 1,
+    "how": "ok",
+    "dt": 7.1,
+    "status": "COMPLETED",
+    "traj": [
+     "task.acceptance"
+    ],
+    "warnings": [],
+    "answer": "## Анализ критериев приёмки DMS-380\n\n**Оценка качества: 0 / 100**\n\nВ задаче **отсутствуют** критерии приёмки.\n\n### Выявленные проблемы\n\n| # | Проблема |\n|---|----------|\n| 1 | Нет явно выделенного раздела «Критерии приёмки» |\n| 2 | Нет отдельных проверяемых условий |\n\n### Рекомендация\n\nНеобходимо добавить в задачу блок с конкретными, проверяемыми условиями, по которым можно подтвердить выполнение.",
+    "evidence_keys": [
+     "DMS-380",
+     "DMS-380",
+     "DMS-380"
+    ],
+    "data_keys": []
+   },
+   "B": {
+    "ok": true,
+    "facts": {
+     "acceptance_section_present": false,
+     "desc_len": 6137
+    },
+    "notes": []
+   },
+   "final": "GREEN_SOURCE_READY",
+   "first_failing_boundary": "",
+   "ts": "2026-09-26T19:01:26+00:00"
+  },
+  "15": {
+   "row_id": 15,
+   "requirement": "Task dependency/link analysis",
+   "live_skill": "task.dependencies",
+   "source_class": "SOURCE_READY",
+   "A": {
+    "query": "какие зависимости есть у задачи DMS-380",
+    "attempts": 1,
+    "how": "ok",
+    "dt": 6.6,
+    "status": "COMPLETED",
+    "traj": [
+     "task.dependencies"
+    ],
+    "warnings": [],
+    "answer": "У задачи **DMS-380** зависимостей нет (0).",
+    "evidence_keys": [
+     "DMS-380",
+     "DMS-380",
+     "DMS-380"
+    ],
+    "data_keys": []
+   },
+   "B": {
+    "ok": true,
+    "facts": {
+     "source_links_present": false
+    },
+    "notes": []
+   },
+   "final": "GREEN_SOURCE_READY",
+   "first_failing_boundary": "",
+   "ts": "2026-09-26T19:01:35+00:00"
+  },
+  "16": {
+   "row_id": 16,
+   "requirement": "Task lifecycle/history",
+   "live_skill": "task.history",
+   "source_class": "SOURCE_READY",
+   "A": {
+    "query": "покажи историю статусов задачи DMS-380",
+    "attempts": 1,
+    "how": "ok",
+    "dt": 4.8,
+    "status": "COMPLETED",
+    "traj": [
+     "task.history"
+    ],
+    "warnings": [],
+    "answer": "**История статусов DMS-380** (4 перехода):\n\n| # | От | К | Дата/время | Автор |\n|---|---|---|---|---|\n| 1 | Зарегистрирован | Открыт | 06.09.2026 19:38 | Garanin.R.V |\n| 2 | Открыт | На исправлении | 06.09.2026 19:38 | Garanin.R.V |\n| 3 | На исправлении | Тестирование | 06.09.2026 19:41 | Garanin.R.V |\n| 4 | Тестирование | Закрыт | 17.09.2026 10:51 | Semavin.M.M |\n\n**Текущий статус:** Закрыт",
+    "evidence_keys": [
+     "DMS-380",
+     "DMS-380",
+     "DMS-380",
+     "DMS-380"
+    ],
+    "data_keys": []
+   },
+   "B": {
+    "ok": true,
+    "facts": {
+     "source_events": 6,
+     "status_transitions": [
+      [
+       "Зарегистрирован",
+       "Открыт"
+      ],
+      [
+       "Открыт",
+       "На исправлении"
+      ],
+      [
+       "На исправлении",
+       "Тестирование"
+      ],
+      [
+       "Тестирование",
+       "Закрыт"
+      ]
+     ]
+    },
+    "notes": []
+   },
+   "final": "GREEN_SOURCE_READY",
+   "first_failing_boundary": "",
+   "ts": "2026-09-26T19:01:42+00:00"
+  },
+  "17": {
+   "row_id": 17,
+   "requirement": "Time in task statuses",
+   "live_skill": "task.time_in_status",
+   "source_class": "SOURCE_READY",
+   "A": {
+    "query": "сколько времени задача DMS-380 проводила в статусах",
+    "attempts": 1,
+    "how": "ok",
+    "dt": 11.3,
+    "status": "COMPLETED",
+    "traj": [
+     "task.time_in_status"
+    ],
+    "warnings": [],
+    "answer": "**DMS-380** — текущий статус: **Closed**. Рассчитано 4 интервала:\n\n| Статус | Время | Период |\n|--------|-------|--------|\n| Открыт | 0 ч | 06.09.2026 19:38 → 19:38 |\n| На исправлении | 0,04 ч (~2 мин) | 06.09.2026 19:38 → 19:41 |\n| Тестирование | 255,18 ч (~10 дн. 15 ч) | 06.09.2026 19:41 → 17.09.2026 10:51 |\n| Закрыт | 0 ч | 17.09.2026 10:51 |\n\nОсновное время (≈ 255 ч) задача провела в статусе *",
+    "evidence_keys": [
+     "DMS-380",
+     "DMS-380",
+     "DMS-380",
+     "DMS-380"
+    ],
+    "data_keys": []
+   },
+   "B": {
+    "ok": true,
+    "facts": {
+     "source_events": 6
+    },
+    "notes": []
+   },
+   "final": "GREEN_SOURCE_READY",
+   "first_failing_boundary": "",
+   "ts": "2026-09-26T19:01:56+00:00"
+  },
+  "18": {
+   "row_id": 18,
+   "requirement": "Aging active tasks",
+   "live_skill": "task.aging",
+   "source_class": "SOURCE_READY",
+   "A": {
+    "query": "старые открытые задачи в DMS",
+    "attempts": 1,
+    "how": "ok",
+    "dt": 9.1,
+    "status": "COMPLETED",
+    "traj": [
+     "task.aging"
+    ],
+    "warnings": [],
+    "answer": "В пространстве **DMS** на данный момент **81** открытая задача старше 7 дней.",
+    "evidence_keys": [
+     "DMS-1",
+     "DMS-3",
+     "DMS-13",
+     "DMS-30",
+     "DMS-32",
+     "DMS-50",
+     "DMS-46",
+     "DMS-41",
+     "DMS-42",
+     "DMS-43",
+     "DMS-34",
+     "DMS-33",
+     "DMS-57",
+     "DMS-56",
+     "DMS-64",
+     "DMS-73",
+     "DMS-77",
+     "DMS-84",
+     "DMS-86",
+     "DMS-93",
+     "DMS-100",
+     "DMS-104",
+     "DMS-164",
+     "DMS-166",
+     "DMS-161",
+     "DMS-243",
+     "DMS-247",
+     "DMS-253",
+     "DMS-256",
+     "DMS-255",
+     "DMS-252",
+     "DMS-254",
+     "DMS-257",
+     "DMS-261",
+     "DMS-263",
+     "DMS-267",
+     "DMS-266",
+     "DMS-264",
+     "DMS-265",
+     "DMS-269",
+     "DMS-272",
+     "DMS-275",
+     "DMS-326",
+     "DMS-333",
+     "DMS-330",
+     "DMS-337",
+     "DMS-336",
+     "DMS-339",
+     "DMS-344",
+     "DMS-343",
+     "DMS-349",
+     "DMS-348",
+     "DMS-350",
+     "DMS-355",
+     "DMS-352",
+     "DMS-357",
+     "DMS-371",
+     "DMS-372",
+     "DMS-375",
+     "DMS-378",
+     "DMS-379",
+     "DMS-384",
+     "DMS-385",
+     "DMS-382",
+     "DMS-389",
+     "DMS-397",
+     "DMS-396",
+     "DMS-394",
+     "DMS-395",
+     "DMS-399",
+     "DMS-402",
+     "DMS-401",
+     "DMS-404",
+     "DMS-405",
+     "DMS-416",
+     "DMS-417",
+     "DMS-418",
+     "DMS-415",
+     "DMS-414",
+     "DMS-412",
+     "DMS-411"
+    ],
+    "data_keys": [
+     "DMS-1",
+     "DMS-100",
+     "DMS-104",
+     "DMS-13",
+     "DMS-161",
+     "DMS-164",
+     "DMS-166",
+     "DMS-243",
+     "DMS-247",
+     "DMS-252",
+     "DMS-253",
+     "DMS-254",
+     "DMS-255",
+     "DMS-256",
+     "DMS-257",
+     "DMS-261",
+     "DMS-263",
+     "DMS-264",
+     "DMS-265",
+     "DMS-266",
+     "DMS-267",
+     "DMS-269",
+     "DMS-272",
+     "DMS-275",
+     "DMS-3",
+     "DMS-30",
+     "DMS-32",
+     "DMS-326",
+     "DMS-33",
+     "DMS-330",
+     "DMS-333",
+     "DMS-336",
+     "DMS-337",
+     "DMS-339",
+     "DMS-34",
+     "DMS-343",
+     "DMS-344",
+     "DMS-348",
+     "DMS-349",
+     "DMS-350",
+     "DMS-352",
+     "DMS-355",
+     "DMS-357",
+     "DMS-371",
+     "DMS-372",
+     "DMS-375",
+     "DMS-378",
+     "DMS-379",
+     "DMS-382",
+     "DMS-384",
+     "DMS-385",
+     "DMS-389",
+     "DMS-394",
+     "DMS-395",
+     "DMS-396",
+     "DMS-397",
+     "DMS-399",
+     "DMS-401",
+     "DMS-402",
+     "DMS-404",
+     "DMS-405",
+     "DMS-41",
+     "DMS-411",
+     "DMS-412",
+     "DMS-414",
+     "DMS-415",
+     "DMS-416",
+     "DMS-417",
+     "DMS-418",
+     "DMS-42",
+     "DMS-43",
+     "DMS-46",
+     "DMS-50",
+     "DMS-56",
+     "DMS-57",
+     "DMS-64",
+     "DMS-73",
+     "DMS-77",
+     "DMS-84",
+     "DMS-86",
+     "DMS-93"
+    ]
+   },
+   "B": {
+    "ok": true,
+    "facts": {
+     "open_dms": 92,
+     "aged7d": 81
+    },
+    "notes": []
+   },
+   "final": "GREEN_SOURCE_READY",
+   "first_failing_boundary": "",
+   "ts": "2026-09-26T19:09:00+00:00"
+  },
+  "19": {
+   "row_id": 19,
+   "requirement": "Task blocker analysis",
+   "live_skill": "task.blockers",
+   "source_class": "SOURCE_READY",
+   "A": {
+    "query": "что блокирует задачу DMS-352",
+    "attempts": 1,
+    "how": "ok",
+    "dt": 6.1,
+    "status": "COMPLETED",
+    "traj": [
+     "task.blockers"
+    ],
+    "warnings": [],
+    "answer": "Задача **DMS-352** заблокирована: статус — **Need info**, то есть задача ожидает поступления информации. Незакрытых зависимостей нет.",
+    "evidence_keys": [
+     "DMS-352",
+     "DMS-352",
+     "DMS-352",
+     "DMS-352"
+    ],
+    "data_keys": []
+   },
+   "B": {
+    "ok": true,
+    "facts": {
+     "status": "Need info"
+    },
+    "notes": []
+   },
+   "final": "GREEN_SOURCE_READY",
+   "first_failing_boundary": "",
+   "ts": "2026-09-26T19:09:09+00:00"
+  },
+  "20": {
+   "row_id": 20,
+   "requirement": "Similar/duplicate task discovery",
+   "live_skill": "task.similar",
+   "source_class": "SOURCE_READY",
+   "A": {
+    "query": "найди задачи похожие на DMS-380",
+    "attempts": 1,
+    "how": "ok",
+    "dt": 10.7,
+    "status": "COMPLETED",
+    "traj": [
+     "task.similar"
+    ],
+    "warnings": [],
+    "answer": "По задаче **DMS-380** найдено **5** похожих задач:\n\n| # | Ключ | Название | Статус |\n|---|------|----------|--------|\n| 1 | DMS-375 | При попытке отозвать последнего пользователя из профиля выпадает ошибка | Open |\n| 2 | DMS-113 | Неправильная передача параметра type при запросе /disks | Closed |\n| 3 | DMS-423 | [Installer] Добавление пользователя CHLiner в предзаполненную в установщике конфигурац",
+    "evidence_keys": [
+     "DMS-380",
+     "DMS-375",
+     "DMS-113",
+     "DMS-423",
+     "DMS-400",
+     "DMS-329"
+    ],
+    "data_keys": []
+   },
+   "B": {
+    "ok": true,
+    "facts": {
+     "top5_source": [
+      "DMS-375",
+      "DMS-113",
+      "DMS-423",
+      "DMS-400",
+      "DMS-329"
+     ]
+    },
+    "notes": []
+   },
+   "final": "GREEN_SOURCE_READY",
+   "first_failing_boundary": "",
+   "ts": "2026-09-26T19:11:11+00:00"
+  },
+  "21": {
+   "row_id": 21,
+   "requirement": "Sprint health",
+   "live_skill": "sprint.health",
+   "source_class": "SOURCE_READY",
+   "A": {
+    "query": "здоровье текущего спринта DMS",
+    "attempts": 1,
+    "how": "ok",
+    "dt": 17.1,
+    "status": "COMPLETED",
+    "traj": [
+     "space.resolve",
+     "sprint.current",
+     "sprint.health"
+    ],
+    "warnings": [],
+    "answer": "**Текущий спринт DMS: DMS-SPRNT-3**\n\n| Метрика | Значение |\n|---------|----------|\n| Всего задач | 73 |\n| Выполнено | 18 (24,7 %) |\n| В работе | 14 |\n| Заблокировано | 2 |\n\n**Оценка:** спринт на ранней стадии — выполнено менее четверти объёма. Есть 2 заблокированные задачи, за которыми стоит следить.",
+    "evidence_keys": [
+     "DMS-434",
+     "DMS-357",
+     "DMS-432",
+     "DMS-433",
+     "DMS-431",
+     "DMS-398",
+     "DMS-430",
+     "DMS-333",
+     "DMS-335",
+     "DMS-427",
+     "DMS-426",
+     "DMS-349",
+     "DMS-269",
+     "DMS-64",
+     "DMS-424",
+     "DMS-272",
+     "DMS-425",
+     "DMS-386",
+     "DMS-387",
+     "DMS-423",
+     "DMS-273",
+     "DMS-406",
+     "DMS-399",
+     "DMS-421",
+     "DMS-373",
+     "DMS-376",
+     "DMS-416",
+     "DMS-417",
+     "DMS-418",
+     "DMS-415",
+     "DMS-414",
+     "DMS-412",
+     "DMS-330",
+     "DMS-351",
+     "DMS-411",
+     "DMS-334",
+     "DMS-408",
+     "DMS-390",
+     "DMS-380",
+     "DMS-388",
+     "DMS-405",
+     "DMS-403",
+     "DMS-374",
+     "DMS-402",
+     "DMS-355",
+     "DMS-389",
+     "DMS-86",
+     "DMS-267",
+     "DMS-261",
+     "DMS-348",
+     "DMS-266",
+     "DMS-344",
+     "DMS-343",
+     "DMS-253",
+     "DMS-337",
+     "DMS-336",
+     "DMS-378",
+     "DMS-104",
+     "DMS-164",
+     "DMS-264",
+     "DMS-371",
+     "DMS-263",
+     "DMS-352",
+     "DMS-93",
+     "DMS-256",
+     "DMS-243",
+     "DMS-265",
+     "DMS-401",
+     "DMS-339",
+     "DMS-275",
+     "DMS-100",
+     "DMS-379",
+     "DMS-166"
+    ],
+    "data_keys": [
+     "DMS-100",
+     "DMS-104",
+     "DMS-164",
+     "DMS-166",
+     "DMS-243",
+     "DMS-253",
+     "DMS-256",
+     "DMS-261",
+     "DMS-263",
+     "DMS-264",
+     "DMS-265",
+     "DMS-266",
+     "DMS-267",
+     "DMS-269",
+     "DMS-272",
+     "DMS-273",
+     "DMS-275",
+     "DMS-330",
+     "DMS-333",
+     "DMS-334",
+     "DMS-335",
+     "DMS-336",
+     "DMS-337",
+     "DMS-339",
+     "DMS-343",
+     "DMS-344",
+     "DMS-348",
+     "DMS-349",
+     "DMS-351",
+     "DMS-352",
+     "DMS-355",
+     "DMS-357",
+     "DMS-371",
+     "DMS-373",
+     "DMS-374",
+     "DMS-376",
+     "DMS-378",
+     "DMS-379",
+     "DMS-380",
+     "DMS-386",
+     "DMS-387",
+     "DMS-388",
+     "DMS-389",
+     "DMS-390",
+     "DMS-398",
+     "DMS-399",
+     "DMS-401",
+     "DMS-402",
+     "DMS-403",
+     "DMS-405",
+     "DMS-406",
+     "DMS-408",
+     "DMS-411",
+     "DMS-412",
+     "DMS-414",
+     "DMS-415",
+     "DMS-416",
+     "DMS-417",
+     "DMS-418",
+     "DMS-421",
+     "DMS-423",
+     "DMS-424",
+     "DMS-425",
+     "DMS-426",
+     "DMS-427",
+     "DMS-430",
+     "DMS-431",
+     "DMS-432",
+     "DMS-433",
+     "DMS-434",
+     "DMS-64",
+     "DMS-86",
+     "DMS-93"
+    ]
+   },
+   "B": {
+    "ok": true,
+    "facts": {
+     "sprint": "DMS-SPRNT-3",
+     "total": 73,
+     "done": 18,
+     "blocked": 2,
+     "unassigned": 5
+    },
+    "notes": []
+   },
+   "final": "GREEN_SOURCE_READY",
+   "first_failing_boundary": "",
+   "ts": "2026-09-26T19:11:38+00:00"
+  },
+  "22": {
+   "row_id": 22,
+   "requirement": "Resolve current sprint",
+   "live_skill": "sprint.current",
+   "source_class": "SOURCE_READY",
+   "A": {
+    "query": "какой сейчас текущий спринт в OLP",
+    "attempts": 1,
+    "how": "ok",
+    "dt": 9.4,
+    "status": "COMPLETED",
+    "traj": [
+     "space.resolve",
+     "sprint.current"
+    ],
+    "warnings": [],
+    "answer": "Текущий спринт в OLP — **OLP-SPRNT-8**.",
+    "evidence_keys": [],
+    "data_keys": []
+   },
+   "B": {
+    "ok": true,
+    "facts": {
+     "sprint": "OLP-SPRNT-8"
+    },
+    "notes": []
+   },
+   "final": "GREEN_SOURCE_READY",
+   "first_failing_boundary": "",
+   "ts": "2026-09-26T19:11:50+00:00"
+  },
+  "23": {
+   "row_id": 23,
+   "requirement": "Sprint scope",
+   "live_skill": "sprint.scope",
+   "source_class": "SOURCE_READY",
+   "A": {
+    "query": "анализ охвата спринта DMS-SPRNT-3",
+    "attempts": 1,
+    "how": "ok",
+    "dt": 13.2,
+    "status": "COMPLETED",
+    "traj": [
+     "sprint.resolve",
+     "sprint.scope"
+    ],
+    "warnings": [],
+    "answer": "## Охват спринта DMS-SPRNT-3\n\n| Показатель | Значение |\n|---|---|\n| Пространство | DMS |\n| Всего задач | **73** |\n| Завершено | 18 (24,7 %) |\n| Открыто | 55 (75,3 %) |\n| Без исполнителя | 5 |\n| Нераспознанный статус | 0 |\n\n**Вывод:** спринт находится на ранней стадии — завершена лишь четверть задач. Пять задач не назначены, что может стать узким местом при планировании оставшихся итераций.",
+    "evidence_keys": [],
+    "data_keys": [
+     "DMS-100",
+     "DMS-104",
+     "DMS-164",
+     "DMS-166",
+     "DMS-243",
+     "DMS-253",
+     "DMS-256",
+     "DMS-261",
+     "DMS-263",
+     "DMS-264",
+     "DMS-265",
+     "DMS-266",
+     "DMS-267",
+     "DMS-269",
+     "DMS-272",
+     "DMS-273",
+     "DMS-275",
+     "DMS-330",
+     "DMS-333",
+     "DMS-334",
+     "DMS-335",
+     "DMS-336",
+     "DMS-337",
+     "DMS-339",
+     "DMS-343",
+     "DMS-344",
+     "DMS-348",
+     "DMS-349",
+     "DMS-351",
+     "DMS-352",
+     "DMS-355",
+     "DMS-357",
+     "DMS-371",
+     "DMS-373",
+     "DMS-374",
+     "DMS-376",
+     "DMS-378",
+     "DMS-379",
+     "DMS-380",
+     "DMS-386",
+     "DMS-387",
+     "DMS-388",
+     "DMS-389",
+     "DMS-390",
+     "DMS-398",
+     "DMS-399",
+     "DMS-401",
+     "DMS-402",
+     "DMS-403",
+     "DMS-405",
+     "DMS-406",
+     "DMS-408",
+     "DMS-411",
+     "DMS-412",
+     "DMS-414",
+     "DMS-415",
+     "DMS-416",
+     "DMS-417",
+     "DMS-418",
+     "DMS-421",
+     "DMS-423",
+     "DMS-424",
+     "DMS-425",
+     "DMS-426",
+     "DMS-427",
+     "DMS-430",
+     "DMS-431",
+     "DMS-432",
+     "DMS-433",
+     "DMS-434",
+     "DMS-64",
+     "DMS-86",
+     "DMS-93"
+    ]
+   },
+   "B": {
+    "ok": true,
+    "facts": {
+     "sprint": "DMS-SPRNT-3",
+     "expected_count": 73
+    },
+    "notes": []
+   },
+   "final": "GREEN_SOURCE_READY",
+   "first_failing_boundary": "",
+   "ts": "2026-09-26T19:17:23+00:00"
+  },
+  "24": {
+   "row_id": 24,
+   "requirement": "Sprint velocity",
+   "live_skill": "sprint.velocity",
+   "source_class": "SOURCE_READY",
+   "A": {
+    "query": "velocity текущего спринта DMS",
+    "attempts": 1,
+    "how": "ok",
+    "dt": 10.2,
+    "status": "COMPLETED",
+    "traj": [
+     "space.resolve",
+     "sprint.current",
+     "sprint.velocity"
+    ],
+    "warnings": [],
+    "answer": "**Velocity текущего спринта DMS (DMS-SPRNT-3):**\n\n- **18 задач/спринт** (по метрике task-count)\n- Выполнено: 18 из 73 задач\n- Story points источником не подтверждены",
+    "evidence_keys": [],
+    "data_keys": [
+     "DMS-273",
+     "DMS-334",
+     "DMS-335",
+     "DMS-351",
+     "DMS-373",
+     "DMS-374",
+     "DMS-376",
+     "DMS-380",
+     "DMS-386",
+     "DMS-387",
+     "DMS-388",
+     "DMS-390",
+     "DMS-398",
+     "DMS-403",
+     "DMS-406",
+     "DMS-408",
+     "DMS-423",
+     "DMS-424"
+    ]
+   },
+   "B": {
+    "ok": true,
+    "facts": {
+     "done": 18,
+     "story_points_available": false
+    },
+    "notes": []
+   },
+   "final": "GREEN_SOURCE_READY",
+   "first_failing_boundary": "",
+   "ts": "2026-09-26T19:17:36+00:00"
+  },
+  "25": {
+   "row_id": 25,
+   "requirement": "Sprint throughput",
+   "live_skill": "sprint.throughput",
+   "source_class": "SOURCE_READY",
+   "A": {
+    "query": "throughput текущего спринта OLP",
+    "attempts": 1,
+    "how": "ok",
+    "dt": 10.7,
+    "status": "COMPLETED",
+    "traj": [
+     "space.resolve",
+     "sprint.current",
+     "sprint.throughput"
+    ],
+    "warnings": [],
+    "answer": "**Throughput текущего спринта OLP (OLP-SPRNT-8):**\n\n- **0.406** завершённых задач / календарный день\n- Завершено: **2** из **74** задач\n- Прошло: **≈ 4.93** дня (спринт стартовал 21.09.2026)\n- Снимок на: 26.09.2026 19:17 UTC",
+    "evidence_keys": [],
+    "data_keys": []
+   },
+   "B": {
+    "ok": true,
+    "facts": {
+     "sprint": "OLP-SPRNT-8",
+     "done": 2,
+     "total": 74
+    },
+    "notes": []
+   },
+   "final": "GREEN_SOURCE_READY",
+   "first_failing_boundary": "",
+   "ts": "2026-09-26T19:17:50+00:00"
+  },
+  "26": {
+   "row_id": 26,
+   "requirement": "Sprint WIP",
+   "live_skill": "sprint.wip",
+   "source_class": "SOURCE_READY",
+   "A": {
+    "query": "wip текущего спринта DMS",
+    "attempts": 1,
+    "how": "ok",
+    "dt": 9.5,
+    "status": "COMPLETED",
+    "traj": [
+     "space.resolve",
+     "sprint.current",
+     "sprint.wip"
+    ],
+    "warnings": [],
+    "answer": "**WIP текущего спринта DMS (DMS-SPRNT-3): 31 задача** в работе из 73 общих.",
+    "evidence_keys": [
+     "DMS-357",
+     "DMS-432",
+     "DMS-433",
+     "DMS-333",
+     "DMS-427",
+     "DMS-349",
+     "DMS-269",
+     "DMS-272",
+     "DMS-399",
+     "DMS-405",
+     "DMS-402",
+     "DMS-355",
+     "DMS-389",
+     "DMS-86",
+     "DMS-267",
+     "DMS-261",
+     "DMS-266",
+     "DMS-253",
+     "DMS-336",
+     "DMS-104",
+     "DMS-264",
+     "DMS-371",
+     "DMS-352",
+     "DMS-93",
+     "DMS-256",
+     "DMS-243",
+     "DMS-265",
+     "DMS-401",
+     "DMS-275",
+     "DMS-100",
+     "DMS-379"
+    ],
+    "data_keys": [
+     "DMS-100",
+     "DMS-104",
+     "DMS-243",
+     "DMS-253",
+     "DMS-256",
+     "DMS-261",
+     "DMS-264",
+     "DMS-265",
+     "DMS-266",
+     "DMS-267",
+     "DMS-269",
+     "DMS-272",
+     "DMS-275",
+     "DMS-333",
+     "DMS-336",
+     "DMS-349",
+     "DMS-352",
+     "DMS-355",
+     "DMS-357",
+     "DMS-371",
+     "DMS-379",
+     "DMS-389",
+     "DMS-399",
+     "DMS-401",
+     "DMS-402",
+     "DMS-405",
+     "DMS-427",
+     "DMS-432",
+     "DMS-433",
+     "DMS-86",
+     "DMS-93"
+    ]
+   },
+   "B": {
+    "ok": true,
+    "facts": {
+     "sprint": "DMS-SPRNT-3",
+     "expected_wip": 31
+    },
+    "notes": []
+   },
+   "final": "GREEN_SOURCE_READY",
+   "first_failing_boundary": "",
+   "ts": "2026-09-26T19:18:03+00:00"
+  },
+  "27": {
+   "row_id": 27,
+   "requirement": "Sprint cycle time",
+   "live_skill": "sprint.cycle_time",
+   "source_class": "SOURCE_READY",
+   "A": {
+    "query": "cycle time задач текущего спринта DMS",
+    "attempts": 1,
+    "how": "ok",
+    "dt": 16.8,
+    "status": "COMPLETED",
+    "traj": [
+     "space.resolve",
+     "sprint.current",
+     "sprint.cycle_time"
+    ],
+    "warnings": [],
+    "answer": "**Cycle time текущего спринта DMS (DMS-SPRNT-3)**\n\nПо 18 завершённым задачам:\n\n| Метрика | Значение |\n|---------|----------|\n| Медиана | 111,07 ч |\n| Среднее | 215,64 ч |\n| Минимум | 0 ч |\n| Максимум | 1230,43 ч |\n\n**Разброс по задачам:**\n\n| Задача | Cycle time |\n|--------|-----------|\n| DMS-408 | 0,42 ч |\n| DMS-273 | 2,54 ч |\n| DMS-423 | 4,58 ч |\n| DMS-387 | 18,37 ч |\n| DMS-386 | 18,63 ч |\n| DMS-",
+    "evidence_keys": [],
+    "data_keys": []
+   },
+   "B": {
+    "ok": true,
+    "facts": {
+     "sprint": "DMS-SPRNT-3",
+     "done": 18
+    },
+    "notes": []
+   },
+   "final": "GREEN_SOURCE_READY",
+   "first_failing_boundary": "",
+   "ts": "2026-09-26T19:18:23+00:00"
+  },
+  "28": {
+   "row_id": 28,
+   "requirement": "Sprint lead time",
+   "live_skill": "sprint.lead_time",
+   "source_class": "SOURCE_READY",
+   "A": {
+    "query": "lead time текущего спринта DMS",
+    "attempts": 1,
+    "how": "ok",
+    "dt": 12.6,
+    "status": "COMPLETED",
+    "traj": [
+     "space.resolve",
+     "sprint.current",
+     "sprint.lead_time"
+    ],
+    "warnings": [],
+    "answer": "**Lead time текущего спринта DMS (DMS-SPRNT-3)**\n\n| Метрика | Значение |\n|---------|----------|\n| Медиана | **413,22 ч** (~17,2 сут.) |\n| Среднее | 492,38 ч (~20,5 сут.) |\n| Минимум | 0,45 ч |\n| Максимум | 1657,59 ч (~69 сут.) |\n| Выборка | 18 завершённых задач |\n\n**Распределение по задачам:**\n\n| Задача | Lead time |\n|--------|-----------|\n| DMS-408 | 0,45 ч |\n| DMS-423 | 4,81 ч |\n| DMS-424 | 23,7",
+    "evidence_keys": [],
+    "data_keys": []
+   },
+   "B": {
+    "ok": true,
+    "facts": {
+     "sprint": "DMS-SPRNT-3"
+    },
+    "notes": []
+   },
+   "final": "GREEN_SOURCE_READY",
+   "first_failing_boundary": "",
+   "ts": "2026-09-26T19:18:39+00:00"
+  },
+  "29": {
+   "row_id": 29,
+   "requirement": "Sprint carryover",
+   "live_skill": "sprint.carryover",
+   "source_class": "SOURCE_READY",
+   "A": {
+    "query": "какие задачи перенесены в текущий спринт DMS",
+    "attempts": 1,
+    "how": "ok",
+    "dt": 10.7,
+    "status": "COMPLETED",
+    "traj": [
+     "space.resolve",
+     "sprint.current",
+     "sprint.carryover"
+    ],
+    "warnings": [],
+    "answer": "В текущий спринт **DMS-SPRNT-3** не перенесено ни одной задачи из предыдущего спринта (DMS-SPRNT-2). Carryover = **0** (0,0% от общего scope текущего спринта, который составляет 73 задачи).",
+    "evidence_keys": [],
+    "data_keys": []
+   },
+   "B": {
+    "ok": true,
+    "facts": {
+     "current": "DMS-SPRNT-3",
+     "previous": "DMS-SPRNT-2",
+     "intersection": []
+    },
+    "notes": []
+   },
+   "final": "GREEN_SOURCE_READY",
+   "first_failing_boundary": "",
+   "ts": "2026-09-26T19:18:53+00:00"
+  },
+  "30": {
+   "row_id": 30,
+   "requirement": "Sprint scope change",
+   "live_skill": "sprint.scope_change",
+   "source_class": "SOURCE_CONDITIONAL",
+   "A": {
+    "query": "изменения scope в текущем спринте DMS",
+    "attempts": 1,
+    "how": "ok",
+    "dt": 7.0,
+    "status": "FAILED",
+    "traj": [
+     "sprint.current",
+     "sprint.scope_change"
+    ],
+    "warnings": [
+     "v4_capability_unavailable"
+    ],
+    "answer": "Необходимая возможность не подтверждена источником данных и не выполняется.",
+    "evidence_keys": [],
+    "data_keys": []
+   },
+   "B": {
+    "ok": true,
+    "facts": {
+     "commitment_baseline_in_source": false
+    },
+    "notes": []
+   },
+   "final": "GREEN_SOURCE_CONDITIONAL",
+   "first_failing_boundary": "",
+   "ts": "2026-09-26T19:19:02+00:00"
+  },
+  "31": {
+   "row_id": 31,
+   "requirement": "Sprint predictability",
+   "live_skill": "sprint.predictability",
+   "source_class": "SOURCE_CONDITIONAL",
+   "A": {
+    "query": "насколько предсказуем текущий спринт DMS",
+    "attempts": 1,
+    "how": "ok",
+    "dt": 8.9,
+    "status": "FAILED",
+    "traj": [
+     "space.resolve",
+     "sprint.current",
+     "sprint.predictability"
+    ],
+    "warnings": [
+     "v4_capability_unavailable"
+    ],
+    "answer": "Необходимая возможность не подтверждена источником данных и не выполняется.",
+    "evidence_keys": [],
+    "data_keys": []
+   },
+   "B": {
+    "ok": true,
+    "facts": {
+     "committed_baseline_in_source": false
+    },
+    "notes": []
+   },
+   "final": "GREEN_SOURCE_CONDITIONAL",
+   "first_failing_boundary": "",
+   "ts": "2026-09-26T19:19:13+00:00"
+  },
+  "32": {
+   "row_id": 32,
+   "requirement": "Sprint PO risk queue",
+   "live_skill": "sprint.risk_queue",
+   "source_class": "SOURCE_READY",
+   "A": {
+    "query": "очередь рисков текущего спринта DMS для PO",
+    "attempts": 1,
+    "how": "ok",
+    "dt": 16.2,
+    "status": "COMPLETED",
+    "traj": [
+     "space.resolve",
+     "sprint.current",
+     "sprint.risk_queue"
+    ],
+    "warnings": [],
+    "answer": "## Очередь рисков — DMS-SPRNT-3\n\n**Всего задач в очереди: 38**\n\n### 🔴 Заблокированные (приоритет)\n\n| # | Key | Задача | Исполнитель | Возраст |\n|---|-----|--------|-------------|---------|\n| 1 | DMS-352 | Заполнение карточки DataMarts в Karma | Макошина В.В. | 37 дн. |\n| 2 | DMS-379 | [doc] API healthcheck | Безруков П.С. | 25 дн. |\n\n### 🟡 Длительное нахождение (aging)\n\n| # | Key | Задача | Статус",
+    "evidence_keys": [
+     "DMS-352",
+     "DMS-379",
+     "DMS-64",
+     "DMS-86",
+     "DMS-93",
+     "DMS-100",
+     "DMS-104",
+     "DMS-164",
+     "DMS-166",
+     "DMS-243",
+     "DMS-253",
+     "DMS-256",
+     "DMS-261",
+     "DMS-263",
+     "DMS-264",
+     "DMS-265",
+     "DMS-266",
+     "DMS-267",
+     "DMS-269",
+     "DMS-272",
+     "DMS-275",
+     "DMS-330",
+     "DMS-333",
+     "DMS-336",
+     "DMS-337",
+     "DMS-339",
+     "DMS-343",
+     "DMS-344",
+     "DMS-348",
+     "DMS-349",
+     "DMS-355",
+     "DMS-357",
+     "DMS-371",
+     "DMS-378",
+     "DMS-389",
+     "DMS-399",
+     "DMS-401",
+     "DMS-402"
+    ],
+    "data_keys": [
+     "DMS-100",
+     "DMS-104",
+     "DMS-164",
+     "DMS-166",
+     "DMS-243",
+     "DMS-253",
+     "DMS-256",
+     "DMS-261",
+     "DMS-263",
+     "DMS-264",
+     "DMS-265",
+     "DMS-266",
+     "DMS-267",
+     "DMS-269",
+     "DMS-272",
+     "DMS-275",
+     "DMS-330",
+     "DMS-333",
+     "DMS-336",
+     "DMS-337",
+     "DMS-339",
+     "DMS-343",
+     "DMS-344",
+     "DMS-348",
+     "DMS-349",
+     "DMS-352",
+     "DMS-355",
+     "DMS-357",
+     "DMS-371",
+     "DMS-378",
+     "DMS-379",
+     "DMS-389",
+     "DMS-399",
+     "DMS-401",
+     "DMS-402",
+     "DMS-64",
+     "DMS-86",
+     "DMS-93"
+    ]
+   },
+   "B": {
+    "ok": true,
+    "facts": {
+     "sprint": "DMS-SPRNT-3",
+     "open": 55,
+     "aged14d": 38,
+     "blocked": [
+      "DMS-352",
+      "DMS-379"
+     ]
+    },
+    "notes": []
+   },
+   "final": "GREEN_SOURCE_READY",
+   "first_failing_boundary": "",
+   "ts": "2026-09-26T19:19:33+00:00"
+  },
+  "33": {
+   "row_id": 33,
+   "requirement": "Team workload distribution",
+   "live_skill": "team.workload",
+   "source_class": "SOURCE_READY",
+   "A": {
+    "query": "распределение нагрузки команды в DMS",
+    "attempts": 1,
+    "how": "ok",
+    "dt": 15.8,
+    "status": "COMPLETED",
+    "traj": [
+     "space.resolve",
+     "team.workload"
+    ],
+    "warnings": [],
+    "answer": "## Распределение нагрузки команды DMS (спринт DMS-SPRNT-3)\n\n**Общая картина:** 13 участников, **55 активных задач**, 18 завершено, **5 задач без назначенного исполнителя**.\n\n### По исполнителям\n\n| Исполнитель | Активные | WIP | Заблокировано | Завершено |\n|---|---|---|---|---|\n| moiseev.a.n | 10 | 6 | 0 | 2 |\n| agataeva.a.z | 8 | 6 | 0 | 0 |\n| kondratchikova.p.i | 8 | 3 | 0 | 3 |\n| dolgovskoy.e.n ",
+    "evidence_keys": [
+     "DMS-434",
+     "DMS-357",
+     "DMS-432",
+     "DMS-433",
+     "DMS-431",
+     "DMS-398",
+     "DMS-430",
+     "DMS-333",
+     "DMS-335",
+     "DMS-427",
+     "DMS-426",
+     "DMS-349",
+     "DMS-269",
+     "DMS-64",
+     "DMS-424",
+     "DMS-272",
+     "DMS-425",
+     "DMS-386",
+     "DMS-387",
+     "DMS-423",
+     "DMS-273",
+     "DMS-406",
+     "DMS-399",
+     "DMS-421",
+     "DMS-373",
+     "DMS-376",
+     "DMS-416",
+     "DMS-417",
+     "DMS-418",
+     "DMS-415",
+     "DMS-414",
+     "DMS-412",
+     "DMS-330",
+     "DMS-351",
+     "DMS-411",
+     "DMS-334",
+     "DMS-408",
+     "DMS-390",
+     "DMS-380",
+     "DMS-388",
+     "DMS-405",
+     "DMS-403",
+     "DMS-374",
+     "DMS-402",
+     "DMS-355",
+     "DMS-389",
+     "DMS-86",
+     "DMS-267",
+     "DMS-261",
+     "DMS-348",
+     "DMS-266",
+     "DMS-344",
+     "DMS-343",
+     "DMS-253",
+     "DMS-337",
+     "DMS-336",
+     "DMS-378",
+     "DMS-104",
+     "DMS-164",
+     "DMS-264",
+     "DMS-371",
+     "DMS-263",
+     "DMS-352",
+     "DMS-93",
+     "DMS-256",
+     "DMS-243",
+     "DMS-265",
+     "DMS-401",
+     "DMS-339",
+     "DMS-275",
+     "DMS-100",
+     "DMS-379",
+     "DMS-166"
+    ],
+    "data_keys": []
+   },
+   "B": {
+    "ok": true,
+    "facts": {
+     "sprint": "DMS-SPRNT-3",
+     "by_member": {
+      "Agataeva.A.Z": 8,
+      "Alekseev.K.S": 1,
+      "Bezrukov.P.S": 1,
+      "Dolgovskoy.E.N": 7,
+      "Garanin.R.V": 7,
+      "Kondratchikova.P.I": 8,
+      "Kuznetsov.M.Se": 2,
+      "Makoshina.V.V": 1,
+      "Moiseev.A.N": 10,
+      "Semavin.M.M": 4,
+      "Zhdanov.A.Ni": 1
+     }
+    },
+    "notes": []
+   },
+   "final": "GREEN_SOURCE_READY",
+   "first_failing_boundary": "",
+   "ts": "2026-09-26T19:24:56+00:00"
+  },
+  "34": {
+   "row_id": 34,
+   "requirement": "Team WIP by member",
+   "live_skill": "team.wip",
+   "source_class": "SOURCE_READY",
+   "A": {
+    "query": "wip по членам команды DMS",
+    "attempts": 1,
+    "how": "ok",
+    "dt": 9.4,
+    "status": "COMPLETED",
+    "traj": [
+     "space.resolve",
+     "team.wip"
+    ],
+    "warnings": [],
+    "answer": "**WIP команды DMS** (спринт DMS-SPRNT-3) — всего **31 задача**:\n\n| Член команды | WIP |\n|---|---|\n| agataeva.a.z | 6 |\n| moiseev.a.n | 6 |\n| dolgovskoy.e.n | 4 |\n| garanin.r.v | 4 |\n| kondratchikova.p.i | 3 |\n| *unassigned* | 3 |\n| bezrukov.p.s | 1 |\n| kuznetsov.m.se | 1 |\n| makoshina.v.v | 1 |\n| semavin.m.m | 1 |\n| zhdanov.a.ni | 1 |\n\nНаибольшая нагрузка — у **agataeva.a.z** и **moiseev.a.n** (по",
+    "evidence_keys": [
+     "DMS-357",
+     "DMS-432",
+     "DMS-433",
+     "DMS-333",
+     "DMS-427",
+     "DMS-349",
+     "DMS-269",
+     "DMS-272",
+     "DMS-399",
+     "DMS-405",
+     "DMS-402",
+     "DMS-355",
+     "DMS-389",
+     "DMS-86",
+     "DMS-267",
+     "DMS-261",
+     "DMS-266",
+     "DMS-253",
+     "DMS-336",
+     "DMS-104",
+     "DMS-264",
+     "DMS-371",
+     "DMS-352",
+     "DMS-93",
+     "DMS-256",
+     "DMS-243",
+     "DMS-265",
+     "DMS-401",
+     "DMS-275",
+     "DMS-100",
+     "DMS-379"
+    ],
+    "data_keys": [
+     "DMS-100",
+     "DMS-104",
+     "DMS-243",
+     "DMS-253",
+     "DMS-256",
+     "DMS-261",
+     "DMS-264",
+     "DMS-265",
+     "DMS-266",
+     "DMS-267",
+     "DMS-269",
+     "DMS-272",
+     "DMS-275",
+     "DMS-333",
+     "DMS-336",
+     "DMS-349",
+     "DMS-352",
+     "DMS-355",
+     "DMS-357",
+     "DMS-371",
+     "DMS-379",
+     "DMS-389",
+     "DMS-399",
+     "DMS-401",
+     "DMS-402",
+     "DMS-405",
+     "DMS-427",
+     "DMS-432",
+     "DMS-433",
+     "DMS-86",
+     "DMS-93"
+    ]
+   },
+   "B": {
+    "ok": true,
+    "facts": {
+     "members": {
+      "Agataeva.A.Z": 6,
+      "Bezrukov.P.S": 1,
+      "Dolgovskoy.E.N": 4,
+      "Garanin.R.V": 4,
+      "Kondratchikova.P.I": 3,
+      "Kuznetsov.M.Se": 1,
+      "Makoshina.V.V": 1,
+      "Moiseev.A.N": 6,
+      "Semavin.M.M": 1,
+      "Zhdanov.A.Ni": 1
+     }
+    },
+    "notes": []
+   },
+   "final": "GREEN_SOURCE_READY",
+   "first_failing_boundary": "",
+   "ts": "2026-09-26T19:25:08+00:00"
+  },
+  "35": {
+   "row_id": 35,
+   "requirement": "Team blocked work",
+   "live_skill": "team.blocked",
+   "source_class": "SOURCE_READY",
+   "A": {
+    "query": "заблокированные работы команды DMS",
+    "attempts": 1,
+    "how": "ok",
+    "dt": 8.1,
+    "status": "COMPLETED",
+    "traj": [
+     "space.resolve",
+     "team.blocked"
+    ],
+    "warnings": [],
+    "answer": "В текущем спринте **DMS-SPRNT-3** у команды DMS заблокировано **2 задачи**:\n\n| Задача | Ответственный |\n|--------|---------------|\n| DMS-352 | bezrukov.p.s |\n| DMS-379 | makoshina.v.v |",
+    "evidence_keys": [
+     "DMS-352",
+     "DMS-379"
+    ],
+    "data_keys": [
+     "DMS-352",
+     "DMS-379"
+    ]
+   },
+   "B": {
+    "ok": true,
+    "facts": {
+     "expected": [
+      "DMS-352",
+      "DMS-379"
+     ]
+    },
+    "notes": []
+   },
+   "final": "GREEN_SOURCE_READY",
+   "first_failing_boundary": "",
+   "ts": "2026-09-26T19:25:19+00:00"
+  },
+  "36": {
+   "row_id": 36,
+   "requirement": "Team capacity/load",
+   "live_skill": "team.capacity",
+   "source_class": "SOURCE_CONDITIONAL",
+   "A": {
+    "query": "capacity команды DMS",
+    "attempts": 1,
+    "how": "ok",
+    "dt": 6.7,
+    "status": "FAILED",
+    "traj": [
+     "space.resolve",
+     "team.capacity"
+    ],
+    "warnings": [
+     "v4_capability_unavailable"
+    ],
+    "answer": "Необходимая возможность не подтверждена источником данных и не выполняется.",
+    "evidence_keys": [],
+    "data_keys": []
+   },
+   "B": {
+    "ok": true,
+    "facts": {
+     "sprint_rows": 73,
+     "rows_with_estimate_attr": 0
+    },
+    "notes": []
+   },
+   "final": "GREEN_SOURCE_CONDITIONAL",
+   "first_failing_boundary": "",
+   "ts": "2026-09-26T19:25:29+00:00"
+  },
+  "37": {
+   "row_id": 37,
+   "requirement": "Competency match",
+   "live_skill": "team.competency_match",
+   "source_class": "SOURCE_CONDITIONAL",
+   "A": {
+    "query": "подойдёт ли команда DMS по компетенциям для задачи DMS-380",
+    "attempts": 1,
+    "how": "ok",
+    "dt": 6.9,
+    "status": "FAILED",
+    "traj": [
+     "space.resolve",
+     "team.competency_match"
+    ],
+    "warnings": [
+     "v4_capability_unavailable"
+    ],
+    "answer": "Необходимая возможность не подтверждена источником данных и не выполняется.",
+    "evidence_keys": [],
+    "data_keys": []
+   },
+   "B": {
+    "ok": true,
+    "facts": {
+     "approved_competency_config_in_source": false
+    },
+    "notes": []
+   },
+   "final": "GREEN_SOURCE_CONDITIONAL",
+   "first_failing_boundary": "",
+   "ts": "2026-09-26T19:25:38+00:00"
+  },
+  "38": {
+   "row_id": 38,
+   "requirement": "Assignee recommendation",
+   "live_skill": "team.assignee_recommendation",
+   "source_class": "SOURCE_CONDITIONAL",
+   "A": {
+    "query": "кого рекомендовать исполнителем для задачи DMS-380 в DMS",
+    "attempts": 1,
+    "how": "ok",
+    "dt": 6.9,
+    "status": "FAILED",
+    "traj": [
+     "space.resolve",
+     "team.assignee_recommendation"
+    ],
+    "warnings": [
+     "v4_capability_unavailable"
+    ],
+    "answer": "Необходимая возможность не подтверждена источником данных и не выполняется.",
+    "evidence_keys": [],
+    "data_keys": []
+   },
+   "B": {
+    "ok": true,
+    "facts": {
+     "approved_competency_config_in_source": false
+    },
+    "notes": []
+   },
+   "final": "GREEN_SOURCE_CONDITIONAL",
+   "first_failing_boundary": "",
+   "ts": "2026-09-26T19:25:47+00:00"
+  },
+  "39": {
+   "row_id": 39,
+   "requirement": "Team bottlenecks",
+   "live_skill": "team.bottlenecks",
+   "source_class": "SOURCE_READY",
+   "A": {
+    "query": "узкие места команды DMS",
+    "attempts": 1,
+    "how": "ok",
+    "dt": 7.1,
+    "status": "COMPLETED",
+    "traj": [
+     "space.resolve",
+     "team.bottlenecks"
+    ],
+    "warnings": [],
+    "answer": "## Узкие места команды DMS (спринт DMS-SPRNT-3)\n\nВ текущем спринте **55 активных задач**, выявлено **9 потенциальных узких мест** по концентрации нагрузки.\n\n### Концентрация активных задач\n\n| Участник | Активные задачи | Доля | WIP | Причина |\n|----------|:-:|:-:|:-:|---------|\n| moiseev.a.n | 10 | 18,2 % | 6 | концентрация задач |\n| agataeva.a.z | 8 | 14,5 % | 6 | концентрация задач |\n| kondratch",
+    "evidence_keys": [
+     "DMS-434",
+     "DMS-357",
+     "DMS-432",
+     "DMS-433",
+     "DMS-431",
+     "DMS-430",
+     "DMS-333",
+     "DMS-427",
+     "DMS-426",
+     "DMS-349",
+     "DMS-269",
+     "DMS-64",
+     "DMS-272",
+     "DMS-425",
+     "DMS-399",
+     "DMS-421",
+     "DMS-416",
+     "DMS-417",
+     "DMS-418",
+     "DMS-415",
+     "DMS-414",
+     "DMS-412",
+     "DMS-330",
+     "DMS-411",
+     "DMS-405",
+     "DMS-402",
+     "DMS-355",
+     "DMS-389",
+     "DMS-86",
+     "DMS-267",
+     "DMS-261",
+     "DMS-348",
+     "DMS-266",
+     "DMS-344",
+     "DMS-343",
+     "DMS-253",
+     "DMS-337",
+     "DMS-336",
+     "DMS-378",
+     "DMS-104",
+     "DMS-164",
+     "DMS-264",
+     "DMS-371",
+     "DMS-263",
+     "DMS-352",
+     "DMS-93",
+     "DMS-256",
+     "DMS-243",
+     "DMS-265",
+     "DMS-401",
+     "DMS-339",
+     "DMS-275",
+     "DMS-100",
+     "DMS-379",
+     "DMS-166"
+    ],
+    "data_keys": []
+   },
+   "B": {
+    "ok": true,
+    "facts": {
+     "top5": [
+      [
+       "Moiseev.A.N",
+       10
+      ],
+      [
+       "Kondratchikova.P.I",
+       8
+      ],
+      [
+       "Agataeva.A.Z",
+       8
+      ],
+      [
+       "Dolgovskoy.E.N",
+       7
+      ],
+      [
+       "Garanin.R.V",
+       7
+      ]
+     ]
+    },
+    "notes": []
+   },
+   "final": "GREEN_SOURCE_READY",
+   "first_failing_boundary": "",
+   "ts": "2026-09-26T19:25:57+00:00"
+  },
+  "40": {
+   "row_id": 40,
+   "requirement": "Work distribution by competence",
+   "live_skill": "team.distribution",
+   "source_class": "SOURCE_READY",
+   "A": {
+    "query": "распределение задач по статусам у исполнителей в DMS",
+    "attempts": 1,
+    "how": "ok",
+    "dt": 13.7,
+    "status": "COMPLETED",
+    "traj": [
+     "space.resolve",
+     "team.distribution"
+    ],
+    "warnings": [],
+    "answer": "## Распределение задач по статусам — DMS (спринт DMS-SPRNT-3)\n\n**Всего задач: 73** | Исполнителей/очередей: 13\n\n| Исполнитель | Задач | WIP | Blocked | Статусы |\n|---|---|---|---|---|\n| moiseev.a.n | 12 | 6 | 0 | In progress: 1, Open: 2, QA: 1, Ready for QA: 2, Resolved: 2, Зарегистрирован: 2, На исправлении: 1, Тестирование: 1 |\n| dolgovskoy.e.n | 11 | 4 | 0 | In progress: 4, Open: 3, Resolved: 4",
+    "evidence_keys": [
+     "DMS-434",
+     "DMS-357",
+     "DMS-432",
+     "DMS-433",
+     "DMS-431",
+     "DMS-398",
+     "DMS-430",
+     "DMS-333",
+     "DMS-335",
+     "DMS-427",
+     "DMS-426",
+     "DMS-349",
+     "DMS-269",
+     "DMS-64",
+     "DMS-424",
+     "DMS-272",
+     "DMS-425",
+     "DMS-386",
+     "DMS-387",
+     "DMS-423",
+     "DMS-273",
+     "DMS-406",
+     "DMS-399",
+     "DMS-421",
+     "DMS-373",
+     "DMS-376",
+     "DMS-416",
+     "DMS-417",
+     "DMS-418",
+     "DMS-415",
+     "DMS-414",
+     "DMS-412",
+     "DMS-330",
+     "DMS-351",
+     "DMS-411",
+     "DMS-334",
+     "DMS-408",
+     "DMS-390",
+     "DMS-380",
+     "DMS-388",
+     "DMS-405",
+     "DMS-403",
+     "DMS-374",
+     "DMS-402",
+     "DMS-355",
+     "DMS-389",
+     "DMS-86",
+     "DMS-267",
+     "DMS-261",
+     "DMS-348",
+     "DMS-266",
+     "DMS-344",
+     "DMS-343",
+     "DMS-253",
+     "DMS-337",
+     "DMS-336",
+     "DMS-378",
+     "DMS-104",
+     "DMS-164",
+     "DMS-264",
+     "DMS-371",
+     "DMS-263",
+     "DMS-352",
+     "DMS-93",
+     "DMS-256",
+     "DMS-243",
+     "DMS-265",
+     "DMS-401",
+     "DMS-339",
+     "DMS-275",
+     "DMS-100",
+     "DMS-379",
+     "DMS-166"
+    ],
+    "data_keys": []
+   },
+   "B": {
+    "ok": true,
+    "facts": {
+     "members": {
+      "Agataeva.A.Z": 8,
+      "Alekseev.K.S": 1,
+      "Bezrukov.P.S": 1,
+      "Dolgovskoy.E.N": 7,
+      "Garanin.R.V": 7,
+      "Kondratchikova.P.I": 8,
+      "Kuznetsov.M.Se": 2,
+      "Makoshina.V.V": 1,
+      "Moiseev.A.N": 10,
+      "Semavin.M.M": 4,
+      "Zhdanov.A.Ni": 1
+     }
+    },
+    "notes": []
+   },
+   "final": "GREEN_SOURCE_READY",
+   "first_failing_boundary": "",
+   "ts": "2026-09-26T19:32:24+00:00"
+  },
+  "41": {
+   "row_id": 41,
+   "requirement": "Release health/readiness",
+   "live_skill": "release.health",
+   "source_class": "SOURCE_CONDITIONAL",
+   "A": {
+    "query": "здоровье релиза 24Q1 в WMB",
+    "attempts": 1,
+    "how": "ok",
+    "dt": 11.9,
+    "status": "FAILED",
+    "traj": [
+     "space.resolve",
+     "release.search",
+     "release.health"
+    ],
+    "warnings": [
+     "v4_capability_unavailable"
+    ],
+    "answer": "Необходимая возможность не подтверждена источником данных и не выполняется.",
+    "evidence_keys": [],
+    "data_keys": []
+   },
+   "B": {
+    "ok": true,
+    "facts": {
+     "release": "24Q1",
+     "space": "WMB",
+     "membership_rows": 0
+    },
+    "notes": []
+   },
+   "final": "GREEN_SOURCE_CONDITIONAL",
+   "first_failing_boundary": "",
+   "ts": "2026-09-26T19:32:38+00:00"
+  },
+  "42": {
+   "row_id": 42,
+   "requirement": "Release scope",
+   "live_skill": "release.scope",
+   "source_class": "SOURCE_CONDITIONAL",
+   "A": {
+    "query": "scope релиза 24Q1 в WMB",
+    "attempts": 1,
+    "how": "ok",
+    "dt": 14.3,
+    "status": "FAILED",
+    "traj": [
+     "space.resolve",
+     "release.search",
+     "release.scope"
+    ],
+    "warnings": [
+     "v4_capability_unavailable"
+    ],
+    "answer": "Необходимая возможность не подтверждена источником данных и не выполняется.",
+    "evidence_keys": [],
+    "data_keys": []
+   },
+   "B": {
+    "ok": true,
+    "facts": {
+     "release": "24Q1",
+     "space": "WMB",
+     "membership_rows": 0
+    },
+    "notes": []
+   },
+   "final": "GREEN_SOURCE_CONDITIONAL",
+   "first_failing_boundary": "",
+   "ts": "2026-09-26T19:32:55+00:00"
+  },
+  "43": {
+   "row_id": 43,
+   "requirement": "Release progress",
+   "live_skill": "release.progress",
+   "source_class": "SOURCE_CONDITIONAL",
+   "A": {
+    "query": "прогресс релиза 1.6.0 в OLP",
+    "attempts": 1,
+    "how": "ok",
+    "dt": 11.4,
+    "status": "FAILED",
+    "traj": [
+     "space.resolve",
+     "release.search",
+     "release.progress"
+    ],
+    "warnings": [
+     "v4_capability_unavailable"
+    ],
+    "answer": "Необходимая возможность не подтверждена источником данных и не выполняется.",
+    "evidence_keys": [],
+    "data_keys": []
+   },
+   "B": {
+    "ok": true,
+    "facts": {
+     "release": "1.6.0",
+     "space": "OLP",
+     "membership_rows": 0
+    },
+    "notes": []
+   },
+   "final": "GREEN_SOURCE_CONDITIONAL",
+   "first_failing_boundary": "",
+   "ts": "2026-09-26T19:33:08+00:00"
+  },
+  "44": {
+   "row_id": 44,
+   "requirement": "Release blockers",
+   "live_skill": "release.blockers",
+   "source_class": "SOURCE_CONDITIONAL",
+   "A": {
+    "query": "блокеры релиза 24Q1 в WMB",
+    "attempts": 1,
+    "how": "ok",
+    "dt": 4.7,
+    "status": "FAILED",
+    "traj": [
+     "space.resolve",
+     "release.search",
+     "release.blockers"
+    ],
+    "warnings": [
+     "v4_capability_unavailable"
+    ],
+    "answer": "Необходимая возможность не подтверждена источником данных и не выполняется.",
+    "evidence_keys": [],
+    "data_keys": []
+   },
+   "B": {
+    "ok": true,
+    "facts": {
+     "release": "24Q1",
+     "space": "WMB",
+     "membership_rows": 0
+    },
+    "notes": []
+   },
+   "final": "GREEN_SOURCE_CONDITIONAL",
+   "first_failing_boundary": "",
+   "ts": "2026-09-26T19:33:16+00:00"
+  },
+  "45": {
+   "row_id": 45,
+   "requirement": "Release dependencies",
+   "live_skill": "release.dependencies",
+   "source_class": "SOURCE_CONDITIONAL",
+   "A": {
+    "query": "зависимости релиза 1.6.0 в OLP",
+    "attempts": 1,
+    "how": "ok",
+    "dt": 29.3,
+    "status": "FAILED",
+    "traj": [
+     "space.resolve",
+     "release.search",
+     "release.dependencies"
+    ],
+    "warnings": [
+     "v4_capability_unavailable"
+    ],
+    "answer": "Необходимая возможность не подтверждена источником данных и не выполняется.",
+    "evidence_keys": [],
+    "data_keys": []
+   },
+   "B": {
+    "ok": true,
+    "facts": {
+     "release": "1.6.0",
+     "space": "OLP",
+     "membership_rows": 0
+    },
+    "notes": []
+   },
+   "final": "GREEN_SOURCE_CONDITIONAL",
+   "first_failing_boundary": "",
+   "ts": "2026-09-26T19:33:47+00:00"
+  },
+  "46": {
+   "row_id": 46,
+   "requirement": "Release risk queue",
+   "live_skill": "release.risk_queue",
+   "source_class": "SOURCE_CONDITIONAL",
+   "A": {
+    "query": "очередь рисков релиза 24Q1 в WMB",
+    "attempts": 1,
+    "how": "ok",
+    "dt": 8.2,
+    "status": "FAILED",
+    "traj": [
+     "space.resolve",
+     "release.search",
+     "release.risk_queue"
+    ],
+    "warnings": [
+     "v4_capability_unavailable"
+    ],
+    "answer": "Необходимая возможность не подтверждена источником данных и не выполняется.",
+    "evidence_keys": [],
+    "data_keys": []
+   },
+   "B": {
+    "ok": true,
+    "facts": {
+     "release": "24Q1",
+     "space": "WMB",
+     "membership_rows": 0
+    },
+    "notes": []
+   },
+   "final": "GREEN_SOURCE_CONDITIONAL",
+   "first_failing_boundary": "",
+   "ts": "2026-09-26T19:33:58+00:00"
+  },
+  "47": {
+   "row_id": 47,
+   "requirement": "Portfolio overview / attention",
+   "live_skill": "portfolio.overview",
+   "source_class": "SOURCE_READY",
+   "A": {
+    "query": "сводка портфеля по текущим спринтам",
+    "attempts": 1,
+    "how": "ok",
+    "dt": 8.8,
+    "status": "COMPLETED",
+    "traj": [
+     "portfolio.overview"
+    ],
+    "warnings": [],
+    "answer": "## Сводка портфеля по текущим спринтам\n\n**Общее:** 3 из 5 пространств имеют подтверждённый текущий спринт. Всего задач в спринтах — **148**, заблокировано — **8**.\n\n| Пространство | Спринт | Всего | Готово | Открыто | WIP | Заблокировано | Прогресс |\n|---|---|---|---|---|---|---|---|\n| **DMS** | DMS-SPRNT-3 | 73 | 18 | 55 | 31 | 2 | 24,7 % |\n| **OLP** | OLP-SPRNT-8 | 74 | 2 | 72 | 52 | 6 | 2,7 % |",
+    "evidence_keys": [],
+    "data_keys": []
+   },
+   "B": {
+    "ok": true,
+    "facts": {
+     "per_space": {
+      "DMS": {
+       "sprint": "DMS-SPRNT-3",
+       "total": 73,
+       "completed": 18,
+       "blocked": 2
+      },
+      "OLP": {
+       "sprint": "OLP-SPRNT-8",
+       "total": 74,
+       "completed": 2,
+       "blocked": 6
+      },
+      "WMB": {
+       "sprint": "WMB-SPRNT-2",
+       "total": 1,
+       "completed": 1,
+       "blocked": 0
+      },
+      "CRPV": {
+       "state": "NO_CURRENT_SPRINT"
+      },
+      "STS": {
+       "state": "NO_CURRENT_SPRINT"
+      }
+     }
+    },
+    "notes": []
+   },
+   "final": "GREEN_SOURCE_READY",
+   "first_failing_boundary": "",
+   "ts": "2026-09-26T19:34:12+00:00"
+  },
+  "48": {
+   "row_id": 48,
+   "requirement": "PO attention queue",
+   "live_skill": "po.attention_queue",
+   "source_class": "SOURCE_READY",
+   "A": {
+    "query": "очередь внимания PO по спринту DMS",
+    "attempts": 1,
+    "how": "ok",
+    "dt": 14.6,
+    "status": "COMPLETED",
+    "traj": [
+     "po.attention_queue"
+    ],
+    "warnings": [],
+    "answer": "В очереди внимания PO: 108 элементов по текущим спринтам продуктов.",
+    "evidence_keys": [
+     "DMS-357",
+     "DMS-333",
+     "DMS-349",
+     "DMS-269",
+     "DMS-64",
+     "DMS-272",
+     "DMS-399",
+     "DMS-421",
+     "DMS-416",
+     "DMS-417",
+     "DMS-418",
+     "DMS-415",
+     "DMS-414",
+     "DMS-412",
+     "DMS-330",
+     "DMS-411",
+     "DMS-405",
+     "DMS-402",
+     "DMS-355",
+     "DMS-389",
+     "DMS-86",
+     "DMS-267",
+     "DMS-261",
+     "DMS-348",
+     "DMS-266",
+     "DMS-344",
+     "DMS-343",
+     "DMS-253",
+     "DMS-337",
+     "DMS-336",
+     "DMS-378",
+     "DMS-104",
+     "DMS-164",
+     "DMS-264",
+     "DMS-371",
+     "DMS-263",
+     "DMS-352",
+     "DMS-93",
+     "DMS-256",
+     "DMS-243",
+     "DMS-265",
+     "DMS-401",
+     "DMS-339",
+     "DMS-275",
+     "DMS-100",
+     "DMS-379",
+     "DMS-166",
+     "OLP-3294",
+     "OLP-3298",
+     "OLP-3275",
+     "OLP-2980",
+     "OLP-3306",
+     "OLP-3122",
+     "OLP-3233",
+     "OLP-3291",
+     "OLP-3244",
+     "OLP-3333",
+     "OLP-3079",
+     "OLP-3080",
+     "OLP-3304",
+     "OLP-2915",
+     "OLP-3250",
+     "OLP-3281",
+     "OLP-3310",
+     "OLP-3211",
+     "OLP-3078",
+     "OLP-3228",
+     "OLP-3286",
+     "OLP-2986",
+     "OLP-3301",
+     "OLP-3309",
+     "OLP-3059",
+     "OLP-3280",
+     "OLP-3186",
+     "OLP-3314",
+     "OLP-2897",
+     "OLP-2921",
+     "OLP-3307",
+     "OLP-3240",
+     "OLP-3297",
+     "OLP-3318",
+     "OLP-3236",
+     "OLP-3195",
+     "OLP-3009",
+     "OLP-3118",
+     "OLP-3205",
+     "OLP-2955",
+     "OLP-3313",
+     "OLP-3315",
+     "OLP-3311",
+     "OLP-2906",
+     "OLP-3180",
+     "OLP-3295",
+     "OLP-3303",
+     "OLP-3204",
+     "OLP-3241",
+     "OLP-2993",
+     "OLP-3155",
+     "OLP-3225",
+     "OLP-2974",
+     "OLP-3238",
+     "OLP-3133",
+     "OLP-3145",
+     "OLP-3312",
+     "OLP-3129",
+     "OLP-3293",
+     "OLP-3242",
+     "OLP-3200"
+    ],
+    "data_keys": [
+     "DMS-100",
+     "DMS-104",
+     "DMS-164",
+     "DMS-166",
+     "DMS-243",
+     "DMS-253",
+     "DMS-256",
+     "DMS-261",
+     "DMS-263",
+     "DMS-264",
+     "DMS-265",
+     "DMS-266",
+     "DMS-267",
+     "DMS-269",
+     "DMS-272",
+     "DMS-275",
+     "DMS-330",
+     "DMS-333",
+     "DMS-336",
+     "DMS-337",
+     "DMS-339",
+     "DMS-343",
+     "DMS-344",
+     "DMS-348",
+     "DMS-349",
+     "DMS-352",
+     "DMS-355",
+     "DMS-357",
+     "DMS-371",
+     "DMS-378",
+     "DMS-379",
+     "DMS-389",
+     "DMS-399",
+     "DMS-401",
+     "DMS-402",
+     "DMS-405",
+     "DMS-411",
+     "DMS-412",
+     "DMS-414",
+     "DMS-415",
+     "DMS-416",
+     "DMS-417",
+     "DMS-418",
+     "DMS-421",
+     "DMS-64",
+     "DMS-86",
+     "DMS-93",
+     "OLP-2897",
+     "OLP-2906",
+     "OLP-2915",
+     "OLP-2921",
+     "OLP-2955",
+     "OLP-2974",
+     "OLP-2980",
+     "OLP-2986",
+     "OLP-2993",
+     "OLP-3009",
+     "OLP-3059",
+     "OLP-3078",
+     "OLP-3079",
+     "OLP-3080",
+     "OLP-3118",
+     "OLP-3122",
+     "OLP-3129",
+     "OLP-3133",
+     "OLP-3145",
+     "OLP-3155",
+     "OLP-3180",
+     "OLP-3186",
+     "OLP-3195",
+     "OLP-3200",
+     "OLP-3204",
+     "OLP-3205",
+     "OLP-3211",
+     "OLP-3225",
+     "OLP-3228",
+     "OLP-3233",
+     "OLP-3236",
+     "OLP-3238",
+     "OLP-3240",
+     "OLP-3241",
+     "OLP-3242",
+     "OLP-3244",
+     "OLP-3250",
+     "OLP-3275",
+     "OLP-3280",
+     "OLP-3281",
+     "OLP-3286",
+     "OLP-3291",
+     "OLP-3293",
+     "OLP-3294",
+     "OLP-3295",
+     "OLP-3297",
+     "OLP-3298",
+     "OLP-3301",
+     "OLP-3303",
+     "OLP-3304",
+     "OLP-3306",
+     "OLP-3307",
+     "OLP-3309",
+     "OLP-3310",
+     "OLP-3311",
+     "OLP-3312",
+     "OLP-3313",
+     "OLP-3314",
+     "OLP-3315",
+     "OLP-3318",
+     "OLP-3333"
+    ]
+   },
+   "B": {
+    "ok": true,
+    "facts": {
+     "sprint": "DMS-SPRNT-3",
+     "open": 55,
+     "blocked": 2,
+     "unassigned": 5,
+     "aged14d": 38,
+     "expected_attention": 39
+    },
+    "notes": []
+   },
+   "final": "GREEN_SOURCE_READY",
+   "first_failing_boundary": "",
+   "ts": "2026-09-26T19:34:30+00:00"
+  },
+  "49": {
+   "row_id": 49,
+   "requirement": "Task search by product/space",
+   "live_skill": "tasks.search",
+   "source_class": "SOURCE_READY",
+   "A": {
+    "query": "найди все задачи по продукту DMS",
+    "attempts": 1,
+    "how": "ok",
+    "dt": 6.0,
     "status": "NEEDS_CLARIFICATION",
     "traj": [
-     "release.resolve"
+     "space.resolve",
+     "task.search"
     ],
     "warnings": [
      "v4_capability_clarification"
@@ -933,58 +3409,60 @@
    "B": {
     "ok": false,
     "facts": {
-     "release_uuid": "7a84006f-7823-4052-ae46-b94f5165518e",
-     "membership_rows": 0
+     "dms_total": 432
     },
     "notes": [
-     "membership=0 typed=False zero_proof=False traj=['release.resolve']"
+     "total 432 not in data (agent must report true total, not sample size)"
     ]
    },
    "final": "RED",
-   "first_failing_boundary": "A:skill-task.search_release-resolution-path — release.resolve (task-based validation) dead-ends with zero-option clarification instead of typed SOURCE_CONDITIONAL under unpopulated release linkage",
-   "ts": "2026-09-26T18:28:52+00:00",
+   "first_failing_boundary": "A/contract: task.search guard (agent_core_v4.py:925-926) accepts only assignee | sprint_id | (space AND unassigned); space-only product-wide search is structurally unreachable via tasks.search composition -> zero-option clarification. No dedicated task-catalog skill covers space-only collection. Adjacent space+status path works (control 92 tasks).",
+   "ts": "2026-09-26T19:39:55+00:00",
    "determinism_probes": [
     {
-     "query": "задачи в релизе 24Q1 в WMB",
+     "query": "все задачи в DMS",
      "status": "NEEDS_CLARIFICATION",
-     "traj": [
-      "release.resolve"
-     ],
      "options": [],
      "warning": "v4_capability_clarification",
-     "question": "Не удалось подтвердить релиз «24Q1» по данным REAL AS21."
-    },
-    {
-     "query": "покажи задачи в релизе 1.6.0 в OLP",
-     "status": "NEEDS_CLARIFICATION",
+     "question": "Для task.search нужен исполнитель, спринт или явно ограниченный запрос без исполнителя; уточните фильтр.",
      "traj": [
-      "release.resolve"
-     ],
-     "options": [],
-     "warning": "v4_capability_clarification",
-     "question": "Не удалось подтвердить релиз «1.6.0» по данным REAL AS21."
-    },
-    {
-     "query": "какие задачи входят в релиз 24Q1 WMB",
-     "status": "FAILED",
-     "traj": [
+      "tasks.search",
       "space.resolve",
-      "release.search",
-      "release.scope"
-     ],
-     "options": [],
-     "warning": "v4_capability_unavailable",
-     "note": "alternative routing (release.scope) reaches the correct typed SC — proves the terminal is reachable, the task.search_release path is the defect"
+      "task.search"
+     ]
     },
     {
-     "note": "plus the original row-10 sweep run (4th occurrence): same zero-option release.resolve dead-end"
+     "query": "все задачи в DMS (repeat)",
+     "status": "NEEDS_CLARIFICATION",
+     "options": [],
+     "note": "identical second occurrence"
+    },
+    {
+     "query": "открытые задачи в DMS (control: space+status)",
+     "status": "COMPLETED",
+     "count": 92,
+     "traj": [
+      "task.search_status"
+     ],
+     "note": "adjacent path works via task.search_status"
+    },
+    {
+     "query": "покажи задачи по продукту DMS (first attempt)",
+     "status": "COMPLETED-wrong-scope",
+     "note": "planner re-scoped to current sprint (sprint.current -> task.search, 73 tasks) — silent narrowing; requirement (product-wide) unmet"
+    },
+    {
+     "query": "найди все задачи по продукту DMS (manifest rep)",
+     "status": "NEEDS_CLARIFICATION",
+     "note": "guard rejection, zero options"
     }
    ],
    "root_cause": {
-    "release_resolve_spec": "core.py:84 — \"Validate a release/version id against REAL AS21 tasks\" (task-based, checks fix_version linkage in task attributes)",
-    "release_search_spec": "directory-based (search_versions) — works: WMB 24Q1 -> 7a84006f-7823-4052-ae46-b94f5165518e (A220 certified)",
-    "source_state": "fix_version linkage uniformly unpopulated (A211/A212/A220: 0 membership rows) -> task-based validation can never confirm a directory-verified release",
-    "user_visible_gap": "zero-option clarification with misattributed phrasing (blames the release, not the missing task linkage); no continuation possible; not the spec-required typed SOURCE_CONDITIONAL for release-derived rows"
+    "guard_code": "agent_core_v4.py:925-926: if not any((assignee, sprint_id, space and unassigned)): raise V4NeedsClarification(...)",
+    "skill_path": "tasks.search (composition, base agent_core_v4.py:506 + plugin core.py:99) procedure routes to task.search; no dedicated single-filter skill for space-only collection exists in task_catalog",
+    "capability_note": "the else-branch (search_tasks('project = \"<space>\"', max_results=10000) + space re-filter) exists in _task_search but is unreachable for space-only because the guard precedes it",
+    "safety": "fail-closed, 0 fabrication, 0 tenant-wide scan; but zero-option clarification with misattributed phrasing ('уточните фильтр' though the user gave a bounded product filter)",
+    "class": "same structural class as A221 row-10 defect: skill guard/procedure dead-end for a legitimate bounded user intent"
    }
   }
  },
@@ -993,8 +3471,102 @@
    "rows_done": 9,
    "ts": "2026-09-26T18:23:26+00:00",
    "head": "62ea3ac1d4adc729f9b02618b4383618e4f40412"
+  },
+  {
+   "rows_done": 18,
+   "ts": "2026-09-26T19:09:00+00:00",
+   "head": "62ea3ac1d4adc729f9b02618b4383618e4f40412"
+  },
+  {
+   "rows_done": 27,
+   "ts": "2026-09-26T19:18:23+00:00",
+   "head": "62ea3ac1d4adc729f9b02618b4383618e4f40412"
+  },
+  {
+   "rows_done": 36,
+   "ts": "2026-09-26T19:25:29+00:00",
+   "head": "62ea3ac1d4adc729f9b02618b4383618e4f40412"
+  },
+  {
+   "rows_done": 45,
+   "ts": "2026-09-26T19:33:47+00:00",
+   "head": "62ea3ac1d4adc729f9b02618b4383618e4f40412"
   }
  ],
- "red_row": 10,
- "stopped_at": "2026-09-26T18:28:52+00:00"
+ "red_row": 49,
+ "stopped_at": "2026-09-26T19:39:55+00:00",
+ "a221r_regate": {
+  "regate_start_head": "f132bc15a6dad246fb9836c3c187200b66f52b47",
+  "owner_fix_commits": [
+   "3347e33 fix(v4): resolve release task search through directory-backed identity",
+   "c18a03d test(v4): lock directory-backed release task search semantics",
+   "61fc6cf docs(v4): record A221 row-10 release-search defect and resumable re-gate",
+   "f132bc1 docs(qa): resume A221 from row 10 after release task-search fix"
+  ],
+  "fix_scope": "plugin-only: v4_plugins/task_catalog.py (+76/-6) + tests/test_agent_core_v4_task_search_release_regression.py (3/3)",
+  "row10_regate": "GREEN_SOURCE_CONDITIONAL — trajectory space.resolve->release.search(require_single)->task.search_release(canonical UUID 7a84006f-7823-4052-ae46-b94f5165518e, space WMB) -> typed v4_capability_unavailable; Oracle B membership=0 proven",
+  "rows_recertified": [
+   11,
+   12,
+   13,
+   14,
+   15,
+   16,
+   17,
+   18,
+   19,
+   20,
+   21,
+   22,
+   23,
+   24,
+   25,
+   26,
+   27,
+   28,
+   29,
+   30,
+   31,
+   32,
+   33,
+   34,
+   35,
+   36,
+   37,
+   38,
+   39,
+   40,
+   41,
+   42,
+   43,
+   44,
+   45,
+   46,
+   47,
+   48,
+   49
+  ],
+  "rows_not_run": [
+   50,
+   51,
+   52,
+   53,
+   54
+  ],
+  "phases_not_run": [
+   8,
+   9,
+   10,
+   11,
+   12,
+   13
+  ],
+  "unit_tests": "test_agent_core_v4_task_search_release_regression.py 3/3; V4 suites 213 passed + 1 stale (test_agent_core_v4_task_catalog.py::test_task_wave_progressive_catalog_exposes_procedure_and_typed_capabilities asserts pre-fix capability tuple [release.resolve, task.search_release]; owner's new test is the current contract)",
+  "agent_pid": 8547,
+  "audit_window_taskapi": [
+   10463,
+   10686
+  ],
+  "stopped": "2026-09-26T19:5x UTC at confirmed RED row 49"
+ }
 }

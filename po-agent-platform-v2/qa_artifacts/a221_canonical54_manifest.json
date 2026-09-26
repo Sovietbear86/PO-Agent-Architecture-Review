@@ -403,14 +403,17 @@
    "plugin_id": "builtin.wave_s1.sprint_flow_release_search",
    "group": "G3",
    "source_class": "SOURCE_READY",
-   "nl_query": "состав задач в спринте DMS-SPRNT-3",
+   "nl_query": "анализ охвата спринта DMS-SPRNT-3",
    "context_dimensions": [
     "sprint_id"
    ],
    "A": null,
    "B": null,
    "C": null,
-   "final": null
+   "final": null,
+   "notes": [
+    "A221R: rep changed from 'состав задач в спринте DMS-SPRNT-3' (routes to task.search_sprint, row-9 semantics) to scope-analysis intent (A207/A208B scope forms)"
+   ]
   },
   {
    "row_id": 24,
@@ -677,14 +680,17 @@
    "plugin_id": "builtin.batch3.team_release",
    "group": "G4",
    "source_class": "SOURCE_READY",
-   "nl_query": "распределение работ по компетенциям в DMS",
+   "nl_query": "распределение задач по статусам у исполнителей в DMS",
    "context_dimensions": [
     "space"
    ],
    "A": null,
    "B": null,
    "C": null,
-   "final": null
+   "final": null,
+   "notes": [
+    "A221R: rep changed from 'распределение работ по компетенциям в DMS' (routed to team.competency_match) to task/status-distribution-by-assignee intent per spec 'Describe current-sprint task/status distribution by assignee'"
+   ]
   },
   {
    "row_id": 41,
@@ -827,14 +833,17 @@
    "plugin_id": "builtin.core.a188",
    "group": "G6",
    "source_class": "SOURCE_READY",
-   "nl_query": "покажи задачи по продукту DMS",
+   "nl_query": "найди все задачи по продукту DMS",
    "context_dimensions": [
     "space"
    ],
    "A": null,
    "B": null,
    "C": null,
-   "final": null
+   "final": null,
+   "notes": [
+    "A221R: rep changed from 'покажи задачи по продукту DMS' (planner chose current-sprint scope) to explicit product-wide search intent"
+   ]
   },
   {
    "row_id": 50,
