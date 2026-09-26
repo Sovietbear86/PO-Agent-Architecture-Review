@@ -259,16 +259,36 @@ def build_task_search_attachments(runtime: Any):
         requested = str(args.get("attachment_type") or "").strip().casefold() or None
         kind = AttachmentType(requested) if requested else None
         task_key = str(args.get("task_key") or "").strip().upper() or None
-        space = str(args.get("space") or "").strip() or None
+        space = str(args.get("space") or "").strip().upper() or None
+        sprint_id = str(args.get("sprint_id") or "").strip().upper() or None
         assignee = str(args.get("assignee") or args.get("reference") or "").strip() or None
         source_assignee = None
+
+        if assignee:
+            assignee, source_assignee = await _source_assignee_from_args(runtime, args, space=space)
+
         if task_key:
             task = await runtime.adapter.get_task(task_key)
             candidates = [task] if task is not None else []
+        elif sprint_id:
+            candidates = list(await runtime.adapter.get_sprint_tasks(sprint_id, space))
+            if source_assignee:
+                wanted = source_assignee.casefold()
+                candidates = [
+                    task for task in candidates
+                    if wanted in {
+                        str(value).strip().casefold()
+                        for value in (
+                            getattr(task, "assignee", None),
+                            getattr(task, "assignee_login", None),
+                            getattr(task, "assignee_id", None),
+                        )
+                        if value and str(value).strip()
+                    }
+                ]
         else:
-            # Reuse the same governed identity seam as every other person-scoped
-            # task capability.
-            assignee, source_assignee = await _source_assignee_from_args(runtime, args, space=space)
+            if not assignee:
+                assignee, source_assignee = await _source_assignee_from_args(runtime, args, space=space)
             candidates = await _live_rows(runtime, space=space, assignee=source_assignee)
 
         # A196 D2: 2k+ WMB tasks caused a 300s N+1 timeout. Until the source
@@ -309,7 +329,7 @@ def build_task_search_attachments(runtime: Any):
         label = kind.value.upper() if kind else "вложениями"
         return CapabilityResult(
             answer=f"Найдено задач с {label}: {len(matches)}.",
-            data={"attachment_type": kind.value if kind else None, "count": len(matches), "results": matches, "task_key": task_key, "space": space, "assignee": assignee, "source_assignee": source_assignee, "source": "REAL_AS21"},
+            data={"attachment_type": kind.value if kind else None, "count": len(matches), "results": matches, "task_key": task_key, "space": space, "sprint_id": sprint_id, "assignee": assignee, "source_assignee": source_assignee, "source": "REAL_AS21"},
             evidence=evidence,
         )
     return execute
