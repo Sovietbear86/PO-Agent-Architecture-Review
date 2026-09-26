@@ -1,222 +1,150 @@
 # GigaCode — Current Action
 
 ## Status
-ACTIVE_QA_ASSIGNMENT_219_BATCH5_PO_WORKFLOW_GATE
+ACTIVE_QA_ASSIGNMENT_219R_BATCH5_PO_REGATE
 
 ## Role lock
 GigaCode is QA/adversarial tester + service operator only.
 
 Do NOT modify production/frontend/plugin/test/config/architecture code.
 Do NOT implement fixes.
-Do NOT start release.forecast / Batch 6.
+Do NOT start Batch 6 / release.forecast.
 Commit/push only the QA report.
 
 ## Frozen baseline
 A218 = GREEN.
-Rollback checkpoint:
-`checkpoint/v4-self-introspection-green-a218`
+A219 = RED only on D-A219-1.
+Everything else from A219 is retained GREEN unless the owner fix regresses it.
 
-A218 inventory truth:
-- live registry before Batch 5 = 62 skills / 11 plugins;
-- canonical product denominator = 54 requirements;
-- covered before Batch 5 = 48/54;
-- missing = 6.
+Owner fix commits:
+- `51b2fd3438dce69ce4c3beeb3c5cce6764353feb`
+- `7be95ad22343ddf48ae4da7997e911863c4c9849`
 
-Do NOT require live registry count == 54.
-The acceptance goal is canonical 54 coverage, not artificial registry-count equality.
+The fix is plugin-only + focused test only.
+No Agent Core/planner/runtime/session-context changes.
 
-## Owner Batch 5
-Commits:
-- `b11a61f8137487b4521b6ca3633c0c367b4927d8`
-- `b241b9434e8d3ed6830cab2a3cf51d183d37fa22`
-- `b88f3222ce2d316c7920ee56a3df4a40b4a7fdc3`
+## Defect to close
+A219 D-A219-1:
+`po.local_task_draft` + invalid source task key caused the planner to detour to `task.lookup`, which was not loaded, then exhaust the step budget and return `v4_runtime_failure`.
 
-Five plugin-only canonical skills:
-1. po.attention_queue
-2. po.daily_brief
-3. po.status_report
-4. po.reminder_draft
-5. po.local_task_draft
+The intended architecture is:
+user task key -> directly call po.local_task_draft -> capability owns one bounded get_task point read -> found => draft; not found => typed draft_created=false terminal.
 
-No Agent Core/planner/runtime/session-context edits.
+No separate task.lookup is required or allowed for this skill.
 
-## Architectural change vs legacy POAssistantCapabilities
-Legacy PO portfolio methods used `search_tasks("")` tenant-wide.
-V4 MUST NOT preserve that unsafe retrieval shape.
+## Phase 0 — fix-scope audit
+1. Pull branch and record START_HEAD.
+2. Diff from A219 report commit `6d408073e494305ec1e6ee73f6afa34e77856e39`.
+3. Prove only:
+   - wave_batch5_po.py
+   - focused Batch 5 test
+   - docs/QA assignment
+   changed.
+4. Zero Agent Core/planner/runtime/session-context edits.
+5. Registry count remains 67 skills / 12 plugins before any Batch 6 work.
 
-Batch 5 intentionally uses:
-approved product spaces -> bounded current-sprint lookup -> bounded sprint membership.
-
-Draft skills remain read-only:
-- reminder draft requires an explicit task key;
-- local task draft may be user-input-only or grounded by one point-read task;
-- zero external writes.
-
-## Phase 0 — architecture invariant
-1. Pull branch, record START_HEAD, clean worktree.
-2. Diff from checkpoint/v4-self-introspection-green-a218.
-3. Prove only plugin/tests/docs changed.
-4. Zero Agent Core/planner/runtime/session-context changes.
-5. Registry discovers exactly one new Batch 5 plugin and all five skills exactly once.
-6. dummy-55 invariant GREEN.
-
-## Phase 1 — tests
+## Phase 1 — focused tests
 Run:
 - tests/test_agent_core_v4_batch5_po.py
-- tests/test_agent_core_v4_agent_help.py
 - tests/test_agent_core_v4_plugin_registry.py
 - tests/test_agent_core_v4_planner_signature_parity.py
-- full tests/test_agent_core_v4*.py + tests/test_v4*.py
+
+Then full:
+- tests/test_agent_core_v4*.py
+- tests/test_v4*.py
 
 Zero unexplained failures.
 
-## Phase 2 — independent REAL AS21 bounded oracle
-For each approved space CRPV/DMS/OLP/STS/WMB:
-1. independently obtain current sprint via the source-backed route;
-2. if present, independently obtain complete bounded sprint membership;
-3. classify completed/open/blocked/unassigned and task age/priority using certified predicates.
+## Phase 2 — direct invalid-key regression (blocking)
+Use fresh sessions.
 
-No tenant-wide task query may be used as Oracle or production source.
+Run at least 8 times total across >=4 natural-language forms equivalent to:
+1. "создай локальный черновик задачи на основе DMS-999999"
+2. "подготовь local task draft по DMS-999999"
+3. "сделай черновик follow-up задачи из DMS-999999"
+4. "локальная задача на базе DMS-999999"
 
-Record per-space:
-- current sprint id/state;
-- exact task-key set;
-- counts;
-- blocked keys;
-- unassigned keys;
-- score inputs for attention queue.
+Required EVERY run:
+- loaded goal is po.local_task_draft;
+- NO task.lookup call;
+- po.local_task_draft called directly with task_key=DMS-999999;
+- exactly one bounded point read GET /swtr-read/tasks/DMS-999999;
+- source 404 maps safely to task=None;
+- terminal is typed, not generic failure;
+- draft_created=false;
+- write_performed=false;
+- zero mutation;
+- no v4_runtime_failure;
+- no step-budget exhaustion.
 
-## Phase 3 — po.attention_queue
-Run >=5 natural forms:
-- "очередь внимания PO"
-- "что требует моего внимания как PO"
-- "покажи рисковые задачи по текущим спринтам"
-- two equivalent variants.
+Any single recurrence of the old task.lookup detour => RED.
 
-Require exact parity to independent bounded Oracle:
-score:
-- blocked +50
-- critical/urgent active +35
-- age >=14 active +20
-- else age >=7 active +10
-- unassigned active +10
-- completed excluded.
-
-Require deterministic descending score then task key.
-This is TASK operational priority, never employee scoring.
-
-## Phase 4 — po.daily_brief
-Run >=5 natural forms:
-- "дай ежедневную сводку PO"
-- "что у нас сегодня по продуктам"
-- "daily PO brief"
-- two variants.
-
-Require exact bounded current-sprint parity:
-- active
-- blocked
-- unassigned
-- completed
-- attention_count
-- top_attention top 5
-
-Spaces with no current sprint must remain explicit source states, not fabricated zero task sets.
-
-## Phase 5 — po.status_report
-Run >=5 natural forms.
+## Phase 3 — valid-key retained regression
+Fresh sessions, >=4 runs:
+- DMS-380
+- DMS-434
+- one valid source+custom subject case
 
 Require:
-- exact total/completed/active/blocked over source-backed current-sprint sets;
-- exact by_product rows;
-- NO_CURRENT_SPRINT / CURRENT_SPRINT_WITHOUT_MEMBERSHIP preserved with null metrics;
-- no historical/full-tenant claim.
+- direct po.local_task_draft trajectory;
+- one bounded point read per source-key draft;
+- draft_created=true;
+- source=REAL_AS21;
+- write_performed=false;
+- requires_approval_for_external_write=true.
 
-## Phase 6 — po.reminder_draft
-Cases:
-1. explicit real task key DMS-380;
-2. another real task with assignee;
-3. missing task key;
-4. non-existent task key.
+## Phase 4 — user-only draft retained
+Run >=3 natural forms with subject only and no source task.
 
 Require:
-- explicit key -> one source point read only;
-- source-backed task facts in draft;
-- draft_created true only for found task;
-- write_performed=false always;
-- requires_approval_for_send=true;
-- missing key -> typed clarification;
-- no auto-selection from portfolio/tenant tasks;
-- zero mutation calls.
+- po.local_task_draft direct;
+- zero AS21 calls;
+- source=USER_INPUT_ONLY;
+- draft_created=true;
+- write_performed=false.
 
-## Phase 7 — po.local_task_draft
-Cases:
-1. source task key DMS-380;
-2. user subject only;
-3. source task + custom subject;
-4. no subject and no source task;
-5. invalid source task.
+## Phase 5 — clarification retained
+Run no-subject/no-task-key shape.
 
 Require:
-- point read only when key supplied;
-- user-only draft causes zero AS21 calls;
-- no external write;
-- requires approval metadata;
-- no invented AS21 facts.
+- typed NEEDS_CLARIFICATION;
+- zero source calls;
+- no generic error.
 
-## Phase 8 — Browser C
-Real UI for all five:
-- attention queue
-- daily brief
-- status report
-- reminder draft
-- local task draft
+## Phase 6 — compact retained Batch 5 smoke
+Re-run at least one representative browser/API case each:
+- po.attention_queue
+- po.daily_brief
+- po.status_report
+- po.reminder_draft
 
-Require no generic V4 ERROR.
-Draft UI must clearly state no write/send occurred.
+Require A219 oracle parity retained and no tenant-wide scans.
 
-## Phase 9 — retained regression
-At minimum:
-- agent.help full catalog
-- ping
-- DMS-380 lookup
-- current sprint DMS
-- Semavin time accounting
-- portfolio.overview
-- standalone release identity
-- release progress/health typed SOURCE_CONDITIONAL
-- dummy-55
-
-## Phase 10 — source/write audit
+## Phase 7 — source/write audit
 Require:
-- local factual task reads = 0;
 - tenant-wide/unscoped task scans = 0;
+- local factual reads = 0;
 - mutations = 0;
-- PO aggregation source calls are bounded current-sprint/sprint-membership only;
-- draft source calls are bounded point reads only.
+- draft calls = bounded point reads only;
+- user-only drafts = zero source calls.
 
-## Phase 11 — inventory reconciliation
-Fresh registry enumeration after Batch 5:
-Expected live count = 67 if no unrelated drift.
-Expected canonical coverage = 53/54.
-Expected remaining canonical missing skill = exactly:
-- release.forecast
-
-Do NOT mark RED solely because live count is 67 rather than 54.
+## Phase 8 — inventory
+Require unchanged:
+- live registry = 67 skills / 12 plugins;
+- canonical coverage = 53/54;
+- missing canonical list = exactly [release.forecast].
 
 ## Verdict
 Use exactly one:
-- `AGENT_CORE_V4_BATCH5_PO_GREEN_A219`
-- `AGENT_CORE_V4_BATCH5_PO_RED_A219`
-
-Also report:
-- exact live skill/plugin count;
-- canonical coverage x/54;
-- exact canonical missing list.
+- `AGENT_CORE_V4_BATCH5_PO_GREEN_A219R`
+- `AGENT_CORE_V4_BATCH5_PO_RED_A219R`
 
 If GREEN:
-recommend immutable Batch 5 checkpoint and next owner step = isolated Batch 6 release.forecast source-contract implementation.
+- recommend immutable Batch 5 checkpoint;
+- next owner action = isolated Batch 6 release.forecast source-contract work.
 
 If RED:
-identify first failing boundary and STOP.
+- identify first failing boundary;
+- STOP.
 
 Do not modify code.
