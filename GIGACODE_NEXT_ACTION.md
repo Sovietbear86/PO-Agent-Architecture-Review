@@ -1,144 +1,161 @@
 # GigaCode — Current Action
 
 ## Status
-ACTIVE_QA_ASSIGNMENT_221R_RESUME_FULL_V4_54_ABC_FROM_ROW10
+ACTIVE_QA_ASSIGNMENT_221R2_RESUME_FROM_ROW49
 
 ## Role lock
 GigaCode is QA/adversarial tester + service operator only.
 
 Do NOT modify production/frontend/plugin/test/config/architecture code.
 Do NOT implement fixes.
-Do NOT restart rows 1-9 unless the owner fix demonstrably affects them.
+Do NOT rerun certified rows 1-48 unless the owner fix demonstrably affects them.
 Do NOT start Learning Reviewer work.
 Commit/push only QA reports and resumable artifacts.
 
-## Prior A221 state
-A221 verdict:
-`AGENT_CORE_V4_FULL_54_ABC_RED_A221`
+## Prior state
+A221R stopped at the next confirmed RED.
 
-Certified before STOP:
-- rows 1-9 GREEN and frozen/resumable;
-- row 10 RED;
-- rows 11-54 NOT_RUN.
+Retained certified progress:
+- row 10 re-gate = GREEN_SOURCE_CONDITIONAL;
+- rows 1-48 = GREEN/resumable;
+- row 49 = RED;
+- rows 50-54 + Phases 8-13 = NOT_RUN.
 
-First failing boundary:
-row 10 `task.search_release`.
+A221/A221R progress artifacts remain authoritative.
 
-A221 artifacts are authoritative and must be resumed:
-- qa_artifacts/a221_canonical54_manifest.json
-- qa_artifacts/a221_matrix_progress.json
-- qa_artifacts/a221_source_audit.json
-- qa_artifacts/a221_latency.json
-- qa_reports/AGENT_CORE_V4_FULL_54_ABC_221.md
+## Row 49 defect
+Canonical requirement:
+- Task search by product/space
+- live skill: tasks.search
+- query class: "покажи задачи по продукту DMS"
+
+A221R root cause:
+`AgentCoreV4Runtime._task_search` already contained a bounded space-only source branch:
+`search_tasks(project = "<SPACE>")`
+but the safety guard made it unreachable unless `unassigned=true`.
+
+Old guard:
+- assignee OR sprint_id OR (space AND unassigned)
+
+This caused a valid product-only collection request to be re-scoped by the planner to current sprint or clarification instead of executing the requested full product-space collection.
 
 ## Owner fix
 Commits:
-- `3347e33df7264a928ea855d18bb892e321f540fb`
-- `c18a03d5bd7d494e35adedd5921faf5d4126bd5a`
+- `fd922f42679cfc97ceef8e08ae0cff0b9a9a5dcb`
+- `81e209be61b12cf7421306382513c56b8f8d7a47`
+- `975bf5191562892a799478ae25469a46f3a82bb5`
 
-Scope:
-- plugin-only `task_catalog.py`;
-- focused regression test;
-- no Agent Core/planner/runtime/session-context change.
+Important architecture note:
+this is a one-line safety-guard correction in Agent Core, not a new entity router or phrase-specific branch.
+The already-existing bounded `project = space` execution path is now reachable.
+Truly unscoped `task.search({})` remains fail-closed.
+No tenant-wide search is introduced.
 
-### Defect closed by design
-Old row-10 trajectory:
-`task.search_release -> release.resolve`
+The third commit only aligns the stale row-10 catalog unit expectation with the already-certified directory-backed release-search contract.
 
-Problem:
-`release.resolve` is task/fix_version-link based. Current AS21 release linkage is unpopulated, so a directory-valid release could never validate and produced a zero-option clarification.
+## Phase 0 — owner-diff audit
+1. Pull branch, record START_HEAD and clean worktree.
+2. Diff from A221R report state.
+3. Prove owner production delta is limited to:
+   - one generic guard in `agent_core_v4.py`;
+   - focused tests.
+4. Prove:
+   - no phrase/entity literals were introduced;
+   - no planner prompt/routing changes;
+   - no session-context changes;
+   - no adapter/source fallback changes;
+   - no tenant-wide path was added.
 
-New intended trajectory:
-`space.resolve -> release.search(require_single=true) -> task.search_release`
+## Phase 1 — focused tests
+Run:
+- tests/test_agent_core_v4_task_search_source_status.py
+- tests/test_agent_core_v4_task_catalog.py
+- tests/test_agent_core_v4_task_search_release_regression.py
+- planner signature parity
+- relevant V4 suites
 
-Semantics:
-1. release identity comes from authoritative live version directory;
-2. task.search_release performs bounded source membership read with canonical release_id + space;
-3. if release exists but membership is empty/unpopulated, terminate typed `V4CapabilityUnavailable` / SOURCE_CONDITIONAL;
-4. never return 0-task REAL_EMPTY for this source state;
-5. never ask user to clarify a release already verified by the version directory.
+Require zero unexplained failures.
 
-The new task.search_release handler is plugin-owned and does not use a tenant-wide scan.
-
-## Phase 0 — baseline + checkpoint sanity
-1. Pull branch, record START_HEAD, clean worktree.
-2. Resolve remote branch:
-   `checkpoint/v4-canonical54-green-a220`
-   Expected SHA:
-   `5c23ac5bd68cbbf41e3eb7d39f64382ab0d7c625`
-3. Note: A221 F2 was a local-fetch observation; GitHub remote branch currently exists. Do not classify checkpoint missing without remote branch enumeration/fetch.
-4. Diff owner fix from A221 STOP state.
-5. Prove zero core/planner/runtime/session-context changes.
-6. Run focused test:
-   `tests/test_agent_core_v4_task_search_release_regression.py`
-7. Run relevant V4 regression suites.
-
-Any generic runtime regression => RED STOP.
-
-## Phase 1 — blocking row 10 re-gate
+## Phase 2 — blocking row 49 re-gate
 Fresh sessions.
 
-Run >=5:
-- "задачи в релизе 24Q1 в WMB"
+Run >=5 exact/intended forms:
+- "покажи задачи по продукту DMS"
+- "все задачи в DMS"
+- "список задач пространства DMS"
+- "tasks in OLP"
+- "покажи задачи по продукту WMB"
 
-Run >=3:
-- "покажи задачи в релизе 1.6.0 в OLP"
+Required:
+- tasks.search selected or loaded as the product/space collection skill;
+- canonical space is resolved/validated when needed;
+- terminal task.search call includes `space=<requested space>`;
+- no sprint_id silently added;
+- no current-sprint narrowing;
+- no assignee silently added;
+- no unassigned=true silently added;
+- source route is bounded by project/space;
+- result key set/count exactly matches independent full-space Oracle B;
+- no tenant-wide scan;
+- no local factual reads;
+- no mutation.
 
-Run >=3:
-- "какие задачи входят в релиз 24Q1 WMB"
+For DMS, Oracle B must independently obtain the complete source-backed DMS product collection at the same source moment and compare exact key set/count.
 
-Required every run:
-- directory-backed release identity is resolved;
-- no `release.resolve` dead-end;
-- `task.search_release` receives canonical UUID + canonical space;
-- bounded release-membership source route only;
-- current empty/unpopulated membership => typed SOURCE_CONDITIONAL / v4_capability_unavailable;
-- zero-option clarification = 0;
-- fabricated REAL_EMPTY = 0;
-- generic ERROR = 0;
-- tenant-wide task scan = 0;
-- mutation = 0.
+If source supports 432 tasks at the test moment, Agent must return exactly 432; use current source truth, not a hardcoded expected count.
 
-Oracle B must independently reconfirm:
-- WMB 24Q1 release exists in version directory;
-- OLP 1.6.0 release exists in version directory;
-- authoritative release membership remains unpopulated/empty at the source moment.
+## Phase 3 — negative guard regression
+Directly/probe via production-equivalent runtime:
+- `task.search({})` => typed clarification/fail-closed;
+- invalid space => clarification/fail-closed;
+- space + unassigned => exact unassigned product subset;
+- space + explicit status through composition => preserve both constraints;
+- assignee + space => preserve both constraints;
+- sprint + space => preserve both constraints.
 
-If source has evolved, classify from the current source truth instead of forcing SOURCE_CONDITIONAL.
+No broadening is allowed.
 
-If row 10 is not GREEN_SOURCE_CONDITIONAL (or GREEN_SOURCE_READY if the source evolved and membership is truly populated), verdict RED and STOP.
+## Phase 4 — retained row 10 quick smoke
+Because one stale catalog unit was updated, re-probe only a compact row-10 smoke:
+- WMB 24Q1 task search;
+- OLP 1.6.0 task search.
 
-## Phase 2 — resume matrix, do not restart 1-9
-After row 10 GREEN:
-- update a221_matrix_progress.json row 10;
-- continue canonical rows 11 through 54 using the original A221 rules;
-- preserve rows 1-9 exactly unless owner fix can affect them (it should not).
+Require same A221R GREEN_SOURCE_CONDITIONAL behavior.
+Do NOT rerun rows 1-9 or 11-48.
 
-Checkpoint progress after every 9 newly completed rows or at existing group boundaries.
+## Phase 5 — resume rows 50-54
+After row 49 GREEN:
+continue canonical rows:
+50 release.forecast
+51 po.daily_brief
+52 po.status_report
+53 po.reminder_draft
+54 po.local_task_draft
 
-## Phase 3 — Phases 8-13
-After all canonical rows 10-54 terminally classified:
-resume original A221:
-- cross-skill unseen composition;
+Use original A221 A/B/C rules.
+
+## Phase 6 — resume Phases 8-13
+After 54/54 rows terminal:
+- unseen composition benchmark;
 - clarification/session benchmark;
 - Browser C full-surface pass;
 - full source/write audit;
 - latency observation;
 - retained architecture extras.
 
-## UI reminder / hard gate
-Do NOT hide Browser C failures behind backend GREEN.
+## UI hard gate
+Report Browser C failures honestly.
+Do not mark overall product-ready merely because A/B backend behavior is GREEN.
 
-The project plan now explicitly requires after A221:
-1. V4 widget/state/lineage remediation;
+Project plan after A221R2 remains:
+1. widget/state/lineage remediation;
 2. slide-derived UI visual design pass;
 3. Browser C UX re-gate;
-4. only then PO acceptance and Learning Reviewer 2.0.
+4. PO acceptance;
+5. Learning Reviewer 2.0.
 
-For A221R, Browser C still reports the actual current UI state honestly.
-
-## Required final artifacts
-Continue using A221 artifact names; do not create a disconnected second matrix:
+## Progress preservation
+Continue the same artifacts:
 - qa_artifacts/a221_canonical54_manifest.json
 - qa_artifacts/a221_matrix_progress.json
 - qa_artifacts/a221_source_audit.json
@@ -146,26 +163,18 @@ Continue using A221 artifact names; do not create a disconnected second matrix:
 - qa_221_browser_c/
 - qa_reports/AGENT_CORE_V4_FULL_54_ABC_221.md
 
-Append re-gate/resume history to the report so row-level provenance is preserved.
+Do not create a disconnected second certification matrix.
 
-## Final verdict
+## Verdict
 Use exactly one:
-- `AGENT_CORE_V4_FULL_54_ABC_GREEN_A221R`
-- `AGENT_CORE_V4_FULL_54_ABC_RED_A221R`
+- `AGENT_CORE_V4_FULL_54_ABC_GREEN_A221R2`
+- `AGENT_CORE_V4_FULL_54_ABC_RED_A221R2`
 
-If GREEN report:
-- 54/54 terminal classifications;
-- counts by GREEN_SOURCE_READY / GREEN_SOURCE_FREE / GREEN_SOURCE_CONDITIONAL;
-- 0 RED;
-- Browser C coverage/failures explicitly enumerated;
-- source audit;
-- p50/p95 latency;
-- live registry count;
-- recommendation: UI/widget lineage remediation is next blocking owner phase before Learning Reviewer.
+If GREEN:
+report 54/54 terminal classifications, source-class counts, Browser C results, source audit, latency and live registry count.
+Recommendation must be UI/widget lineage remediation next, before design and Learning Reviewer.
 
 If RED:
-- first newly failing row/boundary after resume;
-- preserve all completed progress;
-- STOP.
+identify first newly failing row/boundary, persist progress and STOP.
 
 Do not modify code.
