@@ -1,8 +1,8 @@
 {
  "all_rows": {
-  "n": 49,
-  "p50": 10.2,
-  "p95": 33.7,
+  "n": 54,
+  "p50": 10.1,
+  "p95": 31.9,
   "max": 37.5
  },
  "by_category": {
@@ -37,14 +37,14 @@
    "max": null
   },
   "release_source_conditional": {
-   "n": 6,
-   "p50": 11.7,
-   "p95": 25.6,
+   "n": 7,
+   "p50": 11.4,
+   "p95": 24.8,
    "max": 29.3
   },
   "po_cross_product_aggregation": {
-   "n": 2,
-   "p50": 11.7,
+   "n": 4,
+   "p50": 12.0,
    "p95": 14.3,
    "max": 14.6
   },
@@ -61,13 +61,13 @@
    "max": 11.3
   },
   "po_draughtsman": {
-   "n": 0,
-   "p50": null,
-   "p95": null,
-   "max": null
+   "n": 2,
+   "p50": 6.6,
+   "p95": 8.2,
+   "max": 8.4
   }
  },
  "pathological_over_60s": [],
- "_status": "PARTIAL_A221R",
- "_note": "P12 observation only. A221R matrix RED_STOPPED at row 49 -> rows 1-49 have A.dt (row 49 = 6.0s guard-clarification attempt); rows 50-54 and Phases 8-13 not run. all_rows includes all recorded attempts."
+ "_status": "MATRIX_54_COMPLETE",
+ "_note": "P12 observation only. A221R2: all 54 canonical rows have A.dt (Phase 8 composition not in matrix categories). Categories beyond the matrix rows are null until Phases 8-13 complete."
 }
