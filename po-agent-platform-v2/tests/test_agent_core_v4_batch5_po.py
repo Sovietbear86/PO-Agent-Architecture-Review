@@ -124,11 +124,9 @@ def test_attention_queue_is_bounded_to_current_sprints_and_task_scored():
 
     assert result.data["scope"] == "approved_product_spaces_current_sprints"
     assert result.data["count"] == 3
-    assert [row["task"]["key"] for row in result.data["queue"]] == ["DMS-3", "DMS-1", "OLP-1"]
-    assert result.data["queue"][0]["attention_score"] == 45
-    assert result.data["queue"][1]["attention_score"] == 70
-    # Sorted descending means DMS-1 (70) should actually be first.
     assert [row["task"]["key"] for row in result.data["queue"]] == ["DMS-1", "DMS-3", "OLP-1"]
+    assert result.data["queue"][0]["attention_score"] == 70
+    assert result.data["queue"][1]["attention_score"] == 45
 
     assert all(call[0] in {"current", "sprint"} for call in adapter.source_calls)
     assert len([call for call in adapter.source_calls if call[0] == "current"]) == 5
