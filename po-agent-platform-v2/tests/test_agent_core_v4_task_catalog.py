@@ -98,7 +98,8 @@ def test_task_wave_progressive_catalog_exposes_procedure_and_typed_capabilities(
 
     release = catalog.load("task.search_release")
     assert [capability["id"] for capability in release["capabilities"]] == [
-        "release.resolve",
+        "space.resolve",
+        "release.search",
         "task.search_release",
     ]
     assert release["procedure"]
