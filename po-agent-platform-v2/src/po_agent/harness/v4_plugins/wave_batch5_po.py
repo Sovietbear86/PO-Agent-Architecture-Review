@@ -369,7 +369,7 @@ CAPABILITIES = (
     CapabilitySpecV4("po.daily_brief", "Generate a deterministic grounded daily PO brief from bounded current-sprint data.", {}),
     CapabilitySpecV4("po.status_report", "Generate a deterministic current-sprint portfolio status report.", {}),
     CapabilitySpecV4("po.reminder_draft", "Draft a reminder for one explicit AS21 task without sending it.", {"task_key": "required task key"}),
-    CapabilitySpecV4("po.local_task_draft", "Prepare a local task draft without writing externally.", {"subject": "optional user-supplied title", "task_key": "optional source task key"}),
+    CapabilitySpecV4("po.local_task_draft", "Prepare a local task draft without writing externally. Call this capability directly: it owns validation of an optional source task_key via one bounded point read and returns a typed draft_created=false result when that key is not found; do not pre-resolve the key with task.lookup.", {"subject": "optional user-supplied title", "task_key": "optional source task key; pass the user key directly without a separate lookup"}),
 )
 
 SKILLS = (
@@ -417,10 +417,11 @@ SKILLS = (
     ),
     SkillSpecV4(
         "po.local_task_draft",
-        "Prepare a local task draft from user input and optionally one source task; never publish it automatically.",
+        "Prepare a local task draft from user input and optionally one source task; po.local_task_draft itself owns source-task validation and typed not-found handling.",
         (
-            "Call po.local_task_draft with a user-supplied subject and/or task key.",
-            "If a task key is provided, source-ground it with a point read.",
+            "Call po.local_task_draft directly with the user-supplied subject and/or task_key.",
+            "Do NOT load or call task.lookup to validate the task_key first. Pass the literal user task_key directly to po.local_task_draft.",
+            "The po.local_task_draft capability performs the single bounded AS21 point read itself and returns draft_created=false when the source task does not exist.",
             "Never perform an external write.",
         ),
         ("po.local_task_draft",),
