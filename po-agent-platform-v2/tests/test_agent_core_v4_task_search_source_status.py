@@ -62,3 +62,21 @@ def test_task_search_matches_authoritative_source_status_label():
         _runtime()._task_search({"sprint_id": "DMS-SPRNT-3", "space": "DMS", "status": "На исправлении"})
     )
     assert result.data["task_keys"] == ["DMS-2"]
+
+
+def test_task_search_space_only_is_bounded_and_source_backed():
+    runtime = _runtime()
+    result = asyncio.run(runtime._task_search({"space": "DMS"}))
+
+    assert result.data["count"] == 3
+    assert result.data["task_keys"] == ["DMS-1", "DMS-2", "DMS-3"]
+
+
+def test_task_search_still_rejects_truly_unscoped_query():
+    runtime = _runtime()
+    try:
+        asyncio.run(runtime._task_search({}))
+    except Exception as exc:
+        assert "исполнитель, спринт или подтверждённое продуктовое пространство" in str(exc)
+    else:
+        raise AssertionError("unscoped task.search must fail closed")
