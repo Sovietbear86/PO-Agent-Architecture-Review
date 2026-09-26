@@ -196,3 +196,13 @@ def test_batch5_completion_contracts_are_scalar_zero_safe():
     assert skills["po.status_report"].completion[0].data_keys == ("total", "by_product")
     assert skills["po.reminder_draft"].completion[0].data_keys == ("draft_created", "write_performed")
     assert skills["po.local_task_draft"].completion[0].data_keys == ("draft_created", "write_performed")
+
+
+def test_local_task_draft_contract_owns_source_validation():
+    _runtime_obj, _adapter, registry = _runtime()
+    skill = next(skill for skill in registry.skills() if skill.id == "po.local_task_draft")
+    detail = "\n".join(skill.procedure)
+
+    assert "po.local_task_draft" in detail
+    assert "Do NOT load or call task.lookup" in detail
+    assert skill.capabilities == ("po.local_task_draft",)
