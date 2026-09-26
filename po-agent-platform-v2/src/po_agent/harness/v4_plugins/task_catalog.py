@@ -99,22 +99,22 @@ CAPABILITIES = (
     CapabilitySpecV4(
         "task.search_attachments",
         "Find REAL AS21 tasks with attachments using live task/file routes only.",
-        {"task_key": "optional grounded task key", "space": "optional grounded product space", "reference": "optional natural person reference"},
+        {"task_key": "optional grounded task key", "space": "optional grounded product space", "sprint_id": "optional canonical sprint id from a source-backed sprint observation", "reference": "optional natural person reference"},
     ),
     CapabilitySpecV4(
         "task.search_excel",
         "Find REAL AS21 tasks with Excel attachments; attachment_type=excel is fixed by the plugin binding.",
-        {"task_key": "optional grounded task key", "space": "optional grounded product space", "reference": "optional natural person reference"},
+        {"task_key": "optional grounded task key", "space": "optional grounded product space", "sprint_id": "optional canonical sprint id from a source-backed sprint observation", "reference": "optional natural person reference"},
     ),
     CapabilitySpecV4(
         "task.search_pdf",
         "Find REAL AS21 tasks with PDF attachments; attachment_type=pdf is fixed by the plugin binding.",
-        {"task_key": "optional grounded task key", "space": "optional grounded product space", "reference": "optional natural person reference"},
+        {"task_key": "optional grounded task key", "space": "optional grounded product space", "sprint_id": "optional canonical sprint id from a source-backed sprint observation", "reference": "optional natural person reference"},
     ),
     CapabilitySpecV4(
         "task.search_msg",
         "Find REAL AS21 tasks with MSG mail attachments; attachment_type=msg is fixed by the plugin binding.",
-        {"task_key": "optional grounded task key", "space": "optional grounded product space", "reference": "optional natural person reference"},
+        {"task_key": "optional grounded task key", "space": "optional grounded product space", "sprint_id": "optional canonical sprint id from a source-backed sprint observation", "reference": "optional natural person reference"},
     ),
     CapabilitySpecV4(
         "task.search_assignee",
@@ -143,22 +143,22 @@ SKILLS = (
     ),
     SkillSpecV4(
         "task.search_attachments", "Find tasks that contain any attachments, including a single explicitly named task.",
-        ("Call task.search_attachments with any grounded task_key, space and/or person reference from the request. The capability owns live source resolution; never infer empty from a local corpus.",),
+        ("Call task.search_attachments with every grounded task_key, space, sprint_id and/or person reference available from the request or prior observations. If sprint.current/sprint.resolve produced a canonical sprint_id, pass it through exactly and do not broaden the request back to the whole product/person corpus. The capability owns live source resolution; never infer empty from a local corpus.",),
         ("task.search_attachments",), completion=(CompletionRequirement("task.search_attachments", data_keys=("count",)),),
     ),
     SkillSpecV4(
         "task.search_excel", "Find tasks that contain Excel attachments.",
-        ("Call task.search_excel with grounded task/space/person constraints when present; attachment_type=excel is fixed by the plugin contract.",),
+        ("Call task.search_excel with grounded task/space/sprint/person constraints when present and preserve a source-backed sprint_id exactly; attachment_type=excel is fixed by the plugin contract.",),
         ("task.search_excel",), completion=(CompletionRequirement("task.search_excel", data_keys=("count", "attachment_type")),),
     ),
     SkillSpecV4(
         "task.search_pdf", "Find tasks that contain PDF attachments.",
-        ("Call task.search_pdf with grounded task/space/person constraints when present; attachment_type=pdf is fixed by the plugin contract.",),
+        ("Call task.search_pdf with grounded task/space/sprint/person constraints when present and preserve a source-backed sprint_id exactly; attachment_type=pdf is fixed by the plugin contract.",),
         ("task.search_pdf",), completion=(CompletionRequirement("task.search_pdf", data_keys=("count", "attachment_type")),),
     ),
     SkillSpecV4(
         "task.search_msg", "Find tasks that contain MSG mail attachments.",
-        ("Call task.search_msg with grounded task/space/person constraints when present; attachment_type=msg is fixed by the plugin contract.",),
+        ("Call task.search_msg with grounded task/space/sprint/person constraints when present and preserve a source-backed sprint_id exactly; attachment_type=msg is fixed by the plugin contract.",),
         ("task.search_msg",), completion=(CompletionRequirement("task.search_msg", data_keys=("count", "attachment_type")),),
     ),
     SkillSpecV4(
