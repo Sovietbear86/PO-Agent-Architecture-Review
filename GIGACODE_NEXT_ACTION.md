@@ -1,201 +1,220 @@
 # GigaCode — Current Action
 
 ## Status
-ACTIVE_QA_ASSIGNMENT_218_SELF_INTROSPECTION_UX_GATE
+ACTIVE_QA_ASSIGNMENT_219_BATCH5_PO_WORKFLOW_GATE
 
 ## Role lock
 GigaCode is QA/adversarial tester + service operator only.
 
 Do NOT modify production/frontend/plugin/test/config/architecture code.
 Do NOT implement fixes.
-Do NOT start another migration batch.
+Do NOT start release.forecast / Batch 6.
 Commit/push only the QA report.
 
 ## Frozen baseline
-A217D = GREEN.
+A218 = GREEN.
 Rollback checkpoint:
-`checkpoint/v4-batch4-green-a217d`
+`checkpoint/v4-self-introspection-green-a218`
 
-Production robust runtime, Batch 4 release routing and portfolio overview are frozen GREEN.
+A218 inventory truth:
+- live registry before Batch 5 = 62 skills / 11 plugins;
+- canonical product denominator = 54 requirements;
+- covered before Batch 5 = 48/54;
+- missing = 6.
 
-## Owner implementation
+Do NOT require live registry count == 54.
+The acceptance goal is canonical 54 coverage, not artificial registry-count equality.
+
+## Owner Batch 5
 Commits:
-- `5c0ed1642ec6c7d3e4c0d669946121123242d365`
-- `f4d03e37bec6bbe952a8ca646d286fe6255168be`
+- `b11a61f8137487b4521b6ca3633c0c367b4927d8`
+- `b241b9434e8d3ed6830cab2a3cf51d183d37fa22`
+- `b88f3222ce2d316c7920ee56a3df4a40b4a7fdc3`
 
-New plugin-only user-facing skill:
-- `agent.help`
+Five plugin-only canonical skills:
+1. po.attention_queue
+2. po.daily_brief
+3. po.status_report
+4. po.reminder_draft
+5. po.local_task_draft
 
-Capability:
-- `agent.help`
+No Agent Core/planner/runtime/session-context edits.
 
-No Agent Core/planner/runtime/session-context code changed.
+## Architectural change vs legacy POAssistantCapabilities
+Legacy PO portfolio methods used `search_tasks("")` tenant-wide.
+V4 MUST NOT preserve that unsafe retrieval shape.
 
-## Intended behavior
+Batch 5 intentionally uses:
+approved product spaces -> bounded current-sprint lookup -> bounded sprint membership.
 
-### Full skill catalog
-Queries such as:
-- "покажи полный список навыков, которые ты поддерживаешь"
-- "какие навыки ты умеешь"
-- "что ты умеешь"
-- "show all supported skills"
-
-must load `agent.help` and call `agent.help mode=skills`.
-
-The capability reads the LIVE runtime `SkillCatalogV4`.
-It must never maintain a second hardcoded skill list.
-
-Returned data must include:
-- exact `skill_count`;
-- every current skill id exactly once;
-- summary for each skill;
-- family;
-- plugin ids/count;
-- `catalog_source=LIVE_V4_SKILL_CATALOG`;
-- `availability_semantics=DECLARED_NOT_EQUAL_SOURCE_READY`.
-
-Important:
-catalog presence means declared capability only.
-It must NOT claim that every source-backed skill is currently executable.
-Sparse release-source skills may remain SOURCE_CONDITIONAL on invocation.
-
-### Presence / conversational ping
-Queries like:
-- "ты тут?"
-- "ты на связи?"
-- "are you there?"
-
-should route to `agent.help mode=ping` and return a short presence acknowledgement.
-No AS21 call is necessary.
+Draft skills remain read-only:
+- reminder draft requires an explicit task key;
+- local task draft may be user-input-only or grounded by one point-read task;
+- zero external writes.
 
 ## Phase 0 — architecture invariant
-1. Pull branch; record START_HEAD and clean worktree.
-2. Diff only owner implementation commits from Batch 4 checkpoint.
-3. Prove:
-   - plugin + focused test only;
-   - zero Agent Core/planner/runtime/session-context changes;
-   - registry discovery remains deterministic;
-   - dummy-55 invariant GREEN.
+1. Pull branch, record START_HEAD, clean worktree.
+2. Diff from checkpoint/v4-self-introspection-green-a218.
+3. Prove only plugin/tests/docs changed.
+4. Zero Agent Core/planner/runtime/session-context changes.
+5. Registry discovers exactly one new Batch 5 plugin and all five skills exactly once.
+6. dummy-55 invariant GREEN.
 
-Any core routing special case => RED.
-
-## Phase 1 — focused/unit tests
+## Phase 1 — tests
 Run:
+- tests/test_agent_core_v4_batch5_po.py
 - tests/test_agent_core_v4_agent_help.py
 - tests/test_agent_core_v4_plugin_registry.py
 - tests/test_agent_core_v4_planner_signature_parity.py
-- full relevant V4 suites
+- full tests/test_agent_core_v4*.py + tests/test_v4*.py
 
-Require zero unexplained failures.
+Zero unexplained failures.
 
-## Phase 2 — registry truth / 54-target reconciliation
-Independently enumerate the live registry after plugin discovery.
+## Phase 2 — independent REAL AS21 bounded oracle
+For each approved space CRPV/DMS/OLP/STS/WMB:
+1. independently obtain current sprint via the source-backed route;
+2. if present, independently obtain complete bounded sprint membership;
+3. classify completed/open/blocked/unassigned and task age/priority using certified predicates.
 
-Report:
-- exact plugin_count;
-- exact skill_count;
-- sorted skill ids;
-- duplicates = 0;
-- whether `agent.help` is present exactly once.
+No tenant-wide task query may be used as Oracle or production source.
 
-Compare exact live skill_count with the authoritative V4 target of 54 user-facing skills.
+Record per-space:
+- current sprint id/state;
+- exact task-key set;
+- counts;
+- blocked keys;
+- unassigned keys;
+- score inputs for attention queue.
 
-Important classification:
-- if count == 54: mark `V4_54_INVENTORY_COUNT_RECONCILED`;
-- if count != 54: do NOT fabricate a missing/extra skill and do NOT fail the self-introspection implementation merely because historical scope/count needs reconciliation. Mark `V4_54_INVENTORY_RECONCILIATION_REQUIRED` and identify exact delta/list for owner review.
+## Phase 3 — po.attention_queue
+Run >=5 natural forms:
+- "очередь внимания PO"
+- "что требует моего внимания как PO"
+- "покажи рисковые задачи по текущим спринтам"
+- two equivalent variants.
 
-## Phase 3 — natural-language full catalog gate
-Run each >=3:
-- "покажи полный список навыков, которые ты поддерживаешь"
-- "какие навыки ты умеешь"
-- "что ты умеешь"
-- "show all supported skills"
+Require exact parity to independent bounded Oracle:
+score:
+- blocked +50
+- critical/urgent active +35
+- age >=14 active +20
+- else age >=7 active +10
+- unassigned active +10
+- completed excluded.
+
+Require deterministic descending score then task key.
+This is TASK operational priority, never employee scoring.
+
+## Phase 4 — po.daily_brief
+Run >=5 natural forms:
+- "дай ежедневную сводку PO"
+- "что у нас сегодня по продуктам"
+- "daily PO brief"
+- two variants.
+
+Require exact bounded current-sprint parity:
+- active
+- blocked
+- unassigned
+- completed
+- attention_count
+- top_attention top 5
+
+Spaces with no current sprint must remain explicit source states, not fabricated zero task sets.
+
+## Phase 5 — po.status_report
+Run >=5 natural forms.
 
 Require:
-- agent.help loads;
-- agent.help(mode=skills) executes;
-- terminal COMPLETED;
-- no task/sprint/release/business skill executes;
-- no AS21/source call;
-- answer/data derived from live catalog;
-- exact skill_count equals independent registry count;
-- exact id set equals independent registry id set.
+- exact total/completed/active/blocked over source-backed current-sprint sets;
+- exact by_product rows;
+- NO_CURRENT_SPRINT / CURRENT_SPRINT_WITHOUT_MEMBERSHIP preserved with null metrics;
+- no historical/full-tenant claim.
 
-No partial catalog is acceptable for the explicit "полный список" form.
-
-## Phase 4 — Browser C catalog UX
-Real UI:
-- explicit full-list query;
-- one short "что ты умеешь" query.
+## Phase 6 — po.reminder_draft
+Cases:
+1. explicit real task key DMS-380;
+2. another real task with assignee;
+3. missing task key;
+4. non-existent task key.
 
 Require:
-- SUCCESS_WITH_DATA/COMPLETED;
-- no V4 ERROR;
-- every skill id from the live registry is inspectable/visible in the response payload/UI;
-- no silent truncation that makes "полный список" false;
-- note/semantics make clear that catalog presence != source readiness.
+- explicit key -> one source point read only;
+- source-backed task facts in draft;
+- draft_created true only for found task;
+- write_performed=false always;
+- requires_approval_for_send=true;
+- missing key -> typed clarification;
+- no auto-selection from portfolio/tenant tasks;
+- zero mutation calls.
 
-If prose summarization omits ids but the dedicated rendered catalog exposes all ids, that is acceptable.
-If neither prose nor rendered data exposes all ids, RED.
-
-## Phase 5 — conversational ping
-Run >=5:
-- "ты тут?"
-- "ты на связи?"
-- "are you there?"
+## Phase 7 — po.local_task_draft
+Cases:
+1. source task key DMS-380;
+2. user subject only;
+3. source task + custom subject;
+4. no subject and no source task;
+5. invalid source task.
 
 Require:
-- agent.help(mode=ping);
-- concise acknowledgement;
-- COMPLETED;
-- zero AS21/source calls;
-- zero clarification;
-- no stale session resurrection;
-- no "могу работать со спринтами..." boilerplate unless the user asks for capabilities.
+- point read only when key supplied;
+- user-only draft causes zero AS21 calls;
+- no external write;
+- requires approval metadata;
+- no invented AS21 facts.
 
-## Phase 6 — source-free audit
-For all agent.help runs:
-- GET/POST to task-api/MCP-SWTR caused by the turn = 0;
-- local factual reads = 0;
-- mutations = 0;
-- tenant scans = 0.
+## Phase 8 — Browser C
+Real UI for all five:
+- attention queue
+- daily brief
+- status report
+- reminder draft
+- local task draft
 
-## Phase 7 — retained regression
+Require no generic V4 ERROR.
+Draft UI must clearly state no write/send occurred.
+
+## Phase 9 — retained regression
 At minimum:
-- ordinary task lookup DMS-380;
-- current sprint DMS;
-- member time Semavin;
-- portfolio.overview;
-- standalone release identity;
-- release progress typed SOURCE_CONDITIONAL;
-- release health typed SOURCE_CONDITIONAL;
-- dummy-55.
+- agent.help full catalog
+- ping
+- DMS-380 lookup
+- current sprint DMS
+- Semavin time accounting
+- portfolio.overview
+- standalone release identity
+- release progress/health typed SOURCE_CONDITIONAL
+- dummy-55
 
-Require A217D parity and zero planner signature/runtime failures.
+## Phase 10 — source/write audit
+Require:
+- local factual task reads = 0;
+- tenant-wide/unscoped task scans = 0;
+- mutations = 0;
+- PO aggregation source calls are bounded current-sprint/sprint-membership only;
+- draft source calls are bounded point reads only.
 
-## Phase 8 — safety/semantics
-Ask:
-- "умеешь анализировать здоровье релиза?"
-- "умеешь считать утилизацию команды?"
+## Phase 11 — inventory reconciliation
+Fresh registry enumeration after Batch 5:
+Expected live count = 67 if no unrelated drift.
+Expected canonical coverage = 53/54.
+Expected remaining canonical missing skill = exactly:
+- release.forecast
 
-Expected:
-- agent may describe declared capability conditionally;
-- must not equate catalog declaration with current source readiness;
-- must not fabricate release source maturity;
-- no business source call is required merely to list declared capabilities unless planner deliberately executes the requested business skill.
+Do NOT mark RED solely because live count is 67 rather than 54.
 
 ## Verdict
 Use exactly one:
-- `AGENT_SELF_INTROSPECTION_GREEN_A218`
-- `AGENT_SELF_INTROSPECTION_RED_A218`
+- `AGENT_CORE_V4_BATCH5_PO_GREEN_A219`
+- `AGENT_CORE_V4_BATCH5_PO_RED_A219`
 
-Report separately:
-- `V4_54_INVENTORY_COUNT_RECONCILED` OR
-- `V4_54_INVENTORY_RECONCILIATION_REQUIRED`
+Also report:
+- exact live skill/plugin count;
+- canonical coverage x/54;
+- exact canonical missing list.
 
 If GREEN:
-recommend immutable self-introspection checkpoint.
-Then stop and return the exact registry count/list delta so the owner can decide whether the next step is full V4-54 A/B/C certification or a narrowly identified missing-skill implementation.
+recommend immutable Batch 5 checkpoint and next owner step = isolated Batch 6 release.forecast source-contract implementation.
 
 If RED:
 identify first failing boundary and STOP.
