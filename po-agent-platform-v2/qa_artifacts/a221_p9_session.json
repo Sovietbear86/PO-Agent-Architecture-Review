@@ -1,0 +1,108 @@
+[
+ {
+  "case": "c1_missing_product",
+  "t1_status": "COMPLETED",
+  "t1_options": [],
+  "dt1": 13.0,
+  "err1": null,
+  "issues": [],
+  "pass": true,
+  "oracle_note": "P9 spec expected NEEDS_CLARIFICATION for person-only query, but A195D-certified contract: person-only -> all-approved-spaces bounded assignee search is a legal scope (no space required). Re-probe 3/3 COMPLETED task.search_assignee reference=Семавин -> 325 tasks (DMS/OLP/STS) = source 325 exact (assignee-tasks route, bounded person scope, no tenant scan). Not a defect; spec expectation stricter than certified contract (F-A221R2-6)."
+ },
+ {
+  "case": "c2_ambiguous_sprint",
+  "t1_status": "NEEDS_CLARIFICATION",
+  "t1_options": [
+   "CRPV",
+   "DMS",
+   "OLP",
+   "STS",
+   "WMB"
+  ],
+  "dt1": 24.4,
+  "err1": null,
+  "picked": "DMS",
+  "t2_status": "COMPLETED",
+  "t2_traj": [
+   "space.resolve",
+   "sprint.search",
+   "task.search"
+  ],
+  "dt2": 11.6,
+  "t2_keys": [
+   "DMS-243",
+   "DMS-402",
+   "DMS-405",
+   "DMS-412",
+   "DMS-414",
+   "DMS-425",
+   "DMS-93"
+  ],
+  "err2": null,
+  "issues": [],
+  "pass": true
+ },
+ {
+  "case": "c3_override_context",
+  "t1_status": "COMPLETED",
+  "t2_status": "COMPLETED",
+  "t2_traj": [
+   "sprint.resolve",
+   "task.search"
+  ],
+  "dt1": 11.7,
+  "dt2": 12.5,
+  "olp_only": true,
+  "n_keys": 74,
+  "issues": [],
+  "pass": true
+ },
+ {
+  "case": "c4_isolation",
+  "k1_n": 73,
+  "k2_n": 74,
+  "overlap": [],
+  "issues": [],
+  "pass": true
+ },
+ {
+  "case": "c5_continui_no_state",
+  "status": "NEEDS_CLARIFICATION",
+  "dt": 3.1,
+  "generic": false,
+  "runtime_failure": false,
+  "issues": [],
+  "pass": true
+ },
+ {
+  "case": "c6_multi_hop_contract",
+  "t1_status": "NEEDS_CLARIFICATION",
+  "t1_options": [
+   "CRPV",
+   "DMS",
+   "OLP",
+   "STS",
+   "WMB"
+  ],
+  "dt1": 51.7,
+  "picked": "DMS",
+  "t2_status": "COMPLETED",
+  "t2_traj": [
+   "space.resolve",
+   "sprint.search",
+   "task.search"
+  ],
+  "t2_args": {
+   "assignee": "Garanin.R.V",
+   "sprint_id": "DMS-SPRNT-3",
+   "space": "DMS"
+  },
+  "dt2": 9.8,
+  "t2_keys_n": 7,
+  "contract_person": true,
+  "contract_sprint": true,
+  "contract_space": true,
+  "issues": [],
+  "pass": true
+ }
+]

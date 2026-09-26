@@ -68,6 +68,5 @@
   }
  },
  "pathological_over_60s": [],
- "_status": "MATRIX_54_COMPLETE",
- "_note": "P12 observation only. A221R2: all 54 canonical rows have A.dt (Phase 8 composition not in matrix categories). Categories beyond the matrix rows are null until Phases 8-13 complete."
+ "_status": "A221R2_FULL"
 }

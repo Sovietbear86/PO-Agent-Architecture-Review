@@ -1,0 +1,23 @@
+{
+ "window": {
+  "start_line": 10686,
+  "end_line": 11550,
+  "lines": 864
+ },
+ "local_factual_reads_tasks": 0,
+ "local_fallback_reads": 0,
+ "mutations": 0,
+ "task_query_total": 55,
+ "task_query_person_scoped_no_space": 10,
+ "task_query_truly_unscoped": 0,
+ "assignee_route_total": 2,
+ "release_membership_total": 14,
+ "release_membership_unscoped": 0,
+ "versions_total": 14,
+ "versions_unscoped": 0,
+ "sprint_collections_total": 0,
+ "sprint_collections_unscoped": 0,
+ "worklog_calls": 444,
+ "audit_pass_refined": true,
+ "note": "10 task-query calls without space= are ALL assignee-scoped (person-scoped all-spaces contract, A195D-certified: bounded by person identity, not tenant-wide). 0 truly unscoped (no space AND no assignee AND no release). Raw script audit_pass=false is an oracle over-flag on person-scoped calls (F-A221R2-7)."
+}

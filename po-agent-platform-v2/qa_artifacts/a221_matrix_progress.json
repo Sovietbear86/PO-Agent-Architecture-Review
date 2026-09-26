@@ -4890,13 +4890,38 @@
    "status": "RED",
    "pass": 23,
    "total": 24,
-   "red": "sprint_downstream#3",
-   "note": "other non-COMPLETED: person_sprint_status#2 + sprint_member_time#3 = legitimate person-reference typed clarification (Каликанов, identity boundary, fail-closed, no fabrication); po_brief_drill#2 = non-deterministic (re-probe COMPLETED); release_analytic x3 = correct typed SC"
+   "red": "sprint_downstream#3 (current sprint -> attachments): task.search_attachments lacks sprint_id",
+   "note": "other non-COMPLETED verified legitimate (person-ref clarifications, release typed SC, 1 non-det brief drill)"
   },
-  "p9": "NOT_RUN",
-  "p10": "NOT_RUN",
-  "p11": "NOT_RUN",
-  "p12": "NOT_RUN",
-  "p13": "NOT_RUN"
+  "p9": {
+   "status": "GREEN",
+   "pass": 6,
+   "total": 6
+  },
+  "p10": {
+   "status": "GREEN",
+   "pass": 54,
+   "total": 54,
+   "note": "R49 UI=432 exact; R6 COMPLETED REAL_EMPTY 0 = source-confirmed (Kalachanov WMB tasks=0)"
+  },
+  "p11": {
+   "status": "PASS_REFINED",
+   "note": "0 local/0 mutations/0 truly-unscoped; 10 person-scoped task-query = certified all-spaces person contract (F-A221R2-7)"
+  },
+  "p12": {
+   "status": "FULL",
+   "all_rows": {
+    "n": 54,
+    "p50": 10.1,
+    "p95": 31.9,
+    "max": 37.5
+   },
+   "over_60s": 0
+  },
+  "p13": {
+   "status": "GREEN",
+   "pass": 13,
+   "total": 13
+  }
  }
 }

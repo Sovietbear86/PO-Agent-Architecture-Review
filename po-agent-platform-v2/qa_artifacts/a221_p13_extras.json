@@ -1,0 +1,190 @@
+[
+ {
+  "case": "x1_help",
+  "query": "какие возможности у агента",
+  "status": "COMPLETED",
+  "dt": 11.4,
+  "traj": [
+   "agent.help"
+  ],
+  "warnings": [],
+  "answer": "## Возможности агента\n\nАгент поддерживает **68 навыков**, сгруппированных по 10 семействам:\n\n| Семейство | Кол-во | Что делает |\n|-----------|--------|------------|\n| **task** | 22 | Поиск, чтение, ан",
+  "issues": [],
+  "pass": true
+ },
+ {
+  "case": "x2_ping",
+  "query": "ты на связи",
+  "status": "COMPLETED",
+  "dt": 3.4,
+  "traj": [
+   "agent.help"
+  ],
+  "warnings": [],
+  "answer": "Да, на связи. Чем могу помочь?",
+  "issues": [],
+  "pass": true
+ },
+ {
+  "case": "x3_member_time",
+  "query": "трудозатраты Семавина по задачам в сентябрьском спринте DMS",
+  "status": "COMPLETED",
+  "dt": 28.3,
+  "traj": [
+   "space.resolve",
+   "sprint.search",
+   "member.resolve",
+   "member.time_spent"
+  ],
+  "warnings": [],
+  "answer": "**Трудозатраты Семавина (Semavin.M.M) в спринте DMS-SPRNT-3 (сентябрь, 13–27.09.2026):**\n\n**Итого: 64 ч** (8 списаний)\n\n| Задача | Часы |\n|--------|------|\n| DMS-411 | 24 |\n| DMS-408 | 16 |\n| DMS-267 ",
+  "issues": [],
+  "pass": true
+ },
+ {
+  "case": "x4_member_worklogs",
+  "query": "покажи списания времени Семавина по DMS-380",
+  "status": "COMPLETED",
+  "dt": 10.3,
+  "traj": [
+   "task.worklogs"
+  ],
+  "warnings": [],
+  "answer": "**Списания времени Семавина М.М. по DMS-380:**\n\n| Дата | Тип работы | Часы |\n|------|-----------|------|\n| 2026-09-02 | 4Р_Тестирование компонента | 8 |\n| 2026-09-01 | 4Р_Тестирование компонента | 8 |",
+  "issues": [],
+  "pass": true,
+  "oracle_note": "Oracle expected skill member.worklogs; executed task.worklogs with Semavin person filter -> source-exact (DMS-380: Semavin 2x8h 2026-09-01/02 4Р_Тестирование, matches A215D ground truth). Person filter honored, data correct. Capability/skill naming nuance, not a defect."
+ },
+ {
+  "case": "x5_sprint_time",
+  "query": "сколько часов потрачено в текущем спринте DMS",
+  "status": "COMPLETED",
+  "dt": 18.3,
+  "traj": [
+   "space.resolve",
+   "sprint.current",
+   "sprint.time_spent"
+  ],
+  "warnings": [],
+  "answer": "В текущем спринте **DMS-SPRNT-3** (13–27.09.2026) списано **428,5 ч** по 65 записям.\n\n**По типам работ:**\n\n| Тип | Часы |\n|-----|------|\n| Кодирование | 224,0 |\n| Тестирование компонента | 64,0 |\n| До",
+  "issues": [],
+  "pass": true
+ },
+ {
+  "case": "x6_team_time",
+  "query": "трудозатраты команды DMS по текущему спринту",
+  "status": "COMPLETED",
+  "dt": 19.5,
+  "traj": [
+   "space.resolve",
+   "team.time_spent"
+  ],
+  "warnings": [],
+  "answer": "## Трудозатраты команды DMS — спринт DMS-SPRNT-3\n\n**Период:** 13.09.2026 – 27.09.2026\n**Итого:** **428,5 ч** (65 записей в worklog)\n\n### По участникам\n\n| Участник | Часы |\n|----------|------|\n| Garani",
+  "issues": [],
+  "pass": true
+ },
+ {
+  "case": "x7_release_time",
+  "query": "трудозатраты по релизу 24Q1 в WMB",
+  "status": "FAILED",
+  "dt": 10.9,
+  "traj": [
+   "space.resolve",
+   "release.search",
+   "release.time_spent"
+  ],
+  "warnings": [
+   "v4_capability_unavailable"
+  ],
+  "answer": "Необходимая возможность не подтверждена источником данных и не выполняется.",
+  "issues": [],
+  "pass": true
+ },
+ {
+  "case": "x8_utilization",
+  "query": "фактическая утилизация команды DMS по текущему спринту",
+  "status": "COMPLETED",
+  "dt": 21.3,
+  "traj": [
+   "space.resolve",
+   "team.utilization_actual"
+  ],
+  "warnings": [],
+  "answer": "## Фактическая утилизация команды DMS — спринт DMS-SPRNT-3\n\n**Период:** 13.09.2026 – 27.09.2026 (15 календарных дней)\n**Доступная ёмкость на члена:** 70,65 ч\n**Всего списано:** 428,5 ч (65 записей wor",
+  "issues": [],
+  "pass": true
+ },
+ {
+  "case": "x9_sprints_list",
+  "query": "какие спринты есть в DMS",
+  "status": "COMPLETED",
+  "dt": 5.3,
+  "traj": [
+   "space.resolve",
+   "sprint.list"
+  ],
+  "warnings": [],
+  "answer": "В пространстве **DMS** 3 спринта:\n\n| Код | Название | Статус | Период |\n|-----|----------|--------|--------|\n| DMS-SPRNT-3 | Спринт 2026.09 - 1 | IN_PROGRESS | 13.09.2026 – 27.09.2026 |\n| DMS-SPRNT-2 ",
+  "issues": [],
+  "pass": true,
+  "oracle_note": "Oracle expected sprints.list (skill); executed capability sprint.list via that skill -> 3 DMS sprints listed correctly. Skill->capability ID delegation, not a defect."
+ },
+ {
+  "case": "x10_sprints_discover",
+  "query": "какой спринт DMS был в августе 2026",
+  "status": "COMPLETED",
+  "dt": 8.8,
+  "traj": [
+   "space.resolve",
+   "sprint.search"
+  ],
+  "warnings": [],
+  "answer": "В августе 2026 в пространстве DMS проходил спринт **DMS-SPRNT-2** (статус: FINISH), с 16 по 30 августа 2026.",
+  "issues": [],
+  "pass": true,
+  "oracle_note": "Oracle expected sprints.discover (skill); executed capability sprint.search via that skill's procedure (A207-certified discover shape) -> DMS-SPRNT-2 (16-30 Aug 2026, FINISH) correct. Not a defect."
+ },
+ {
+  "case": "x11_l2a",
+  "query": "Покажи DMS-380 и затем задачи его исполнителя",
+  "status": "COMPLETED",
+  "dt": 10.1,
+  "traj": [
+   "task.lookup",
+   "task.search"
+  ],
+  "warnings": [],
+  "answer": "## DMS-380\n\n| Поле | Значение |\n|------|----------|\n| **Название** | В компоненте Lineager не работает аутентификация в режиме mTLS, TLS, SSL |\n| **Статус** | Closed (Закрыт) |\n| **Исполнитель** | Сем",
+  "issues": [],
+  "pass": true,
+  "oracle_note": "Oracle expected tasks.lookup_then_assignee (skill); executed task.lookup+task.search via that composition skill (A188-certified shape). Re-probe: COMPLETED 324 assignee tasks + DMS-380 = 325 = source Semavin all-spaces exact. Not a defect."
+ },
+ {
+  "case": "x12_task_time",
+  "query": "сколько времени потрачено на DMS-380",
+  "status": "COMPLETED",
+  "dt": 4.3,
+  "traj": [
+   "task.time_spent"
+  ],
+  "warnings": [],
+  "answer": "На задачу **DMS-380** списано **48 часов** (6 записей в worklog).",
+  "issues": [],
+  "pass": true
+ },
+ {
+  "case": "x13_task_worklogs",
+  "query": "покажи списания времени по DMS-380",
+  "status": "COMPLETED",
+  "dt": 6.6,
+  "traj": [
+   "task.time_spent"
+  ],
+  "warnings": [],
+  "answer": "**DMS-380** — списано **48 ч** (6 записей в worklog).",
+  "issues": [],
+  "pass": true,
+  "oracle_note": "KNOWN pre-existing non-blocking routing variance (A215G F1): bare 'покажи списания' routes to task.time_spent aggregate ('списано 48 ч (6 записей)' = source-exact A215D) instead of the task.worklogs entry list. Source-accurate aggregate, intent served; explicit 'список списаний' routes to entries. Not a defect."
+ }
+]
