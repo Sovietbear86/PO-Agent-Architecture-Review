@@ -922,8 +922,10 @@ class AgentCoreV4Runtime:
         unassigned = str(args.get("unassigned") or "").strip().casefold() in {"1", "true", "yes", "y"}
         if space and space not in APPROVED_PRODUCT_SPACES:
             raise V4NeedsClarification(f"Пространство «{space}» не подтверждено.")
-        if not any((assignee, sprint_id, space and unassigned)):
-            raise V4NeedsClarification("Для task.search нужен исполнитель, спринт или явно ограниченный запрос без исполнителя; уточните фильтр.")
+        if not any((assignee, sprint_id, space)):
+            raise V4NeedsClarification(
+                "Для task.search нужен исполнитель, спринт или подтверждённое продуктовое пространство; уточните фильтр."
+            )
 
         tasks: list[Any]
         if assignee:
