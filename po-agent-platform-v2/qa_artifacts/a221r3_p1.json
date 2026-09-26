@@ -1,0 +1,88 @@
+[
+ {
+  "tag": "exact_failed",
+  "query": "текущий спринт WMB: покажи его задачи с вложениями",
+  "status": "COMPLETED",
+  "dt": 24.3,
+  "warnings": [],
+  "att_count": 0,
+  "att_sprint": "WMB-SPRNT-2",
+  "att_space": "WMB",
+  "att_source": "REAL_AS21",
+  "ans": "**Текущий спринт WMB:** WMB-SPRNT-2\n\nЗадач с вложениями в этом спринте не найдено (0)."
+ },
+ {
+  "tag": "f1",
+  "query": "вложения в текущем спринте WMB",
+  "status": "COMPLETED",
+  "dt": 14.7,
+  "warnings": [],
+  "att_count": 0,
+  "att_sprint": "WMB-SPRNT-2",
+  "att_space": "WMB",
+  "att_source": "REAL_AS21",
+  "ans": "В текущем спринте **WMB-SPRNT-2** задач с вложениями не найдено (0)."
+ },
+ {
+  "tag": "f2",
+  "query": "какие задачи текущего спринта WMB имеют вложения",
+  "status": "COMPLETED",
+  "dt": 32.7,
+  "warnings": [],
+  "att_count": 0,
+  "att_sprint": "WMB-SPRNT-2",
+  "att_space": "WMB",
+  "att_source": "REAL_AS21",
+  "ans": "В текущем спринте **WMB-SPRNT-2** задач с вложениями не найдено."
+ },
+ {
+  "tag": "f3",
+  "query": "покажи вложения по задачам WMB-SPRNT-2",
+  "status": "FAILED",
+  "dt": 49.8,
+  "warnings": [
+   "v4_runtime_failure"
+  ],
+  "att_count": null,
+  "att_sprint": null,
+  "att_space": null,
+  "att_source": null,
+  "ans": "Agent Core v4 не смог безопасно завершить траекторию."
+ },
+ {
+  "tag": "f4",
+  "query": "есть ли файлы у задач текущего спринта WMB",
+  "status": "COMPLETED",
+  "dt": 24.7,
+  "warnings": [],
+  "att_count": 0,
+  "att_sprint": "WMB-SPRNT-2",
+  "att_space": "WMB",
+  "att_source": "REAL_AS21",
+  "ans": "В текущем спринте **WMB-SPRNT-2** нет задач с вложениями — файлов не найдено."
+ },
+ {
+  "tag": "f5_dms",
+  "query": "текущий спринт DMS: покажи вложения по его задачам",
+  "status": "COMPLETED",
+  "dt": 25.9,
+  "warnings": [],
+  "att_count": 11,
+  "att_sprint": "DMS-SPRNT-3",
+  "att_space": "DMS",
+  "att_source": "REAL_AS21",
+  "ans": "## Текущий спринт DMS: **DMS-SPRNT-3**\n\nНайдено задач с вложениями: **11**\n\n---\n\n### DMS-335 — Тесты НТ по Apache Ranger\n*Статус: Closed · Исполнитель"
+ },
+ {
+  "tag": "f6_explicit",
+  "query": "покажи задачи спринта DMS-SPRNT-3 с вложениями",
+  "status": "COMPLETED",
+  "dt": 27.3,
+  "warnings": [],
+  "att_count": 11,
+  "att_sprint": "DMS-SPRNT-3",
+  "att_space": "DMS",
+  "att_source": "REAL_AS21",
+  "ans": "## Задачи спринта DMS-SPRNT-3 с вложениями\n\nВсего задач в спринте: **73**, из них с вложениями: **11**.\n\n| # | Ключ | Название | Статус | Исполнитель "
+ }
+]

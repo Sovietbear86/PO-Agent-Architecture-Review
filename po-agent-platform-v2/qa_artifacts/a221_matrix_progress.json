@@ -1,5 +1,5 @@
 {
- "status": "RED_STOPPED",
+ "status": "DONE",
  "started": "2026-09-26T17:55:37+00:00",
  "baseline_head": "62ea3ac1d4adc729f9b02618b4383618e4f40412",
  "baseline_hashes": {
@@ -118,7 +118,7 @@
     "query": "какие задачи Kalachanov.V.V в WMB имеют вложения",
     "attempts": 1,
     "how": "ok",
-    "dt": 37.5,
+    "dt": 78.2,
     "status": "COMPLETED",
     "traj": [
      "task.search_attachments"
@@ -159,7 +159,7 @@
    },
    "final": "GREEN_SOURCE_READY",
    "first_failing_boundary": "",
-   "ts": "2026-09-26T18:00:53+00:00"
+   "ts": "2026-09-26T21:31:22+00:00"
   },
   "4": {
    "row_id": 4,
@@ -170,14 +170,14 @@
     "query": "задачи Kalachanov.V.V в WMB с Excel-вложениями",
     "attempts": 1,
     "how": "ok",
-    "dt": 36.6,
+    "dt": 51.9,
     "status": "COMPLETED",
     "traj": [
-     "space.resolve",
+     "member.resolve",
      "task.search_excel"
     ],
     "warnings": [],
-    "answer": "**Задачи Kalachanov.V.V в WMB с Excel-вложениями: 2**\n\n| # | Ключ | Название | Статус | Excel-вложений |\n|---|------|----------|--------|----------------|\n| 1 | **WMB-30000** | [OLP] OLAP Analytics Подготовка к БП2027 (ДУП) | Закрыт | 5 |\n| 2 | **WMB-29995** | [DMS] DataMarts Подготовка к БП2027 (ДУП) | Решён | 6 |\n\n**Вложения:**\n\n**WMB-30000:**\n- Справочно_3ЛТП_Типовая трудоемкость_2025-2026 (про",
+    "answer": "Найдено **2 задачи** Kalachanov.V.V в WMB с Excel-вложениями:\n\n| # | Key | Название | Статус | Excel-вложений |\n|---|-----|----------|--------|----------------|\n| 1 | **WMB-30000** | [OLP] OLAP Analytics Подготовка к БП2027 (ДУП) | Закрыт | 5 |\n| 2 | **WMB-29995** | [DMS] DataMarts Подготовка к БП2027 (ДУП) | Решён | 6 |\n\n**WMB-30000** — вложения:\n- Справочно_3ЛТП_Типовая трудоемкость_2025-2026 (п",
     "evidence_keys": [
      "WMB-30000",
      "WMB-30000",
@@ -218,7 +218,7 @@
    },
    "final": "GREEN_SOURCE_READY",
    "first_failing_boundary": "",
-   "ts": "2026-09-26T18:06:15+00:00"
+   "ts": "2026-09-26T21:32:27+00:00"
   },
   "5": {
    "row_id": 5,
@@ -229,14 +229,13 @@
     "query": "задачи Kalachanov.V.V в WMB с PDF-вложениями",
     "attempts": 1,
     "how": "ok",
-    "dt": 37.3,
+    "dt": 29.9,
     "status": "COMPLETED",
     "traj": [
-     "member.resolve",
      "task.search_pdf"
     ],
     "warnings": [],
-    "answer": "**Задачи Kalachanov.V.V в WMB с PDF-вложениями — найдено 2:**\n\n| # | Ключ | Название | Статус | PDF-вложения |\n|---|------|----------|--------|--------------|\n| 1 | **WMB-29890** | [DMS] Второй этап годового планирования. Релиз к оплате в 2027 г. по ЛД | Закрыт | `Re: Планирование закупочного релиза на 2027 год.pdf` (156 КБ) |\n| 2 | **WMB-29995** | [DMS] DataMarts Подготовка к БП2027 (ДУП) | Решён",
+    "answer": "Найдено **2 задачи** Kalachanov.V.V в WMB с PDF-вложениями:\n\n| # | Ключ | Название | Статус | PDF-вложения |\n|---|------|----------|--------|--------------|\n| 1 | **WMB-29890** | [DMS] Второй этап годового планирования. Релиз к оплате в 2027 г. по ЛД | Закрыт | `Re: Планирование закупочного релиза на 2027 год.pdf` (156 КБ) |\n| 2 | **WMB-29995** | [DMS] DataMarts Подготовка к БП2027 (ДУП) | Решён |",
     "evidence_keys": [
      "WMB-29890",
      "WMB-29995",
@@ -261,7 +260,7 @@
    },
    "final": "GREEN_SOURCE_READY",
    "first_failing_boundary": "",
-   "ts": "2026-09-26T18:07:05+00:00"
+   "ts": "2026-09-26T21:33:10+00:00"
   },
   "6": {
    "row_id": 6,
@@ -272,13 +271,15 @@
     "query": "задачи Kalachanov.V.V в WMB с MSG-письмами",
     "attempts": 1,
     "how": "ok",
-    "dt": 28.9,
+    "dt": 44.1,
     "status": "COMPLETED",
     "traj": [
+     "space.resolve",
+     "member.resolve",
      "task.search_msg"
     ],
     "warnings": [],
-    "answer": "Задач с MSG-письмами для **Kalachanov.V.V** в пространстве **WMB** не найдено (0 шт.).",
+    "answer": "В пространстве **WMB** у пользователя **Kalachanov.V.V** не найдено задач с MSG-вложениями (0 задач).",
     "evidence_keys": [],
     "data_keys": []
    },
@@ -293,7 +294,7 @@
    },
    "final": "GREEN_SOURCE_CONDITIONAL",
    "first_failing_boundary": "",
-   "ts": "2026-09-26T18:07:58+00:00"
+   "ts": "2026-09-26T21:34:17+00:00"
   },
   "7": {
    "row_id": 7,
@@ -4808,7 +4809,7 @@
    "head": "62ea3ac1d4adc729f9b02618b4383618e4f40412"
   }
  ],
- "red_row": 51,
+ "red_row": null,
  "stopped_at": "2026-09-26T19:39:55+00:00",
  "a221r_regate": {
   "regate_start_head": "f132bc15a6dad246fb9836c3c187200b66f52b47",
@@ -4884,14 +4885,13 @@
   ],
   "stopped": "2026-09-26T19:5x UTC at confirmed RED row 49"
  },
- "red_boundary": "Phase 8 composition: sprint_downstream#3 (current sprint -> attachments)",
+ "red_boundary": null,
  "phases": {
   "p8": {
-   "status": "RED",
-   "pass": 23,
+   "status": "GREEN",
+   "pass": 24,
    "total": 24,
-   "red": "sprint_downstream#3 (current sprint -> attachments): task.search_attachments lacks sprint_id",
-   "note": "other non-COMPLETED verified legitimate (person-ref clarifications, release typed SC, 1 non-det brief drill)"
+   "note": "A221R2 RED sprint_downstream#3 CLOSED by owner fix (sprint_id on attachment capabilities); regated 5/5 exact + 6 forms + P2 intersection + P4 audit"
   },
   "p9": {
    "status": "GREEN",
@@ -4923,5 +4923,24 @@
    "pass": 13,
    "total": 13
   }
+ },
+ "verdict": "AGENT_CORE_V4_FULL_54_ABC_GREEN_A221R3",
+ "a221r3": {
+  "start_head": "3e3e6422189e389654a5e9ca5e0c4fb529fdafaf",
+  "owner_fix": [
+   "6491f2e",
+   "eadd41d",
+   "5710bc9"
+  ],
+  "p0": "plugin-only diff; 217/217 V4 + 10/10 new tests",
+  "p1": "7/7 sprint-scoped exact (WMB REAL_EMPTY 0; DMS 11/11 key-set exact)",
+  "p2": "intersection exact (DMS-390; DMS-412 csv-as-excel pre-existing classifier)",
+  "p3": "rows 3-6 GREEN retained parity",
+  "p4": "audit PASS (0 local/0 mutations/0 unscoped/0 broadening)",
+  "window_start": 11550,
+  "non_blocking": [
+   "F-A221R3-1 f3 LLM plan-validation flake 2/7 fail-closed (known class)",
+   "F-A221R3-2 CSV/ODS -> EXCEL classifier (adapters/task_api.py:219, pre-existing)"
+  ]
  }
 }

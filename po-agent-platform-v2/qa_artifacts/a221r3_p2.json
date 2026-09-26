@@ -1,0 +1,114 @@
+[
+ {
+  "tag": "sprint_person",
+  "query": "покажи вложения по задачам Семавина в текущем спринте DMS",
+  "status": "COMPLETED",
+  "dt": 61.7,
+  "warnings": [],
+  "count": 1,
+  "sprint": "DMS-SPRNT-3",
+  "space": "DMS",
+  "assignee": "Semavin.M.M",
+  "keys": [
+   "DMS-390"
+  ],
+  "traj": [
+   [
+    "tasks.search",
+    null,
+    null,
+    null
+   ],
+   [
+    "space.resolve",
+    null,
+    "DMS",
+    null
+   ],
+   [
+    "member.resolve",
+    null,
+    "Семавин",
+    "DMS"
+   ],
+   [
+    "sprint.current",
+    null,
+    null,
+    null
+   ],
+   [
+    "task.search_attachments",
+    null,
+    null,
+    null
+   ],
+   [
+    "task.search_attachments",
+    "DMS-SPRNT-3",
+    "Semavin.M.M",
+    "DMS"
+   ],
+   [
+    null,
+    null,
+    null,
+    null
+   ]
+  ],
+  "ans": "**Вложения по задачам Семавина (Semavin.M.M) в спринте DMS-SPRNT-3**\n\nНайдена **1 задача** с вложениями:\n\n| Задача | Название | Статус | Вложения |\n|-"
+ },
+ {
+  "tag": "sprint_excel",
+  "query": "какие задачи текущего спринта DMS имеют Excel-файлы",
+  "status": "COMPLETED",
+  "dt": 39.0,
+  "warnings": [],
+  "count": 1,
+  "sprint": "DMS-SPRNT-3",
+  "space": "DMS",
+  "assignee": null,
+  "keys": [
+   "DMS-412"
+  ],
+  "traj": [
+   [
+    "sprint.current",
+    null,
+    null,
+    null
+   ],
+   [
+    "space.resolve",
+    null,
+    "DMS",
+    null
+   ],
+   [
+    "task.search_excel",
+    null,
+    null,
+    null
+   ],
+   [
+    "sprint.current",
+    null,
+    null,
+    null
+   ],
+   [
+    "task.search_excel",
+    "DMS-SPRNT-3",
+    null,
+    "DMS"
+   ],
+   [
+    null,
+    null,
+    null,
+    null
+   ]
+  ],
+  "ans": "В текущем спринте **DMS-SPRNT-3** с Excel-файлами найдена **1 задача**:\n\n| Ключ | Название | Статус | Исполнитель | Вложение |\n|------|----------|----"
+ }
+]

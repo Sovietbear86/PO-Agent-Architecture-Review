@@ -618,17 +618,25 @@
   "generic": false,
   "runtime_failure": false,
   "multi_skill": true,
-  "issues": [
-   "confirmed_RED: bounded source-answerable intent (current WMB sprint attachments = WMB-108, 0 files) fails closed deterministically (3/3 source_unavailable): task.search_attachments has no sprint_id arg -> sprint-scoped composition falls back to _live_rows(space=WMB) ~2374 candidates -> A196 D2 max_fanout=250 guard -> AS21SourceUnavailable; NOT a genuine source limitation (source has the data)"
-  ],
-  "pass": false,
+  "issues": [],
+  "pass": true,
   "red_root_cause": {
    "code": "_task_live_handlers.py build_task_search_attachments: args = {task_key, space, assignee, reference} - NO sprint_id",
    "path": "sprint.current(WMB-SPRNT-2) resolved OK, but task.search_attachments(space=WMB, no assignee, no task_key) -> _live_rows(space=WMB) ~2374 -> len>250 & not task_key -> raise AS21SourceUnavailable",
    "source_truth": "WMB-SPRNT-2 = 1 task (WMB-108), WMB-108/files = 0 (0.1s direct) - data IS available, so not a legitimate SOURCE_CONDITIONAL",
    "determinism": "3/3 source_unavailable (48.3s, 38.5s, 34.1s)",
    "class": "composition/capability gap: bounded sprint-scoped attachment intent not expressible (attachment capability lacks sprint_id); degrades to unbounded space-only scan that fails closed"
-  }
+  },
+  "a221r3_regate": {
+   "status": "CLOSED",
+   "owner_fix": "6491f2e+eadd41d (sprint_id on attachment capabilities, get_sprint_tasks candidate collection, person intersection, guard retained) + 5710bc9 tests",
+   "exact_case": "5/5 COMPLETED REAL_EMPTY count=0 sprint_id=WMB-SPRNT-2 (was 0/3 source_unavailable in A221R2)",
+   "forms_6": "6/6 first-pass sprint-scoped (f3 5/7 with 2 fail-closed LLM plan-validation flakes, known A179/A200 class)",
+   "dms_parity": "DMS-SPRNT-3 attachments 11/11 EXACT key-set vs independent oracle",
+   "p2_intersection": "sprint+person DMS-390 exact; sprint+excel DMS-412 (pre-existing CSV->EXCEL classifier, F-A221R3-2)",
+   "audit": "0 local/0 mutations/0 unscoped/0 WMB broadening; file reads = sprint membership (73+1) + certified person-scoped (6)"
+  },
+  "red_root_cause_closed": true
  },
  {
   "pattern": "task_time",
