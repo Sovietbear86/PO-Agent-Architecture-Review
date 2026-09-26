@@ -1,150 +1,212 @@
 # GigaCode — Current Action
 
 ## Status
-ACTIVE_QA_ASSIGNMENT_219R_BATCH5_PO_REGATE
+ACTIVE_QA_ASSIGNMENT_220_BATCH6_RELEASE_FORECAST_GATE
 
 ## Role lock
 GigaCode is QA/adversarial tester + service operator only.
 
 Do NOT modify production/frontend/plugin/test/config/architecture code.
 Do NOT implement fixes.
-Do NOT start Batch 6 / release.forecast.
+Do NOT start full 54-skill certification.
 Commit/push only the QA report.
 
 ## Frozen baseline
-A218 = GREEN.
-A219 = RED only on D-A219-1.
-Everything else from A219 is retained GREEN unless the owner fix regresses it.
+A219R = GREEN.
+Rollback checkpoint:
+`checkpoint/v4-batch5-green-a219r`
 
-Owner fix commits:
-- `51b2fd3438dce69ce4c3beeb3c5cce6764353feb`
-- `7be95ad22343ddf48ae4da7997e911863c4c9849`
+Baseline inventory:
+- live registry before Batch 6 = 67 skills / 12 plugins;
+- canonical coverage = 53/54;
+- only missing canonical skill = release.forecast.
 
-The fix is plugin-only + focused test only.
+## Owner Batch 6
+Commits:
+- `4784b20c9ad7fa7c35dc9bc5e128d34f83baaa48`
+- `e718d27b69820b36240887f5a7e273ec9d577f59`
+
+New plugin-only skill:
+- release.forecast
+
 No Agent Core/planner/runtime/session-context changes.
 
-## Defect to close
-A219 D-A219-1:
-`po.local_task_draft` + invalid source task key caused the planner to detour to `task.lookup`, which was not loaded, then exhaust the step budget and return `v4_runtime_failure`.
+## Forecast source contract
+release.forecast is deliberately conservative.
 
-The intended architecture is:
-user task key -> directly call po.local_task_draft -> capability owns one bounded get_task point read -> found => draft; not found => typed draft_created=false terminal.
+Required chain:
+space.resolve -> release.search(require_single=true) -> release.forecast
 
-No separate task.lookup is required or allowed for this skill.
+Forecast may execute only if:
+1. authoritative release-to-task membership exists and is non-empty;
+2. for an unfinished release, >=2 completed tasks have authoritative closed_at/resolved_at timestamps;
+3. task creation timestamps form a positive observation window.
 
-## Phase 0 — fix-scope audit
-1. Pull branch and record START_HEAD.
-2. Diff from A219 report commit `6d408073e494305ec1e6ee73f6afa34e77856e39`.
-3. Prove only:
-   - wave_batch5_po.py
-   - focused Batch 5 test
-   - docs/QA assignment
-   changed.
+Never:
+- treat empty release membership as a zero-task release;
+- infer a completion timestamp from updated_at;
+- invent a forecast from status percentages alone;
+- use LLM prose as forecast math;
+- present the result as a commitment.
+
+Controlled deterministic method:
+- observation_start = earliest authoritative task created_at in release scope;
+- observation_end = latest authoritative closed_at/resolved_at among completed tasks;
+- throughput = completed tasks with authoritative completion timestamps / observation_days;
+- remaining_days = remaining task count / throughput;
+- forecast_date = current time + remaining_days;
+- method = linear_task_throughput_v1.
+
+If release is already complete:
+- forecast_kind=actual_completion;
+- forecast_date = latest authoritative completion timestamp;
+- no projection.
+
+## Phase 0 — architecture invariant
+1. Pull branch; record START_HEAD and clean worktree.
+2. Diff from checkpoint/v4-batch5-green-a219r.
+3. Prove only Batch 6 plugin/tests/docs changed.
 4. Zero Agent Core/planner/runtime/session-context edits.
-5. Registry count remains 67 skills / 12 plugins before any Batch 6 work.
+5. Registry discovers exactly one new plugin and release.forecast exactly once.
+6. dummy-55 invariant GREEN.
 
-## Phase 1 — focused tests
+## Phase 1 — tests
 Run:
-- tests/test_agent_core_v4_batch5_po.py
-- tests/test_agent_core_v4_plugin_registry.py
+- tests/test_agent_core_v4_batch6_release_forecast.py
+- tests/test_agent_core_v4_batch4.py
 - tests/test_agent_core_v4_planner_signature_parity.py
-
-Then full:
-- tests/test_agent_core_v4*.py
+- full tests/test_agent_core_v4*.py
 - tests/test_v4*.py
 
 Zero unexplained failures.
 
-## Phase 2 — direct invalid-key regression (blocking)
-Use fresh sessions.
+## Phase 2 — current REAL AS21 source oracle
+Use at least:
+- WMB release 24Q1
+- OLP release 1.6.0
 
-Run at least 8 times total across >=4 natural-language forms equivalent to:
-1. "создай локальный черновик задачи на основе DMS-999999"
-2. "подготовь local task draft по DMS-999999"
-3. "сделай черновик follow-up задачи из DMS-999999"
-4. "локальная задача на базе DMS-999999"
+Independently:
+1. resolve release via version directory;
+2. query bounded release membership with canonical release UUID/code;
+3. if membership exists, inspect source-backed completion timestamps.
 
-Required EVERY run:
-- loaded goal is po.local_task_draft;
-- NO task.lookup call;
-- po.local_task_draft called directly with task_key=DMS-999999;
-- exactly one bounded point read GET /swtr-read/tasks/DMS-999999;
-- source 404 maps safely to task=None;
-- terminal is typed, not generic failure;
-- draft_created=false;
-- write_performed=false;
-- zero mutation;
-- no v4_runtime_failure;
-- no step-budget exhaustion.
+Expected current source state based on A214/A217:
+- release membership is empty/unpopulated;
+- therefore release.forecast must terminate typed SOURCE_CONDITIONAL before forecast math.
 
-Any single recurrence of the old task.lookup detour => RED.
+If source has evolved and membership is now populated, continue exact source inspection rather than assuming the historical state.
 
-## Phase 3 — valid-key retained regression
-Fresh sessions, >=4 runs:
-- DMS-380
-- DMS-434
-- one valid source+custom subject case
+## Phase 3 — live NL routing
+Run >=5 each:
+- "прогноз завершения релиза 24Q1 в WMB"
+- "когда ориентировочно закончится релиз OLP 1.6.0"
+- "release forecast for WMB 24Q1"
 
 Require:
-- direct po.local_task_draft trajectory;
-- one bounded point read per source-key draft;
-- draft_created=true;
-- source=REAL_AS21;
-- write_performed=false;
-- requires_approval_for_external_write=true.
+- release identity resolved first;
+- release.forecast actually loads/executes;
+- current insufficient source => typed SOURCE_CONDITIONAL;
+- zero identity-only early terminal;
+- zero release.progress/health substitution unless user asked for them;
+- zero fabricated date/percentage.
 
-## Phase 4 — user-only draft retained
-Run >=3 natural forms with subject only and no source task.
+## Phase 4 — controlled membership/history fixture
+Use the focused controlled fixture or equivalent source-shaped adapter.
+
+Require exact:
+- authoritative membership;
+- two completed tasks with closed/resolved timestamps;
+- two remaining tasks;
+- 10-day observation window;
+- throughput 0.2 tasks/day;
+- remaining_days 10.0;
+- method linear_task_throughput_v1;
+- completion_timestamp_policy closed_at_or_resolved_at_only;
+- warning says operational projection/not commitment.
+
+## Phase 5 — updated_at anti-fabrication
+Controlled case:
+- tasks marked completed;
+- updated_at present;
+- closed_at/resolved_at absent.
+
+Require typed capability unavailable.
+Any forecast derived from updated_at => RED.
+
+## Phase 6 — completed-release case
+Controlled source-backed completed release.
 
 Require:
-- po.local_task_draft direct;
-- zero AS21 calls;
-- source=USER_INPUT_ONLY;
-- draft_created=true;
-- write_performed=false.
+- state=COMPLETED;
+- forecast_kind=actual_completion;
+- method=authoritative_latest_completion_timestamp;
+- date = latest authoritative closed/resolved timestamp;
+- no projected future date.
 
-## Phase 5 — clarification retained
-Run no-subject/no-task-key shape.
+## Phase 7 — Browser C
+Real UI:
+- forecast WMB 24Q1;
+- forecast OLP 1.6.0.
 
+Current sparse-source expected:
+- typed SOURCE_UNAVAILABLE/SOURCE_CONDITIONAL presentation;
+- no generic V4 ERROR;
+- no fake date;
+- release identity may be visible as grounded context.
+
+If a dedicated release_forecast widget is absent, JSON fallback is acceptable only if the typed state and no-fabrication semantics are clear.
+
+## Phase 8 — retained regression
+At minimum:
+- Batch 5 PO five skills
+- agent.help
+- task DMS-380
+- current sprint DMS
+- Semavin time accounting
+- portfolio.overview
+- standalone release identity
+- release.progress/health SOURCE_CONDITIONAL
+- dummy-55
+
+Zero planner/runtime signature regressions.
+
+## Phase 9 — audit
 Require:
-- typed NEEDS_CLARIFICATION;
-- zero source calls;
-- no generic error.
-
-## Phase 6 — compact retained Batch 5 smoke
-Re-run at least one representative browser/API case each:
-- po.attention_queue
-- po.daily_brief
-- po.status_report
-- po.reminder_draft
-
-Require A219 oracle parity retained and no tenant-wide scans.
-
-## Phase 7 — source/write audit
-Require:
-- tenant-wide/unscoped task scans = 0;
 - local factual reads = 0;
+- tenant-wide scans = 0;
 - mutations = 0;
-- draft calls = bounded point reads only;
-- user-only drafts = zero source calls.
+- release lookup/membership only bounded source routes;
+- no forecast path performs task search outside the release membership query.
 
-## Phase 8 — inventory
-Require unchanged:
-- live registry = 67 skills / 12 plugins;
-- canonical coverage = 53/54;
-- missing canonical list = exactly [release.forecast].
+## Phase 10 — inventory / canonical closure
+Fresh registry enumeration.
+
+Expected if no unrelated drift:
+- live registry = 68 skills / 13 plugins;
+- duplicates = 0;
+- canonical coverage = 54/54;
+- canonical missing list = [].
+
+Important:
+54/54 means every canonical requirement has an implemented, tested terminal source contract.
+It does NOT mean every live request has rich data.
+release.forecast may be SOURCE_CONDITIONAL on current AS21 and still count as correctly covered if its fail-closed contract is certified.
 
 ## Verdict
 Use exactly one:
-- `AGENT_CORE_V4_BATCH5_PO_GREEN_A219R`
-- `AGENT_CORE_V4_BATCH5_PO_RED_A219R`
+- `AGENT_CORE_V4_BATCH6_FORECAST_GREEN_A220`
+- `AGENT_CORE_V4_BATCH6_FORECAST_RED_A220`
+
+Also report:
+- exact live skill/plugin count;
+- canonical coverage x/54;
+- exact canonical missing list;
+- current source maturity classification for release.forecast.
 
 If GREEN:
-- recommend immutable Batch 5 checkpoint;
-- next owner action = isolated Batch 6 release.forecast source-contract work.
+recommend immutable canonical-54 checkpoint and next step = full V4 54/54 A/B/C certification matrix.
 
 If RED:
-- identify first failing boundary;
-- STOP.
+identify first failing boundary and STOP.
 
 Do not modify code.
