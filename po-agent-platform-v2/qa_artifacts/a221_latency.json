@@ -1,0 +1,73 @@
+{
+ "_status": "PARTIAL",
+ "_note": "P12 observation only. Matrix RED_STOPPED at row 10 -> only Group 1 (rows 1-9) + the row-10 RED attempt have A.dt. Categories beyond Group 1 are empty (null) until re-gate after the row-10 owner fix. all_rows includes the row-10 4.2s dead-end attempt.",
+ "all_rows": {
+  "n": 10,
+  "p50": 11.6,
+  "p95": 37.4,
+  "max": 37.5
+ },
+ "by_category": {
+  "simple_point_lookup": {
+   "n": 1,
+   "p50": 6.4,
+   "p95": 6.4,
+   "max": 6.4
+  },
+  "task_collection": {
+   "n": 9,
+   "p50": 12.5,
+   "p95": 37.4,
+   "max": 37.5
+  },
+  "multi_hop_composition": {
+   "n": 0,
+   "p50": null,
+   "p95": null,
+   "max": null
+  },
+  "sprint_analytics": {
+   "n": 0,
+   "p50": null,
+   "p95": null,
+   "max": null
+  },
+  "time_accounting": {
+   "n": 0,
+   "p50": null,
+   "p95": null,
+   "max": null
+  },
+  "release_source_conditional": {
+   "n": 0,
+   "p50": null,
+   "p95": null,
+   "max": null
+  },
+  "po_cross_product_aggregation": {
+   "n": 0,
+   "p50": null,
+   "p95": null,
+   "max": null
+  },
+  "team_analytics": {
+   "n": 0,
+   "p50": null,
+   "p95": null,
+   "max": null
+  },
+  "task_intelligence": {
+   "n": 0,
+   "p50": null,
+   "p95": null,
+   "max": null
+  },
+  "po_draughtsman": {
+   "n": 0,
+   "p50": null,
+   "p95": null,
+   "max": null
+  }
+ },
+ "pathological_over_60s": []
+}

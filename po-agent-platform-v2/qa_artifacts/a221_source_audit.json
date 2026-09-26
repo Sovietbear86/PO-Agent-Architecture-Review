@@ -1,0 +1,30 @@
+{
+ "window": {
+  "start": 10193,
+  "end": 10449,
+  "lines": 256
+ },
+ "summary": {
+  "local_db_or_api_reads": 0,
+  "local_fallback_reads": 0,
+  "tenant_wide_task_scans": 0,
+  "unscoped_release_membership": 0,
+  "unscoped_sprint_collection": 0,
+  "unscoped_versions": 0,
+  "mutations": 0,
+  "person_scoped_unscoped_by_space": 1,
+  "total_swtr_read": 124
+ },
+ "tenant_wide_task_query_lines": [],
+ "person_scoped_unscoped_by_space_lines": [
+  "GET /api/v1/swtr-read/task-query?limit=100&max_pages=100&assignee=Kalachanov.V.V HTTP/1.1 200 OK"
+ ],
+ "mutation_lines": [],
+ "local_read_lines": [],
+ "clarification": {
+  "spec_requirement": "Phase 11: unbounded/tenant-wide task scans = 0",
+  "verdict_on_spec": "MET (tenant_wide_task_scans = 0)",
+  "finding_F4": "The single flag is a person-scoped (assignee=Kalachanov.V.V) task-query, bounded (limit=100/max_pages=100), routed through the certified assignee facade. Provenance (task-api log line 10384, preceded by WMB-30000/files) = the attachment handler (rows 4/5) fetching the person's tasks across ALL spaces while ignoring the space=WMB constraint. Person-scoped, NOT tenant-wide -> non-blocking scoping-efficiency finding (F4), not a safety violation."
+ },
+ "verdict": "PASS_WITH_FINDING"
+}

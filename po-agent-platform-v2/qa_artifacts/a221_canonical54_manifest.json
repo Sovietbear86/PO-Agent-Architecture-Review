@@ -1,0 +1,921 @@
+{
+ "assignment": "A221",
+ "built_at": "2026-09-26",
+ "denominator": 54,
+ "sources": [
+  "PO_AGENT_48_SKILL_MATRIX.md (48 original requirements)",
+  "reconciled additions 1-6 in the same document"
+ ],
+ "rows": [
+  {
+   "row_id": 1,
+   "requirement": "Exact task lookup by key",
+   "live_skill": "task.lookup",
+   "plugin_id": "builtin.core.a188",
+   "group": "G1",
+   "source_class": "SOURCE_READY",
+   "nl_query": "расскажи о задаче DMS-380",
+   "context_dimensions": [
+    "task_key"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null
+  },
+  {
+   "row_id": 2,
+   "requirement": "Task phrase/text search",
+   "live_skill": "task.search_text",
+   "plugin_id": "builtin.catalog.tasks",
+   "group": "G1",
+   "source_class": "SOURCE_READY",
+   "nl_query": "найди задачи про аутентификацию в DMS",
+   "context_dimensions": [
+    "space",
+    "phrase"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null
+  },
+  {
+   "row_id": 3,
+   "requirement": "Tasks with attachments",
+   "live_skill": "task.search_attachments",
+   "plugin_id": "builtin.catalog.tasks",
+   "group": "G1",
+   "source_class": "SOURCE_READY",
+   "nl_query": "какие задачи Kalachanov.V.V в WMB имеют вложения",
+   "context_dimensions": [
+    "space",
+    "assignee"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null,
+   "notes": [
+    "rep case uses canonical login: bare surname Каликанов returns source matches=[] (typed clarification, fail-closed)"
+   ]
+  },
+  {
+   "row_id": 4,
+   "requirement": "Tasks with Excel attachments",
+   "live_skill": "task.search_excel",
+   "plugin_id": "builtin.catalog.tasks",
+   "group": "G1",
+   "source_class": "SOURCE_READY",
+   "nl_query": "задачи Kalachanov.V.V в WMB с Excel-вложениями",
+   "context_dimensions": [
+    "space",
+    "assignee",
+    "file_type"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null,
+   "notes": [
+    "rep case uses canonical login: bare surname Каликанов returns source matches=[] (typed clarification, fail-closed)"
+   ]
+  },
+  {
+   "row_id": 5,
+   "requirement": "Tasks with PDF attachments",
+   "live_skill": "task.search_pdf",
+   "plugin_id": "builtin.catalog.tasks",
+   "group": "G1",
+   "source_class": "SOURCE_READY",
+   "nl_query": "задачи Kalachanov.V.V в WMB с PDF-вложениями",
+   "context_dimensions": [
+    "space",
+    "assignee",
+    "file_type"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null,
+   "notes": [
+    "rep case uses canonical login: bare surname Каликанов returns source matches=[] (typed clarification, fail-closed)"
+   ]
+  },
+  {
+   "row_id": 6,
+   "requirement": "Tasks with MSG attachments",
+   "live_skill": "task.search_msg",
+   "plugin_id": "builtin.catalog.tasks",
+   "group": "G1",
+   "source_class": "SOURCE_CONDITIONAL",
+   "nl_query": "задачи Kalachanov.V.V в WMB с MSG-письмами",
+   "context_dimensions": [
+    "space",
+    "assignee",
+    "file_type"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null,
+   "notes": [
+    "rep case uses canonical login: bare surname Каликанов returns source matches=[] (typed clarification, fail-closed)"
+   ]
+  },
+  {
+   "row_id": 7,
+   "requirement": "Search/filter by assignee",
+   "live_skill": "task.search_assignee",
+   "plugin_id": "builtin.catalog.tasks",
+   "group": "G1",
+   "source_class": "SOURCE_READY",
+   "nl_query": "задачи Жданова в DMS",
+   "context_dimensions": [
+    "space",
+    "assignee"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null
+  },
+  {
+   "row_id": 8,
+   "requirement": "Search/filter by status",
+   "live_skill": "task.search_status",
+   "plugin_id": "builtin.catalog.tasks",
+   "group": "G1",
+   "source_class": "SOURCE_READY",
+   "nl_query": "покажи завершённые задачи в DMS",
+   "context_dimensions": [
+    "space",
+    "status"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null,
+   "notes": [
+    "rep changed: pure semantic status filter (task.search_status primary); sprint+open form routes via task.search (task.search_sprint procedure) with exact data — recorded as routing observation"
+   ],
+   "initial_attempt_note": {
+    "query": "открытые задачи в спринте DMS-SPRNT-3",
+    "traj": [
+     "sprint.resolve",
+     "task.search"
+    ],
+    "data": "exact open set via task.search (B parity clean)",
+    "classification": "routing observation, not defect"
+   }
+  },
+  {
+   "row_id": 9,
+   "requirement": "Search/filter by sprint",
+   "live_skill": "task.search_sprint",
+   "plugin_id": "builtin.catalog.tasks",
+   "group": "G1",
+   "source_class": "SOURCE_READY",
+   "nl_query": "все задачи в спринте DMS-SPRNT-3",
+   "context_dimensions": [
+    "sprint_id"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null
+  },
+  {
+   "row_id": 10,
+   "requirement": "Search/filter by release",
+   "live_skill": "task.search_release",
+   "plugin_id": "builtin.catalog.tasks",
+   "group": "G1",
+   "source_class": "SOURCE_CONDITIONAL",
+   "nl_query": "задачи в релизе 24Q1 в WMB",
+   "context_dimensions": [
+    "space",
+    "release"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null
+  },
+  {
+   "row_id": 11,
+   "requirement": "Grounded task summary",
+   "live_skill": "task.summary",
+   "plugin_id": "builtin.core.a188",
+   "group": "G2",
+   "source_class": "SOURCE_READY",
+   "nl_query": "дай сводку по задаче DMS-380",
+   "context_dimensions": [
+    "task_key"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null
+  },
+  {
+   "row_id": 12,
+   "requirement": "Task definition quality",
+   "live_skill": "task.quality",
+   "plugin_id": "builtin.core.a188",
+   "group": "G2",
+   "source_class": "SOURCE_READY",
+   "nl_query": "оцени качество задачи DMS-380",
+   "context_dimensions": [
+    "task_key"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null
+  },
+  {
+   "row_id": 13,
+   "requirement": "Missing requirements detection",
+   "live_skill": "task.missing_requirements",
+   "plugin_id": "builtin.catalog.tasks",
+   "group": "G2",
+   "source_class": "SOURCE_READY",
+   "nl_query": "какие требования отсутствуют в задаче DMS-380",
+   "context_dimensions": [
+    "task_key"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null
+  },
+  {
+   "row_id": 14,
+   "requirement": "Acceptance criteria/testability analysis",
+   "live_skill": "task.acceptance",
+   "plugin_id": "builtin.core.a188",
+   "group": "G2",
+   "source_class": "SOURCE_READY",
+   "nl_query": "проанализируй критерии приёмки задачи DMS-380",
+   "context_dimensions": [
+    "task_key"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null
+  },
+  {
+   "row_id": 15,
+   "requirement": "Task dependency/link analysis",
+   "live_skill": "task.dependencies",
+   "plugin_id": "builtin.catalog.tasks",
+   "group": "G2",
+   "source_class": "SOURCE_READY",
+   "nl_query": "какие зависимости есть у задачи DMS-380",
+   "context_dimensions": [
+    "task_key"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null
+  },
+  {
+   "row_id": 16,
+   "requirement": "Task lifecycle/history",
+   "live_skill": "task.history",
+   "plugin_id": "builtin.catalog.tasks",
+   "group": "G2",
+   "source_class": "SOURCE_READY",
+   "nl_query": "покажи историю статусов задачи DMS-380",
+   "context_dimensions": [
+    "task_key"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null
+  },
+  {
+   "row_id": 17,
+   "requirement": "Time in task statuses",
+   "live_skill": "task.time_in_status",
+   "plugin_id": "builtin.catalog.tasks",
+   "group": "G2",
+   "source_class": "SOURCE_READY",
+   "nl_query": "сколько времени задача DMS-380 проводила в статусах",
+   "context_dimensions": [
+    "task_key"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null
+  },
+  {
+   "row_id": 18,
+   "requirement": "Aging active tasks",
+   "live_skill": "task.aging",
+   "plugin_id": "builtin.catalog.tasks",
+   "group": "G2",
+   "source_class": "SOURCE_READY",
+   "nl_query": "старые открытые задачи в DMS",
+   "context_dimensions": [
+    "space",
+    "status"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null
+  },
+  {
+   "row_id": 19,
+   "requirement": "Task blocker analysis",
+   "live_skill": "task.blockers",
+   "plugin_id": "builtin.core.a188",
+   "group": "G2",
+   "source_class": "SOURCE_READY",
+   "nl_query": "что блокирует задачу DMS-352",
+   "context_dimensions": [
+    "task_key"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null
+  },
+  {
+   "row_id": 20,
+   "requirement": "Similar/duplicate task discovery",
+   "live_skill": "task.similar",
+   "plugin_id": "builtin.catalog.tasks",
+   "group": "G2",
+   "source_class": "SOURCE_READY",
+   "nl_query": "найди задачи похожие на DMS-380",
+   "context_dimensions": [
+    "task_key",
+    "space"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null
+  },
+  {
+   "row_id": 21,
+   "requirement": "Sprint health",
+   "live_skill": "sprint.health",
+   "plugin_id": "builtin.core.a188",
+   "group": "G3",
+   "source_class": "SOURCE_READY",
+   "nl_query": "здоровье текущего спринта DMS",
+   "context_dimensions": [
+    "space"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null
+  },
+  {
+   "row_id": 22,
+   "requirement": "Resolve current sprint",
+   "live_skill": "sprint.current",
+   "plugin_id": "builtin.core.a188",
+   "group": "G3",
+   "source_class": "SOURCE_READY",
+   "nl_query": "какой сейчас текущий спринт в OLP",
+   "context_dimensions": [
+    "space"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null
+  },
+  {
+   "row_id": 23,
+   "requirement": "Sprint scope",
+   "live_skill": "sprint.scope",
+   "plugin_id": "builtin.wave_s1.sprint_flow_release_search",
+   "group": "G3",
+   "source_class": "SOURCE_READY",
+   "nl_query": "состав задач в спринте DMS-SPRNT-3",
+   "context_dimensions": [
+    "sprint_id"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null
+  },
+  {
+   "row_id": 24,
+   "requirement": "Sprint velocity",
+   "live_skill": "sprint.velocity",
+   "plugin_id": "builtin.wave_s1.sprint_flow_release_search",
+   "group": "G3",
+   "source_class": "SOURCE_READY",
+   "nl_query": "velocity текущего спринта DMS",
+   "context_dimensions": [
+    "space"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null
+  },
+  {
+   "row_id": 25,
+   "requirement": "Sprint throughput",
+   "live_skill": "sprint.throughput",
+   "plugin_id": "builtin.wave_s1.sprint_flow_release_search",
+   "group": "G3",
+   "source_class": "SOURCE_READY",
+   "nl_query": "throughput текущего спринта OLP",
+   "context_dimensions": [
+    "space"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null
+  },
+  {
+   "row_id": 26,
+   "requirement": "Sprint WIP",
+   "live_skill": "sprint.wip",
+   "plugin_id": "builtin.wave_s1.sprint_flow_release_search",
+   "group": "G3",
+   "source_class": "SOURCE_READY",
+   "nl_query": "wip текущего спринта DMS",
+   "context_dimensions": [
+    "space"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null
+  },
+  {
+   "row_id": 27,
+   "requirement": "Sprint cycle time",
+   "live_skill": "sprint.cycle_time",
+   "plugin_id": "builtin.wave_s2.sprint_history_risk",
+   "group": "G3",
+   "source_class": "SOURCE_READY",
+   "nl_query": "cycle time задач текущего спринта DMS",
+   "context_dimensions": [
+    "space"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null
+  },
+  {
+   "row_id": 28,
+   "requirement": "Sprint lead time",
+   "live_skill": "sprint.lead_time",
+   "plugin_id": "builtin.wave_s2.sprint_history_risk",
+   "group": "G3",
+   "source_class": "SOURCE_READY",
+   "nl_query": "lead time текущего спринта DMS",
+   "context_dimensions": [
+    "space"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null
+  },
+  {
+   "row_id": 29,
+   "requirement": "Sprint carryover",
+   "live_skill": "sprint.carryover",
+   "plugin_id": "builtin.wave_s2.sprint_history_risk",
+   "group": "G3",
+   "source_class": "SOURCE_READY",
+   "nl_query": "какие задачи перенесены в текущий спринт DMS",
+   "context_dimensions": [
+    "space"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null
+  },
+  {
+   "row_id": 30,
+   "requirement": "Sprint scope change",
+   "live_skill": "sprint.scope_change",
+   "plugin_id": "builtin.batch2.team_current_sprint",
+   "group": "G3",
+   "source_class": "SOURCE_CONDITIONAL",
+   "nl_query": "изменения scope в текущем спринте DMS",
+   "context_dimensions": [
+    "space"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null
+  },
+  {
+   "row_id": 31,
+   "requirement": "Sprint predictability",
+   "live_skill": "sprint.predictability",
+   "plugin_id": "builtin.wave_s2.sprint_history_risk",
+   "group": "G3",
+   "source_class": "SOURCE_CONDITIONAL",
+   "nl_query": "насколько предсказуем текущий спринт DMS",
+   "context_dimensions": [
+    "space"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null
+  },
+  {
+   "row_id": 32,
+   "requirement": "Sprint PO risk queue",
+   "live_skill": "sprint.risk_queue",
+   "plugin_id": "builtin.wave_s2.sprint_history_risk",
+   "group": "G3",
+   "source_class": "SOURCE_READY",
+   "nl_query": "очередь рисков текущего спринта DMS для PO",
+   "context_dimensions": [
+    "space"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null
+  },
+  {
+   "row_id": 33,
+   "requirement": "Team workload distribution",
+   "live_skill": "team.workload",
+   "plugin_id": "builtin.batch2.team_current_sprint",
+   "group": "G4",
+   "source_class": "SOURCE_READY",
+   "nl_query": "распределение нагрузки команды в DMS",
+   "context_dimensions": [
+    "space"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null
+  },
+  {
+   "row_id": 34,
+   "requirement": "Team WIP by member",
+   "live_skill": "team.wip",
+   "plugin_id": "builtin.batch2.team_current_sprint",
+   "group": "G4",
+   "source_class": "SOURCE_READY",
+   "nl_query": "wip по членам команды DMS",
+   "context_dimensions": [
+    "space"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null
+  },
+  {
+   "row_id": 35,
+   "requirement": "Team blocked work",
+   "live_skill": "team.blocked",
+   "plugin_id": "builtin.batch2.team_current_sprint",
+   "group": "G4",
+   "source_class": "SOURCE_READY",
+   "nl_query": "заблокированные работы команды DMS",
+   "context_dimensions": [
+    "space"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null
+  },
+  {
+   "row_id": 36,
+   "requirement": "Team capacity/load",
+   "live_skill": "team.capacity",
+   "plugin_id": "builtin.batch2.team_current_sprint",
+   "group": "G4",
+   "source_class": "SOURCE_CONDITIONAL",
+   "nl_query": "capacity команды DMS",
+   "context_dimensions": [
+    "space"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null
+  },
+  {
+   "row_id": 37,
+   "requirement": "Competency match",
+   "live_skill": "team.competency_match",
+   "plugin_id": "builtin.batch3.team_release",
+   "group": "G4",
+   "source_class": "SOURCE_CONDITIONAL",
+   "nl_query": "подойдёт ли команда DMS по компетенциям для задачи DMS-380",
+   "context_dimensions": [
+    "space",
+    "task_key"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null
+  },
+  {
+   "row_id": 38,
+   "requirement": "Assignee recommendation",
+   "live_skill": "team.assignee_recommendation",
+   "plugin_id": "builtin.batch3.team_release",
+   "group": "G4",
+   "source_class": "SOURCE_CONDITIONAL",
+   "nl_query": "кого рекомендовать исполнителем для задачи DMS-380 в DMS",
+   "context_dimensions": [
+    "space",
+    "task_key"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null
+  },
+  {
+   "row_id": 39,
+   "requirement": "Team bottlenecks",
+   "live_skill": "team.bottlenecks",
+   "plugin_id": "builtin.batch3.team_release",
+   "group": "G4",
+   "source_class": "SOURCE_READY",
+   "nl_query": "узкие места команды DMS",
+   "context_dimensions": [
+    "space"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null
+  },
+  {
+   "row_id": 40,
+   "requirement": "Work distribution by competence",
+   "live_skill": "team.distribution",
+   "plugin_id": "builtin.batch3.team_release",
+   "group": "G4",
+   "source_class": "SOURCE_READY",
+   "nl_query": "распределение работ по компетенциям в DMS",
+   "context_dimensions": [
+    "space"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null
+  },
+  {
+   "row_id": 41,
+   "requirement": "Release health/readiness",
+   "live_skill": "release.health",
+   "plugin_id": "builtin.core.a188",
+   "group": "G5",
+   "source_class": "SOURCE_CONDITIONAL",
+   "nl_query": "здоровье релиза 24Q1 в WMB",
+   "context_dimensions": [
+    "space",
+    "release"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null
+  },
+  {
+   "row_id": 42,
+   "requirement": "Release scope",
+   "live_skill": "release.scope",
+   "plugin_id": "builtin.batch3.team_release",
+   "group": "G5",
+   "source_class": "SOURCE_CONDITIONAL",
+   "nl_query": "scope релиза 24Q1 в WMB",
+   "context_dimensions": [
+    "space",
+    "release"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null
+  },
+  {
+   "row_id": 43,
+   "requirement": "Release progress",
+   "live_skill": "release.progress",
+   "plugin_id": "builtin.batch4.release_portfolio",
+   "group": "G5",
+   "source_class": "SOURCE_CONDITIONAL",
+   "nl_query": "прогресс релиза 1.6.0 в OLP",
+   "context_dimensions": [
+    "space",
+    "release"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null
+  },
+  {
+   "row_id": 44,
+   "requirement": "Release blockers",
+   "live_skill": "release.blockers",
+   "plugin_id": "builtin.batch4.release_portfolio",
+   "group": "G5",
+   "source_class": "SOURCE_CONDITIONAL",
+   "nl_query": "блокеры релиза 24Q1 в WMB",
+   "context_dimensions": [
+    "space",
+    "release"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null
+  },
+  {
+   "row_id": 45,
+   "requirement": "Release dependencies",
+   "live_skill": "release.dependencies",
+   "plugin_id": "builtin.batch4.release_portfolio",
+   "group": "G5",
+   "source_class": "SOURCE_CONDITIONAL",
+   "nl_query": "зависимости релиза 1.6.0 в OLP",
+   "context_dimensions": [
+    "space",
+    "release"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null
+  },
+  {
+   "row_id": 46,
+   "requirement": "Release risk queue",
+   "live_skill": "release.risk_queue",
+   "plugin_id": "builtin.batch4.release_portfolio",
+   "group": "G5",
+   "source_class": "SOURCE_CONDITIONAL",
+   "nl_query": "очередь рисков релиза 24Q1 в WMB",
+   "context_dimensions": [
+    "space",
+    "release"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null
+  },
+  {
+   "row_id": 47,
+   "requirement": "Portfolio overview / attention",
+   "live_skill": "portfolio.overview",
+   "plugin_id": "builtin.batch4.release_portfolio",
+   "group": "G5",
+   "source_class": "SOURCE_READY",
+   "nl_query": "сводка портфеля по текущим спринтам",
+   "context_dimensions": [
+    "multi_space"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null
+  },
+  {
+   "row_id": 48,
+   "requirement": "PO attention queue",
+   "live_skill": "po.attention_queue",
+   "plugin_id": "builtin.batch5.po_workflow",
+   "group": "G5",
+   "source_class": "SOURCE_READY",
+   "nl_query": "очередь внимания PO по спринту DMS",
+   "context_dimensions": [
+    "space"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null
+  },
+  {
+   "row_id": 49,
+   "requirement": "Task search by product/space",
+   "live_skill": "tasks.search",
+   "plugin_id": "builtin.core.a188",
+   "group": "G6",
+   "source_class": "SOURCE_READY",
+   "nl_query": "покажи задачи по продукту DMS",
+   "context_dimensions": [
+    "space"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null
+  },
+  {
+   "row_id": 50,
+   "requirement": "Release forecast",
+   "live_skill": "release.forecast",
+   "plugin_id": "builtin.batch6.release_forecast",
+   "group": "G6",
+   "source_class": "SOURCE_CONDITIONAL",
+   "nl_query": "прогноз завершения релиза 24Q1 в WMB",
+   "context_dimensions": [
+    "space",
+    "release"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null
+  },
+  {
+   "row_id": 51,
+   "requirement": "PO daily brief",
+   "live_skill": "po.daily_brief",
+   "plugin_id": "builtin.batch5.po_workflow",
+   "group": "G6",
+   "source_class": "SOURCE_READY",
+   "nl_query": "утренний daily brief по DMS",
+   "context_dimensions": [
+    "space"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null
+  },
+  {
+   "row_id": 52,
+   "requirement": "PO status report",
+   "live_skill": "po.status_report",
+   "plugin_id": "builtin.batch5.po_workflow",
+   "group": "G6",
+   "source_class": "SOURCE_READY",
+   "nl_query": "отчёт о статусе спринта DMS для PO",
+   "context_dimensions": [
+    "space"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null
+  },
+  {
+   "row_id": 53,
+   "requirement": "PO reminder draft",
+   "live_skill": "po.reminder_draft",
+   "plugin_id": "builtin.batch5.po_workflow",
+   "group": "G6",
+   "source_class": "SOURCE_READY",
+   "nl_query": "подготовь напоминание по задаче DMS-379",
+   "context_dimensions": [
+    "task_key"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null
+  },
+  {
+   "row_id": 54,
+   "requirement": "PO local task draft",
+   "live_skill": "po.local_task_draft",
+   "plugin_id": "builtin.batch5.po_workflow",
+   "group": "G6",
+   "source_class": "SOURCE_READY",
+   "nl_query": "создай локальный черновик задачи на основе DMS-380",
+   "context_dimensions": [
+    "task_key"
+   ],
+   "A": null,
+   "B": null,
+   "C": null,
+   "final": null
+  }
+ ]
+}
