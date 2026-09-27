@@ -1,4 +1,5 @@
 import { HarnessQueryResponse } from '../api/client'
+import { classifyResult, RESULT_STATE_LABELS, sourceStateMessage } from '../recovery/resultState'
 
 type Props = {
   result: HarnessQueryResponse
@@ -32,8 +33,8 @@ function rowLabel(row: unknown): string {
     return [key, title, attachments].filter(Boolean).map(String).join(' · ') || JSON.stringify(record)
   }
 
-  const key = record.key ?? record.id ?? record.sprint_id ?? record.source_id
-  const title = record.title ?? record.name ?? record.summary ?? record.status
+  const key = record.key ?? record.id ?? record.sprint_id ?? record.source_id ?? record.member ?? record.full_name
+  const title = record.title ?? record.name ?? record.summary ?? record.status ?? record.professional_profile
   if (key || title) return [key, title].filter(Boolean).map(String).join(' · ')
 
   // Timeline rows remain compact and readable without teaching the UI business
@@ -47,21 +48,8 @@ function rowLabel(row: unknown): string {
   return JSON.stringify(record)
 }
 
-function stateFor(result: HarnessQueryResponse): string {
-  if (result.status === 'FAILED') {
-    return result.warnings.includes('source_unavailable') || result.warnings.includes('source_capability_unavailable')
-      ? 'SOURCE_UNAVAILABLE'
-      : 'ERROR'
-  }
-  if (result.status === 'PARTIAL') return 'PARTIAL_DATA'
-  if (result.status === 'NEEDS_CLARIFICATION') return 'NEEDS_CLARIFICATION'
-  const count = findField(result.data, 'count')
-  if (count === 0) return 'REAL_EMPTY'
-  return 'SUCCESS_WITH_DATA'
-}
-
 function structuredRows(data: unknown): unknown[] {
-  const candidates = ['tasks', 'sprints', 'results', 'matches', 'timeline', 'durations', 'risks', 'dependencies']
+  const candidates = ['tasks', 'sprints', 'results', 'matches', 'candidates', 'queue', 'timeline', 'durations', 'risks', 'risk_queue', 'dependencies', 'members']
   for (const field of candidates) {
     const value = findField(data, field)
     if (Array.isArray(value)) return value
@@ -73,7 +61,7 @@ function structuredRows(data: unknown): unknown[] {
 export function V4ResultPanel({ result }: Props) {
   if (result.runtime !== 'agent_core_v4') return null
 
-  const state = stateFor(result)
+  const state = classifyResult(result)
   const widget = result.ui?.preferred_widget
   const rows = structuredRows(result.data)
 
@@ -81,10 +69,18 @@ export function V4ResultPanel({ result }: Props) {
     <div data-testid="v4-result-panel" style={{ marginTop: 10, border: '1px solid #e3e8ef', borderRadius: 10, background: '#fff', overflow: 'hidden' }}>
       <div style={{ padding: '9px 11px', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', borderBottom: '1px solid #eef1f5', fontSize: 11, color: '#667085' }}>
         <strong style={{ color: '#344054' }}>V4</strong>
-        <span>{state}</span>
+        <span className={'v4-state v4-state-' + state.toLowerCase()}>{RESULT_STATE_LABELS[state]}</span>
         {widget && <span>widget: {widget}</span>}
         {result.ui?.result_kind && <span>kind: {result.ui.result_kind}</span>}
       </div>
+
+      {state !== 'SUCCESS_WITH_DATA' && state !== 'REAL_EMPTY' && (
+        <div className="v4-state-message">{sourceStateMessage(state)}</div>
+      )}
+
+      {state === 'REAL_EMPTY' && rows.length === 0 && (
+        <div className="v4-state-message">{sourceStateMessage(state)}</div>
+      )}
 
       {rows.length > 0 && (
         <div data-testid="v4-structured-result" style={{ maxHeight: 260, overflow: 'auto' }}>
