@@ -113,6 +113,53 @@ async def _fetch_space_rows(
     raise HTTPException(status_code=502, detail=f"AS21 task query pagination exceeded max_pages for {space}")
 
 
+
+@router.get("/task-count")
+async def count_live_tasks(
+    space: str = Query(..., min_length=1, max_length=20),
+):
+    """Return exact source-reported task count for one approved space.
+
+    Reads one source page and uses authoritative totalElements metadata instead
+    of materializing the entire space corpus, so >10k spaces stay bounded.
+    """
+    normalized_space = space.upper().strip()
+    if normalized_space not in _ALLOWED_SPACES:
+        raise HTTPException(status_code=400, detail="Space is outside the approved PO Agent scope")
+
+    client = SWTRMCPClient()
+    try:
+        content = await client.call_tool(
+            "find_units_by_filter",
+            {
+                "request": {
+                    "calculatedAttributes": [],
+                    "attributes": ["code"],
+                    "query": f'space = "{normalized_space}"',
+                    "timeZone": "Europe/Moscow",
+                    "page": 0,
+                    "size": 1,
+                }
+            },
+        )
+    except (SWTRMCPUnavailable, SWTRMCPProtocolError) as exc:
+        raise _transport_http_error(exc) from exc
+
+    payload = _parse_tool_content(content)
+    meta = _page_meta(payload)
+    total = meta.get("total")
+    if not isinstance(total, int) or total < 0:
+        raise HTTPException(status_code=502, detail=f"AS21 task count metadata unavailable for {normalized_space}")
+
+    return {
+        "source": "REAL_AS21",
+        "route": "find_units_by_filter_totalElements",
+        "space": normalized_space,
+        "total": total,
+        "status_breakdown_available": False,
+    }
+
+
 @router.get("/task-query")
 async def query_live_tasks(
     phrase: str | None = Query(None, max_length=500),
