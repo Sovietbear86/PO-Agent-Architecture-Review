@@ -52,7 +52,7 @@ export function TeamDashboard() {
 
 
 
-  return <section className="page">
+  return <section className="page page-team">
     <div className="page-heading">
       <div><h1>Команда</h1><p>Нагрузка, WIP, blocked, capacity и распределение работы</p></div>
       <button className="primary-button" onClick={openAgent}>Спросить PO Agent</button>
