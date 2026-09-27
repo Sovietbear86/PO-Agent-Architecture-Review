@@ -39,7 +39,7 @@ export function OverviewDashboard() {
   const sd = getCapabilityData(status) as {
     completion_percent?: number
     by_product?: Record<string, { total?: number; completed?: number; blocked?: number }>
-    by_space_tasks?: Record<string, { total?: number; active?: number; completed?: number; blocked?: number }>
+    by_space_tasks?: Record<string, { state?: string; total?: number | null; active?: number | null; completed?: number | null; blocked?: number | null; breakdown_state?: string }>
   }
   const queue = ad.queue ?? []
   const visibleQueue = queue.slice(0, 10)
@@ -83,7 +83,13 @@ export function OverviewDashboard() {
     <div className="panel product-status-panel"><div className="panel-title"><strong>Задачи по пространствам</strong><span>{spaces.length}</span></div>
       {stateAllowsBusinessData(statusState)
         ? (spaces.length
-          ? <div className="product-status-grid">{spaces.map(([name, row]) => <div className="product-status-card" key={name}><strong>{name}</strong><div><span>Всего</span><b>{row.total ?? '—'}</b></div><div><span>Активно</span><b>{row.active ?? '—'}</b></div><div><span>Завершено</span><b>{row.completed ?? '—'}</b></div><div><span>Blocked</span><b>{row.blocked ?? '—'}</b></div></div>)}</div>
+          ? <div className="product-status-grid">{spaces.map(([name, row]) => <div className="product-status-card" key={name}>
+              <strong>{name}</strong>
+              <div><span>Всего задач</span><b>{row.total ?? '—'}</b></div>
+              {row.state === 'SOURCE_UNAVAILABLE'
+                ? <div className="space-source-note">Источник временно недоступен</div>
+                : <div className="space-source-note">Разбивка по статусам пока не подтверждена источником</div>}
+            </div>)}</div>
           : <div className="muted">Источник подтвердил отсутствие данных по пространствам.</div>)
         : <ResultStatePanel result={status} compact />}
       <Meta result={status} />
