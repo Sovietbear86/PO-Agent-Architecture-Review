@@ -1,0 +1,61 @@
+total http lines: 687
+
+[1] AS21 mutations (non-GET, excl /api/v1/query): 0
+
+[2] tenant-wide / whole-space task-query (no space= AND no assignee=): 5
+    INFO:     127.0.0.1:51548 - "GET /api/v1/swtr-read/task-query?limit=100&max_pages=100&phrase=%D0%94%D0%A3%D0%9F HTTP/1.1" 502 Bad Gateway
+    INFO:     127.0.0.1:52659 - "GET /api/v1/swtr-read/task-query?limit=100&max_pages=100&phrase=%D0%94%D0%A3%D0%9F HTTP/1.1" 502 Bad Gateway
+    INFO:     127.0.0.1:54892 - "GET /api/v1/swtr-read/task-query?limit=100&max_pages=100 HTTP/1.1" 502 Bad Gateway
+    INFO:     127.0.0.1:55790 - "GET /api/v1/swtr-read/task-query?limit=100&max_pages=100 HTTP/1.1" 502 Bad Gateway
+    INFO:     127.0.0.1:58472 - "GET /api/v1/swtr-read/task-query?limit=100&max_pages=100 HTTP/1.1" 502 Bad Gateway
+
+[3] assignee= logins used (all task-query assignee reads):
+    Agataeva.A.Z: 9
+    Alekseev.K.S: 9
+    Bezrukov.P.S: 9
+    Dolgovskoy.E.N: 9
+    Galtsov.A.A: 9
+    Garanin.R.V: 9
+    Goncharov.A.O: 9
+    Kalachanov.V.V: 10
+    Kondratchikova.P.I: 9
+    Kryukov.V.A: 9
+    Kuznetsov.M.Se: 9
+    Makoshina.V.V: 9
+    Moiseev.A.N: 9
+    Reshetnik.A: 9
+    Semavin.M.M: 11
+    Zhdanov.A.Ni: 10
+   non-configured assignee reads: NONE
+
+[4] local factual fallback GET /api/v1/tasks reads: 0
+
+[5] task-count route calls (A224R superseded route; expect 0 in A224R2): 51
+
+[6] swtr-read call breakdown:
+      175  /api/v1/swtr-read/task-query
+       75  /api/v1/swtr-read/sprints/DMS-SPRNT-3/tasks
+       63  /api/v1/swtr-read/spaces/DMS/current-sprint
+       53  /api/v1/swtr-read/sprints/OLP-SPRNT-8/tasks
+       51  /api/v1/swtr-read/task-count
+       50  /api/v1/swtr-read/spaces/OLP/current-sprint
+       32  /api/v1/swtr-read/spaces/CRPV/current-sprint
+       32  /api/v1/swtr-read/spaces/STS/current-sprint
+       32  /api/v1/swtr-read/spaces/WMB/current-sprint
+       32  /api/v1/swtr-read/sprints/WMB-SPRNT-2/tasks
+       24  /api/v1/swtr-read/sprints/WMB-SPRNT-1/tasks
+       22  /api/v1/swtr-read/health
+       16  /api/v1/swtr-read/versions
+        9  /api/v1/swtr-read/tasks/WMB-102/files
+        4  /api/v1/swtr-read/spaces/WMB/sprints
+        3  /api/v1/swtr-read/assignees/resolve
+        2  /api/v1/swtr-read/tasks/STS-266053/files
+        2  /api/v1/swtr-read/tasks/WMB-102
+        2  /api/v1/swtr-read/tasks/OLP-3281/files
+        2  /api/v1/swtr-read/spaces/DMS/sprints
+        1  /health
+        1  /api/v1/swtr-read/tasks/STS-266053
+        1  /api/v1/swtr-read/tasks/OLP-3281
+        1  /api/v1/swtr-read/sprints/WMB-2024-Q3/tasks
+        1  /api/v1/swtr-read/tasks/DMS-380
+        1  /api/v1/swtr-read/tasks/DMS-380/files

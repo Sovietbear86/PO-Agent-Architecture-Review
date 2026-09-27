@@ -1,0 +1,31 @@
+{
+ "chat": {
+  "has_rich_answer": true,
+  "has_tables": true,
+  "has_headings": true,
+  "no_raw_md": true,
+  "has_evidence": true,
+  "has_feedback": true
+ },
+ "competency": {
+  "has_response": true,
+  "has_rich_or_text": true,
+  "has_v4_panel": true,
+  "no_fabrication": true
+ },
+ "p7_480": {
+  "overview": {
+   "scrollWidth": 494,
+   "clientWidth": 480,
+   "has_overflow": true
+  },
+  "attention": {
+   "rows": 107,
+   "visible_height": 360
+  },
+  "tasks": {
+   "scrollWidth": 480,
+   "clientWidth": 480
+  }
+ }
+}

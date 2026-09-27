@@ -1,0 +1,45 @@
+{
+ "sprint": {
+  "scope": "73",
+  "completed": "19",
+  "velocity": "19 tasks/sprint",
+  "predictability_value": "—",
+  "predictability_hint": "нужен source-backed baseline старта спринта",
+  "throughput": "1.375",
+  "wip": "31",
+  "readiness": "26%",
+  "risk_queue_count": "38",
+  "risk_rows": 38,
+  "predictability_panel_text": "Predictability\n—\nнужен source-backed baseline старта спринта",
+  "no_current_scope_baseline_warning": true
+ },
+ "releases": {
+  "wmb_24q1": {
+   "panel_states": [
+    "SOURCE_UNAVAILABLE",
+    "SOURCE_UNAVAILABLE",
+    "NEEDS_CLARIFICATION"
+   ],
+   "scope_metric": "—",
+   "completed_metric": "—",
+   "readiness_metric": "—",
+   "body_mentions_source_limitation": true,
+   "no_fake_zero_scope": true,
+   "has_forecast_note": true
+  },
+  "olp_160": {
+   "panel_states": [
+    "SOURCE_UNAVAILABLE",
+    "SOURCE_UNAVAILABLE",
+    "NEEDS_CLARIFICATION"
+   ],
+   "scope_metric": "—",
+   "completed_metric": "—",
+   "readiness_metric": "—",
+   "body_mentions_source_limitation": true,
+   "no_fake_zero_scope": true,
+   "has_forecast_note": true
+  }
+ },
+ "spredictability_no_fake_pct": true
+}

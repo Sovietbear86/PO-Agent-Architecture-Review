@@ -1,0 +1,97 @@
+{
+ "checks": {
+  "panel_found": true,
+  "title_exact": true,
+  "title": "Задачи по пространствам",
+  "note": "Только задачи, назначенные участникам команды из team_members.yaml; одинаковые задачи дедуплицируются по ключу.",
+  "note_mentions_team": true,
+  "cards_count": 5,
+  "card_texts": {
+   "CRPV": "CRPV | Всего задач | 510 | Активно | 249 | Завершено | 261 | Blocked | 8",
+   "DMS": "DMS | Всего задач | 313 | Активно | 188 | Завершено | 125 | Blocked | 2",
+   "OLP": "OLP | Всего задач | 398 | Активно | 199 | Завершено | 199 | Blocked | 5",
+   "STS": "STS | Всего задач | 3201 | Активно | 663 | Завершено | 2538 | Blocked | 0",
+   "WMB": "WMB | Всего задач | 6 | Активно | 0 | Завершено | 6 | Blocked | 0"
+  },
+  "card_WMB": {
+   "oracle": {
+    "total": 6,
+    "active": 0,
+    "completed": 6,
+    "blocked": 0
+   },
+   "present": true,
+   "total_match": true,
+   "raw": "WMB | Всего задач | 6 | Активно | 0 | Завершено | 6 | Blocked | 0"
+  },
+  "card_DMS": {
+   "oracle": {
+    "total": 313,
+    "active": 189,
+    "completed": 124,
+    "blocked": 2
+   },
+   "present": true,
+   "total_match": true,
+   "raw": "DMS | Всего задач | 313 | Активно | 188 | Завершено | 125 | Blocked | 2"
+  },
+  "card_OLP": {
+   "oracle": {
+    "total": 398,
+    "active": 199,
+    "completed": 199,
+    "blocked": 5
+   },
+   "present": true,
+   "total_match": true,
+   "raw": "OLP | Всего задач | 398 | Активно | 199 | Завершено | 199 | Blocked | 5"
+  },
+  "card_CRPV": {
+   "oracle": {
+    "total": 510,
+    "active": 249,
+    "completed": 261,
+    "blocked": 8
+   },
+   "present": true,
+   "total_match": true,
+   "raw": "CRPV | Всего задач | 510 | Активно | 249 | Завершено | 261 | Blocked | 8"
+  },
+  "card_STS": {
+   "oracle": {
+    "total": 3201,
+    "active": 663,
+    "completed": 2538,
+    "blocked": 0
+   },
+   "present": true,
+   "total_match": true,
+   "raw": "STS | Всего задач | 3201 | Активно | 663 | Завершено | 2538 | Blocked | 0"
+  },
+  "no_giant_totals": true,
+  "no_false_zero_note": true
+ },
+ "elapsed_s": 63,
+ "harness_queries": [
+  "Дай обзор и риски",
+  "Покажи очередь внимания",
+  "Сделай daily brief",
+  "Сделай status report"
+ ],
+ "attention": {
+  "row_count": 107,
+  "labels": [
+   "Всего 107 задач · прокрутите список",
+   "Scoring: po_attention_v1"
+  ],
+  "first_key": "DMS-352",
+  "last_key": "OLP-3333",
+  "visible_height": 360,
+  "client_height": 360,
+  "scroll_height": 9182,
+  "bounded_panel": true,
+  "mid_scroll_top": 4591
+ },
+ "brief_visible_height": 360,
+ "page_scroll_height": 1402
+}

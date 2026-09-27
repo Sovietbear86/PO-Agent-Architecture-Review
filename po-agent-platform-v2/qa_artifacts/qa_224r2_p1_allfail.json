@@ -1,0 +1,60 @@
+{
+ "status": "FAILED",
+ "answer": "Источник AS21 временно недоступен. Данные не интерпретируются как пустой результат.",
+ "question": null,
+ "options": [],
+ "clarification_id": null,
+ "intent": "skill_native_v4",
+ "skill": null,
+ "data": {
+  "_agent_core_v4": {
+   "loaded_skills": [
+    "po.status_report"
+   ],
+   "trajectory": [
+    {
+     "planner_turn": 1,
+     "decision": "load_skill",
+     "skill_id": "po.status_report",
+     "capability_id": null,
+     "arguments": {},
+     "rationale": "The user requests a status report across all products. The po.status_report skill is designed to generate a bounded current-sprint status report grouped by approved spaces, which directly matches this request."
+    },
+    {
+     "planner_turn": 2,
+     "decision": "call",
+     "skill_id": null,
+     "capability_id": "po.status_report",
+     "arguments": {},
+     "rationale": "The user requests a status report across all products. The po.status_report skill is already loaded and its capability takes no arguments, making it a direct match for this cross-product status report request."
+    }
+   ],
+   "semantic_prepass_used": false
+  }
+ },
+ "evidence": [],
+ "warnings": [
+  "source_unavailable"
+ ],
+ "trace_id": "a276a358-f135-406f-ba0e-541a11034b01",
+ "session_id": "dee12a74-257a-4de2-b7cb-f20cc8a000b0",
+ "latency_ms": 7840.49,
+ "runtime": "agent_core_v4",
+ "ui": null,
+ "plugin_ids": [
+  "builtin.agent.help",
+  "builtin.batch2.team_current_sprint",
+  "builtin.batch3.team_release",
+  "builtin.batch4.release_portfolio",
+  "builtin.batch5.po_workflow",
+  "builtin.batch6.release_forecast",
+  "builtin.catalog.tasks",
+  "builtin.core.a188",
+  "builtin.time_accounting.aggregate",
+  "builtin.time_accounting.member",
+  "builtin.time_accounting.task",
+  "builtin.wave_s1.sprint_flow_release_search",
+  "builtin.wave_s2.sprint_history_risk"
+ ],
+ "correlation_id": "43e817d4-f337-448f-b142-5f0c4d8ab4d5"
+}

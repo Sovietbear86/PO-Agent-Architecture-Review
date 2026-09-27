@@ -1,0 +1,182 @@
+{
+ "vw": 480,
+ "overflow": 75,
+ "found": [
+  {
+   "tag": "DIV",
+   "cls": "panel overview-twin-panel",
+   "right": 555,
+   "width": 455,
+   "text": "Очередь внимания PO107DMS-352Заполнение "
+  },
+  {
+   "tag": "DIV",
+   "cls": "panel-title",
+   "right": 537,
+   "width": 419,
+   "text": "Очередь внимания PO107"
+  },
+  {
+   "tag": "SPAN",
+   "cls": "",
+   "right": 537,
+   "width": 20,
+   "text": "107"
+  },
+  {
+   "tag": "DIV",
+   "cls": "overview-scroll-body",
+   "right": 537,
+   "width": 419,
+   "text": "DMS-352Заполнение карточки DataMarts в K"
+  },
+  {
+   "tag": "DIV",
+   "cls": "attention-row",
+   "right": 533,
+   "width": 415,
+   "text": "DMS-352Заполнение карточки DataMarts в K"
+  },
+  {
+   "tag": "DIV",
+   "cls": "",
+   "right": 482,
+   "width": 362,
+   "text": "DMS-352Заполнение карточки DataMarts в K"
+  },
+  {
+   "tag": "B",
+   "cls": "",
+   "right": 482,
+   "width": 362,
+   "text": "DMS-352"
+  },
+  {
+   "tag": "STRONG",
+   "cls": "",
+   "right": 482,
+   "width": 362,
+   "text": "Заполнение карточки DataMarts в Karma"
+  },
+  {
+   "tag": "SPAN",
+   "cls": "",
+   "right": 482,
+   "width": 362,
+   "text": "blocked · aging_14d"
+  },
+  {
+   "tag": "EM",
+   "cls": "",
+   "right": 531,
+   "width": 34,
+   "text": "70"
+  },
+  {
+   "tag": "DIV",
+   "cls": "attention-row",
+   "right": 533,
+   "width": 415,
+   "text": "DMS-379[doc] API healthcheckblocked · ag"
+  },
+  {
+   "tag": "DIV",
+   "cls": "",
+   "right": 482,
+   "width": 362,
+   "text": "DMS-379[doc] API healthcheckblocked · ag"
+  },
+  {
+   "tag": "B",
+   "cls": "",
+   "right": 482,
+   "width": 362,
+   "text": "DMS-379"
+  },
+  {
+   "tag": "STRONG",
+   "cls": "",
+   "right": 482,
+   "width": 362,
+   "text": "[doc] API healthcheck"
+  },
+  {
+   "tag": "SPAN",
+   "cls": "",
+   "right": 482,
+   "width": 362,
+   "text": "blocked · aging_14d"
+  },
+  {
+   "tag": "EM",
+   "cls": "",
+   "right": 531,
+   "width": 34,
+   "text": "70"
+  },
+  {
+   "tag": "DIV",
+   "cls": "attention-row",
+   "right": 533,
+   "width": 415,
+   "text": "OLP-2906[doc] Нефункц особенности ч.2blo"
+  },
+  {
+   "tag": "DIV",
+   "cls": "",
+   "right": 482,
+   "width": 362,
+   "text": "OLP-2906[doc] Нефункц особенности ч.2blo"
+  },
+  {
+   "tag": "B",
+   "cls": "",
+   "right": 482,
+   "width": 362,
+   "text": "OLP-2906"
+  },
+  {
+   "tag": "STRONG",
+   "cls": "",
+   "right": 482,
+   "width": 362,
+   "text": "[doc] Нефункц особенности ч.2"
+  },
+  {
+   "tag": "SPAN",
+   "cls": "",
+   "right": 482,
+   "width": 362,
+   "text": "blocked · aging_14d"
+  },
+  {
+   "tag": "EM",
+   "cls": "",
+   "right": 531,
+   "width": 34,
+   "text": "70"
+  },
+  {
+   "tag": "DIV",
+   "cls": "attention-row",
+   "right": 533,
+   "width": 415,
+   "text": "OLP-2986НТ механизма Writebackblocked · "
+  },
+  {
+   "tag": "DIV",
+   "cls": "",
+   "right": 482,
+   "width": 362,
+   "text": "OLP-2986НТ механизма Writebackblocked · "
+  },
+  {
+   "tag": "B",
+   "cls": "",
+   "right": 482,
+   "width": 362,
+   "text": "OLP-2986"
+  }
+ ],
+ "canReach": 75
+}
