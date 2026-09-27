@@ -1,0 +1,36 @@
+{
+ "shas": {
+  "team_members.yaml": "e7d816e7cfda42cc",
+  "competencies.md": "8b22b6ff6cc40865",
+  "team.md": "b796f090afbf40b1"
+ },
+ "member_count": 16,
+ "dms": [
+  "Agataeva.A.Z",
+  "Alekseev.K.S",
+  "Bezrukov.P.S",
+  "Dolgovskoy.E.N",
+  "Galtsov.A.A",
+  "Garanin.R.V",
+  "Kalachanov.V.V",
+  "Kondratchikova.P.I",
+  "Kryukov.V.A",
+  "Kuznetsov.M.Se",
+  "Makoshina.V.V",
+  "Moiseev.A.N",
+  "Semavin.M.M",
+  "Zhdanov.A.Ni"
+ ],
+ "olp": [
+  "Bezrukov.P.S",
+  "Galtsov.A.A",
+  "Garanin.R.V",
+  "Goncharov.A.O",
+  "Kalachanov.V.V",
+  "Kondratchikova.P.I",
+  "Kryukov.V.A",
+  "Makoshina.V.V",
+  "Reshetnik.A",
+  "Semavin.M.M"
+ ]
+}

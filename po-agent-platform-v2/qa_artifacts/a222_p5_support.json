@@ -1,0 +1,97 @@
+{
+ "not_found_match": {
+  "query": "кто по компетенциям за DMS-999999",
+  "status": "FAILED",
+  "dt": 4.4,
+  "warnings": [
+   "v4_capability_unavailable"
+  ],
+  "v4_error": "REAL AS21 did not expose task DMS-999999",
+  "traj": [
+   [
+    "team.competency_match",
+    {}
+   ],
+   [
+    "space.resolve",
+    {
+     "reference": "DMS"
+    }
+   ],
+   [
+    "team.competency_match",
+    {
+     "space": "DMS",
+     "task_key": "DMS-999999"
+    }
+   ]
+  ],
+  "cap_keys": [],
+  "answer": "Необходимая возможность не подтверждена источником данных и не выполняется."
+ },
+ "not_found_rec": {
+  "query": "рекомендуй исполнителя для DMS-999999",
+  "status": "FAILED",
+  "dt": 7.3,
+  "warnings": [
+   "v4_capability_unavailable"
+  ],
+  "v4_error": "REAL AS21 did not expose task DMS-999999",
+  "traj": [
+   [
+    "team.assignee_recommendation",
+    {}
+   ],
+   [
+    "space.resolve",
+    {
+     "reference": "DMS"
+    }
+   ],
+   [
+    "team.assignee_recommendation",
+    {
+     "space": "DMS",
+     "task_key": "DMS-999999"
+    }
+   ]
+  ],
+  "cap_keys": [],
+  "answer": "Необходимая возможность не подтверждена источником данных и не выполняется."
+ },
+ "member_case_proof_bottlenecks": {
+  "query": "узкие места команды DMS в текущем спринте",
+  "status": "COMPLETED",
+  "dt": 21.2,
+  "warnings": [],
+  "v4_error": "",
+  "traj": [
+   [
+    "team.bottlenecks",
+    {}
+   ],
+   [
+    "space.resolve",
+    {
+     "reference": "DMS"
+    }
+   ],
+   [
+    "team.bottlenecks",
+    {
+     "space": "DMS"
+    }
+   ],
+   [
+    null,
+    {}
+   ]
+  ],
+  "cap_keys": [
+   "space",
+   "product",
+   "source"
+  ],
+  "answer": "## Узкие места команды DMS — спринт DMS-SPRNT-3\n\n**Активных задач:** 54 | **Выявлено узких мест:** 9\n\n### Концентрация задач (по числу активных задач)\n\n| Участник | Активные задачи | Доля | WIP |\n|----------|:-:|:-:|:-:|"
+ }
+}
