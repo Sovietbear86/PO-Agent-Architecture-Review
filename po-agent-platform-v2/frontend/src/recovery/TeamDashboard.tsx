@@ -2,7 +2,7 @@ import { FormEvent, useEffect, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { agent, HarnessQueryResponse } from '../api/client'
 import { ResultStatePanel } from '../components/ResultStatePanel'
-import { classifyResult, stateAllowsBusinessData } from './resultState'
+import { classifyResult, getCapabilityData, stateAllowsBusinessData } from './resultState'
 
 type WorkspaceContext = { openAgent(): void }
 type Row = Record<string, unknown>
@@ -37,12 +37,12 @@ export function TeamDashboard() {
   const bottlenecks = useHarness('Покажи узкие места команды')
   const distribution = useHarness('Покажи распределение задач команды')
 
-  const workloadData = (workload?.data ?? {}) as { active_tasks?: number; workload?: Row[] }
-  const wipData = (wip?.data ?? {}) as { total_wip?: number; by_member?: Row[] }
-  const blockedData = (blocked?.data ?? {}) as { total_blocked?: number; by_member?: Row[]; tasks?: string[] }
-  const capacityData = (capacity?.data ?? {}) as { capacity_hours_per_member?: number; members?: Row[] }
-  const bottleneckData = (bottlenecks?.data ?? {}) as { bottlenecks?: Row[]; thresholds?: Row }
-  const distributionData = (distribution?.data ?? {}) as { members?: Row[] }
+  const workloadData = getCapabilityData(workload) as { active_tasks?: number; workload?: Row[] }
+  const wipData = getCapabilityData(wip) as { total_wip?: number; by_member?: Row[] }
+  const blockedData = getCapabilityData(blocked) as { total_blocked?: number; by_member?: Row[]; tasks?: string[] }
+  const capacityData = getCapabilityData(capacity) as { capacity_hours_per_member?: number; members?: Row[] }
+  const bottleneckData = getCapabilityData(bottlenecks) as { bottlenecks?: Row[]; thresholds?: Row }
+  const distributionData = getCapabilityData(distribution) as { members?: Row[] }
 
   const workloadRows = workloadData.workload ?? []
   const capacityRows = capacityData.members ?? []
