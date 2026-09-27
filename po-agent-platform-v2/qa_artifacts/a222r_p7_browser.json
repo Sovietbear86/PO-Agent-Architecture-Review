@@ -1,0 +1,330 @@
+[
+  {
+    "label": "B1_match_nonempty",
+    "query": "кто подходит по компетенциям для DMS-380",
+    "backend_status": "COMPLETED",
+    "v4_error": "",
+    "ui_message": "## Подходящие по компетенциям для DMS-380\n\nЗадача: **В компоненте Lineager не работает аутентификация в режиме mTLS, TLS, SSL**\n\nНайдено **12** сотрудников с заявленной компетенцией **DataMarts**:\n\n| # | ФИО | Профиль | Компетенции |\n|---|-----|---------|-------------|\n| 1 | Агатаева Айна Жумагалиева | Go-разработчик DataMarts | Go, DataMarts, Тестирование, Управление поставкой, Code Review, Информационная безопасность |\n| 2 | Алексеев Константин Сергеевич | Аналитик | DataMarts, Аналитика |\n| 3",
+    "drawer_excerpt": "PO AGENTПомощник владельца продуктаAgent Core v4session: ui-3eec63c5-6e29-412e-a121-7106af2efb71Новый диалог×Я PO Agent. Новый диалог изолирован от предыдущих состояний. V4 использует plugin skills, governed capabilities и REAL AS21.кто подходит по компетенциям для DMS-380## Подходящие по компетенциям для DMS-380\n\nЗадача: **В компоненте Lineager не работает аутентификация в режиме mTLS, TLS, SSL**\n\nНайдено **12** сотрудников с заявленной компетенцией **DataMarts**:\n\n| # | ФИО | Профиль | Компетенции |\n|---|-----|---------|-------------|\n| 1 | Агатаева Айна Жумагалиева | Go-разработчик DataMarts | Go, DataMarts, Тестирование, Управление поставкой, Code Review, Информационная безопасность |\n| 2 | Алексеев Константин Сергеевич | Аналитик | DataMarts, Аналитика |\n| 3 | Безруков Павел Сергеевич",
+    "cap": {
+      "match_count": 12,
+      "candidate_count": null,
+      "recommendation": null,
+      "task_signals": {
+        "title": "В компоненте Lineager не работает аутентификация в режиме mTLS, TLS, SSL",
+        "description": "{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\",\"attrs\":{\"id\":\"5963124d-7735-4f8a-95ae-e5fb1906b58e\",\"indent\":0,\"textAlign\":\"justify\"},\"content\":[{\"type\":\"text\",\"text\":\"При попытке установить связь между Lineager и DataMarts возникает ошибка:\"},{\"type\":\"hardBreak\"}]},{\"type\":\"paragraph\",\"attrs\":{\"id\":\"94cf7631-2829-4810-8a0a-609a2fd2131a\",\"indent\":0,\"textAlign\":\"justify\"}},{\"type\":\"codeBlock\",\"attrs\":{\"id\":\"7799f55f-6d07-435b-a5bc-575f560bb9da\",\"language\":null},\"content\":[{\"type\":\"text\",\"text\":\"2026-09-02 10:09:25.465 [lineage-poller] ERROR com.sbt.datamarts.service.LineageService - Poll cycle failed; will retry on next tick\\njava.lang.IllegalStateException: Failed to query system.query_log\\n        at com.sbt.datamarts.datamarts.DatamartsClient.getQueryLog(DatamartsClient.java:205)\\n        at com.sbt.datamarts.service.LineageService.pollAndProcess(LineageService.java:90)\\n        at com.sbt.datamarts.scheduler.LineageScheduler.runSafely(LineageScheduler.java:46)\\n        at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)\\n        at java.base/java.util.concurrent.FutureTask.runAndReset(FutureTask.java:358)\\n        at java.base/java.util.concurrent.ScheduledThreadPoolExecutor$ScheduledFutureTask.run(ScheduledThreadPoolExecutor.java:305)\\n        at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)\\n        at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)\\n        at java.base/java.lang.Thread.run(Thread.java:1583)\\nCaused by: java.sql.SQLException: SSL Problem\\n        at com.clickhouse.jdbc.internal.ExceptionUtils.toSqlState(ExceptionUtils.java:75)\\n        at com.clickhouse.jdbc.internal.ExceptionUtils.toSqlState(ExceptionUtils.java:43)\\n        at com.clickhouse.jdbc.StatementImpl.executeQueryImpl(StatementImpl.java:231)\\n        at com.clickhouse.jdbc.StatementImpl.executeQuery(StatementImpl.java:119)\\n        at com.clickhouse.jdbc.PreparedStatementImpl.executeQuery(PreparedStatementImpl.java:138)\\n        at com.sbt.datamarts.datamarts.DatamartsClient.getQueryLog(DatamartsClient.java:190)\\n        ... 8 more\\nCaused by: com.clickhouse.client.api.TransportException: SSL Problem\\n        at com.clickhouse.client.api.internal.HttpAPIClientHelper.wrapException(HttpAPIClientHelper.java:1021)\\n        at com.clickhouse.client.api.Client.lambda$query$4(Client.java:1759)\\n        at com.clickhouse.client.api.Client.runAsyncOperation(Client.java:2176)\\n        at com.clickhouse.client.api.Client.query(Client.java:1777)\\n        at com.clickhouse.client.api.Client.query(Client.java:1683)\\n        at com.clickhouse.jdbc.StatementImpl.executeQueryImpl(StatementImpl.java:177)\\n        ... 11 more\\nCaused by: javax.net.ssl.SSLException: Unsupported or unrecognized SSL message\\n        at java.base/sun.security.ssl.SSLSocketInputRecord.handleUnknownRecord(SSLSocketInputRecord.java:462)\\n        at java.base/sun.security.ssl.SSLSocketInputRecord.decode(SSLSocketInputRecord.java:175)\\n        at java.base/sun.security.ssl.SSLTransport.decode(SSLTransport.java:111)\\n        at java.base/sun.security.ssl.SSLSocketImpl.decode(SSLSocketImpl.java:1505)\\n        at java.base/sun.security.ssl.SSLSocketImpl.readHandshakeRecord(SSLSocketImpl.java:1420)\\n        at java.base/sun.security.ssl.SSLSocketImpl.startHandshake(SSLSocketImpl.java:455)\\n        at java.base/sun.security.ssl.SSLSocketImpl.startHandshake(SSLSocketImpl.java:426)\\n        at org.apache.hc.client5.http.ssl.SSLConnectionSocketFactory.executeHandshake(SSLConnectionSocketFactory.java:350)\\n        at org.apache.hc.client5.http.ssl.SSLConnectionSocketFactory.createLayeredSocket(SSLConnectionSocketFactory.java:318)\\n        at org.apache.hc.client5.http.ssl.SSLConnectionSocketFactory.createLayeredSocket(SSLConnectionSocketFactory.java:303)\\n        at org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder.lambda$setSSLSocketFactory$0(PoolingHttpClientConnectionManagerBuilder.java:128)\\n        at org.apache.hc.client5.http.impl.io.DefaultHttpClientConnectionOperator.upgradeToTls(DefaultHttpClientConnectionOperator.java:263)\\n        at org.apache.hc.client5.http.impl.io.DefaultHttpClientConnectionOperator.connect(DefaultHttpClientConnectionOperator.java:227)\\n        at org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager.connect(PoolingHttpClientConnectionManager.java:547)\\n        at org.apache.hc.client5.http.impl.classic.InternalExecRuntime.connectEndpoint(InternalExecRuntime.java:164)\\n        at org.apache.hc.client5.http.impl.classic.InternalExecRuntime.connectEndpoint(InternalExecRuntime.java:174)\\n        at org.apache.hc.client5.http.impl.classic.ConnectExec.execute(ConnectExec.java:144)\\n        at org.apache.hc.client5.http.impl.classic.ExecChainElement.execute(ExecChainElement.java:51)\\n        at org.apache.hc.client5.http.impl.classic.ProtocolExec.execute(ProtocolExec.java:192)\\n        at org.apache.hc.client5.http.impl.classic.ExecChainElement.execute(ExecChainElement.java:51)\\n        at org.apache.hc.client5.http.impl.classic.HttpRequestRetryExec.execute(HttpRequestRetryExec.java:112)\\n        at org.apache.hc.client5.http.impl.classic.ExecChainElement.execute(ExecChainElement.java:51)\\n        at org.apache.hc.client5.http.impl.classic.RedirectExec.execute(RedirectExec.java:110)\\n        at org.apache.hc.client5.http.impl.classic.ExecChainElement.execute(ExecChainElement.java:51)\\n        at org.apache.hc.client5.http.impl.classic.InternalHttpClient.doExecute(InternalHttpClient.java:186)\\n        at org.apache.hc.client5.http.impl.classic.CloseableHttpClient.execute(CloseableHttpClient.java:87)\\n        at org.apache.hc.client5.http.impl.classic.CloseableHttpClient.execute(CloseableHttpClient.java:55)\\n        at org.apache.hc.client5.http.classic.HttpClient.executeOpen(HttpClient.java:183)\\n        at com.clickhouse.client.api.internal.HttpAPIClientHelper.executeRequest(HttpAPIClientHelper.java:671)\\n        at com.clickhouse.client.api.Client.lambda$query$4(Client.java:1747)\\n        ... 15 more\\n\"}]}]}",
+        "labels": "",
+        "components": ""
+      },
+      "top": [
+        {
+          "member": "Agataeva.A.Z",
+          "full_name": "Агатаева Айна Жумагалиева",
+          "matched_competencies": [
+            "DataMarts"
+          ],
+          "matched_by_field": {
+            "description": [
+              "DataMarts"
+            ]
+          },
+          "match_count": 1,
+          "relevance_score": 1,
+          "professional_profile": "Go-разработчик DataMarts",
+          "competencies": [
+            "Go",
+            "DataMarts",
+            "Тестирование",
+            "Управление поставкой",
+            "Code Review",
+            "Информационная безопасность"
+          ],
+          "products": [
+            "DMS"
+          ]
+        },
+        {
+          "member": "Alekseev.K.S",
+          "full_name": "Алексеев Константин Сергеевич",
+          "matched_competencies": [
+            "DataMarts"
+          ],
+          "matched_by_field": {
+            "description": [
+              "DataMarts"
+            ]
+          },
+          "match_count": 1,
+          "relevance_score": 1,
+          "professional_profile": "Аналитик",
+          "competencies": [
+            "DataMarts",
+            "Аналитика"
+          ],
+          "products": [
+            "DMS"
+          ]
+        },
+        {
+          "member": "Bezrukov.P.S",
+          "full_name": "Безруков Павел Сергеевич",
+          "matched_competencies": [
+            "DataMarts"
+          ],
+          "matched_by_field": {
+            "description": [
+              "DataMarts"
+            ]
+          },
+          "match_count": 1,
+          "relevance_score": 1,
+          "professional_profile": "Архитектор сервиса",
+          "competencies": [
+            "Архитектура",
+            "OLAP",
+            "DataMarts",
+            "Управление поставкой"
+          ],
+          "products": [
+            "DMS",
+            "OLP"
+          ]
+        }
+      ]
+    },
+    "screenshot": "/Users/kalachanov.v.v/Desktop/Мои документы/Обучение/GIGACodeCLI/PO_Agent_Harness/qa_222r_browser_c/B1_match_nonempty.png",
+    "issues": [],
+    "pass": true
+  },
+  {
+    "label": "B2_match_zero",
+    "query": "кто подходит по компетенциям для DMS-335",
+    "backend_status": "COMPLETED",
+    "v4_error": "",
+    "ui_message": "По результатам сопоставления компетенций команды DMS с задачей **DMS-335** («Тесты НТ по Apache Ranger») совпадений не найдено — ни один член команды не имеет явно заявленных компетенций, соответствующих этой задаче.Agent Core v4 · COMPLETED · 14446 msV4SUCCESS_WITH_DATAwidget: team_competencykind: analysis{\"step\":1,\"capability_id\":\"space.resolve\",\"arguments\":{\"reference\":\"DMS\"},\"answer\":\"Пространство подтверждено: DMS.\",\"data\":{\"space\":\"DMS\",\"product\":\"DMS\",\"source\":\"PO_AGENT_SCOPE\"}}{\"step\":2,",
+    "drawer_excerpt": "PO AGENTПомощник владельца продуктаAgent Core v4session: ui-c6e54f9c-0d37-4e14-920b-e9dd1363dd03Новый диалог×Новый диалог создан. Предыдущий transient dialogue state не используется.кто подходит по компетенциям для DMS-335По результатам сопоставления компетенций команды DMS с задачей **DMS-335** («Тесты НТ по Apache Ranger») совпадений не найдено — ни один член команды не имеет явно заявленных компетенций, соответствующих этой задаче.Agent Core v4 · COMPLETED · 14446 msV4SUCCESS_WITH_DATAwidget: team_competencykind: analysis{\"step\":1,\"capability_id\":\"space.resolve\",\"arguments\":{\"reference\":\"DMS\"},\"answer\":\"Пространство подтверждено: DMS.\",\"data\":{\"space\":\"DMS\",\"product\":\"DMS\",\"source\":\"PO_AGENT_SCOPE\"}}{\"step\":2,\"capability_id\":\"team.competency_match\",\"arguments\":{\"space\":\"DMS\",\"task_key\":",
+    "cap": {
+      "match_count": 0,
+      "candidate_count": null,
+      "recommendation": null,
+      "task_signals": {
+        "title": "Тесты НТ по Apache Ranger",
+        "description": "{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\",\"attrs\":{\"id\":\"17e2210a-4412-440f-a855-5b1bb890d7a5\",\"indent\":0,\"textAlign\":\"justify\"},\"content\":[{\"type\":\"text\",\"text\":\"Требуется провести НТ механизма Apache Ranger\"}]}]}",
+        "labels": "",
+        "components": ""
+      },
+      "top": []
+    },
+    "screenshot": "/Users/kalachanov.v.v/Desktop/Мои документы/Обучение/GIGACodeCLI/PO_Agent_Harness/qa_222r_browser_c/B2_match_zero.png",
+    "issues": [],
+    "pass": true
+  },
+  {
+    "label": "B3_rec_realload",
+    "query": "рекомендуй исполнителя для DMS-380",
+    "backend_status": "COMPLETED",
+    "v4_error": "",
+    "ui_message": "**Рекомендация для DMS-380:**\n\n**Калачанов Виктор Вячеславович (Kalachanov.V.V)**\n\n**Обоснование:**\n- Совпадение компетенции: **DataMarts** (по описанию задачи)\n- Профиль: Владелец продуктов OLAP Analytics и DataMarts\n- Текущая нагрузка: **0 активных задач, 0 WIP, 0 заблокированных**\n\nЗадача связана с аутентификацией в режиме mTLS/TLS/SSL в компоненте Lineager (взаимодействие с DataMarts), что напрямую соответствует зоне ответственности Калачанова.\n\n**Альтернатива с минимальной нагрузкой:** Крюк",
+    "drawer_excerpt": "PO AGENTПомощник владельца продуктаAgent Core v4session: ui-5eff9bff-de98-47e2-8f23-cd03cb59c968Новый диалог×Новый диалог создан. Предыдущий transient dialogue state не используется.рекомендуй исполнителя для DMS-380**Рекомендация для DMS-380:**\n\n**Калачанов Виктор Вячеславович (Kalachanov.V.V)**\n\n**Обоснование:**\n- Совпадение компетенции: **DataMarts** (по описанию задачи)\n- Профиль: Владелец продуктов OLAP Analytics и DataMarts\n- Текущая нагрузка: **0 активных задач, 0 WIP, 0 заблокированных**\n\nЗадача связана с аутентификацией в режиме mTLS/TLS/SSL в компоненте Lineager (взаимодействие с DataMarts), что напрямую соответствует зоне ответственности Калачанова.\n\n**Альтернатива с минимальной нагрузкой:** Крюков Владимир Александрович (Kryukov.V.A) — также 0 активных задач, компетенции DataMa",
+    "cap": {
+      "match_count": null,
+      "candidate_count": 12,
+      "recommendation": "Kalachanov.V.V",
+      "task_signals": {
+        "title": "В компоненте Lineager не работает аутентификация в режиме mTLS, TLS, SSL",
+        "description": "{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\",\"attrs\":{\"id\":\"5963124d-7735-4f8a-95ae-e5fb1906b58e\",\"indent\":0,\"textAlign\":\"justify\"},\"content\":[{\"type\":\"text\",\"text\":\"При попытке установить связь между Lineager и DataMarts возникает ошибка:\"},{\"type\":\"hardBreak\"}]},{\"type\":\"paragraph\",\"attrs\":{\"id\":\"94cf7631-2829-4810-8a0a-609a2fd2131a\",\"indent\":0,\"textAlign\":\"justify\"}},{\"type\":\"codeBlock\",\"attrs\":{\"id\":\"7799f55f-6d07-435b-a5bc-575f560bb9da\",\"language\":null},\"content\":[{\"type\":\"text\",\"text\":\"2026-09-02 10:09:25.465 [lineage-poller] ERROR com.sbt.datamarts.service.LineageService - Poll cycle failed; will retry on next tick\\njava.lang.IllegalStateException: Failed to query system.query_log\\n        at com.sbt.datamarts.datamarts.DatamartsClient.getQueryLog(DatamartsClient.java:205)\\n        at com.sbt.datamarts.service.LineageService.pollAndProcess(LineageService.java:90)\\n        at com.sbt.datamarts.scheduler.LineageScheduler.runSafely(LineageScheduler.java:46)\\n        at java.base/java.util.concurrent.Executors$RunnableAdapter.call(Executors.java:572)\\n        at java.base/java.util.concurrent.FutureTask.runAndReset(FutureTask.java:358)\\n        at java.base/java.util.concurrent.ScheduledThreadPoolExecutor$ScheduledFutureTask.run(ScheduledThreadPoolExecutor.java:305)\\n        at java.base/java.util.concurrent.ThreadPoolExecutor.runWorker(ThreadPoolExecutor.java:1144)\\n        at java.base/java.util.concurrent.ThreadPoolExecutor$Worker.run(ThreadPoolExecutor.java:642)\\n        at java.base/java.lang.Thread.run(Thread.java:1583)\\nCaused by: java.sql.SQLException: SSL Problem\\n        at com.clickhouse.jdbc.internal.ExceptionUtils.toSqlState(ExceptionUtils.java:75)\\n        at com.clickhouse.jdbc.internal.ExceptionUtils.toSqlState(ExceptionUtils.java:43)\\n        at com.clickhouse.jdbc.StatementImpl.executeQueryImpl(StatementImpl.java:231)\\n        at com.clickhouse.jdbc.StatementImpl.executeQuery(StatementImpl.java:119)\\n        at com.clickhouse.jdbc.PreparedStatementImpl.executeQuery(PreparedStatementImpl.java:138)\\n        at com.sbt.datamarts.datamarts.DatamartsClient.getQueryLog(DatamartsClient.java:190)\\n        ... 8 more\\nCaused by: com.clickhouse.client.api.TransportException: SSL Problem\\n        at com.clickhouse.client.api.internal.HttpAPIClientHelper.wrapException(HttpAPIClientHelper.java:1021)\\n        at com.clickhouse.client.api.Client.lambda$query$4(Client.java:1759)\\n        at com.clickhouse.client.api.Client.runAsyncOperation(Client.java:2176)\\n        at com.clickhouse.client.api.Client.query(Client.java:1777)\\n        at com.clickhouse.client.api.Client.query(Client.java:1683)\\n        at com.clickhouse.jdbc.StatementImpl.executeQueryImpl(StatementImpl.java:177)\\n        ... 11 more\\nCaused by: javax.net.ssl.SSLException: Unsupported or unrecognized SSL message\\n        at java.base/sun.security.ssl.SSLSocketInputRecord.handleUnknownRecord(SSLSocketInputRecord.java:462)\\n        at java.base/sun.security.ssl.SSLSocketInputRecord.decode(SSLSocketInputRecord.java:175)\\n        at java.base/sun.security.ssl.SSLTransport.decode(SSLTransport.java:111)\\n        at java.base/sun.security.ssl.SSLSocketImpl.decode(SSLSocketImpl.java:1505)\\n        at java.base/sun.security.ssl.SSLSocketImpl.readHandshakeRecord(SSLSocketImpl.java:1420)\\n        at java.base/sun.security.ssl.SSLSocketImpl.startHandshake(SSLSocketImpl.java:455)\\n        at java.base/sun.security.ssl.SSLSocketImpl.startHandshake(SSLSocketImpl.java:426)\\n        at org.apache.hc.client5.http.ssl.SSLConnectionSocketFactory.executeHandshake(SSLConnectionSocketFactory.java:350)\\n        at org.apache.hc.client5.http.ssl.SSLConnectionSocketFactory.createLayeredSocket(SSLConnectionSocketFactory.java:318)\\n        at org.apache.hc.client5.http.ssl.SSLConnectionSocketFactory.createLayeredSocket(SSLConnectionSocketFactory.java:303)\\n        at org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder.lambda$setSSLSocketFactory$0(PoolingHttpClientConnectionManagerBuilder.java:128)\\n        at org.apache.hc.client5.http.impl.io.DefaultHttpClientConnectionOperator.upgradeToTls(DefaultHttpClientConnectionOperator.java:263)\\n        at org.apache.hc.client5.http.impl.io.DefaultHttpClientConnectionOperator.connect(DefaultHttpClientConnectionOperator.java:227)\\n        at org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager.connect(PoolingHttpClientConnectionManager.java:547)\\n        at org.apache.hc.client5.http.impl.classic.InternalExecRuntime.connectEndpoint(InternalExecRuntime.java:164)\\n        at org.apache.hc.client5.http.impl.classic.InternalExecRuntime.connectEndpoint(InternalExecRuntime.java:174)\\n        at org.apache.hc.client5.http.impl.classic.ConnectExec.execute(ConnectExec.java:144)\\n        at org.apache.hc.client5.http.impl.classic.ExecChainElement.execute(ExecChainElement.java:51)\\n        at org.apache.hc.client5.http.impl.classic.ProtocolExec.execute(ProtocolExec.java:192)\\n        at org.apache.hc.client5.http.impl.classic.ExecChainElement.execute(ExecChainElement.java:51)\\n        at org.apache.hc.client5.http.impl.classic.HttpRequestRetryExec.execute(HttpRequestRetryExec.java:112)\\n        at org.apache.hc.client5.http.impl.classic.ExecChainElement.execute(ExecChainElement.java:51)\\n        at org.apache.hc.client5.http.impl.classic.RedirectExec.execute(RedirectExec.java:110)\\n        at org.apache.hc.client5.http.impl.classic.ExecChainElement.execute(ExecChainElement.java:51)\\n        at org.apache.hc.client5.http.impl.classic.InternalHttpClient.doExecute(InternalHttpClient.java:186)\\n        at org.apache.hc.client5.http.impl.classic.CloseableHttpClient.execute(CloseableHttpClient.java:87)\\n        at org.apache.hc.client5.http.impl.classic.CloseableHttpClient.execute(CloseableHttpClient.java:55)\\n        at org.apache.hc.client5.http.classic.HttpClient.executeOpen(HttpClient.java:183)\\n        at com.clickhouse.client.api.internal.HttpAPIClientHelper.executeRequest(HttpAPIClientHelper.java:671)\\n        at com.clickhouse.client.api.Client.lambda$query$4(Client.java:1747)\\n        ... 15 more\\n\"}]}]}",
+        "labels": "",
+        "components": ""
+      },
+      "top": [
+        {
+          "member": "Kalachanov.V.V",
+          "full_name": "Калачанов Виктор Вячеславович",
+          "matched_competencies": [
+            "DataMarts"
+          ],
+          "matched_by_field": {
+            "description": [
+              "DataMarts"
+            ]
+          },
+          "match_count": 1,
+          "relevance_score": 1,
+          "active_tasks": 0,
+          "wip": 0,
+          "blocked": 0,
+          "professional_profile": "Владелец продуктов OLAP Analytics и DataMarts",
+          "competencies": [
+            "OLAP",
+            "DataMarts",
+            "Сопровождение",
+            "Управление поставкой"
+          ]
+        },
+        {
+          "member": "Kryukov.V.A",
+          "full_name": "Крюков Владимир Александрович",
+          "matched_competencies": [
+            "DataMarts"
+          ],
+          "matched_by_field": {
+            "description": [
+              "DataMarts"
+            ]
+          },
+          "match_count": 1,
+          "relevance_score": 1,
+          "active_tasks": 0,
+          "wip": 0,
+          "blocked": 0,
+          "professional_profile": "Delivery Lead / управление поставкой нескольких продуктов",
+          "competencies": [
+            "OLAP",
+            "DataMarts",
+            "Тестирование",
+            "Сопровождение",
+            "Управление поставкой"
+          ]
+        },
+        {
+          "member": "Alekseev.K.S",
+          "full_name": "Алексеев Константин Сергеевич",
+          "matched_competencies": [
+            "DataMarts"
+          ],
+          "matched_by_field": {
+            "description": [
+              "DataMarts"
+            ]
+          },
+          "match_count": 1,
+          "relevance_score": 1,
+          "active_tasks": 1,
+          "wip": 0,
+          "blocked": 0,
+          "professional_profile": "Аналитик",
+          "competencies": [
+            "DataMarts",
+            "Аналитика"
+          ]
+        }
+      ]
+    },
+    "screenshot": "/Users/kalachanov.v.v/Desktop/Мои документы/Обучение/GIGACodeCLI/PO_Agent_Harness/qa_222r_browser_c/B3_rec_realload.png",
+    "issues": [],
+    "pass": true
+  },
+  {
+    "label": "B4_comp_olp",
+    "query": "кто подходит по компетенциям для OLP-3339",
+    "backend_status": "COMPLETED",
+    "v4_error": "",
+    "ui_message": "## Подходящие по компетенциям для OLP-3339\n\n**Задача:** «Не удаляются сегменты из S3 при перезагрузке модели в OLAP»\n\nНайдено **10** сотрудников с заявленной компетенцией **OLAP**:\n\n| # | ФИО | Профиль | Компетенции |\n|---|-----|---------|-------------|\n| 1 | Безруков Павел Сергеевич | Архитектор сервиса | Архитектура, OLAP, DataMarts, Управление поставкой |\n| 2 | Гальцов Александр Алексеевич | Solution-архитектор OLAP | Архитектура, OLAP, Аналитика, Информационная безопасность |\n| 3 | Гаранин Р",
+    "drawer_excerpt": "PO AGENTПомощник владельца продуктаAgent Core v4session: ui-b374aa6e-bf4c-47f3-85b1-020a84ae221bНовый диалог×Новый диалог создан. Предыдущий transient dialogue state не используется.кто подходит по компетенциям для OLP-3339## Подходящие по компетенциям для OLP-3339\n\n**Задача:** «Не удаляются сегменты из S3 при перезагрузке модели в OLAP»\n\nНайдено **10** сотрудников с заявленной компетенцией **OLAP**:\n\n| # | ФИО | Профиль | Компетенции |\n|---|-----|---------|-------------|\n| 1 | Безруков Павел Сергеевич | Архитектор сервиса | Архитектура, OLAP, DataMarts, Управление поставкой |\n| 2 | Гальцов Александр Алексеевич | Solution-архитектор OLAP | Архитектура, OLAP, Аналитика, Информационная безопасность |\n| 3 | Гаранин Родион Владимирович | Технический лидер / ведущий Java-разработчик | Java, Go,",
+    "cap": {
+      "match_count": 10,
+      "candidate_count": null,
+      "recommendation": null,
+      "task_signals": {
+        "title": "Не удаляются сегменты из S3 при перезагрузке модели в OLAP",
+        "description": "{\"type\":\"doc\",\"content\":[{\"type\":\"paragraph\",\"attrs\":{\"id\":\"6b7a86e2-6192-4b52-84ad-c73cf945a5c6\",\"indent\":0,\"textAlign\":\"justify\"},\"content\":[{\"type\":\"text\",\"marks\":[{\"type\":\"bold\"}],\"text\":\"Стенд:\"},{\"type\":\"text\",\"text\":\" \"}]},{\"type\":\"paragraph\",\"attrs\":{\"id\":\"c3f489b1-879c-45f4-b94e-af457aa07334\",\"indent\":0,\"textAlign\":\"justify\"},\"content\":[{\"type\":\"text\",\"text\":\"Кубер\"},{\"type\":\"hardBreak\"},{\"type\":\"text\",\"marks\":[{\"type\":\"bold\"}],\"text\":\"OLAP:\"},{\"type\":\"hardBreak\"},{\"type\":\"text\",\"marks\":[{\"type\":\"textStyle\",\"attrs\":{\"color\":\"rgba(6, 10, 12, 0.96)\"}},{\"type\":\"highlight\",\"attrs\":{\"color\":\"rgba(6, 10, 12, 0.06)\"}}],\"text\":\"Версия: 1.9.0-2601\"},{\"type\":\"hardBreak\"},{\"type\":\"text\",\"marks\":[{\"type\":\"bold\"}],\"text\":\"Предусловие: \"},{\"type\":\"hardBreak\"},{\"type\":\"text\",\"text\":\"Проект ES. Открыт Minio (\"},{\"type\":\"text\",\"marks\":[{\"type\":\"link\",\"attrs\":{\"href\":\"http://10.128.5.36:8080/browser/olap\",\"target\":\"_blank\",\"rel\":\"noopener noreferrer nofollow\",\"class\":null}}],\"text\":\"http://10.128.5.36:8080/browser/olap\"},{\"type\":\"text\",\"text\":\"). \"},{\"type\":\"text\",\"marks\":[{\"type\":\"textStyle\",\"attrs\":{\"color\":\"#172B4D\"}}],\"text\":\"Модель NODESEQUILIBRIUMPRICEVALUES, прогружена в Olap. В Minio открыт путь до Parquet-файлов (Внутри модели в блоке \\\"Сегмент\\\" значок \\\"лупа\\\"), записан UID последней директории\"},{\"type\":\"hardBreak\"},{\"type\":\"text\",\"marks\":[{\"type\":\"bold\"}],\"text\":\"Шаги воспроизведения:\"}]},{\"type\":\"paragraph\",\"attrs\":{\"id\":\"415b6fa1-de8b-4d1e-9da7-b29e22c6cfdc\",\"indent\":0,\"textAlign\":\"justify\"},\"content\":[{\"type\":\"text\",\"text\":\"1) Сделать полное построение модели\"},{\"type\":\"hardBreak\"},{\"type\":\"text\",\"text\":\"2) После загрузки проверить UID нового сегмента и наличие старого сегмента в S3\"},{\"type\":\"hardBreak\"},{\"type\":\"text\",\"marks\":[{\"type\":\"bold\"}],\"text\":\"Ожидаемый результат:\"}]},{\"type\":\"paragraph\",\"attrs\":{\"id\":\"bfa551e2-8b0b-42da-9e4a-2e39d4ecc74c\",\"indent\":0,\"textAlign\":\"justify\"},\"content\":[{\"type\":\"text\",\"text\":\"Старый сегмент удалён после перестроения куба\"}]},{\"type\":\"paragraph\",\"attrs\":{\"id\":\"434f63c0-0c41-4c72-a49b-186b1f333475\",\"indent\":0,\"textAlign\":\"justify\"},\"content\":[{\"type\":\"text\",\"marks\":[{\"type\":\"bold\"}],\"text\":\"Фактический результат:\"},{\"type\":\"hardBreak\"},{\"type\":\"text\",\"text\":\"Старый сегмент не удалён после перестроения куба\"},{\"type\":\"hardBreak\"},{\"type\":\"image\",\"attrs\":{\"id\":\"34760602-3b1a-49cf-b062-a3a0d445233d\",\"src\":\"/swtr/rest/api/unit/files/v1/download?fileId=4b8b7840-5583-4441-a962-a0f8e2f77f86\",\"alt\":null,\"title\":\"image.png\",\"width\":null,\"height\":null}},{\"type\":\"hardBreak\"},{\"type\":\"image\",\"attrs\":{\"id\":\"8a260ffb-ec5f-42df-8294-c85fc7b5a1c2\",\"src\":\"/swtr/rest/api/unit/files/v1/download?fileId=b3f9f707-30e3-4b95-b1a3-e15b0a762331\",\"alt\":null,\"title\":\"image(1).png\",\"width\":null,\"height\":null}},{\"type\":\"hardBreak\"},{\"type\":\"image\",\"attrs\":{\"id\":\"0da22ac8-62c7-4f62-af28-4f0f8e41fa3c\",\"src\":\"/swtr/rest/api/unit/files/v1/download?fileId=20b13089-4722-4e0b-abaa-4d588a3d84bb\",\"alt\":null,\"title\":\"image(2).png\",\"width\":null,\"height\":null}}]}]}",
+        "labels": "",
+        "components": ""
+      },
+      "top": [
+        {
+          "member": "Bezrukov.P.S",
+          "full_name": "Безруков Павел Сергеевич",
+          "matched_competencies": [
+            "OLAP"
+          ],
+          "matched_by_field": {
+            "title": [
+              "OLAP"
+            ],
+            "description": [
+              "OLAP"
+            ]
+          },
+          "match_count": 1,
+          "relevance_score": 3,
+          "professional_profile": "Архитектор сервиса",
+          "competencies": [
+            "Архитектура",
+            "OLAP",
+            "DataMarts",
+            "Управление поставкой"
+          ],
+          "products": [
+            "DMS",
+            "OLP"
+          ]
+        },
+        {
+          "member": "Galtsov.A.A",
+          "full_name": "Гальцов Александр Алексеевич",
+          "matched_competencies": [
+            "OLAP"
+          ],
+          "matched_by_field": {
+            "title": [
+              "OLAP"
+            ],
+            "description": [
+              "OLAP"
+            ]
+          },
+          "match_count": 1,
+          "relevance_score": 3,
+          "professional_profile": "Solution-архитектор OLAP",
+          "competencies": [
+            "Архитектура",
+            "OLAP",
+            "Аналитика",
+            "Информационная безопасность"
+          ],
+          "products": [
+            "DMS",
+            "OLP"
+          ]
+        },
+        {
+          "member": "Garanin.R.V",
+          "full_name": "Гаранин Родион Владимирович",
+          "matched_competencies": [
+            "OLAP"
+          ],
+          "matched_by_field": {
+            "title": [
+              "OLAP"
+            ],
+            "description": [
+              "OLAP"
+            ]
+          },
+          "match_count": 1,
+          "relevance_score": 3,
+          "professional_profile": "Технический лидер / ведущий Java-разработчик",
+          "competencies": [
+            "Java",
+            "Go",
+            "C++",
+            "Rust",
+            "Архитектура",
+            "OLAP",
+            "DataMarts",
+            "Сопровождение",
+            "Code Review"
+          ],
+          "products": [
+            "DMS",
+            "OLP"
+          ]
+        }
+      ]
+    },
+    "screenshot": "/Users/kalachanov.v.v/Desktop/Мои документы/Обучение/GIGACodeCLI/PO_Agent_Harness/qa_222r_browser_c/B4_comp_olp.png",
+    "issues": [],
+    "pass": true
+  }
+]
