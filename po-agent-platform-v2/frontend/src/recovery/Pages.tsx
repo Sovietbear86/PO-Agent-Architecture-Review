@@ -2,7 +2,7 @@ import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { agent, HarnessQueryResponse } from '../api/client'
 import { ResultStatePanel } from '../components/ResultStatePanel'
-import { classifyResult, stateAllowsBusinessData } from './resultState'
+import { classifyResult, getCapabilityData, stateAllowsBusinessData } from './resultState'
 
 type WorkspaceContext = { openAgent(): void }
 type TaskRow = Record<string, unknown>
@@ -132,7 +132,7 @@ export function TasksPage() {
   const [search, setSearch] = useState('login')
   const [submitted, setSubmitted] = useState({ mode: 'text' as FilterMode, value: 'login' })
   const result = useHarness(taskQuery(submitted.mode, submitted.value))
-  const data = (result?.data ?? {}) as { tasks?: TaskRow[] }
+  const data = getCapabilityData(result) as { tasks?: TaskRow[] }
   const tasks = data.tasks ?? []
   const resultState = classifyResult(result)
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -167,12 +167,12 @@ export function SprintPage() {
   const wip = useHarness(`Покажи WIP ${submitted}`)
   const predictability = useHarness(`Покажи predictability ${submitted}`)
   const risks = useHarness(`Покажи риски спринта ${submitted}`)
-  const hd = (health?.data ?? {}) as Record<string, unknown>
-  const vd = (velocity?.data ?? {}) as Record<string, unknown>
-  const td = (throughput?.data ?? {}) as Record<string, unknown>
-  const wd = (wip?.data ?? {}) as Record<string, unknown>
-  const pd = (predictability?.data ?? {}) as Record<string, unknown>
-  const rd = (risks?.data ?? {}) as { risks?: Array<Record<string, unknown>>; count?: number }
+  const hd = getCapabilityData(health) as Record<string, unknown>
+  const vd = getCapabilityData(velocity) as Record<string, unknown>
+  const td = getCapabilityData(throughput) as Record<string, unknown>
+  const wd = getCapabilityData(wip) as Record<string, unknown>
+  const pd = getCapabilityData(predictability) as Record<string, unknown>
+  const rd = getCapabilityData(risks) as { risks?: Array<Record<string, unknown>>; count?: number }
   const riskRows = rd.risks ?? []
   const healthState = classifyResult(health)
   const velocityState = classifyResult(velocity)
@@ -201,11 +201,11 @@ export function ReleasesPage() {
   const blockers = useHarness(`Покажи блокеры ${submitted}`)
   const dependencies = useHarness(`Покажи зависимости ${submitted}`)
   const risks = useHarness(`Покажи риски релиза ${submitted}`)
-  const sd = (scope?.data ?? {}) as { count?: number; tasks?: TaskRow[] }
-  const pd = (progress?.data ?? {}) as Record<string, unknown>
-  const bd = (blockers?.data ?? {}) as { count?: number; tasks?: TaskRow[] }
-  const dd = (dependencies?.data ?? {}) as { internal?: Array<Record<string, unknown>>; external?: Array<Record<string, unknown>> }
-  const rd = (risks?.data ?? {}) as { risk_queue?: Array<Record<string, unknown>> }
+  const sd = getCapabilityData(scope) as { count?: number; tasks?: TaskRow[] }
+  const pd = getCapabilityData(progress) as Record<string, unknown>
+  const bd = getCapabilityData(blockers) as { count?: number; tasks?: TaskRow[] }
+  const dd = getCapabilityData(dependencies) as { internal?: Array<Record<string, unknown>>; external?: Array<Record<string, unknown>> }
+  const rd = getCapabilityData(risks) as { risk_queue?: Array<Record<string, unknown>> }
   const riskRows = rd.risk_queue ?? []
   const scopeState = classifyResult(scope)
   const progressState = classifyResult(progress)
