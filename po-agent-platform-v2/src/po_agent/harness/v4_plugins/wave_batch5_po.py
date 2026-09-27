@@ -18,6 +18,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from po_agent.adapters.task_api import AS21SourceUnavailable
+
 from ..agent_core_v4 import CapabilitySpecV4, SkillSpecV4, V4CapabilityUnavailable, V4NeedsClarification
 from ..agent_core_v4_completion import CompletionRequirement
 from ..contracts import CapabilityResult, Evidence
@@ -99,17 +101,54 @@ async def _space_task_summary(runtime: Any) -> dict[str, dict[str, Any]]:
     operational PO brief. Each read is constrained to one approved product space;
     there is no tenant-wide task scan.
     """
+    getter = getattr(runtime.adapter, "get_space_task_count", None)
+    if getter is None:
+        raise V4CapabilityUnavailable("po.status_report requires the bounded REAL AS21 per-space count route")
+
     result: dict[str, dict[str, Any]] = {}
+    available = 0
     for space in sorted(APPROVED_PRODUCT_SPACES):
-        tasks = list(await runtime.adapter.search_tasks(f'project = "{space}"', max_results=10000))
+        try:
+            payload = await getter(space)
+        except AS21SourceUnavailable:
+            result[space] = {
+                "state": "SOURCE_UNAVAILABLE",
+                "total": None,
+                "active": None,
+                "completed": None,
+                "blocked": None,
+                "scope": "full_space",
+                "source": "REAL_AS21",
+            }
+            continue
+
+        total = payload.get("total")
+        if not isinstance(total, int) or total < 0:
+            result[space] = {
+                "state": "SOURCE_UNAVAILABLE",
+                "total": None,
+                "active": None,
+                "completed": None,
+                "blocked": None,
+                "scope": "full_space",
+                "source": "REAL_AS21",
+            }
+            continue
+
+        available += 1
         result[space] = {
-            "total": len(tasks),
-            "active": sum(1 for task in tasks if not getattr(task, "is_completed", False)),
-            "completed": sum(1 for task in tasks if getattr(task, "is_completed", False)),
-            "blocked": sum(1 for task in tasks if getattr(task, "is_blocked", False)),
+            "state": "SOURCE_BACKED_TOTAL_ONLY",
+            "total": total,
+            "active": None,
+            "completed": None,
+            "blocked": None,
             "scope": "full_space",
             "source": "REAL_AS21",
+            "breakdown_state": "SOURCE_CONDITIONAL",
         }
+
+    if available == 0:
+        raise V4CapabilityUnavailable("REAL AS21 per-space task counts are unavailable for all approved spaces")
     return result
 
 
