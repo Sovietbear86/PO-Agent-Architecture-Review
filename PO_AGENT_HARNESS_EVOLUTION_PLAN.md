@@ -928,3 +928,13 @@ A223R2 closed the shared state/lineage gate GREEN. Before visual styling, the pr
 
 Only after this usability/data remediation is GREEN should the slide-derived visual redesign start.
 
+
+
+### A224 pagination-cap finding
+
+A224 proved that materializing all tasks per space is not a valid counting strategy for CRPV/STS because the live task-query route is capped by pagination. The remediation therefore changes the contract for the Overview "Задачи по пространствам" block:
+
+- **Total task count** is source-ready and must come from authoritative source pagination metadata (`totalElements`) via a one-page bounded count route.
+- **Active/completed/blocked full-space breakdown** remains SOURCE_CONDITIONAL until a verified source-side aggregation/filter-count contract exists. UI must show this limitation explicitly and must not derive the breakdown from truncated rows.
+- Per-space failures are isolated; one unavailable space must not sink the whole PO status report.
+- No space may render a false zero when the source is unavailable.
