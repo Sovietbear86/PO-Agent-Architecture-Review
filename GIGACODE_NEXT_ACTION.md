@@ -1,152 +1,169 @@
 # GigaCode — Current Action
 
 ## Status
-ACTIVE_QA_ASSIGNMENT_222_TEAM_COMPETENCY_SOURCE_GATE
+ACTIVE_QA_ASSIGNMENT_222R_TEAM_COMPETENCY_REGATE
 
 ## Role lock
 GigaCode is QA/adversarial tester + service operator only.
 
 Do NOT modify production/frontend/plugin/test/config/architecture code.
 Do NOT implement fixes.
-Do NOT start UI remediation.
-Commit/push only the QA report.
+Commit/push only QA reports/artifacts.
 
-## Frozen baseline
-Full functional V4 baseline:
-- checkpoint: `checkpoint/v4-full-functional-green-a221r3`
-- SHA: `84b0ae28aa4c37b0e502f92f08738fab66dbd4f6`
-- canonical matrix 54/54 GREEN
-- composition 24/24 GREEN
-- Browser C 54/54 PASS
+## Retained baseline
+Full functional checkpoint remains:
+`checkpoint/v4-full-functional-green-a221r3@84b0ae28aa4c37b0e502f92f08738fab66dbd4f6`
 
-## Owner implementation
+A222 verdict:
+`AGENT_CORE_V4_TEAM_COMPETENCY_RED_A222`
+
+Confirmed A222 defects:
+1. legitimate zero-overlap result could not satisfy completion contract;
+2. YAML camelCase logins did not join production lowercase AS21 assignee logins, silently zeroing load.
+
+## Owner remediation
 Commits:
-- `e7d9af437e54d6508efd1e1b752122f053e8019d`
-- `d8bd40b52c6930676b5f76f35ad0d0751883bf54`
+- `b1d0341ba4389a57712e9aeae33b42e47b3fe332`
+- `3c436b32bf0b5fd6c2f7f0356ff5dfcc29bdd5c6`
+- `2e770bf2183087728606450bca24733d542e4c6a`
 
-Affected skills only:
-1. `team.competency_match`
-2. `team.assignee_recommendation`
+### Functional change
+Competency relevance is now derived only from source-backed task signals:
+- task title;
+- task description;
+- task labels/tags;
+- task components.
 
-No planner/runtime/session-context changes.
+Declared competencies still come only from:
+`task-api/config/team_members.yaml`
 
-## Source truth
-Repository competency source is now authoritative for declared competency evidence:
+No competency level/seniority is inferred.
 
-- `task-api/knowledge/team/competencies.md`
-- `task-api/knowledge/team/team.md`
-- `task-api/config/team_members.yaml`
-- loader: `po-agent-platform-v2/src/po_agent/config/real_team.py`
+The matcher now returns:
+- matched_competencies;
+- matched_by_field;
+- match_count;
+- relevance_score;
+- task_signals.
 
-Important semantics:
-- competencies are explicit declarations only;
-- numeric competency levels/seniority are NOT source-backed and must not be invented;
-- product membership must be respected;
-- task facts come from bounded REAL AS21 point reads;
-- current operational load comes only from bounded current-sprint membership;
-- legacy `search_tasks("")` tenant-wide path is forbidden.
+`relevance_score` is a deterministic TASK-TO-COMPETENCY relevance score, not an employee performance/quality score.
 
-## Phase 0 — architecture invariant
-1. Pull branch, record START_HEAD and clean worktree.
-2. Diff from `checkpoint/v4-full-functional-green-a221r3`.
-3. Prove owner production changes are limited to:
-   - `wave_batch3.py`
-   - focused tests/docs
-4. Zero Agent Core/planner/runtime/session-context changes.
-5. Zero tenant-wide scan added.
-6. Full registry/plugin discovery unchanged except skill behavior/source classification.
+Field weights:
+- labels/tags = 4
+- components = 4
+- title = 3
+- description = 1
 
-Architecture drift => RED.
+For each declared competency, only the strongest matching field contributes to score.
 
-## Phase 1 — focused tests
+Assignee recommendation then orders by:
+1. relevance_score desc;
+2. match_count desc;
+3. active_tasks asc;
+4. WIP asc;
+5. blocked asc;
+6. login deterministic tie-break.
+
+Load join is case-insensitive.
+
+### Completion fix
+- competency_match completion now uses scalar `match_count`;
+- assignee_recommendation completion now uses scalar `candidate_count`;
+- zero is a valid terminal value, mirroring the established A215F2 REAL_EMPTY-safe pattern.
+
+## P0 — diff + architecture audit
+1. Pull branch, record START_HEAD, clean worktree.
+2. Diff from A222 report state.
+3. Prove production delta limited to `wave_batch3.py`.
+4. Prove no Core/planner/runtime/session-context change.
+5. Prove no tenant-wide scan or new adapter route.
+6. Confirm task model source fields `title/description/labels/components` are canonical source-backed fields.
+
+Architecture drift => RED STOP.
+
+## P1 — tests
 Run:
 - `tests/test_agent_core_v4_team_competency_source.py`
 - `tests/test_agent_core_v4_batch3.py`
 - relevant team/current-sprint suites
 - planner signature parity
-- plugin registry suites
+- registry/plugin suites
+- focused full V4 regression
 
-Then relevant full V4 regression.
+Require zero unexplained failures.
 
-Zero unexplained failures.
-
-## Phase 2 — source integrity
-Independently read:
-- `task-api/config/team_members.yaml`
-- `task-api/knowledge/team/competencies.md`
-- `task-api/knowledge/team/team.md`
+## P2 — zero-overlap completion re-gate
+Re-probe A222 zero-overlap tasks:
+- DMS-335 >=3 fresh sessions
+- DMS-432 >=3 fresh sessions
 
 Require:
-- identities/logins are consistent;
-- competency lists used by runtime are explicitly present;
-- no numeric competency level is inferred;
-- no person outside the requested product is considered.
+- COMPLETED, not step-budget failure;
+- `matches=[]` + `match_count=0` for competency_match where independent Oracle B proves no declared competency overlap;
+- typed warning `no_declared_competency_match`;
+- assignee recommendation: `candidates=[]`, `candidate_count=0`, recommendation=null and insufficient-evidence warning where applicable;
+- zero fabrication.
 
-Record exact source version/SHA.
+## P3 — task-signal matching
+Use independently selected source tasks that prove each field.
 
-## Phase 3 — team.competency_match
-Use real tasks from DMS and OLP, including:
-- `DMS-380`
-- at least one Go/DataMarts-oriented task
-- at least one OLAP/frontend or Java-oriented task if source-backed
-- one task with weak/no declared competency overlap
+At minimum prove:
+A. competency signal in TITLE;
+B. competency signal in DESCRIPTION;
+C. competency signal in LABEL/TAG;
+D. competency signal in COMPONENT.
 
-Run >=3 NL variants per representative case:
-- "кто подходит по компетенциям для DMS-380"
-- "какие специалисты подходят для задачи DMS-380"
-- "competency match for DMS-380 in DMS"
+For every case:
+- point-read the source task independently;
+- record exact source title/description/labels/components;
+- calculate expected declared-competency intersection from team_members.yaml;
+- compare Agent candidate/member set exactly;
+- verify `matched_by_field` identifies the correct source field;
+- verify `relevance_score` follows documented deterministic weights.
 
-Require:
-- bounded task point read;
-- repository team source only for competency evidence;
-- exact declared competency/profile evidence in result;
-- no tenant-wide task scan;
-- no fabricated levels;
-- no employee-performance language;
-- if no overlap: valid empty/insufficient-evidence result, not fabricated match.
+Do not accept a candidate based on previous ownership/assignee history.
 
-## Phase 4 — team.assignee_recommendation
-Use same representative tasks.
-
-Require trajectory:
-- resolve space/task;
-- one bounded task point read;
-- bounded current-sprint lookup + sprint membership;
-- repository declared competency source;
-- recommendation candidates sorted deterministically by:
-  1. declared competency overlap descending;
-  2. current active-task load ascending;
-  3. WIP ascending;
-  4. blocked ascending;
-  5. login deterministic tie-break.
+## P4 — mixed-signal ranking
+Find or controlled-source-shape a task with multiple competency signals across title/description/labels/components.
 
 Require:
-- no `search_tasks("")`;
-- no tenant-wide source route;
-- no capacity/competency value invented;
-- result is operational assignment recommendation, not employee quality score.
+- multiple declared competencies can contribute;
+- tag/component signal outranks description-only signal under equal declared competency count;
+- score is described as task relevance, never human quality/performance;
+- no numeric competency level appears.
 
-## Phase 5 — identity/product filters
-Test:
-- DMS task => only profiles with DMS in `products`;
-- OLP task => only profiles with OLP in `products`;
-- person with missing/invalid login must not silently become authoritative AS21 identity;
-- explicit task not found => typed source limitation/not-found behavior.
+## P5 — load join re-gate
+Re-probe DMS-380 recommendation >=5 fresh sessions.
 
-## Phase 6 — Browser C
-Real UI:
-- competency match for DMS task;
-- assignee recommendation for DMS task;
-- one OLP case.
+Independent Oracle B:
+- read current DMS sprint;
+- derive exact active/WIP/blocked counts by case-insensitive canonical login.
 
 Require:
-- structured Team result visible;
-- declared competencies shown as evidence;
-- current load shown separately from competency evidence;
-- no "SOURCE_CONDITIONAL because no competency source" message;
-- no generic V4 ERROR.
+- candidate load fields are non-zero where source proves load;
+- exact per-candidate parity;
+- lowercase AS21 login joins camelCase YAML login;
+- recommendation order respects relevance then load/WIP/blocked;
+- no tenant-wide scan.
 
-## Phase 7 — retained Team regression
+## P6 — product and identity safety
+- DMS task => DMS profiles only.
+- OLP task => OLP profiles only.
+- missing task => typed source limitation/not-found.
+- invalid/missing team login must not silently become authoritative identity.
+- no competency inferred from task assignee.
+
+## P7 — Browser C
+Test real UI for:
+- competency match with non-empty match;
+- zero-overlap competency match;
+- assignee recommendation with real load;
+- one label/component-driven example.
+
+Require structured result without generic error.
+Record current Team widget rendering defects separately; do not repair UI in this assignment.
+
+## P8 — retained Team regression
 Re-run:
 - team.workload
 - team.wip
@@ -154,27 +171,27 @@ Re-run:
 - team.capacity
 - team.bottlenecks
 - team.distribution
-- member/time-accounting representative case
+- member.time_spent representative case
 
-Require A221R3 parity.
+Require A221R3/A222 parity allowing verified source drift.
 
-## Phase 8 — audit
+## P9 — audit
 Require:
 - local factual task reads = 0;
 - tenant-wide task scans = 0;
 - mutations = 0;
-- competency config reads are repository/config source reads, not factual AS21 fallback;
-- task facts always come from bounded REAL AS21 reads.
+- all task facts from bounded REAL AS21;
+- competency facts from repository team source only.
 
 ## Verdict
 Use exactly one:
-- `AGENT_CORE_V4_TEAM_COMPETENCY_GREEN_A222`
-- `AGENT_CORE_V4_TEAM_COMPETENCY_RED_A222`
+- `AGENT_CORE_V4_TEAM_COMPETENCY_GREEN_A222R`
+- `AGENT_CORE_V4_TEAM_COMPETENCY_RED_A222R`
 
 If GREEN:
-- classify `team.competency_match` = SOURCE_READY;
-- classify `team.assignee_recommendation` = SOURCE_READY;
-- recommend immutable small competency-source checkpoint;
+- classify team.competency_match SOURCE_READY;
+- classify team.assignee_recommendation SOURCE_READY;
+- recommend competency-source checkpoint;
 - next owner phase = UI widget/state/lineage remediation.
 
 If RED:
