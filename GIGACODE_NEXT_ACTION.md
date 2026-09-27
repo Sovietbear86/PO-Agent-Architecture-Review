@@ -1,193 +1,59 @@
 # GigaCode — Current Action
 
-## ACTIVE: Assignment 224 — UI usability/data correctness gate before visual redesign
+## ACTIVE: Assignment 224R — UI usability re-gate
 
-Role: QA/adversarial tester only. Do NOT modify code.
+Role: QA/adversarial tester only. Do NOT modify production code.
 
-### Frozen baseline
-A223R2 is GREEN.
-Checkpoint:
-`checkpoint/v4-ui-state-lineage-green-a223r2@e0f435d10b586fbb7bfb31c6e0e853496338e099`
+A224 stopped at P2 because full-space row materialization hit the 10k pagination ceiling. Owner remediation now uses the bounded REAL AS21 per-space count surface based on source totalElements, isolates unavailable spaces, and removes false-zero UI.
 
-The shared state/lineage gate is closed. A224 validates owner-observed product usability/data corrections before the visual redesign.
+### P0
+Pull current branch and record HEAD. Prove no Agent Core/planner/runtime/session changes. Run V4 tests, batch5 tests, tsc --noEmit and vite build. Require 0 unexplained failures and 0 AS21 mutations.
 
-### Owner implementation
-Commits under test:
-- `bb3ebf93ad08edeb66f1595984112c83719f17be` — bounded full-space task counts in po.status_report
-- `ea666f1687d3ed8da02ce342ea50bd15a4b67250` — Overview scroll + "Задачи по пространствам"
-- `ad6c202d69bdcf1597bdacd30d74828e703b6308` — balanced overview panel scrolling
-- `8385a3eadb000d1a45dd3d425542fcdde60e2a34` — local task priority/labels/status/delete
-- `4aa4d915bef637bf9bdb549f7802c8536be606b7` — Team space selector + automatic 40h/week owner policy
-- `41c290ce67e9b7680ec6a6be4395be6c011df29a` — Aging queue bounded by selected space
-- `e04bc678addca176ec194eee3f8899b3ee8556dc` — explicit predictability source-limitation hint
-- `004e0e33a7c9303b3286c1f513e59f72b27dccdb` — status-report full-space regression tests
+### P2R — first mandatory re-gate
+For WMB, DMS, OLP, CRPV and STS:
+- independently read the bounded REAL AS21 count surface/source metadata;
+- compare exact total with po.status_report.data.by_space_tasks[SPACE].total;
+- require exact total parity for every source-ready space, including CRPV/STS above 10k;
+- prove the count path does not enumerate the entire task corpus and does not use task-query pagination;
+- verify a single unavailable space is represented only as typed SOURCE_UNAVAILABLE with total=null while other source-ready spaces remain usable;
+- Browser C title must be "Задачи по пространствам";
+- source-ready total is shown exactly;
+- unavailable total is "—"/typed unavailable, never 0;
+- active/completed/blocked must not be fabricated. Current bounded source certifies total only, so typed SOURCE_CONDITIONAL status breakdown is expected and GREEN.
 
-No Agent Core/planner/runtime/session changes.
+If P2R is RED, STOP.
 
-## P0 — build / architecture
-1. Pull branch, clean worktree, record START_HEAD.
-2. Diff from A223R2 checkpoint.
-3. Prove:
-   - only one backend plugin semantic extension: po.status_report adds bounded full-space counts;
-   - all full-space reads are project-scoped per approved space;
-   - no tenant-wide task scan;
-   - no AS21 writes;
-   - other changes are frontend/tests/docs only.
-4. Run:
-   - relevant Python tests including test_agent_core_v4_batch5_po.py
-   - relevant V4 regression for po.status_report
-   - frontend tsc --noEmit
-   - vite build
-5. Zero unexplained failures.
+### P1 — Overview
+Attention renders at most 10 rows initially; when more exist show "Показаны первые N из M"; internal scroll works; Attention and Daily Brief have comparable visible height; desktop and 480px viewports have no harmful horizontal overflow.
 
-## P1 — Overview panel height / scrolling
-Browser C on Overview.
+### P3 — local task CRUD
+Create a local task with HIGH priority, TODO status, at least two labels, owner and description. Verify reload persistence, status TODO -> IN_PROGRESS -> DONE persistence, deletion, old-schema migration to MEDIUM/TODO/[], and 0 AS21 writes.
 
-Require:
-- PO Attention and Daily Brief have comparable visible height;
-- page does not expand to the full attention queue height;
-- PO Attention renders at most 10 task rows initially;
-- if source count > rendered count, UI explicitly says "Показаны первые N из M";
-- internal vertical scrolling works where content exceeds panel height;
-- "Задачи по пространствам" is visible without scrolling through dozens of attention rows.
+### P4 — Sprint predictability
+DMS-SPRNT-3. If authoritative sprint-start commitment baseline is absent, predictability remains fail-closed and UI explains the missing baseline. No fabricated percentage/current-scope substitution.
 
-Test responsive/narrow viewport too: no unusable nested overflow.
+### P5 — Releases
+OLP 1.6.0 and WMB 24Q1: explicit source limitation, no fake zero/empty scope, no pseudo forecast. Sparse UI is accepted until AS21 release linkage exists.
 
-## P2 — full-space task counts
-This is a source-correctness gate.
+### P6 — Team
+Test DMS, OLP, WMB and CRPV or STS. No manual capacity baseline input and no "Пересчитать". 40h/week/person policy is visible and automatic. Every team request carries selected space. Source-ready widgets populate and switching space cannot leak old-space values. Capacity may be SOURCE_CONDITIONAL when estimates are absent, never fake 0.
 
-For each approved space:
-- WMB
-- DMS
-- OLP
-- CRPV
-- STS
+### P7 — Quality Aging
+WMB and DMS, thresholds 7 and 15. Query includes selected space plus threshold. Compare source-ready keys/count/age_days with independent bounded Oracle B. REAL_EMPTY only when source proves it. No unscoped aging query.
 
-Independently query REAL AS21 using a bounded project/space query and obtain:
-- total
-- active
-- completed
-- blocked
+### P8 — retained smoke
+Do not rerun full 54/54. Retain Quality WMB-102 semantics, Sprint DMS-SPRNT-3 throughput/risk, rich chat rendering, competency recommendation and release source-conditional behavior.
 
-Compare exact values with:
-`po.status_report.data.by_space_tasks[SPACE]`
+### P9 — audit
+Require 0 AS21 mutations, 0 local factual fallback, 0 tenant-wide task scans, no full-space row materialization for counts, and localStorage writes only for LOCAL tasks.
 
-Require:
-- exact parity for all 5 spaces;
-- CRPV/STS must not appear as blank/zero unless Oracle B independently proves true zero;
-- WMB count must represent the entire WMB space, NOT current sprint membership;
-- no tenant-wide scan;
-- UI block title exactly "Задачи по пространствам";
-- each card shows total/active/completed/blocked.
+### Verdict
+Exactly one:
+- AGENT_CORE_V4_UI_USABILITY_GREEN_A224R
+- AGENT_CORE_V4_UI_USABILITY_RED_A224R
 
-If any space query is source-unavailable, the block must not silently fabricate zero.
+If GREEN recommend checkpoint/v4-ui-usability-green-a224r and next owner phase = visual design system plus slide-derived backgrounds. Do NOT start Learning Reviewer yet.
 
-## P3 — local task CRUD
-Browser C, Tasks page.
-
-Create a local task with:
-- title
-- description
-- owner
-- priority = HIGH
-- status = TODO
-- >=2 labels
-
-Require:
-- card shows owner + priority + labels;
-- task persists after reload through browser localStorage;
-- change status TODO -> IN_PROGRESS -> DONE and verify persistence;
-- delete task and verify it disappears from localStorage and UI;
-- create/load an old-schema localStorage row without priority/status/labels and confirm safe defaults:
-  priority=MEDIUM, status=TODO, labels=[];
-- 0 AS21 mutations.
-
-## P4 — Sprint predictability
-Use source-ready sprint DMS-SPRNT-3.
-
-Require:
-- other Sprint metrics remain correct from A223R2;
-- predictability remains fail-closed if the source still lacks authoritative sprint-start commitment baseline;
-- UI explicitly explains the missing baseline;
-- no fabricated percentage;
-- no substitution of current scope as commitment unless backend contract explicitly supplies it.
-
-## P5 — Releases retained limitation
-Use OLP 1.6.0 and WMB 24Q1.
-
-Require:
-- source limitation panels remain explicit;
-- no fake 0/empty release scope;
-- no pseudo forecast;
-- page may remain sparse; this is accepted until AS21 release linkage is improved.
-
-This is GREEN if it remains honest, even if low-information.
-
-## P6 — Team page
-Browser C.
-
-Space selector:
-- test DMS, OLP, WMB and at least one of CRPV/STS.
-
-Require:
-- no manual capacity baseline field;
-- no "Пересчитать" button;
-- visible policy says 40h/week/person and automatic normalization;
-- workload/WIP/blocked/bottlenecks/distribution requests include selected space;
-- selected source-ready space populates actual widgets, not bare-query NEEDS_CLARIFICATION;
-- switching space refreshes data and does not leak previous-space values;
-- capacity may be SOURCE_CONDITIONAL if task estimates are absent; this must show as a limitation, not fake 0 utilization.
-
-Audit exact scoped source calls.
-
-## P7 — Quality Aging queue
-Browser C.
-
-For each of WMB and DMS:
-- select space;
-- threshold 7;
-- threshold 15;
-- one large threshold expected to be empty if source proves it.
-
-Require:
-- query includes selected space + threshold;
-- source-ready rows render exact task keys/count/age_days vs Oracle B;
-- threshold change refreshes results;
-- proven zero may show empty;
-- source-limited/unavailable must not look like a proven empty queue;
-- no unscoped aging query.
-
-## P8 — compact retained smoke
-Do not rerun full 54/54.
-
-Retain:
-- Quality WMB-102 = 85/100, 0/100, missing 1, REWORK
-- Sprint DMS-SPRNT-3 throughput/risk queue from A223R2
-- chat rich rendering
-- competency recommendation
-- release source-conditional behavior
-
-## P9 — audit
-Require:
-- 0 AS21 mutations
-- 0 local factual fallback reads
-- 0 tenant-wide task scans
-- full-space queries are individually scoped by project/space
-- localStorage writes only for LOCAL tasks
-
-## Verdict
-Use exactly one:
-- `AGENT_CORE_V4_UI_USABILITY_GREEN_A224`
-- `AGENT_CORE_V4_UI_USABILITY_RED_A224`
-
-If GREEN:
-- recommend checkpoint/v4-ui-usability-green-a224
-- next owner phase = visual design system + slide-derived backgrounds for all six pages
-- do NOT start Learning Reviewer
-
-If RED:
-- report first confirmed failing boundary
-- preserve screenshot + exact backend/source comparison
-- STOP
+If RED preserve exact source/backend/UI evidence and stop at first confirmed boundary.
 
 Do not modify code.
