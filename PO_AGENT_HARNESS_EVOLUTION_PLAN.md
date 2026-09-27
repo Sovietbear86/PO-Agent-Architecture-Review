@@ -938,3 +938,33 @@ A224 proved that materializing all tasks per space is not a valid counting strat
 - **Active/completed/blocked full-space breakdown** remains SOURCE_CONDITIONAL until a verified source-side aggregation/filter-count contract exists. UI must show this limitation explicitly and must not derive the breakdown from truncated rows.
 - Per-space failures are isolated; one unavailable space must not sink the whole PO status report.
 - No space may render a false zero when the source is unavailable.
+
+
+### A224R scope correction — team-owned tasks, not whole spaces
+
+**Decision:** the Overview block **"Задачи по пространствам"** must represent the work of the configured product team, not the complete historical corpus of WMB/DMS/OLP/CRPV/STS.
+
+Reason:
+- CRPV/STS contain hundreds of thousands of unrelated tasks, so full-space totals are not meaningful for the PO workspace;
+- the project already has a canonical team directory in `task-api/config/team_members.yaml`;
+- the live assignee search path is already certified and works for logins such as `Kalachanov.V.V`.
+
+Target source contract:
+1. Load canonical member logins from `team_members.yaml`.
+2. For each configured login, perform the certified bounded REAL AS21 assignee read.
+3. Group returned tasks by approved space.
+4. Deduplicate by canonical task key.
+5. Compute exact team-owned total / active / completed / blocked per space.
+6. Never perform whole-space corpus scans for this widget.
+7. If any member source read fails, mark the space summary SOURCE_PARTIAL and do not present the partial count as exact.
+8. If all member reads fail, fail closed.
+
+UI:
+- keep title **"Задачи по пространствам"**;
+- explicitly state that counts are tasks assigned to configured team members;
+- no fabricated totals from complete space size.
+
+Additional owner UX changes in the same gate:
+- PO Attention must render the full queue inside an internal scroll container; do not slice the dataset to the first 10 rows;
+- Tasks page gets separate status filters for AS21 results and local tasks;
+- status filters are presentation filters and must not mutate AS21 data.
