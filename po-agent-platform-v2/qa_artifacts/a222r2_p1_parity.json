@@ -1,0 +1,92 @@
+{
+ "DMS-408": {
+  "key": "DMS-408",
+  "canonical": {
+   "labels": [
+    "AQA",
+    "DataMarts server"
+   ],
+   "components": [
+    "dmts"
+   ],
+   "title": "Тестирование новой привилегии EXPLAIN в продукте DataMarts в компоненте DataMart"
+  },
+  "raw": {
+   "label_raw": [
+    "AQA",
+    "DataMarts server"
+   ],
+   "component_names": [
+    "dmts"
+   ]
+  },
+  "labels_match": true,
+  "components_match": true
+ },
+ "OLP-3339": {
+  "key": "OLP-3339",
+  "canonical": {
+   "labels": [
+    "qa",
+    "Backend"
+   ],
+   "components": [
+    "OLAP"
+   ],
+   "title": "Не удаляются сегменты из S3 при перезагрузке модели в OLAP"
+  },
+  "raw": {
+   "label_raw": [
+    "qa ",
+    " Backend"
+   ],
+   "component_names": [
+    "OLAP"
+   ]
+  },
+  "labels_match": false,
+  "components_match": true
+ },
+ "OLP-3079": {
+  "key": "OLP-3079",
+  "canonical": {
+   "labels": [],
+   "components": [
+    "OLAP"
+   ],
+   "title": "[OLAP] OLAP не загружает parquet-файлы из вложенных папок в HDFS"
+  },
+  "raw": {
+   "label_raw": [],
+   "component_names": [
+    "OLAP"
+   ]
+  },
+  "labels_match": true,
+  "components_match": true
+ },
+ "DMS-380": {
+  "key": "DMS-380",
+  "canonical": {
+   "labels": [
+    "Lineager",
+    "AQA"
+   ],
+   "components": [
+    "dmts"
+   ],
+   "title": "В компоненте Lineager не работает аутентификация в режиме mTLS, TLS, SSL"
+  },
+  "raw": {
+   "label_raw": [
+    "Lineager",
+    "AQA"
+   ],
+   "component_names": [
+    "dmts"
+   ]
+  },
+  "labels_match": true,
+  "components_match": true
+ }
+}

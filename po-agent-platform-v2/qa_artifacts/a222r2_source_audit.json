@@ -1,0 +1,20 @@
+{
+ "window": {
+  "start_line": 13131,
+  "end_line": 13446,
+  "lines": 316
+ },
+ "local_factual_reads_tasks": 0,
+ "tenant_wide_scans": 0,
+ "mutations": 0,
+ "task_query_total": 0,
+ "task_query_unscoped": 0,
+ "bounded_point_reads": 22,
+ "sprint_collection_calls": 44,
+ "current_sprint_calls": 58,
+ "work_log_calls": 146,
+ "attachment_file_reads": 38,
+ "versions_calls": 0,
+ "audit_pass": true,
+ "note": "A222R2 window: P1 parity (QA adapter), P2/P3/P4 live probes via agent, P4 Browser C, P3 team regression. Label/component facts from bounded REAL AS21 point reads only; competency facts from repository team_members.yaml (local config, not in task-api log)."
+}
