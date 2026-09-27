@@ -42,7 +42,6 @@ export function OverviewDashboard() {
     by_space_tasks?: Record<string, { state?: string; total?: number | null; active?: number | null; completed?: number | null; blocked?: number | null; breakdown_state?: string }>
   }
   const queue = ad.queue ?? []
-  const visibleQueue = queue.slice(0, 10)
   const spaces = Object.entries(sd.by_space_tasks ?? {})
   const attentionState = classifyResult(attention)
   const briefState = classifyResult(brief)
@@ -62,11 +61,11 @@ export function OverviewDashboard() {
         <div className="overview-scroll-body">
           {stateAllowsBusinessData(attentionState)
             ? (queue.length
-              ? visibleQueue.map((row, index) => { const task = row.task ?? {}; return <div className="attention-row" key={String(task.key ?? index)}><div><b>{String(task.key ?? '')}</b><strong>{String(task.title ?? '')}</strong><span>{(row.reasons ?? []).join(' · ')}</span></div><em>{String(row.attention_score ?? '')}</em></div> })
+              ? queue.map((row, index) => { const task = row.task ?? {}; return <div className="attention-row" key={String(task.key ?? index)}><div><b>{String(task.key ?? '')}</b><strong>{String(task.title ?? '')}</strong><span>{(row.reasons ?? []).join(' · ')}</span></div><em>{String(row.attention_score ?? '')}</em></div> })
               : <div className="muted">Источник подтвердил: элементов, требующих вмешательства PO, нет.</div>)
             : <ResultStatePanel result={attention} compact />}
         </div>
-        {stateAllowsBusinessData(attentionState) && queue.length > visibleQueue.length && <div className="queue-version">Показаны первые {visibleQueue.length} из {queue.length}</div>}
+        {stateAllowsBusinessData(attentionState) && queue.length > 10 && <div className="queue-version">Всего {queue.length} задач · прокрутите список</div>}
         {stateAllowsBusinessData(attentionState) && <div className="queue-version">Scoring: {ad.scoring_version ?? '—'}</div>}<Meta result={attention} />
       </div>
       <div className="panel overview-twin-panel"><div className="panel-title"><strong>Daily Brief</strong><span className="green-badge">GROUNDED</span></div>
@@ -80,15 +79,15 @@ export function OverviewDashboard() {
       </div>
     </div>
 
-    <div className="panel product-status-panel"><div className="panel-title"><strong>Задачи по пространствам</strong><span>{spaces.length}</span></div>
+    <div className="panel product-status-panel"><div className="panel-title"><strong>Задачи по пространствам</strong><span>{spaces.length}</span></div><div className="form-note">Только задачи, назначенные участникам команды из team_members.yaml; одинаковые задачи дедуплицируются по ключу.</div>
       {stateAllowsBusinessData(statusState)
         ? (spaces.length
           ? <div className="product-status-grid">{spaces.map(([name, row]) => <div className="product-status-card" key={name}>
               <strong>{name}</strong>
               <div><span>Всего задач</span><b>{row.total ?? '—'}</b></div>
-              {row.state === 'SOURCE_UNAVAILABLE'
-                ? <div className="space-source-note">Источник временно недоступен</div>
-                : <div className="space-source-note">Разбивка по статусам пока не подтверждена источником</div>}
+              <div><span>Активно</span><b>{row.active ?? '—'}</b></div>
+              <div><span>Завершено</span><b>{row.completed ?? '—'}</b></div>
+              <div><span>Blocked</span><b>{row.blocked ?? '—'}</b></div>
             </div>)}</div>
           : <div className="muted">Источник подтвердил отсутствие данных по пространствам.</div>)
         : <ResultStatePanel result={status} compact />}
