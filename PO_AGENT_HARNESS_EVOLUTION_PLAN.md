@@ -993,3 +993,29 @@ Non-blocking responsive finding to absorb into visual redesign:
 
 **Current owner phase: visual design system + slide-derived page backgrounds.**
 Learning Reviewer remains blocked until visual redesign and Browser C UX acceptance are GREEN.
+
+
+### A225 visual design implementation
+
+**Status:** IMPLEMENTED_PENDING_QA.
+
+Owner implemented the cookbook-derived visual layer after A224R2 GREEN.
+
+Artifacts:
+- six abstract slide-derived SVG backgrounds under `frontend/public/design/`;
+- route-specific page theme classes;
+- shared dark navy / cyan glass design tokens in `workspace.css`;
+- dark sidebar/topbar/navigation treatment;
+- glass metric/content/task cards;
+- dark agent/task drawers;
+- cookbook-aligned typed source-state panels;
+- responsive fix for the known 480px PO Attention title/score overflow;
+- `UI_VISUAL_DESIGN_2026_SPEC.md` as the design acceptance contract.
+
+The implementation is presentation-only:
+- no Agent Core/planner/runtime/source/business-calculation changes;
+- no new dependency;
+- no AS21 mutation;
+- existing A224R2 state/lineage and usability semantics must remain unchanged.
+
+A225 must be GREEN before Browser UX/PO acceptance is frozen.
