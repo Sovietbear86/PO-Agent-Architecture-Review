@@ -1,151 +1,107 @@
 # GigaCode — Current Action
 
-## ACTIVE: Assignment 223R — UI capability payload/state lineage re-gate
+## ACTIVE: Assignment 223R2 — Sprint widget field re-gate
 
-Role: QA/adversarial tester only. Do not modify production/frontend/backend/plugin/test/config code.
+Role: QA/adversarial tester only. Do not modify code.
 
-### Prior verdict
-A223 = AGENT_CORE_V4_UI_STATE_LINEAGE_RED_A223
+Prior verdict: AGENT_CORE_V4_UI_STATE_LINEAGE_RED_A223R.
 
-Blocking defect:
-- Quality page read flat result.data instead of V4 capability payload under data.results[N].data
-- user saw NaN/100 and incorrect READY instead of REWORK
+Closed already:
+- Quality WMB-102 now shows 85/100, Acceptance 0/100, 1 gap, REWORK, no NaN.
 
-Systemic finding:
-- same payload-shape mismatch affected Overview, Sprints, Releases and Team, mostly as em-dash/empty data.
+A223R blocker:
+- Sprint risk queue read wrong fields: UI used risks/key/risk_score, source uses queue/task_key/rank.
+- Sprint throughput read throughput_tasks, source uses throughput.
 
-### Owner remediation
-Commits:
-- 9da38579e80682ebc326c3d4f22001e5461fe280 — shared getCapabilityData()
-- 2317d3f28007c784528c7b91b35dc3fa7e59e59a — Overview unwrap
-- dd71d630ee39ff41710d09858c10f9ec5d465913 — Team unwrap
-- dbd9053ae68e4a149d5ac93b334f24007810e3fe — Quality unwrap + finite-number guards
-- 56cbd3dfea2e0e73718c5bdd1d44e06d926f0d4a — Tasks/Sprints/Releases unwrap
-- e84910a3b858d638783a889fbf1436a56ccfc0cb — Overview metrics aligned to actual payload keys
+Owner fix:
+- commit b0695506a1e218801eb17436979b8d2898246e9e
+- SprintPage only
+- no backend/Core/planner/runtime/session changes
 
-No backend/Core/planner/runtime/session change.
-
-### P0 — static/build
+## P0
 1. Pull branch, clean worktree, record START_HEAD.
-2. Diff from A223 report commit.
-3. Prove remediation is frontend/docs only.
+2. Diff from A223R report state.
+3. Prove production delta is SprintPage leaf accessors only.
 4. Run tsc --noEmit and vite build.
-5. Run existing relevant e2e smoke.
-6. Zero unexplained build/runtime errors.
 
-### P1 — getCapabilityData contract
-Validate shared helper against real captured V4 responses:
-- flat legacy-compatible payload -> same object
-- composed V4 response -> final business capability data
-- resolver + business result -> business payload, not resolver payload
-- empty/missing results -> {}
-- no mutation of original response
+## P1 — blocking Sprint re-gate
+Use DMS-SPRNT-3 with fresh Browser C.
 
-Check state adapter now applies REAL_EMPTY classification to unwrapped capability data, not the outer results envelope.
+Compare independently to current backend source.
 
-### P2 — blocking Quality regression
-Browser C, WMB-102.
-
-Independent backend truth from A223:
-- quality score = 85
-- missing_elements = [acceptance_expectations]
-- acceptance score = 0
-- acceptance gaps non-empty
-
-Require UI:
-- Quality score 85/100
-- Acceptance 0/100
-- Пробелы = 1
-- Decision = REWORK / Вернуть на доработку
-- no NaN
-- no READY
-- no placeholder zero caused by missing path
-
-Also test one task whose finite score path is incomplete/absent:
-- no NaN/Infinity
-- render em-dash / NOT RUN until all decision inputs are finite and source-backed
-
-### P3 — Overview data-shape regression
-Require real values from capability payload:
-- active and completed metrics populated from source-backed overview payload
-- blocked metric populated
-- status/product cards populate when source-backed
-- no use of nonexistent tasks_total
-- Daily Brief rich rendering retained
-- attention queue still state-safe
-
-### P4 — Sprints
-Use one source-ready sprint.
+If source is unchanged from A223R, expect:
+- scope 73
+- completed 19
+- velocity 19 tasks/sprint
+- WIP 31
+- readiness 26%
+- throughput 1.385 completed_tasks/calendar_day
+- risk count 38
+- risk queue 38 rows
 
 Require:
-- scope/completed/velocity/predictability populated when backend provides them
-- throughput/WIP/readiness populated from final capability payload
-- risk queue exact vs backend payload
-- no false "Риски не выявлены" caused by wrong nesting
-- source-limited result still renders state panel, not zero
+- throughput exact, not em-dash
+- risk count equals source count
+- non-empty source queue renders non-empty body
+- no "риски не выявлены" when count > 0
+- task_key, reasons and rank render from source fields
 
-### P5 — Releases
-Use:
-- one known source-conditional release
-- one source-ready release identity/search case where applicable
+## P2 — Sprint regression
+Check:
+- one non-empty risk sprint
+- one source-proven empty risk sprint if available
+- one source-limited/clarification case
 
 Require:
-- nested payload is unwrapped correctly when present
-- SOURCE_CONDITIONAL remains state panel, never fake 0/empty
-- dependencies/blockers/risk queue exact when source-backed
-- no pseudo forecast
+- non-empty stays non-empty
+- REAL_EMPTY only when source proves zero
+- source-limited never becomes zero/no-risks
+- health/WIP/velocity unchanged
 
-### P6 — Team
-Require:
-- workload metrics populate from real nested payload
-- active_tasks/WIP/blocked rows exact
-- bottlenecks/distribution exact
-- capacity still source-safe
+## P3 — finish retained UI gate
+Continue P5-P9 from A223R without redoing earlier GREEN phases.
+
+Releases:
+- source-conditional => state panels, no fake zero/empty
+
+Team:
 - no hardcoded 40h
-- competency/recommendation note and drawer behavior retained
+- scoped workload/WIP/blocked exact
+- capacity state-safe
+- competency note retained
 
-### P7 — Tasks
-Run:
-- non-empty search
-- source-proven empty search
-- clarification case
+Tasks:
+- list-mode non-empty query renders task cards
+- clarification and proven-empty states correct
+- single-key task.lookup mismatch may remain non-blocking UX finding
 
-Require:
-- task grid uses unwrapped payload
-- REAL_EMPTY only when source-proven
-- clarification still state panel
-- local-task and details drawers unaffected
+Chat:
+- daily brief and competency markdown/table rendering still GREEN
+- evidence/feedback controls work
 
-### P8 — chat/V4 panel regression
-Repeat:
-- daily brief markdown/table
-- competency recommendation table
-
-Require:
-- no raw markdown syntax
-- structured V4ResultPanel rows still render
-- evidence/feedback/clarification controls preserved
-
-### P9 — audit
-Require:
+Audit:
 - 0 mutations
 - 0 local factual fallback reads
-- 0 tenant-wide broadening introduced by UI
-- backend skill behavior unchanged from A222R2
+- 0 tenant-wide broadening
 
-### Verdict
+## P4 — compact Quality smoke
+WMB-102 must still be:
+- 85/100
+- 0/100
+- missing 1
+- REWORK
+- no NaN
+
+## Verdict
 Use exactly one:
-- AGENT_CORE_V4_UI_STATE_LINEAGE_GREEN_A223R
-- AGENT_CORE_V4_UI_STATE_LINEAGE_RED_A223R
+- AGENT_CORE_V4_UI_STATE_LINEAGE_GREEN_A223R2
+- AGENT_CORE_V4_UI_STATE_LINEAGE_RED_A223R2
 
 If GREEN:
-- recommend checkpoint/v4-ui-state-lineage-green-a223r
-- next owner phase = visual design system + slide-derived page backgrounds
-- do NOT start Learning Reviewer yet
+- recommend checkpoint/v4-ui-state-lineage-green-a223r2
+- next phase = visual design system + slide-derived backgrounds
 
 If RED:
-- first failing UI boundary only
-- preserve screenshot + exact backend payload
-- STOP
+- save first failing screenshot + backend payload and STOP.
 
 Do not modify code.
