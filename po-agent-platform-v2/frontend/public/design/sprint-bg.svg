@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1600 1000">
+<defs><radialGradient id="glow" cx="64%" cy="92%" r="70%"><stop stop-color="#00dbff" stop-opacity=".62"/><stop offset=".55" stop-color="#0078aa" stop-opacity=".12"/><stop offset="1" stop-color="#020b14" stop-opacity="0"/></radialGradient><linearGradient id="crystal"><stop stop-color="#bdf7ff" stop-opacity=".68"/><stop offset=".5" stop-color="#1a9dda" stop-opacity=".16"/><stop offset="1" stop-color="#72e6ff" stop-opacity=".44"/></linearGradient></defs>
+<rect width="1600" height="1000" fill="#020b14"/><rect width="1600" height="1000" fill="url(#glow)"/>
+<path d="M110 270 H1160" stroke="#25d7ff" stroke-opacity=".34" stroke-width="3"/>
+<g fill="#22dfff"><circle cx="220" cy="270" r="10"/><circle cx="500" cy="270" r="10"/><circle cx="780" cy="270" r="10"/><circle cx="1060" cy="270" r="10"/></g>
+<g transform="translate(1220 260) rotate(12)" opacity=".8">
+ <path d="M70 0 160 40 112 100 206 160 140 244 46 174 0 110 56 66Z" fill="url(#crystal)" stroke="#9cedff" stroke-opacity=".5" stroke-width="4"/>
+ <path d="M56 66 112 100 140 244" fill="none" stroke="#e7fdff" stroke-opacity=".24" stroke-width="5"/>
+</g>
+</svg>
