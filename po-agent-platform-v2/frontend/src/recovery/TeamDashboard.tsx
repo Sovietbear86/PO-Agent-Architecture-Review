@@ -1,4 +1,4 @@
-import { FormEvent, useEffect, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { agent, HarnessQueryResponse } from '../api/client'
 import { ResultStatePanel } from '../components/ResultStatePanel'
@@ -27,15 +27,14 @@ function HarnessMeta({ result }: { result: HarnessQueryResponse | null }) {
 
 export function TeamDashboard() {
   const { openAgent } = useOutletContext<WorkspaceContext>()
-  const [capacityHours, setCapacityHours] = useState('')
-  const [capacityBaseline, setCapacityBaseline] = useState<string | null>(null)
+  const [space, setSpace] = useState('DMS')
 
-  const workload = useHarness('Покажи нагрузку команды')
-  const wip = useHarness('Покажи WIP команды')
-  const blocked = useHarness('Покажи блокировки команды')
-  const capacity = useHarness(capacityBaseline ? `Покажи capacity команды ${capacityBaseline} часов` : 'Покажи capacity команды')
-  const bottlenecks = useHarness('Покажи узкие места команды')
-  const distribution = useHarness('Покажи распределение задач команды')
+  const workload = useHarness(`Покажи нагрузку команды ${space}`)
+  const wip = useHarness(`Покажи WIP команды ${space}`)
+  const blocked = useHarness(`Покажи блокировки команды ${space}`)
+  const capacity = useHarness(`Покажи capacity команды ${space}`)
+  const bottlenecks = useHarness(`Покажи узкие места команды ${space}`)
+  const distribution = useHarness(`Покажи распределение задач команды ${space}`)
 
   const workloadData = getCapabilityData(workload) as { active_tasks?: number; workload?: Row[] }
   const wipData = getCapabilityData(wip) as { total_wip?: number; by_member?: Row[] }
@@ -51,11 +50,7 @@ export function TeamDashboard() {
   const workloadState = classifyResult(workload)
   const capacityState = classifyResult(capacity)
 
-  function updateCapacity(event: FormEvent) {
-    event.preventDefault()
-    const parsed = Number(capacityHours)
-    if (Number.isFinite(parsed) && parsed > 0) setCapacityBaseline(String(parsed))
-  }
+
 
   return <section className="page">
     <div className="page-heading">
@@ -63,16 +58,16 @@ export function TeamDashboard() {
       <button className="primary-button" onClick={openAgent}>Спросить PO Agent</button>
     </div>
 
-    <form className="panel entity-toolbar" onSubmit={updateCapacity}>
-      <div><span>Capacity baseline, часов на человека</span><input value={capacityHours} onChange={e => setCapacityHours(e.target.value)} inputMode="decimal" placeholder="Пусто = owner policy" /></div>
-      <button type="submit">Пересчитать</button>
-    </form>
+    <div className="panel entity-toolbar">
+      <div><span>Пространство</span><select value={space} onChange={e => setSpace(e.target.value)}><option value="DMS">DMS</option><option value="OLP">OLP</option><option value="WMB">WMB</option><option value="CRPV">CRPV</option><option value="STS">STS</option></select></div>
+      <div className="form-note">Capacity пересчитывается автоматически. Базовая рабочая неделя: 40 ч/чел.; доступность и период нормализуются owner policy.</div>
+    </div>
 
     <div className="metric-grid">
       <MetricCard label="Активных задач" value={String(workloadData.active_tasks ?? '—')} />
       <MetricCard label="WIP" value={String(wipData.total_wip ?? '—')} />
       <MetricCard label="Blocked" value={String(blockedData.total_blocked ?? '—')} hint="требуют внимания" />
-      <MetricCard label="Capacity baseline" value={stateAllowsBusinessData(capacityState) ? `${String(capacityData.capacity_hours_per_member ?? '—')} ч` : '—'} hint={capacityBaseline ? 'explicit user baseline' : 'owner policy'} />
+      <MetricCard label="Рабочая неделя" value="40 ч" hint="автоматический owner policy" />
     </div>
 
     <div className="content-grid">
@@ -99,7 +94,7 @@ export function TeamDashboard() {
     </div>
 
     <div className="panel team-capacity-panel">
-      <div className="panel-title"><strong>Capacity & utilization</strong><span>{capacityRows.length}</span></div>
+      <div className="panel-title"><strong>Capacity & utilization</strong><span>{stateAllowsBusinessData(capacityState) ? capacityRows.length : '—'}</span></div>
       {stateAllowsBusinessData(capacityState) ? (capacityRows.length ? <div className="capacity-table">
         <div className="capacity-head"><span>Исполнитель</span><span>Задачи</span><span>Нагрузка</span><span>Utilization</span><span>Состояние</span></div>
         {capacityRows.map(row => {
