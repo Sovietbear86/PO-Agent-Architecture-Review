@@ -84,10 +84,12 @@ export function OverviewDashboard() {
         ? (spaces.length
           ? <div className="product-status-grid">{spaces.map(([name, row]) => <div className="product-status-card" key={name}>
               <strong>{name}</strong>
-              <div><span>Всего задач</span><b>{row.total ?? '—'}</b></div>
-              <div><span>Активно</span><b>{row.active ?? '—'}</b></div>
-              <div><span>Завершено</span><b>{row.completed ?? '—'}</b></div>
-              <div><span>Blocked</span><b>{row.blocked ?? '—'}</b></div>
+              {row.state === 'SOURCE_BACKED' ? <>
+                <div><span>Всего задач</span><b>{row.total ?? '—'}</b></div>
+                <div><span>Активно</span><b>{row.active ?? '—'}</b></div>
+                <div><span>Завершено</span><b>{row.completed ?? '—'}</b></div>
+                <div><span>Blocked</span><b>{row.blocked ?? '—'}</b></div>
+              </> : <div className="space-source-note">Часть данных участников команды недоступна · без ложных итогов</div>}
             </div>)}</div>
           : <div className="muted">Источник подтвердил отсутствие данных по пространствам.</div>)
         : <ResultStatePanel result={status} compact />}
