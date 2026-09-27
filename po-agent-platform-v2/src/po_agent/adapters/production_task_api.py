@@ -151,6 +151,26 @@ class ProductionTaskApiAS21Adapter(TaskApiAS21Adapter):
             })
         return sprints
 
+    async def get_space_task_count(self, space: str) -> dict[str, Any]:
+        normalized = (space or "").upper().strip()
+        if not normalized:
+            raise AS21SourceError("space is required for task count")
+        try:
+            response = await self._get_resilient("/api/v1/swtr-read/task-count", params={"space": normalized})
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code in (502, 503, 504):
+                raise AS21SourceUnavailable(f"task-api space task count unavailable: HTTP {exc.response.status_code}") from exc
+            raise AS21SourceError(f"task-api space task count failed: HTTP {exc.response.status_code}") from exc
+        except httpx.HTTPError as exc:
+            raise AS21SourceUnavailable(f"task-api space task count failed: {type(exc).__name__}") from exc
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            raise AS21SourceError("task-api space task count returned invalid JSON") from exc
+        if not isinstance(payload, dict) or not isinstance(payload.get("total"), int):
+            raise AS21SourceError("task-api space task count returned malformed payload")
+        return payload
+
     async def search_tasks(self, jql: str, max_results: int = 50, fields: Optional[list[str]] = None) -> list[Task]:
         """Search only through the live REAL AS21 task-query facade."""
         del fields
