@@ -188,7 +188,6 @@ export function TasksPage() {
     () => localStatusFilter === 'ALL' ? localTasks : localTasks.filter(task => task.status === localStatusFilter),
     [localTasks, localStatusFilter],
   )
-  const allCount = useMemo(() => visibleTasks.length + visibleLocalTasks.length, [visibleTasks.length, visibleLocalTasks.length])
   const placeholder = mode === 'text' ? 'Текст или ключ задачи' : mode === 'assignee' ? 'Ivanov.I.I' : mode === 'status' ? 'In Progress' : mode === 'sprint' ? 'WMB-SPRNT-1' : 'WMB-2024-Q3'
   return <section className="page"><PageHeader title="Задачи" subtitle="Поиск, статус, постановка, вложения и task intelligence" />
     <form className="panel filter-toolbar" onSubmit={e => { e.preventDefault(); if (search.trim()) setSubmitted({ mode, value: search.trim() }) }}>
