@@ -47,7 +47,7 @@ export function OverviewDashboard() {
   const briefState = classifyResult(brief)
   const statusState = classifyResult(status)
 
-  return <section className="page">
+  return <section className="page page-overview">
     <div className="page-heading"><div><h1>Обзор</h1><p>Единая точка внимания PO: портфель, риски, brief и статус продуктов</p></div><button className="primary-button" onClick={openAgent}>Спросить PO Agent</button></div>
     <div className="metric-grid">
       <Metric label="Активно" value={stateAllowsBusinessData(classifyResult(overview)) ? (od.active ?? '—') : '—'} />
