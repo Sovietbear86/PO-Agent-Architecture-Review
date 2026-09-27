@@ -1,200 +1,109 @@
 # GigaCode — Current Action
 
-## Status
-ACTIVE_QA_ASSIGNMENT_222R_TEAM_COMPETENCY_REGATE
+## ACTIVE: Assignment 222R2 — competency signal plumbing re-gate
 
-## Role lock
-GigaCode is QA/adversarial tester + service operator only.
+Role: QA/adversarial tester only. Do not modify production/frontend/plugin/test/config code.
 
-Do NOT modify production/frontend/plugin/test/config/architecture code.
-Do NOT implement fixes.
-Commit/push only QA reports/artifacts.
+### Prior state
+A222R verdict: AGENT_CORE_V4_TEAM_COMPETENCY_RED_A222R.
 
-## Retained baseline
-Full functional checkpoint remains:
-`checkpoint/v4-full-functional-green-a221r3@84b0ae28aa4c37b0e502f92f08738fab66dbd4f6`
+Closed already:
+- zero-overlap completion;
+- case-insensitive load join.
 
-A222 verdict:
-`AGENT_CORE_V4_TEAM_COMPETENCY_RED_A222`
+Sole blocker:
+REAL AS21 exposes task labels/components, but the production adapter dropped them before canonical Task, so competency matching saw empty labels/components.
 
-Confirmed A222 defects:
-1. legitimate zero-overlap result could not satisfy completion contract;
-2. YAML camelCase logins did not join production lowercase AS21 assignee logins, silently zeroing load.
-
-## Owner remediation
+### Owner fix
 Commits:
-- `b1d0341ba4389a57712e9aeae33b42e47b3fe332`
-- `3c436b32bf0b5fd6c2f7f0356ff5dfcc29bdd5c6`
-- `2e770bf2183087728606450bca24733d542e4c6a`
+- 16c0d77ed90c510690215f7469c5cb2433d8c5bf
+- bd3c81cc50addb42bcef78d5bbf1235de4536d33
+- f9fb1594b4bfd2986c754a3118a8bdbae88f1718
+- 66cfa5a3d353fd34372b5178dd3d2fe0e2d2f5e6
 
-### Functional change
-Competency relevance is now derived only from source-backed task signals:
-- task title;
-- task description;
-- task labels/tags;
-- task components.
+Changes:
+- source label -> Task.labels
+- source sber_component -> Task.components
+- raw attributes and normalized swtr_attributes both decoded
+- hardened point-read mapper preserves same fields
+- focused regression added
+- no Agent Core/planner/runtime/session-context change
 
-Declared competencies still come only from:
-`task-api/config/team_members.yaml`
+### P0 — diff/tests
+1. Diff from A222R report state.
+2. Prove production delta is adapter plumbing only.
+3. Run:
+   - test_agent_core_v4_task_signal_plumbing.py
+   - test_agent_core_v4_team_competency_source.py
+   - test_agent_core_v4_batch3.py
+   - relevant adapter/source suites
+   - planner signature parity
+   - relevant full V4 regression
+4. Zero unexplained failures.
 
-No competency level/seniority is inferred.
+### P1 — source parity
+Independently point-read:
+- DMS-408
+- OLP-3339
+- OLP-3079
+- DMS-380
 
-The matcher now returns:
-- matched_competencies;
-- matched_by_field;
-- match_count;
-- relevance_score;
-- task_signals.
+Require canonical Task parity for labels/components.
 
-`relevance_score` is a deterministic TASK-TO-COMPETENCY relevance score, not an employee performance/quality score.
+If source unchanged:
+- DMS-408 labels include AQA and DataMarts server
+- OLP-3339 components include OLAP
+- OLP-3079 components include OLAP
+- DMS-380 labels include Lineager and AQA
 
-Field weights:
-- labels/tags = 4
-- components = 4
-- title = 3
-- description = 1
+### P2 — competency signal re-gate
+Fresh sessions >=3 each:
+- DMS-408 label-driven DataMarts
+- OLP-3339 component-driven OLAP
+- OLP-3079 component-driven OLAP
+- DMS-344 title-driven control
+- DMS-380 description-driven control
 
-For each declared competency, only the strongest matching field contributes to score.
+Require:
+- task_signals labels/components reflect source
+- matched_by_field identifies the real source field
+- weights remain label/component=4, title=3, description=1
+- exact candidate set vs independent Oracle B
+- no competence inferred from assignee/history
 
-Assignee recommendation then orders by:
-1. relevance_score desc;
-2. match_count desc;
-3. active_tasks asc;
-4. WIP asc;
-5. blocked asc;
-6. login deterministic tie-break.
+If source unchanged, expected A222R deltas should close:
+- DMS-408 DataMarts relevance score 7, not 6
+- OLP-3339/OLP-3079 OLAP relevance score 4, not 3
 
-Load join is case-insensitive.
+### P3 — retained regressions
+Re-run compactly:
+- DMS-335 zero-overlap >=3
+- DMS-432 zero-overlap >=3
+- DMS-380 recommendation >=5 with exact load/WIP/blocked parity
+- team workload/WIP/blocked/bottlenecks/distribution
+- representative member.time_spent
 
-### Completion fix
-- competency_match completion now uses scalar `match_count`;
-- assignee_recommendation completion now uses scalar `candidate_count`;
-- zero is a valid terminal value, mirroring the established A215F2 REAL_EMPTY-safe pattern.
-
-## P0 — diff + architecture audit
-1. Pull branch, record START_HEAD, clean worktree.
-2. Diff from A222 report state.
-3. Prove production delta limited to `wave_batch3.py`.
-4. Prove no Core/planner/runtime/session-context change.
-5. Prove no tenant-wide scan or new adapter route.
-6. Confirm task model source fields `title/description/labels/components` are canonical source-backed fields.
-
-Architecture drift => RED STOP.
-
-## P1 — tests
+### P4 — Browser C
 Run:
-- `tests/test_agent_core_v4_team_competency_source.py`
-- `tests/test_agent_core_v4_batch3.py`
-- relevant team/current-sprint suites
-- planner signature parity
-- registry/plugin suites
-- focused full V4 regression
+- label-driven competency match
+- component-driven match
+- zero-overlap
+- recommendation with current load
 
-Require zero unexplained failures.
+Log rendering defects only; do not repair UI.
 
-## P2 — zero-overlap completion re-gate
-Re-probe A222 zero-overlap tasks:
-- DMS-335 >=3 fresh sessions
-- DMS-432 >=3 fresh sessions
-
+### P5 — audit
 Require:
-- COMPLETED, not step-budget failure;
-- `matches=[]` + `match_count=0` for competency_match where independent Oracle B proves no declared competency overlap;
-- typed warning `no_declared_competency_match`;
-- assignee recommendation: `candidates=[]`, `candidate_count=0`, recommendation=null and insufficient-evidence warning where applicable;
-- zero fabrication.
+- 0 local factual reads
+- 0 tenant-wide scans
+- 0 mutations
+- label/component facts only from bounded REAL AS21
+- competency facts only from repository team source
 
-## P3 — task-signal matching
-Use independently selected source tasks that prove each field.
-
-At minimum prove:
-A. competency signal in TITLE;
-B. competency signal in DESCRIPTION;
-C. competency signal in LABEL/TAG;
-D. competency signal in COMPONENT.
-
-For every case:
-- point-read the source task independently;
-- record exact source title/description/labels/components;
-- calculate expected declared-competency intersection from team_members.yaml;
-- compare Agent candidate/member set exactly;
-- verify `matched_by_field` identifies the correct source field;
-- verify `relevance_score` follows documented deterministic weights.
-
-Do not accept a candidate based on previous ownership/assignee history.
-
-## P4 — mixed-signal ranking
-Find or controlled-source-shape a task with multiple competency signals across title/description/labels/components.
-
-Require:
-- multiple declared competencies can contribute;
-- tag/component signal outranks description-only signal under equal declared competency count;
-- score is described as task relevance, never human quality/performance;
-- no numeric competency level appears.
-
-## P5 — load join re-gate
-Re-probe DMS-380 recommendation >=5 fresh sessions.
-
-Independent Oracle B:
-- read current DMS sprint;
-- derive exact active/WIP/blocked counts by case-insensitive canonical login.
-
-Require:
-- candidate load fields are non-zero where source proves load;
-- exact per-candidate parity;
-- lowercase AS21 login joins camelCase YAML login;
-- recommendation order respects relevance then load/WIP/blocked;
-- no tenant-wide scan.
-
-## P6 — product and identity safety
-- DMS task => DMS profiles only.
-- OLP task => OLP profiles only.
-- missing task => typed source limitation/not-found.
-- invalid/missing team login must not silently become authoritative identity.
-- no competency inferred from task assignee.
-
-## P7 — Browser C
-Test real UI for:
-- competency match with non-empty match;
-- zero-overlap competency match;
-- assignee recommendation with real load;
-- one label/component-driven example.
-
-Require structured result without generic error.
-Record current Team widget rendering defects separately; do not repair UI in this assignment.
-
-## P8 — retained Team regression
-Re-run:
-- team.workload
-- team.wip
-- team.blocked
-- team.capacity
-- team.bottlenecks
-- team.distribution
-- member.time_spent representative case
-
-Require A221R3/A222 parity allowing verified source drift.
-
-## P9 — audit
-Require:
-- local factual task reads = 0;
-- tenant-wide task scans = 0;
-- mutations = 0;
-- all task facts from bounded REAL AS21;
-- competency facts from repository team source only.
-
-## Verdict
+### Verdict
 Use exactly one:
-- `AGENT_CORE_V4_TEAM_COMPETENCY_GREEN_A222R`
-- `AGENT_CORE_V4_TEAM_COMPETENCY_RED_A222R`
+- AGENT_CORE_V4_TEAM_COMPETENCY_GREEN_A222R2
+- AGENT_CORE_V4_TEAM_COMPETENCY_RED_A222R2
 
-If GREEN:
-- classify team.competency_match SOURCE_READY;
-- classify team.assignee_recommendation SOURCE_READY;
-- recommend competency-source checkpoint;
-- next owner phase = UI widget/state/lineage remediation.
-
-If RED:
-- identify first failing boundary and STOP.
-
-Do not modify code.
+If GREEN: recommend small competency-source checkpoint; next owner phase = UI widget/state/lineage remediation.
+If RED: report first failing boundary and STOP.
