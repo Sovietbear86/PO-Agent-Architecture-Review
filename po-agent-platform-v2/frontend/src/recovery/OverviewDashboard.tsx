@@ -46,8 +46,8 @@ export function OverviewDashboard() {
   return <section className="page">
     <div className="page-heading"><div><h1>Обзор</h1><p>Единая точка внимания PO: портфель, риски, brief и статус продуктов</p></div><button className="primary-button" onClick={openAgent}>Спросить PO Agent</button></div>
     <div className="metric-grid">
-      <Metric label="Всего задач" value={od.tasks_total} />
-      <Metric label="В работе" value={od.active} />
+      <Metric label="Активно" value={stateAllowsBusinessData(classifyResult(overview)) ? (od.active ?? '—') : '—'} />
+      <Metric label="Завершено" value={stateAllowsBusinessData(classifyResult(overview)) ? (od.completed ?? '—') : '—'} />
       <Metric label="Заблокировано" value={od.blocked} hint="требуют внимания" />
       <Metric label="Готовность портфеля" value={`${String(sd.completion_percent ?? '—')}%`} />
     </div>
