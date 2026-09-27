@@ -19,6 +19,7 @@ from __future__ import annotations
 from typing import Any
 
 from po_agent.adapters.task_api import AS21SourceUnavailable
+from po_agent.config.real_team import get_all_member_logins
 
 from ..agent_core_v4 import CapabilitySpecV4, SkillSpecV4, V4CapabilityUnavailable, V4NeedsClarification
 from ..agent_core_v4_completion import CompletionRequirement
@@ -94,62 +95,60 @@ def _score(task: Any) -> tuple[int, list[str]]:
     return score, reasons
 
 
-async def _space_task_summary(runtime: Any) -> dict[str, dict[str, Any]]:
-    """Aggregate exact full-space task counts through bounded project queries.
+async def _team_task_summary(runtime: Any) -> dict[str, dict[str, Any]]:
+    """Aggregate tasks assigned to configured team members, grouped by space.
 
-    This is intentionally separate from the current-sprint portfolio used by the
-    operational PO brief. Each read is constrained to one approved product space;
-    there is no tenant-wide task scan.
+    This matches the product intent of the Overview block: show the team's work,
+    not every task ever created in very large spaces such as CRPV/STS.
+
+    Reads are bounded by assignee identity via the already-certified live AS21
+    assignee route. No tenant-wide or whole-space corpus scan is performed.
     """
-    getter = getattr(runtime.adapter, "get_space_task_count", None)
-    if getter is None:
-        raise V4CapabilityUnavailable("po.status_report requires the bounded REAL AS21 per-space count route")
+    logins = [login for login in get_all_member_logins() if login]
+    if not logins:
+        raise V4CapabilityUnavailable("team member directory is unavailable")
 
-    result: dict[str, dict[str, Any]] = {}
-    available = 0
-    for space in sorted(APPROVED_PRODUCT_SPACES):
-        try:
-            payload = await getter(space)
-        except AS21SourceUnavailable:
-            result[space] = {
-                "state": "SOURCE_UNAVAILABLE",
-                "total": None,
-                "active": None,
-                "completed": None,
-                "blocked": None,
-                "scope": "full_space",
-                "source": "REAL_AS21",
-            }
-            continue
-
-        total = payload.get("total")
-        if not isinstance(total, int) or total < 0:
-            result[space] = {
-                "state": "SOURCE_UNAVAILABLE",
-                "total": None,
-                "active": None,
-                "completed": None,
-                "blocked": None,
-                "scope": "full_space",
-                "source": "REAL_AS21",
-            }
-            continue
-
-        available += 1
-        result[space] = {
-            "state": "SOURCE_BACKED_TOTAL_ONLY",
-            "total": total,
-            "active": None,
-            "completed": None,
-            "blocked": None,
-            "scope": "full_space",
+    rows: dict[str, dict[str, Any]] = {
+        space: {
+            "state": "SOURCE_BACKED",
+            "total": 0,
+            "active": 0,
+            "completed": 0,
+            "blocked": 0,
+            "scope": "configured_team_assignees",
             "source": "REAL_AS21",
-            "breakdown_state": "SOURCE_CONDITIONAL",
         }
+        for space in sorted(APPROVED_PRODUCT_SPACES)
+    }
+    seen_by_space: dict[str, set[str]] = {space: set() for space in rows}
+    available_members = 0
 
-    if available == 0:
-        raise V4CapabilityUnavailable("REAL AS21 per-space task counts are unavailable for all approved spaces")
-    return result
+    for login in logins:
+        try:
+            tasks = list(await runtime.adapter.search_tasks(f'assignee = "{login}"', max_results=10000))
+        except AS21SourceUnavailable:
+            continue
+        available_members += 1
+        for task in tasks:
+            space = str(getattr(task, "project_space", None) or task.key.split("-", 1)[0]).upper()
+            if space not in rows:
+                continue
+            if task.key in seen_by_space[space]:
+                continue
+            seen_by_space[space].add(task.key)
+            rows[space]["total"] += 1
+            completed = bool(getattr(task, "is_completed", False))
+            rows[space]["completed"] += int(completed)
+            rows[space]["active"] += int(not completed)
+            rows[space]["blocked"] += int(bool(getattr(task, "is_blocked", False)))
+
+    if available_members == 0:
+        raise V4CapabilityUnavailable("REAL AS21 assignee task reads are unavailable for configured team members")
+
+    for space, row in rows.items():
+        row["member_count_source"] = len(logins)
+        row["task_keys_counted"] = len(seen_by_space[space])
+    return rows
 
 
 async def _current_sprint_portfolio(runtime: Any) -> tuple[list[dict[str, Any]], list[Any]]:
@@ -297,7 +296,7 @@ def build_po_status_report(runtime: Any):
             row["completed"] += int(bool(getattr(task, "is_completed", False)))
             row["blocked"] += int(bool(getattr(task, "is_blocked", False)))
 
-        by_space_tasks = await _space_task_summary(runtime)
+        by_space_tasks = await _team_task_summary(runtime)
 
         total = len(tasks)
         completed = sum(1 for task in tasks if getattr(task, "is_completed", False))
@@ -430,7 +429,7 @@ def build_po_local_task_draft(runtime: Any):
 CAPABILITIES = (
     CapabilitySpecV4("po.attention_queue", "Rank current-sprint tasks across approved product spaces that need PO attention.", {}),
     CapabilitySpecV4("po.daily_brief", "Generate a deterministic grounded daily PO brief from bounded current-sprint data.", {}),
-    CapabilitySpecV4("po.status_report", "Generate a deterministic current-sprint portfolio status report plus bounded full-space task counts for approved product spaces.", {}),
+    CapabilitySpecV4("po.status_report", "Generate a deterministic current-sprint portfolio status report plus bounded team-assigned task counts grouped by approved spaces.", {}),
     CapabilitySpecV4("po.reminder_draft", "Draft a reminder for one explicit AS21 task without sending it.", {"task_key": "required task key"}),
     CapabilitySpecV4("po.local_task_draft", "Prepare a local task draft without writing externally. Call this capability directly: it owns validation of an optional source task_key via one bounded point read and returns a typed draft_created=false result when that key is not found; do not pre-resolve the key with task.lookup.", {"subject": "optional user-supplied title", "task_key": "optional source task key; pass the user key directly without a separate lookup"}),
 )
@@ -459,7 +458,7 @@ SKILLS = (
     ),
     SkillSpecV4(
         "po.status_report",
-        "Generate a bounded current-sprint status report across approved product spaces.",
+        "Generate a bounded current-sprint status report plus configured-team task counts grouped by approved spaces.",
         (
             "Call po.status_report.",
             "Preserve NO_CURRENT_SPRINT/CURRENT_SPRINT_WITHOUT_MEMBERSHIP states instead of inventing zeros for unavailable scope.",
