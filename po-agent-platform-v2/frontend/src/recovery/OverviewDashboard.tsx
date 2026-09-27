@@ -36,9 +36,14 @@ export function OverviewDashboard() {
   const od = getCapabilityData(overview) as Record<string, unknown>
   const ad = getCapabilityData(attention) as { count?: number; queue?: QueueRow[]; scoring_version?: string }
   const bd = getCapabilityData(brief) as Record<string, unknown>
-  const sd = getCapabilityData(status) as { completion_percent?: number; by_product?: Record<string, { total?: number; completed?: number; blocked?: number }> }
+  const sd = getCapabilityData(status) as {
+    completion_percent?: number
+    by_product?: Record<string, { total?: number; completed?: number; blocked?: number }>
+    by_space_tasks?: Record<string, { total?: number; active?: number; completed?: number; blocked?: number }>
+  }
   const queue = ad.queue ?? []
-  const products = Object.entries(sd.by_product ?? {})
+  const visibleQueue = queue.slice(0, 10)
+  const spaces = Object.entries(sd.by_space_tasks ?? {})
   const attentionState = classifyResult(attention)
   const briefState = classifyResult(brief)
   const statusState = classifyResult(status)
@@ -53,28 +58,33 @@ export function OverviewDashboard() {
     </div>
 
     <div className="content-grid">
-      <div className="panel"><div className="panel-title"><strong>Очередь внимания PO</strong><span>{ad.count ?? queue.length}</span></div>
-        {stateAllowsBusinessData(attentionState)
-          ? (queue.length
-            ? queue.map((row, index) => { const task = row.task ?? {}; return <div className="attention-row" key={String(task.key ?? index)}><div><b>{String(task.key ?? '')}</b><strong>{String(task.title ?? '')}</strong><span>{(row.reasons ?? []).join(' · ')}</span></div><em>{String(row.attention_score ?? '')}</em></div> })
-            : <div className="muted">Источник подтвердил: элементов, требующих вмешательства PO, нет.</div>)
-          : <ResultStatePanel result={attention} compact />}
+      <div className="panel overview-twin-panel"><div className="panel-title"><strong>Очередь внимания PO</strong><span>{ad.count ?? queue.length}</span></div>
+        <div className="overview-scroll-body">
+          {stateAllowsBusinessData(attentionState)
+            ? (queue.length
+              ? visibleQueue.map((row, index) => { const task = row.task ?? {}; return <div className="attention-row" key={String(task.key ?? index)}><div><b>{String(task.key ?? '')}</b><strong>{String(task.title ?? '')}</strong><span>{(row.reasons ?? []).join(' · ')}</span></div><em>{String(row.attention_score ?? '')}</em></div> })
+              : <div className="muted">Источник подтвердил: элементов, требующих вмешательства PO, нет.</div>)
+            : <ResultStatePanel result={attention} compact />}
+        </div>
+        {stateAllowsBusinessData(attentionState) && queue.length > visibleQueue.length && <div className="queue-version">Показаны первые {visibleQueue.length} из {queue.length}</div>}
         {stateAllowsBusinessData(attentionState) && <div className="queue-version">Scoring: {ad.scoring_version ?? '—'}</div>}<Meta result={attention} />
       </div>
-      <div className="panel"><div className="panel-title"><strong>Daily Brief</strong><span className="green-badge">GROUNDED</span></div>
+      <div className="panel overview-twin-panel"><div className="panel-title"><strong>Daily Brief</strong><span className="green-badge">GROUNDED</span></div>
+        <div className="overview-scroll-body">
         {stateAllowsBusinessData(briefState)
           ? <div className="brief-copy"><RichAnswer text={brief?.answer ?? ''} /></div>
           : <ResultStatePanel result={brief} compact />}
         {stateAllowsBusinessData(briefState) && <><div className="fact-row"><span>Активно</span><b>{String(bd.active ?? '—')}</b></div><div className="fact-row"><span>Blocked</span><b>{String(bd.blocked ?? '—')}</b></div><div className="fact-row"><span>Без исполнителя</span><b>{String(bd.unassigned ?? '—')}</b></div></>}
+        </div>
         {brief?.warnings.length ? <div className="warning">{brief.warnings.join(' · ')}</div> : null}<Meta result={brief} />
       </div>
     </div>
 
-    <div className="panel product-status-panel"><div className="panel-title"><strong>Статус продуктов</strong><span>{products.length}</span></div>
+    <div className="panel product-status-panel"><div className="panel-title"><strong>Задачи по пространствам</strong><span>{spaces.length}</span></div>
       {stateAllowsBusinessData(statusState)
-        ? (products.length
-          ? <div className="product-status-grid">{products.map(([name, row]) => <div className="product-status-card" key={name}><strong>{name}</strong><div><span>Всего</span><b>{row.total ?? '—'}</b></div><div><span>Завершено</span><b>{row.completed ?? '—'}</b></div><div><span>Blocked</span><b>{row.blocked ?? '—'}</b></div></div>)}</div>
-          : <div className="muted">Источник подтвердил отсутствие продуктовых данных.</div>)
+        ? (spaces.length
+          ? <div className="product-status-grid">{spaces.map(([name, row]) => <div className="product-status-card" key={name}><strong>{name}</strong><div><span>Всего</span><b>{row.total ?? '—'}</b></div><div><span>Активно</span><b>{row.active ?? '—'}</b></div><div><span>Завершено</span><b>{row.completed ?? '—'}</b></div><div><span>Blocked</span><b>{row.blocked ?? '—'}</b></div></div>)}</div>
+          : <div className="muted">Источник подтвердил отсутствие данных по пространствам.</div>)
         : <ResultStatePanel result={status} compact />}
       <Meta result={status} />
     </div>
