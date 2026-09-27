@@ -85,7 +85,7 @@ export function QualityDashboard() {
     setAgingSpaceSubmitted(agingSpace)
   }
 
-  return <section className="page">
+  return <section className="page page-quality">
     <div className="page-heading"><div><h1>Качество</h1><p>Качество постановки, критерии приёмки, пробелы и aging без LLM-выдумок</p></div><button className="primary-button" onClick={openAgent}>Спросить PO Agent</button></div>
 
     <form className="panel entity-toolbar" onSubmit={submitTask}>
