@@ -28,6 +28,7 @@ from .task_api import (
     _parse_datetime,
     _parse_query,
     _status_from_type,
+    _string_list,
     _task_matches,
     _user_identity,
 )
@@ -208,7 +209,9 @@ class HardenedProductionTaskApiAS21Adapter(ProductionTaskApiAS21Adapter):
         updated = _parse_datetime(unit.get("updatedAt")) or created
         grounded_sprint = sprint_id or _identifier(attrs.get("scrum_board_plugin_sprint"))
         release_id = _identifier(attrs.get("fix_version_s"))
-        task = Task(key=code, id=code, title=title, description=unit.get("description") if isinstance(unit.get("description"), str) else None, status=status, status_raw=status_raw or None, status_type=None if fault_metadata else status_type, status_category=get_status_category(status), created_at=created, updated_at=updated, assignee=display, assignee_id=external_id, assignee_login=login, project_space=source_data["swtr_space"], sprint_id=grounded_sprint, release_id=release_id, source="swtr", source_data=source_data)
+        labels = _string_list(attrs.get("label") if attrs.get("label") is not None else unit.get("label"))
+        components = _string_list(attrs.get("sber_component") if attrs.get("sber_component") is not None else unit.get("sber_component"))
+        task = Task(key=code, id=code, title=title, description=unit.get("description") if isinstance(unit.get("description"), str) else None, status=status, status_raw=status_raw or None, status_type=None if fault_metadata else status_type, status_category=get_status_category(status), created_at=created, updated_at=updated, assignee=display, assignee_id=external_id, assignee_login=login, project_space=source_data["swtr_space"], sprint_id=grounded_sprint, release_id=release_id, labels=labels, components=components, source="swtr", source_data=source_data)
         if fault_metadata:
             task.source_data["_qa_fault"] = fault_metadata
         return task
