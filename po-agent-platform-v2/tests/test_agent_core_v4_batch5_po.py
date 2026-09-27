@@ -97,17 +97,10 @@ class FakeAdapter:
         self.source_calls.append(("task", key))
         return self.by_key.get(key)
 
-    async def search_tasks(self, query: str, max_results: int = 1000):
-        self.source_calls.append(("search", query, max_results))
-        space = query.split('"')[1] if '"' in query else ""
-        rows = [task for tasks in self.sprints.values() for task in tasks if task.project_space == space]
-        if space == "WMB":
-            rows = [_task("WMB-1", space="WMB"), _task("WMB-2", space="WMB", completed=True)]
-        if space == "CRPV":
-            rows = [_task("CRPV-1", space="CRPV")]
-        if space == "STS":
-            rows = [_task("STS-1", space="STS"), _task("STS-2", space="STS", blocked=True)]
-        return rows[:max_results]
+    async def get_space_task_count(self, space: str):
+        self.source_calls.append(("count", space))
+        totals = {"DMS": 3, "OLP": 1, "WMB": 2, "CRPV": 1, "STS": 2}
+        return {"space": space, "total": totals[space], "source": "REAL_AS21"}
 
 
 def _runtime(adapter=None):
@@ -169,9 +162,9 @@ def test_daily_brief_and_status_report_preserve_explicit_no_current_sprint_state
     assert report.data["by_space_tasks"]["WMB"]["total"] == 2
     assert report.data["by_space_tasks"]["CRPV"]["total"] == 1
     assert report.data["by_space_tasks"]["STS"]["total"] == 2
-    search_calls = [call for call in _adapter.source_calls if call[0] == "search"]
-    assert len(search_calls) == 5
-    assert all('project = "' in call[1] for call in search_calls)
+    assert all(report.data["by_space_tasks"][space]["active"] is None for space in ("DMS", "OLP", "WMB", "CRPV", "STS"))
+    count_calls = [call for call in _adapter.source_calls if call[0] == "count"]
+    assert len(count_calls) == 5
 
 
 def test_reminder_draft_requires_explicit_task_and_never_writes():
