@@ -269,7 +269,7 @@ export function SprintPage() {
   const wipState = classifyResult(wip)
   const predictabilityState = classifyResult(predictability)
   const risksState = classifyResult(risks)
-  return <section className="page">
+  return <section className="page page-sprint">
     <PageHeader title="Спринты" subtitle="Velocity, throughput, WIP, predictability и очередь рисков" />
     <form className="panel entity-toolbar" onSubmit={e => { e.preventDefault(); if (sprintId.trim()) setSubmitted(sprintId.trim().toUpperCase()) }}><div><span>Спринт</span><input value={sprintId} onChange={e => setSprintId(e.target.value)} /></div><button type="submit">Обновить</button></form>
     <div className="metric-grid"><MetricCard label="Scope" value={stateAllowsBusinessData(healthState) ? String(hd.total ?? '—') : '—'} /><MetricCard label="Completed" value={stateAllowsBusinessData(healthState) ? String(hd.completed ?? '—') : '—'} /><MetricCard label="Velocity" value={stateAllowsBusinessData(velocityState) ? `${String(vd.velocity ?? '—')} ${String(vd.unit ?? '')}` : '—'} /><MetricCard label="Predictability" value={stateAllowsBusinessData(predictabilityState) ? `${String(pd.predictability_percent ?? '—')}%` : '—'} hint={stateAllowsBusinessData(predictabilityState) ? (predictability?.warnings.includes('current_scope_used_as_commitment_baseline') ? 'current scope baseline' : undefined) : 'нужен source-backed baseline старта спринта'} /></div>
@@ -301,7 +301,7 @@ export function ReleasesPage() {
   const blockersState = classifyResult(blockers)
   const dependenciesState = classifyResult(dependencies)
   const releaseRisksState = classifyResult(risks)
-  return <section className="page">
+  return <section className="page page-releases">
     <PageHeader title="Релизы" subtitle="Progress, blockers, dependencies и deterministic risk queue" />
     <form className="panel entity-toolbar" onSubmit={e => { e.preventDefault(); if (releaseId.trim()) setSubmitted(releaseId.trim().toUpperCase()) }}><div><span>Релиз</span><input value={releaseId} onChange={e => setReleaseId(e.target.value)} /></div><button type="submit">Обновить</button></form>
     <div className="metric-grid"><MetricCard label="Scope" value={stateAllowsBusinessData(scopeState) ? String(sd.count ?? '—') : '—'} /><MetricCard label="Completed" value={stateAllowsBusinessData(progressState) ? String(pd.completed ?? '—') : '—'} /><MetricCard label="Blocked" value={stateAllowsBusinessData(progressState) ? String(pd.blocked ?? '—') : '—'} /><MetricCard label="Готовность" value={stateAllowsBusinessData(progressState) ? `${String(pd.task_completion_percent ?? '—')}%` : '—'} hint={stateAllowsBusinessData(progressState) && pd.effort_completion_percent != null ? `effort ${String(pd.effort_completion_percent)}%` : undefined} /></div>
