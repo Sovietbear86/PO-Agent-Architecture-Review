@@ -94,6 +94,41 @@ def _user_identity(value: Any) -> tuple[str | None, str | None, str | None]:
     return display, external_id, login
 
 
+def _string_list(value: Any) -> list[str]:
+    """Extract stable display strings from common SWTR scalar/list/object shapes."""
+    result: list[str] = []
+
+    def add(item: Any) -> None:
+        if isinstance(item, str):
+            text = item.strip()
+            if text:
+                result.append(text)
+            return
+        if isinstance(item, (int, float)):
+            result.append(str(item))
+            return
+        if isinstance(item, dict):
+            for key in ("name", "title", "code", "value", "label"):
+                candidate = item.get(key)
+                if isinstance(candidate, (str, int, float)) and str(candidate).strip():
+                    result.append(str(candidate).strip())
+                    return
+            return
+        if isinstance(item, list):
+            for nested in item:
+                add(nested)
+
+    add(value)
+    seen: set[str] = set()
+    ordered: list[str] = []
+    for item in result:
+        key = item.casefold()
+        if key not in seen:
+            seen.add(key)
+            ordered.append(item)
+    return ordered
+
+
 def _identifier(value: Any) -> str | None:
     if isinstance(value, (str, int)):
         text = str(value).strip()
@@ -414,6 +449,16 @@ class TaskApiAS21Adapter(AS21Adapter):
             _identifier(source_data.get("release_id"))
             or _identifier(attrs.get("fix_version_s"))
         )
+        labels = _string_list(
+            attrs.get("label")
+            if attrs.get("label") is not None
+            else source_data.get("label")
+        )
+        components = _string_list(
+            attrs.get("sber_component")
+            if attrs.get("sber_component") is not None
+            else source_data.get("sber_component")
+        )
         task = Task(
             key=source_id,
             id=source_id,
@@ -432,6 +477,8 @@ class TaskApiAS21Adapter(AS21Adapter):
             project_space=project_space,
             sprint_id=sprint_id,
             release_id=release_id,
+            labels=labels,
+            components=components,
             source=data.get("source", "swtr") or "swtr",
             source_url=data.get("source_url"),
             source_data=source_data,
