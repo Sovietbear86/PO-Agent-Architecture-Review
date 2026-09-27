@@ -86,13 +86,13 @@ def test_batch3_plugin_is_registry_discovered():
     } <= ids
 
 
-def test_competency_and_assignee_recommendation_fail_closed_without_source():
+def test_competency_and_assignee_recommendation_require_task_key():
     runtime = _runtime()
 
-    with pytest.raises(V4CapabilityUnavailable, match="competency/skill source"):
+    with pytest.raises(Exception, match="задачу"):
         asyncio.run(build_team_competency_match(runtime)({"space": "DMS"}))
 
-    with pytest.raises(V4CapabilityUnavailable, match="competencies and availability"):
+    with pytest.raises(Exception, match="задачу"):
         asyncio.run(build_team_assignee_recommendation(runtime)({"space": "DMS"}))
 
 
