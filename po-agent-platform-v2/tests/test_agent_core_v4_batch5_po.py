@@ -5,6 +5,8 @@ from types import SimpleNamespace
 
 import pytest
 
+from po_agent.adapters.task_api import AS21SourceUnavailable
+
 from po_agent.harness.agent_core_v4 import SkillCatalogV4, V4NeedsClarification
 from po_agent.harness.v4_plugin_registry import discover_v4_plugins
 from po_agent.harness.v4_plugins.wave_batch5_po import (
@@ -220,3 +222,21 @@ def test_local_task_draft_contract_owns_source_validation():
     assert "po.local_task_draft" in detail
     assert "Do NOT load or call task.lookup" in detail
     assert skill.capabilities == ("po.local_task_draft",)
+
+
+def test_status_report_isolates_one_space_count_failure():
+    runtime, adapter, _registry = _runtime()
+    original = adapter.get_space_task_count
+
+    async def flaky(space: str):
+        if space == "CRPV":
+            raise AS21SourceUnavailable("source down")
+        return await original(space)
+
+    adapter.get_space_task_count = flaky
+    report = asyncio.run(build_po_status_report(runtime)({}))
+
+    assert report.data["by_space_tasks"]["CRPV"]["state"] == "SOURCE_UNAVAILABLE"
+    assert report.data["by_space_tasks"]["CRPV"]["total"] is None
+    assert report.data["by_space_tasks"]["DMS"]["total"] == 3
+    assert report.data["by_product"]["DMS"]["total"] == 3
