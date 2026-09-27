@@ -1,6 +1,8 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { agent, HarnessQueryResponse } from '../api/client'
+import { ResultStatePanel } from '../components/ResultStatePanel'
+import { classifyResult, stateAllowsBusinessData } from './resultState'
 
 type WorkspaceContext = { openAgent(): void }
 type Row = Record<string, unknown>
@@ -40,20 +42,30 @@ export function QualityDashboard() {
   const ad = (acceptance?.data ?? {}) as { score?: number; criteria?: string[]; testable_criteria?: string[]; gaps?: string[] }
   const gd = (aging?.data ?? {}) as { threshold_days?: number; count?: number; tasks?: Row[] }
 
-  const score = Number(qd.score ?? md.quality_score ?? 0)
-  const acceptanceScore = Number(ad.score ?? 0)
-  const missingCount = md.missing_elements?.length ?? 0
-  const returnForRework = score < 70 || acceptanceScore < 70 || missingCount > 0
-  const decisionLabel = returnForRework ? 'Вернуть на доработку' : 'Можно брать в работу'
-  const decisionTone = returnForRework ? 'attention-badge' : 'green-badge'
+  const qualityState = classifyResult(quality)
+  const missingState = classifyResult(missing)
+  const acceptanceState = classifyResult(acceptance)
+  const agingState = classifyResult(aging)
+  const qualityReady = stateAllowsBusinessData(qualityState)
+  const missingReady = stateAllowsBusinessData(missingState)
+  const acceptanceReady = stateAllowsBusinessData(acceptanceState)
+  const decisionReady = qualityReady && missingReady && acceptanceReady
+
+  const score = qualityReady ? Number(qd.score ?? md.quality_score) : null
+  const acceptanceScore = acceptanceReady ? Number(ad.score) : null
+  const missingCount = missingReady ? (md.missing_elements?.length ?? 0) : null
+  const returnForRework = decisionReady && ((score ?? 0) < 70 || (acceptanceScore ?? 0) < 70 || (missingCount ?? 0) > 0)
+  const decisionLabel = !decisionReady ? 'Ожидание данных' : returnForRework ? 'Вернуть на доработку' : 'Можно брать в работу'
+  const decisionTone = !decisionReady ? 'status-pill' : returnForRework ? 'attention-badge' : 'green-badge'
 
   const reasons = useMemo(() => {
     const rows: string[] = []
-    if (score < 70) rows.push(`Quality score ${score}/100`)
-    if (acceptanceScore < 70) rows.push(`Acceptance ${acceptanceScore}/100`)
+    if (!decisionReady) return rows
+    if ((score ?? 0) < 70) rows.push(`Quality score ${score}/100`)
+    if ((acceptanceScore ?? 0) < 70) rows.push(`Acceptance ${acceptanceScore}/100`)
     if (missingCount) rows.push(`Пробелов: ${missingCount}`)
     return rows
-  }, [score, acceptanceScore, missingCount])
+  }, [score, acceptanceScore, missingCount, decisionReady])
 
   function submitTask(event: FormEvent) {
     event.preventDefault()
@@ -76,29 +88,31 @@ export function QualityDashboard() {
     </form>
 
     <div className="metric-grid">
-      <Metric label="Quality score" value={`${score}/100`} hint={String(qd.quality_level ?? '') || undefined} />
-      <Metric label="Acceptance" value={`${acceptanceScore}/100`} hint={`${ad.testable_criteria?.length ?? 0} проверяемых условий`} />
-      <Metric label="Пробелы" value={missingCount} hint="missing requirements" />
-      <Metric label="Решение PO" value={returnForRework ? 'REWORK' : 'READY'} hint={decisionLabel} />
+      <Metric label="Quality score" value={score == null ? '—' : `${score}/100`} hint={qualityReady ? (String(qd.quality_level ?? '') || undefined) : undefined} />
+      <Metric label="Acceptance" value={acceptanceScore == null ? '—' : `${acceptanceScore}/100`} hint={acceptanceReady ? `${ad.testable_criteria?.length ?? 0} проверяемых условий` : undefined} />
+      <Metric label="Пробелы" value={missingCount == null ? '—' : missingCount} hint={missingReady ? 'missing requirements' : undefined} />
+      <Metric label="Решение PO" value={!decisionReady ? 'NOT RUN' : returnForRework ? 'REWORK' : 'READY'} hint={decisionLabel} />
     </div>
 
     <div className="quality-decision panel">
       <div><span className={decisionTone}>{decisionLabel}</span><strong>{submitted}</strong></div>
-      <p>{reasons.length ? reasons.join(' · ') : 'Детерминированные проверки не выявили блокирующих пробелов в постановке.'}</p>
+      {decisionReady
+        ? <p>{reasons.length ? reasons.join(' · ') : 'Детерминированные проверки не выявили блокирующих пробелов в постановке.'}</p>
+        : <ResultStatePanel result={!qualityReady ? quality : !missingReady ? missing : acceptance} compact />}
       <Meta result={quality} />
     </div>
 
     <div className="quality-grid">
       <div className="panel">
         <div className="panel-title"><strong>Что нужно уточнить</strong><span>{missingCount}</span></div>
-        {md.missing_elements?.length ? md.missing_elements.map(item => <div className="quality-item" key={item}><b>{item}</b></div>) : <div className="muted">Критичных пробелов не найдено.</div>}
+        {missingReady ? (md.missing_elements?.length ? md.missing_elements.map(item => <div className="quality-item" key={item}><b>{item}</b></div>) : <div className="muted">Источник подтвердил: критичных пробелов не найдено.</div>) : <ResultStatePanel result={missing} compact />}
         {md.recommendations?.length ? <div className="recommendation-box">{md.recommendations.map(item => <div key={item}>→ {item}</div>)}</div> : null}
         <Meta result={missing} />
       </div>
 
       <div className="panel">
         <div className="panel-title"><strong>Acceptance / Testability</strong><span>{acceptanceScore}/100</span></div>
-        {ad.criteria?.length ? ad.criteria.map((item, index) => <div className="quality-item" key={`${item}-${index}`}><b>{item}</b><span>{ad.testable_criteria?.includes(item) ? 'TESTABLE' : 'NEEDS CLARITY'}</span></div>) : <div className="muted">Явные критерии приёмки не найдены.</div>}
+        {acceptanceReady ? (ad.criteria?.length ? ad.criteria.map((item, index) => <div className="quality-item" key={`${item}-${index}`}><b>{item}</b><span>{ad.testable_criteria?.includes(item) ? 'TESTABLE' : 'NEEDS CLARITY'}</span></div>) : <div className="muted">Источник подтвердил: явные критерии приёмки не найдены.</div>) : <ResultStatePanel result={acceptance} compact />}
         {ad.gaps?.length ? <div className="warning-box">{ad.gaps.map(item => <div key={item}>⚠ {item}</div>)}</div> : null}
         <Meta result={acceptance} />
       </div>
@@ -107,7 +121,7 @@ export function QualityDashboard() {
     <div className="panel aging-panel">
       <div className="panel-title"><strong>Aging queue</strong><span>{gd.count ?? 0}</span></div>
       <form className="aging-toolbar" onSubmit={submitAging}><label>Старше <input value={agingDays} onChange={e => setAgingDays(e.target.value)} inputMode="numeric" /> дней</label><button type="submit">Обновить</button></form>
-      {gd.tasks?.length ? gd.tasks.map(task => <div className="task-row" key={String(task.key)}><div className="task-key">{String(task.key)}</div><div className="task-main"><b>{String(task.title ?? '')}</b><span>{String(task.assignee ?? 'Не назначен')} · {String(task.status ?? '')}</span></div><div className="attention-badge">{String(task.age_days ?? '')} дн.</div></div>) : <div className="muted">Задач старше выбранного порога нет.</div>}
+      {stateAllowsBusinessData(agingState) ? (gd.tasks?.length ? gd.tasks.map(task => <div className="task-row" key={String(task.key)}><div className="task-key">{String(task.key)}</div><div className="task-main"><b>{String(task.title ?? '')}</b><span>{String(task.assignee ?? 'Не назначен')} · {String(task.status ?? '')}</span></div><div className="attention-badge">{String(task.age_days ?? '')} дн.</div></div>) : <div className="muted">Источник подтвердил: задач старше выбранного порога нет.</div>) : <ResultStatePanel result={aging} compact />}
       <Meta result={aging} />
     </div>
   </section>
