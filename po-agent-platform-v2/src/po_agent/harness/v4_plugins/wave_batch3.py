@@ -116,6 +116,63 @@ def _profile_evidence(profile: dict[str, Any]) -> Evidence:
     )
 
 
+def _task_signal_fields(task: Any) -> dict[str, str]:
+    """Canonical task text used for competency relevance.
+
+    Only source-backed task fields participate: title, description, labels/tags
+    and components. Assignment history/current assignee is deliberately excluded
+    so the matcher does not infer competence from prior ownership.
+    """
+    return {
+        "title": str(getattr(task, "title", "") or ""),
+        "description": str(getattr(task, "description", "") or ""),
+        "labels": " ".join(str(x) for x in (getattr(task, "labels", None) or [])),
+        "components": " ".join(str(x) for x in (getattr(task, "components", None) or [])),
+    }
+
+
+def _competency_hits(profile: dict[str, Any], task: Any) -> tuple[list[str], dict[str, list[str]], int]:
+    fields = _task_signal_fields(task)
+    field_tokens = {name: _tokens(value) for name, value in fields.items()}
+    weights = {"labels": 4, "components": 4, "title": 3, "description": 1}
+    matched_competencies: list[str] = []
+    evidence_by_field: dict[str, list[str]] = {name: [] for name in fields}
+    score = 0
+
+    for competency in (profile.get("competencies") or []):
+        comp = str(competency).strip()
+        comp_tokens = _tokens(comp)
+        if not comp_tokens:
+            continue
+        hit_fields = [
+            name for name, tokens in field_tokens.items()
+            if comp_tokens <= tokens
+        ]
+        if not hit_fields:
+            continue
+        matched_competencies.append(comp)
+        for field in hit_fields:
+            evidence_by_field[field].append(comp)
+        score += max(weights[field] for field in hit_fields)
+
+    matched_competencies.sort(key=str.casefold)
+    evidence_by_field = {
+        field: sorted(values, key=str.casefold)
+        for field, values in evidence_by_field.items()
+        if values
+    }
+    return matched_competencies, evidence_by_field, score
+
+
+def _casefold_counter(tasks: list[Any], predicate=lambda task: True) -> Counter[str]:
+    result: Counter[str] = Counter()
+    for task in tasks:
+        if not predicate(task):
+            continue
+        result[_member(task).casefold()] += 1
+    return result
+
+
 async def _ground_task(runtime: Any, args: dict[str, str]):
     key = str(args.get("task_key") or "").strip().upper()
     if not key:
@@ -131,33 +188,36 @@ def build_team_competency_match(runtime: Any):
         space = _space(args)
         task = await _ground_task(runtime, args)
         profiles = _team_profiles(space)
-        task_tokens = _tokens(f"{task.title} {getattr(task, 'description', '') or ''}")
         rows = []
         evidence = [
             Evidence(type="task", source="as21", entity_id=task.key, label=task.title, value=task.status_raw or task.status.value)
         ]
         for profile in profiles:
-            matched = sorted(task_tokens & _profile_tokens(profile))
+            matched, matched_by_field, score = _competency_hits(profile, task)
             if not matched:
                 continue
             rows.append({
                 "member": profile.get("login"),
                 "full_name": profile.get("full_name"),
-                "matched_terms": matched,
+                "matched_competencies": matched,
+                "matched_by_field": matched_by_field,
                 "match_count": len(matched),
+                "relevance_score": score,
                 "professional_profile": profile.get("professional_profile"),
                 "competencies": list(profile.get("competencies") or []),
                 "products": list(profile.get("products") or []),
             })
             evidence.append(_profile_evidence(profile))
-        rows.sort(key=lambda row: (-int(row["match_count"]), str(row["member"])))
+        rows.sort(key=lambda row: (-int(row["relevance_score"]), -int(row["match_count"]), str(row["member"])))
         return CapabilityResult(
             answer=f"Для {task.key} найдено {len(rows)} совпадений с явно заявленными компетенциями команды {space}.",
             data={
                 "space": space,
                 "task_key": task.key,
                 "matches": rows,
-                "method": "declared_repository_profile_token_overlap",
+                "match_count": len(rows),
+                "task_signals": _task_signal_fields(task),
+                "method": "declared_competency_match_on_title_description_labels_components_v1",
                 "competency_source": "task-api/config/team_members.yaml",
                 "source": "REAL_AS21_PLUS_TEAM_CONFIG",
             },
@@ -172,36 +232,38 @@ def build_team_assignee_recommendation(runtime: Any):
         space, sprint_id, sprint_tasks = await _current_sprint_tasks(runtime, args)
         task = await _ground_task(runtime, args)
         profiles = _team_profiles(space)
-        task_tokens = _tokens(f"{task.title} {getattr(task, 'description', '') or ''}")
-
         active = [t for t in sprint_tasks if not t.is_completed]
-        load = Counter(_member(t) for t in active)
-        wip = Counter(_member(t) for t in active if _is_wip(t))
-        blocked = Counter(_member(t) for t in active if t.is_blocked)
+        load = _casefold_counter(active)
+        wip = _casefold_counter(active, _is_wip)
+        blocked = _casefold_counter(active, lambda t: t.is_blocked)
 
         rows = []
         evidence = [
             Evidence(type="task", source="as21", entity_id=task.key, label=task.title, value=task.status_raw or task.status.value)
         ]
         for profile in profiles:
-            matched = sorted(task_tokens & _profile_tokens(profile))
+            matched, matched_by_field, score = _competency_hits(profile, task)
             if not matched:
                 continue
             login = str(profile.get("login") or "")
+            login_key = login.casefold()
             rows.append({
                 "member": login,
                 "full_name": profile.get("full_name"),
-                "matched_terms": matched,
+                "matched_competencies": matched,
+                "matched_by_field": matched_by_field,
                 "match_count": len(matched),
-                "active_tasks": load.get(login, 0),
-                "wip": wip.get(login, 0),
-                "blocked": blocked.get(login, 0),
+                "relevance_score": score,
+                "active_tasks": load.get(login_key, 0),
+                "wip": wip.get(login_key, 0),
+                "blocked": blocked.get(login_key, 0),
                 "professional_profile": profile.get("professional_profile"),
                 "competencies": list(profile.get("competencies") or []),
             })
             evidence.append(_profile_evidence(profile))
 
         rows.sort(key=lambda row: (
+            -int(row["relevance_score"]),
             -int(row["match_count"]),
             int(row["active_tasks"]),
             int(row["wip"]),
@@ -221,7 +283,9 @@ def build_team_assignee_recommendation(runtime: Any):
                 "task_key": task.key,
                 "recommendation": recommendation,
                 "candidates": rows,
-                "method": "declared_repository_profile_then_bounded_current_sprint_load",
+                "candidate_count": len(rows),
+                "task_signals": _task_signal_fields(task),
+                "method": "declared_competency_match_on_title_description_labels_components_then_bounded_current_sprint_load_v1",
                 "competency_source": "task-api/config/team_members.yaml",
                 "load_scope": "authoritative_current_sprint",
                 "source": "REAL_AS21_PLUS_TEAM_CONFIG",
@@ -363,7 +427,7 @@ SKILLS = (
             "Use only declared competencies/professional profiles from task-api/config/team_members.yaml; never invent levels or seniority.",
         ),
         ("space.resolve", "team.competency_match"),
-        completion=(CompletionRequirement("team.competency_match", data_keys=("space", "task_key", "matches")),),
+        completion=(CompletionRequirement("team.competency_match", data_keys=("space", "task_key", "match_count")),),
     ),
     SkillSpecV4(
         "team.assignee_recommendation",
@@ -374,7 +438,7 @@ SKILLS = (
             "Use declared competencies plus bounded current-sprint active/WIP/blocked load only; do not tenant-scan or score employee performance.",
         ),
         ("space.resolve", "team.assignee_recommendation"),
-        completion=(CompletionRequirement("team.assignee_recommendation", data_keys=("space", "task_key", "candidates")),),
+        completion=(CompletionRequirement("team.assignee_recommendation", data_keys=("space", "task_key", "candidate_count")),),
     ),
     SkillSpecV4(
         "team.bottlenecks",
