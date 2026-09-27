@@ -99,10 +99,21 @@ class FakeAdapter:
         self.source_calls.append(("task", key))
         return self.by_key.get(key)
 
-    async def get_space_task_count(self, space: str):
-        self.source_calls.append(("count", space))
-        totals = {"DMS": 3, "OLP": 1, "WMB": 2, "CRPV": 1, "STS": 2}
-        return {"space": space, "total": totals[space], "source": "REAL_AS21"}
+    async def search_tasks(self, query: str, max_results: int = 10000):
+        self.source_calls.append(("search", query, max_results))
+        if 'assignee = "alice"' in query:
+            return [
+                _task("DMS-10", space="DMS", assignee="alice"),
+                _task("WMB-10", space="WMB", assignee="alice"),
+                _task("CRPV-10", space="CRPV", assignee="alice", completed=True),
+            ]
+        if 'assignee = "bob"' in query:
+            return [
+                _task("DMS-11", space="DMS", assignee="bob", blocked=True),
+                _task("OLP-10", space="OLP", assignee="bob"),
+                _task("STS-10", space="STS", assignee="bob"),
+            ]
+        return []
 
 
 def _runtime(adapter=None):
@@ -139,7 +150,11 @@ def test_attention_queue_is_bounded_to_current_sprints_and_task_scored():
     assert len([call for call in adapter.source_calls if call[0] == "current"]) == 5
 
 
-def test_daily_brief_and_status_report_preserve_explicit_no_current_sprint_states():
+def test_daily_brief_and_status_report_preserve_explicit_no_current_sprint_states(monkeypatch):
+    monkeypatch.setattr(
+        "po_agent.harness.v4_plugins.wave_batch5_po.get_all_member_logins",
+        lambda: ["alice", "bob"],
+    )
     runtime, _adapter, _registry = _runtime()
 
     brief = asyncio.run(build_po_daily_brief(runtime)({}))
@@ -159,14 +174,18 @@ def test_daily_brief_and_status_report_preserve_explicit_no_current_sprint_state
     assert report.data["by_product"]["WMB"]["state"] == "NO_CURRENT_SPRINT"
     assert report.data["by_product"]["WMB"]["total"] is None
 
-    assert report.data["by_space_tasks"]["DMS"]["total"] == 3
+    assert report.data["by_space_tasks"]["DMS"]["total"] == 2
+    assert report.data["by_space_tasks"]["DMS"]["active"] == 2
+    assert report.data["by_space_tasks"]["DMS"]["blocked"] == 1
     assert report.data["by_space_tasks"]["OLP"]["total"] == 1
-    assert report.data["by_space_tasks"]["WMB"]["total"] == 2
+    assert report.data["by_space_tasks"]["WMB"]["total"] == 1
     assert report.data["by_space_tasks"]["CRPV"]["total"] == 1
-    assert report.data["by_space_tasks"]["STS"]["total"] == 2
-    assert all(report.data["by_space_tasks"][space]["active"] is None for space in ("DMS", "OLP", "WMB", "CRPV", "STS"))
-    count_calls = [call for call in _adapter.source_calls if call[0] == "count"]
-    assert len(count_calls) == 5
+    assert report.data["by_space_tasks"]["CRPV"]["completed"] == 1
+    assert report.data["by_space_tasks"]["STS"]["total"] == 1
+    assert all(report.data["by_space_tasks"][space]["state"] == "SOURCE_BACKED" for space in ("DMS", "OLP", "WMB", "CRPV", "STS"))
+    search_calls = [call for call in _adapter.source_calls if call[0] == "search"]
+    assert len(search_calls) == 2
+    assert all('assignee = "' in call[1] for call in search_calls)
 
 
 def test_reminder_draft_requires_explicit_task_and_never_writes():
@@ -224,19 +243,23 @@ def test_local_task_draft_contract_owns_source_validation():
     assert skill.capabilities == ("po.local_task_draft",)
 
 
-def test_status_report_isolates_one_space_count_failure():
+def test_status_report_marks_team_space_summary_partial_when_one_member_source_fails(monkeypatch):
+    monkeypatch.setattr(
+        "po_agent.harness.v4_plugins.wave_batch5_po.get_all_member_logins",
+        lambda: ["alice", "bob"],
+    )
     runtime, adapter, _registry = _runtime()
-    original = adapter.get_space_task_count
+    original = adapter.search_tasks
 
-    async def flaky(space: str):
-        if space == "CRPV":
+    async def flaky(query: str, max_results: int = 10000):
+        if 'assignee = "bob"' in query:
             raise AS21SourceUnavailable("source down")
-        return await original(space)
+        return await original(query, max_results=max_results)
 
-    adapter.get_space_task_count = flaky
+    adapter.search_tasks = flaky
     report = asyncio.run(build_po_status_report(runtime)({}))
 
-    assert report.data["by_space_tasks"]["CRPV"]["state"] == "SOURCE_UNAVAILABLE"
-    assert report.data["by_space_tasks"]["CRPV"]["total"] is None
-    assert report.data["by_space_tasks"]["DMS"]["total"] == 3
+    assert report.data["by_space_tasks"]["DMS"]["state"] == "SOURCE_PARTIAL"
+    assert report.data["by_space_tasks"]["DMS"]["missing_members"] == ["bob"]
+    assert report.data["by_space_tasks"]["WMB"]["total"] == 1
     assert report.data["by_product"]["DMS"]["total"] == 3
