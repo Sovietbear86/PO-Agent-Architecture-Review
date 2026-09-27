@@ -92,6 +92,27 @@ def _score(task: Any) -> tuple[int, list[str]]:
     return score, reasons
 
 
+async def _space_task_summary(runtime: Any) -> dict[str, dict[str, Any]]:
+    """Aggregate exact full-space task counts through bounded project queries.
+
+    This is intentionally separate from the current-sprint portfolio used by the
+    operational PO brief. Each read is constrained to one approved product space;
+    there is no tenant-wide task scan.
+    """
+    result: dict[str, dict[str, Any]] = {}
+    for space in sorted(APPROVED_PRODUCT_SPACES):
+        tasks = list(await runtime.adapter.search_tasks(f'project = "{space}"', max_results=10000))
+        result[space] = {
+            "total": len(tasks),
+            "active": sum(1 for task in tasks if not getattr(task, "is_completed", False)),
+            "completed": sum(1 for task in tasks if getattr(task, "is_completed", False)),
+            "blocked": sum(1 for task in tasks if getattr(task, "is_blocked", False)),
+            "scope": "full_space",
+            "source": "REAL_AS21",
+        }
+    return result
+
+
 async def _current_sprint_portfolio(runtime: Any) -> tuple[list[dict[str, Any]], list[Any]]:
     getter = getattr(runtime.adapter, "get_current_sprint_id", None)
     task_getter = getattr(runtime.adapter, "get_sprint_tasks", None)
@@ -237,6 +258,8 @@ def build_po_status_report(runtime: Any):
             row["completed"] += int(bool(getattr(task, "is_completed", False)))
             row["blocked"] += int(bool(getattr(task, "is_blocked", False)))
 
+        by_space_tasks = await _space_task_summary(runtime)
+
         total = len(tasks)
         completed = sum(1 for task in tasks if getattr(task, "is_completed", False))
         active = total - completed
@@ -256,6 +279,7 @@ def build_po_status_report(runtime: Any):
                 "blocked": blocked,
                 "completion_percent": completion,
                 "by_product": by_product,
+                "by_space_tasks": by_space_tasks,
                 "spaces": spaces,
                 "scope": "approved_product_spaces_current_sprints",
                 "source": "REAL_AS21",
@@ -367,7 +391,7 @@ def build_po_local_task_draft(runtime: Any):
 CAPABILITIES = (
     CapabilitySpecV4("po.attention_queue", "Rank current-sprint tasks across approved product spaces that need PO attention.", {}),
     CapabilitySpecV4("po.daily_brief", "Generate a deterministic grounded daily PO brief from bounded current-sprint data.", {}),
-    CapabilitySpecV4("po.status_report", "Generate a deterministic current-sprint portfolio status report.", {}),
+    CapabilitySpecV4("po.status_report", "Generate a deterministic current-sprint portfolio status report plus bounded full-space task counts for approved product spaces.", {}),
     CapabilitySpecV4("po.reminder_draft", "Draft a reminder for one explicit AS21 task without sending it.", {"task_key": "required task key"}),
     CapabilitySpecV4("po.local_task_draft", "Prepare a local task draft without writing externally. Call this capability directly: it owns validation of an optional source task_key via one bounded point read and returns a typed draft_created=false result when that key is not found; do not pre-resolve the key with task.lookup.", {"subject": "optional user-supplied title", "task_key": "optional source task key; pass the user key directly without a separate lookup"}),
 )
@@ -402,7 +426,7 @@ SKILLS = (
             "Preserve NO_CURRENT_SPRINT/CURRENT_SPRINT_WITHOUT_MEMBERSHIP states instead of inventing zeros for unavailable scope.",
         ),
         ("po.status_report",),
-        completion=(CompletionRequirement("po.status_report", data_keys=("total", "by_product")),),
+        completion=(CompletionRequirement("po.status_report", data_keys=("total", "by_product", "by_space_tasks")),),
     ),
     SkillSpecV4(
         "po.reminder_draft",
@@ -440,7 +464,7 @@ BINDINGS = (
 UI = {
     "po.attention_queue": UIContractV4("task_collection", preferred_widget="po_attention_queue", required_fields=("count", "queue")),
     "po.daily_brief": UIContractV4("analysis", preferred_widget="po_daily_brief", required_fields=("active", "blocked", "top_attention")),
-    "po.status_report": UIContractV4("analysis", preferred_widget="po_status_report", required_fields=("by_product",)),
+    "po.status_report": UIContractV4("analysis", preferred_widget="po_status_report", required_fields=("by_product", "by_space_tasks")),
     "po.reminder_draft": UIContractV4("draft", preferred_widget="po_reminder_draft", required_fields=("draft_created", "write_performed")),
     "po.local_task_draft": UIContractV4("draft", preferred_widget="po_local_task_draft", required_fields=("draft_created", "write_performed")),
 }
