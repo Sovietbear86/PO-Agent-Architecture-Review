@@ -1,142 +1,237 @@
 # GigaCode — Current Action
 
-## ACTIVE: Assignment 224R2 — team-scoped overview + task status filters + attention scrolling
+## ACTIVE: Assignment 225 — visual design system + slide-derived backgrounds
 
-Role: QA/adversarial tester only. Do NOT modify code.
+Role: QA/adversarial tester only. Do NOT modify production/frontend/backend code.
 
-### Important scope correction
-The previous A224/A224R full-space counting requirement is SUPERSEDED.
+## Frozen functional baseline
 
-Do NOT try to count every task in WMB/DMS/OLP/CRPV/STS.
+A224R2 is GREEN:
+- checkpoint: `checkpoint/v4-ui-usability-green-a224r2@612116894572f72af4f024486799458d3870d539`
+- state/lineage/usability semantics are frozen
+- visual work must not reopen backend functionality
 
-The product requirement is now:
-**"Задачи по пространствам" = tasks assigned to configured team members, grouped by space.**
+## Design contract
 
-Canonical team identities come from:
-`task-api/config/team_members.yaml`
+Read:
+`UI_VISUAL_DESIGN_2026_SPEC.md`
 
-The source path must reuse the already-certified REAL AS21 assignee search used by the Tasks page.
+The source visual language is the 2026 design cookbook. The implementation uses abstract slide-derived assets, not literal slide screenshots/text/logos.
 
-### Owner changes under test
-- po.status_report now loads configured team logins and performs bounded assignee reads;
-- returned tasks are grouped by approved space and deduplicated by task key;
-- total / active / completed / blocked are computed from those team-assigned tasks;
-- no full-space task corpus scan is used;
-- one failed assignee read => SOURCE_PARTIAL, not an exact-looking partial total;
-- Overview attention queue renders the complete queue inside the scroll container; no dataset slice to first 10;
-- Tasks page has separate AS21-status and local-status filters.
+Expected page mapping:
+- Overview -> slide-13 family: lens / circular crystal composition
+- Tasks -> slides-21/22 family: framed application composition + glass fins
+- Sprints -> slide-4/17 family: timeline + crystalline object
+- Releases -> slide-23/26 family: structured table/grid + fins
+- Team -> slide-18/15 family: structured cards + crystalline object
+- Quality -> slide-17/25 family: timeline/KPI composition + fins
 
-No Agent Core/planner/runtime/session change.
+## Owner implementation under test
 
-## P0 — build / architecture
-1. Pull branch and record HEAD.
-2. Diff from A224R report state.
-3. Prove po.status_report no longer calls get_space_task_count or full-space search for this widget.
-4. Prove all task reads are person-scoped assignee reads using configured logins.
-5. Run relevant V4/batch5 tests, tsc --noEmit and vite build.
-6. Zero unexplained failures and zero AS21 mutations.
+Visual-only changes include:
+- `frontend/public/design/overview-bg.svg`
+- `frontend/public/design/tasks-bg.svg`
+- `frontend/public/design/sprint-bg.svg`
+- `frontend/public/design/releases-bg.svg`
+- `frontend/public/design/team-bg.svg`
+- `frontend/public/design/quality-bg.svg`
+- route-specific `page-*` classes
+- shared dark navy/cyan glass theme in `workspace.css`
+- ResultStatePanel dark-glass adaptation
+- responsive Attention row wrapping fix
+- `UI_VISUAL_DESIGN_2026_SPEC.md`
 
-## P1 — team-scoped task summary exactness
-Independent Oracle B:
-1. Read all canonical logins from team_members.yaml.
-2. For every login, use the certified REAL AS21 assignee route.
-3. Union tasks by canonical key.
-4. Group by WMB/DMS/OLP/CRPV/STS.
-5. Compute total / active / completed / blocked.
+No backend/Core/planner/runtime/source contract changes are expected.
 
-Compare exact values with:
-`po.status_report.data.by_space_tasks`
+## P0 — diff / build / architecture
 
-Require:
-- exact parity for all spaces when all member reads are source-ready;
-- Kalachanov.V.V tasks are included wherever source says they belong;
-- no unrelated unassigned/other-team space corpus enters the totals;
-- no duplicate task counted twice;
-- no whole-space task-query/count route used for this widget.
+1. Pull current branch; record START_HEAD and clean worktree.
+2. Diff from A224R2 checkpoint.
+3. Prove all production changes after A224R2 are frontend/static-assets/docs only.
+4. Prove:
+   - 0 Agent Core/planner/runtime/plugin/source changes;
+   - 0 new npm dependencies;
+   - 0 AS21 mutation path;
+   - no V4 state adapter semantics changed.
+5. Run:
+   - `tsc --noEmit`
+   - `vite build`
+   - existing frontend/e2e smoke
+6. Require zero build/type/runtime errors.
 
-Failure safety:
-- force one configured member source read unavailable;
-- summary becomes SOURCE_PARTIAL and UI does not present its numeric values as exact;
-- all-member failure => capability fail-closed.
+Any backend semantic delta => RED STOP.
 
-## P2 — Overview Browser C
-Block title remains "Задачи по пространствам".
+## P1 — asset and page mapping
 
-Require:
-- explanatory note says counts are tasks assigned to configured team members;
-- cards show exact total / active / completed / blocked for source-ready team summary;
-- CRPV/STS may legitimately be zero only if the team-login Oracle B proves zero;
-- no previous giant full-space totals (150k/460k) appear.
+For all six pages, Browser C must prove that the distinct background asset loads successfully:
 
-## P3 — PO Attention scrolling
-Use a source state with >10 attention items.
-
-Require:
-- all queue rows are present in DOM/data, not only first 10;
-- panel has bounded visible height and internal vertical scrolling;
-- scrolling reaches item 11 and the final item;
-- label states total count / "прокрутите список";
-- Daily Brief remains comparable in visible height;
-- downstream Overview blocks remain reachable without page-height explosion.
-
-## P4 — Tasks AS21 status filter
-Use a non-empty AS21 result set with >=2 statuses.
+1. Overview -> `/design/overview-bg.svg`
+2. Tasks -> `/design/tasks-bg.svg`
+3. Sprints -> `/design/sprint-bg.svg`
+4. Releases -> `/design/releases-bg.svg`
+5. Team -> `/design/team-bg.svg`
+6. Quality -> `/design/quality-bg.svg`
 
 Require:
-- "Статус AS21" selector lists source statuses present in current result;
-- ALL shows all returned AS21 tasks;
-- selecting a status filters cards exactly, case-insensitive;
-- changing display status does not trigger an AS21 mutation;
-- existing explicit backend "Статус" search mode still works and is not broken.
+- no 404s;
+- each page uses a different background;
+- background is decorative only and does not contain operational copy;
+- route navigation does not retain the previous page background.
 
-## P5 — local task status filter
-Create local tasks in TODO / IN_PROGRESS / BLOCKED / DONE.
+Capture one 1440px screenshot per page.
+
+## P2 — shared visual language
+
+Across all six pages require:
+- dark navy / near-black canvas;
+- cyan/blue accents;
+- translucent dark glass cards;
+- thin cyan borders/dividers;
+- high-contrast white primary text;
+- consistent muted secondary text;
+- stable WORKS / PO Space / DB Tribe chrome;
+- stable sidebar/topbar styling across pages;
+- active nav clearly visible;
+- visual hierarchy remains data-first.
+
+Reject:
+- white legacy card surfaces dominating the page;
+- unreadable low-contrast text;
+- excessive glow that competes with data;
+- six unrelated page styles.
+
+## P3 — readability / state semantics
+
+Re-run representative typed states:
+- SUCCESS_WITH_DATA
+- REAL_EMPTY
+- NEEDS_CLARIFICATION
+- SOURCE_CONDITIONAL or SOURCE_UNAVAILABLE
+- ERROR if safely reproducible
 
 Require:
-- "Статус локальных" ALL shows all;
-- each status filter shows exact local subset;
-- changing a local task status immediately moves it between filtered views;
-- reload persistence remains GREEN;
-- delete remains GREEN;
-- zero AS21 writes.
+- state remains semantically distinguishable after styling;
+- source-unavailable/conditional text is more legible than background decoration;
+- zero/empty semantics from A224R2 unchanged;
+- no state hidden only by color; text labels remain present;
+- Evidence / Trace / Skill lineage remains readable.
 
-## P6 — resume deferred A224 usability checks
-Continue the not-yet-certified checks:
-- local task CRUD full flow;
-- Sprint predictability honest source limitation;
-- Releases honest sparse/source-conditional behavior;
-- Team space selector + automatic 40h/week policy;
-- Quality Aging space+threshold;
-- compact retained Quality/Sprint/chat/competency smoke.
+## P4 — functional retained smoke
 
-Do NOT re-run abandoned full-space count route as a product requirement.
+Do not rerun full 54/54.
 
-## P7 — responsive layout
-Desktop + 480px:
-- Overview internal scroll usable;
-- no harmful horizontal overflow;
-- Tasks filter controls remain usable and wrap cleanly.
+Retain A224R2 scenarios:
+- Overview: team-scoped by-space exact cards + 107-row attention internal scroll
+- Tasks: AS21/local status filters + local CRUD
+- Sprints: source-correct metrics/risk queue + honest predictability limitation
+- Releases: honest sparse SOURCE_CONDITIONAL/UNAVAILABLE behavior
+- Team: space selector + workload/WIP/blocked; capacity source limitation
+- Quality: WMB-102 quality semantics + scoped Aging queue
+- Chat: rich markdown/table rendering + competency recommendation
 
-## P8 — audit
+Require identical business values/states to current source truth.
+
+## P5 — responsive desktop + 480px
+
+For EVERY page capture:
+- 1440px screenshot
+- 480px screenshot
+
+Require:
+- no document-level horizontal overflow;
+- content remains reachable;
+- metric cards reflow cleanly;
+- toolbar/select/input controls remain usable;
+- drawers fit viewport;
+- internal vertical scroll areas remain usable.
+
+Mandatory regression for A224R2 finding:
+PO Attention at 480px:
+- document scrollWidth == viewport width (or no meaningful >2px overflow);
+- long task titles wrap;
+- score badge does not force the row wider;
+- can scroll vertically to final attention item.
+
+If the previous ~14–75px overflow remains => RED.
+
+## P6 — drawer / overlay styling
+
+Test:
+- PO Agent drawer
+- Task details drawer
+- Local task create drawer
+- evidence panel
+- clarification options
+- feedback controls
+
+Require:
+- dark theme is coherent with main workspace;
+- no white legacy drawer shell dominating;
+- text/forms remain readable;
+- overlay/scrim layering correct;
+- open/close and session behavior unchanged.
+
+## P7 — visual regression by page
+
+### Overview
+- Attention and Daily Brief remain comparable visible height.
+- By-space cards readable over lens background.
+- Decorative lens shapes do not obscure content.
+
+### Tasks
+- Search/filter surface reads as one coherent control area.
+- Local tasks visually distinct but still same product system.
+- Large result card grids readable.
+
+### Sprints
+- Timeline/crystal background does not look like actual metric data.
+- risk queue and sprint metrics remain dominant.
+
+### Releases
+- source-limited panels look intentional, not broken.
+- decorative table/grid does not imply fake release data.
+
+### Team
+- long workload/WIP/bottleneck lists remain readable.
+- Capacity source-unavailable state looks intentional.
+
+### Quality
+- READY/REWORK and Quality/Aging information dominate the background.
+- warning/acceptance states retain visual priority.
+
+## P8 — performance / asset hygiene
+
+Browser/network audit:
+- six SVG backgrounds load locally from Vite/static assets;
+- no external image/font/network dependency added;
+- no huge raster background payload;
+- route switch does not repeatedly leak requests or accumulate overlays;
+- no console errors caused by SVG/CSS.
+
+## P9 — source/write audit
+
 Require:
 - 0 AS21 mutations;
-- 0 local factual fallback;
-- 0 tenant-wide scans;
-- 0 whole-space corpus scans for Overview task-by-space summary;
-- assignee reads only for configured team logins;
-- localStorage writes only for LOCAL tasks.
+- 0 new source reads attributable to visual styling;
+- 0 local factual fallbacks;
+- no change to A224R2 team-scoped task reads;
+- localStorage still only used for LOCAL tasks.
 
 ## Verdict
-Exactly one:
-- `AGENT_CORE_V4_UI_USABILITY_GREEN_A224R2`
-- `AGENT_CORE_V4_UI_USABILITY_RED_A224R2`
+
+Use exactly one:
+
+- `AGENT_CORE_V4_UI_VISUAL_DESIGN_GREEN_A225`
+- `AGENT_CORE_V4_UI_VISUAL_DESIGN_RED_A225`
 
 If GREEN:
-- recommend checkpoint/v4-ui-usability-green-a224r2;
-- next owner phase = visual design system + slide-derived page backgrounds;
-- do NOT start Learning Reviewer yet.
+- recommend `checkpoint/v4-ui-visual-design-green-a225`;
+- next owner phase = PO visual acceptance + final Browser UX re-gate;
+- Learning Reviewer still does NOT start until owner/PO acceptance.
 
 If RED:
-- preserve first failing source/backend/UI evidence and STOP.
+- identify first failing visual/functional boundary;
+- preserve screenshot at 1440 and/or 480 plus computed-style/network evidence;
+- STOP.
 
 Do not modify code.
