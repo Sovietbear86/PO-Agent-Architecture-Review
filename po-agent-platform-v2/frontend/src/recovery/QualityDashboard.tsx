@@ -104,14 +104,14 @@ export function QualityDashboard() {
 
     <div className="quality-grid">
       <div className="panel">
-        <div className="panel-title"><strong>Что нужно уточнить</strong><span>{missingCount}</span></div>
+        <div className="panel-title"><strong>Что нужно уточнить</strong><span>{missingCount == null ? '—' : missingCount}</span></div>
         {missingReady ? (md.missing_elements?.length ? md.missing_elements.map(item => <div className="quality-item" key={item}><b>{item}</b></div>) : <div className="muted">Источник подтвердил: критичных пробелов не найдено.</div>) : <ResultStatePanel result={missing} compact />}
         {md.recommendations?.length ? <div className="recommendation-box">{md.recommendations.map(item => <div key={item}>→ {item}</div>)}</div> : null}
         <Meta result={missing} />
       </div>
 
       <div className="panel">
-        <div className="panel-title"><strong>Acceptance / Testability</strong><span>{acceptanceScore}/100</span></div>
+        <div className="panel-title"><strong>Acceptance / Testability</strong><span>{acceptanceScore == null ? '—' : `${acceptanceScore}/100`}</span></div>
         {acceptanceReady ? (ad.criteria?.length ? ad.criteria.map((item, index) => <div className="quality-item" key={`${item}-${index}`}><b>{item}</b><span>{ad.testable_criteria?.includes(item) ? 'TESTABLE' : 'NEEDS CLARITY'}</span></div>) : <div className="muted">Источник подтвердил: явные критерии приёмки не найдены.</div>) : <ResultStatePanel result={acceptance} compact />}
         {ad.gaps?.length ? <div className="warning-box">{ad.gaps.map(item => <div key={item}>⚠ {item}</div>)}</div> : null}
         <Meta result={acceptance} />
@@ -119,7 +119,7 @@ export function QualityDashboard() {
     </div>
 
     <div className="panel aging-panel">
-      <div className="panel-title"><strong>Aging queue</strong><span>{gd.count ?? 0}</span></div>
+      <div className="panel-title"><strong>Aging queue</strong><span>{stateAllowsBusinessData(agingState) ? (gd.count ?? '—') : '—'}</span></div>
       <form className="aging-toolbar" onSubmit={submitAging}><label>Старше <input value={agingDays} onChange={e => setAgingDays(e.target.value)} inputMode="numeric" /> дней</label><button type="submit">Обновить</button></form>
       {stateAllowsBusinessData(agingState) ? (gd.tasks?.length ? gd.tasks.map(task => <div className="task-row" key={String(task.key)}><div className="task-key">{String(task.key)}</div><div className="task-main"><b>{String(task.title ?? '')}</b><span>{String(task.assignee ?? 'Не назначен')} · {String(task.status ?? '')}</span></div><div className="attention-badge">{String(task.age_days ?? '')} дн.</div></div>) : <div className="muted">Источник подтвердил: задач старше выбранного порога нет.</div>) : <ResultStatePanel result={aging} compact />}
       <Meta result={aging} />
