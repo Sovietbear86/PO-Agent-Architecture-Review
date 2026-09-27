@@ -1,0 +1,62 @@
+{
+ "status": "FAILED",
+ "answer": "Необходимая возможность не подтверждена источником данных и не выполняется.",
+ "question": null,
+ "options": [],
+ "clarification_id": null,
+ "intent": "skill_native_v4",
+ "skill": null,
+ "data": {
+  "_agent_core_v4": {
+   "runtime": "Agent Core v4",
+   "semantic_prepass_used": false,
+   "loaded_skills": [
+    "po.status_report"
+   ],
+   "trajectory": [
+    {
+     "planner_turn": 1,
+     "decision": "load_skill",
+     "skill_id": "po.status_report",
+     "capability_id": null,
+     "arguments": {},
+     "rationale": "The user requests a status report across all products. The po.status_report skill is purpose-built for generating a bounded current-sprint status report across approved product spaces, which directly matches this request."
+    },
+    {
+     "planner_turn": 2,
+     "decision": "call",
+     "skill_id": null,
+     "capability_id": "po.status_report",
+     "arguments": {},
+     "rationale": "User requests a status report across all products. The po.status_report skill is already loaded and its capability takes no arguments — it generates a bounded current-sprint status report across all approved product spaces, which is exactly what's needed."
+    }
+   ],
+   "error": "REAL AS21 per-space task counts are unavailable for all approved spaces"
+  }
+ },
+ "evidence": [],
+ "warnings": [
+  "v4_capability_unavailable"
+ ],
+ "trace_id": "cf2a471d-4f82-470f-8684-82c3933a5917",
+ "session_id": "789be365-7efb-48a5-a499-f9277ef93bef",
+ "latency_ms": 27379.616,
+ "runtime": "agent_core_v4",
+ "ui": null,
+ "plugin_ids": [
+  "builtin.agent.help",
+  "builtin.batch2.team_current_sprint",
+  "builtin.batch3.team_release",
+  "builtin.batch4.release_portfolio",
+  "builtin.batch5.po_workflow",
+  "builtin.batch6.release_forecast",
+  "builtin.catalog.tasks",
+  "builtin.core.a188",
+  "builtin.time_accounting.aggregate",
+  "builtin.time_accounting.member",
+  "builtin.time_accounting.task",
+  "builtin.wave_s1.sprint_flow_release_search",
+  "builtin.wave_s2.sprint_history_risk"
+ ],
+ "correlation_id": "52be6295-3c10-41a4-8fe2-417c278a0166"
+}
