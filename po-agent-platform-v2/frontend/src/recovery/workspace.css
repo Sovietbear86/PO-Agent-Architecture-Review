@@ -280,3 +280,24 @@ input::placeholder,textarea::placeholder{color:#6f8aa0}
   .attention-row em{flex:0 0 auto;max-width:72px;white-space:normal;text-align:center;padding:5px 7px}
   .overview-scroll-body{overflow-x:hidden}
 }
+
+/* OVERVIEW COOKBOOK OVERRIDES */
+.page-overview .attention-row{border-bottom-color:rgba(126,226,255,.09)}
+.page-overview .attention-row b{color:#69e5f8}
+.page-overview .attention-row strong{color:#effbff}
+.page-overview .attention-row span{color:#9eb7c8}
+.page-overview .attention-row em{
+  color:#ffca9f;
+  background:rgba(255,164,87,.11);
+  border:1px solid rgba(255,184,119,.14)
+}
+.page-overview .queue-version{color:#7596aa}
+.page-overview .overview-scroll-body::-webkit-scrollbar-thumb{background:rgba(103,219,247,.24)}
+.page-overview .product-status-card{
+  border:1px solid rgba(126,226,255,.14);
+  background:linear-gradient(145deg,rgba(8,35,58,.78),rgba(5,24,42,.7));
+  box-shadow:inset 0 1px rgba(255,255,255,.025)
+}
+.page-overview .product-status-card>strong{color:#79e9fb}
+.page-overview .product-status-card span{color:#9bb4c4}
+.page-overview .space-source-note{border-top-color:rgba(126,226,255,.08);color:#90aabb}
