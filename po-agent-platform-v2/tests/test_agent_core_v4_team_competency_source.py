@@ -15,6 +15,8 @@ def _task(key: str, title: str, *, assignee: str | None = "Moiseev.A.N", blocked
         key=key,
         title=title,
         description=title,
+        labels=[],
+        components=[],
         status_raw="In progress",
         status=SimpleNamespace(value="In progress"),
         is_completed=False,
@@ -128,5 +130,97 @@ def test_assignee_recommendation_combines_declared_competence_with_bounded_curre
 def test_batch3_contracts_require_task_key_for_competency_skills():
     registry = discover_v4_plugins()
     skills = {skill.id: skill for skill in registry.skills()}
-    assert skills["team.competency_match"].completion[0].data_keys == ("space", "task_key", "matches")
-    assert skills["team.assignee_recommendation"].completion[0].data_keys == ("space", "task_key", "candidates")
+    assert skills["team.competency_match"].completion[0].data_keys == ("space", "task_key", "match_count")
+    assert skills["team.assignee_recommendation"].completion[0].data_keys == ("space", "task_key", "candidate_count")
+
+
+def test_competency_match_uses_title_description_labels_and_components(monkeypatch):
+    profiles = [
+        {
+            "login": "Garanin.R.V",
+            "full_name": "Гаранин Родион Владимирович",
+            "products": ["DMS"],
+            "professional_profile": "Технический лидер",
+            "competencies": ["Go", "C++", "DataMarts", "Code Review"],
+        },
+        {
+            "login": "Reshetnik.A",
+            "full_name": "Александр Решетник",
+            "products": ["DMS"],
+            "professional_profile": "Frontend",
+            "competencies": ["Frontend"],
+        },
+    ]
+    monkeypatch.setattr(
+        "po_agent.harness.v4_plugins.wave_batch3.get_real_team_members",
+        lambda: profiles,
+    )
+    adapter = FakeAdapter()
+    adapter.target.title = "Исправить проблему DataMarts"
+    adapter.target.description = "Нужен code review"
+    adapter.target.labels = ["Go"]
+    adapter.target.components = ["C++"]
+    result = asyncio.run(
+        build_team_competency_match(SimpleNamespace(adapter=adapter))(
+            {"space": "DMS", "task_key": "DMS-380"}
+        )
+    )
+
+    assert result.data["match_count"] == 1
+    row = result.data["matches"][0]
+    assert row["member"] == "Garanin.R.V"
+    assert set(row["matched_competencies"]) == {"C++", "Code Review", "DataMarts", "Go"}
+    assert row["matched_by_field"]["labels"] == ["Go"]
+    assert row["matched_by_field"]["components"] == ["C++"]
+    assert row["relevance_score"] > 0
+
+
+def test_zero_overlap_is_legitimate_terminal_payload(monkeypatch):
+    monkeypatch.setattr(
+        "po_agent.harness.v4_plugins.wave_batch3.get_real_team_members",
+        lambda: [{
+            "login": "Moiseev.A.N",
+            "full_name": "Моисеев Андрей Николаевич",
+            "products": ["DMS"],
+            "professional_profile": "Go",
+            "competencies": ["Go"],
+        }],
+    )
+    adapter = FakeAdapter()
+    adapter.target.title = "Редакционная правка"
+    adapter.target.description = "Исправить опечатку"
+    adapter.target.labels = []
+    adapter.target.components = []
+    result = asyncio.run(
+        build_team_competency_match(SimpleNamespace(adapter=adapter))(
+            {"space": "DMS", "task_key": "DMS-380"}
+        )
+    )
+    assert result.data["match_count"] == 0
+    assert result.data["matches"] == []
+    assert "no_declared_competency_match" in result.warnings
+
+
+def test_assignee_load_join_is_case_insensitive(monkeypatch):
+    monkeypatch.setattr(
+        "po_agent.harness.v4_plugins.wave_batch3.get_real_team_members",
+        lambda: [{
+            "login": "Moiseev.A.N",
+            "full_name": "Моисеев Андрей Николаевич",
+            "products": ["DMS"],
+            "professional_profile": "Go",
+            "competencies": ["Go", "DataMarts", "Code Review"],
+        }],
+    )
+    adapter = FakeAdapter()
+    adapter.sprint_tasks = [
+        _task("DMS-1", "Go backend", assignee="moiseev.a.n"),
+        _task("DMS-2", "Go backend", assignee="moiseev.a.n"),
+    ]
+    result = asyncio.run(
+        build_team_assignee_recommendation(SimpleNamespace(adapter=adapter))(
+            {"space": "DMS", "task_key": "DMS-380"}
+        )
+    )
+    assert result.data["candidate_count"] == 1
+    assert result.data["candidates"][0]["active_tasks"] == 2
