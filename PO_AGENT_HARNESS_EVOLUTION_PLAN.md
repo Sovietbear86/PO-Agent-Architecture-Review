@@ -968,3 +968,28 @@ Additional owner UX changes in the same gate:
 - PO Attention must render the full queue inside an internal scroll container; do not slice the dataset to the first 10 rows;
 - Tasks page gets separate status filters for AS21 results and local tasks;
 - status filters are presentation filters and must not mutate AS21 data.
+
+
+### A224R2 closure — UI usability GREEN
+
+A224R2 closed the pre-design usability/data-correctness gate GREEN.
+
+Certified:
+- team-scoped task summary exact against REAL AS21 for all five approved spaces;
+- PO Attention renders the full 107-row queue inside a bounded scroll container;
+- AS21/local status filters work independently;
+- local task CRUD persists and remains read-only toward AS21;
+- Sprint predictability fails closed with explicit source limitation;
+- Releases remain honestly source-limited;
+- Team space selector and automatic 40h/week policy work;
+- Quality Aging is scoped by space + threshold and source-exact;
+- 0 AS21 mutations, 0 local factual fallback, 0 tenant-wide scans.
+
+Checkpoint:
+`checkpoint/v4-ui-usability-green-a224r2@612116894572f72af4f024486799458d3870d539`
+
+Non-blocking responsive finding to absorb into visual redesign:
+- at 480px, long PO Attention rows can overflow horizontally by ~14–75 px due to title + score badge composition.
+
+**Current owner phase: visual design system + slide-derived page backgrounds.**
+Learning Reviewer remains blocked until visual redesign and Browser C UX acceptance are GREEN.
