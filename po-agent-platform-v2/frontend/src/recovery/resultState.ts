@@ -11,6 +11,39 @@ export type ResultUiState =
   | 'NOT_FOUND'
   | 'ERROR'
 
+
+type CapabilityEnvelope = {
+  capability_id?: string
+  data?: unknown
+}
+
+export function getCapabilityData(
+  result: HarnessQueryResponse | null | undefined,
+  capabilityId?: string,
+): Record<string, unknown> {
+  const root = result?.data
+  if (!root || typeof root !== 'object' || Array.isArray(root)) return {}
+
+  const rootRecord = root as Record<string, unknown>
+  const rows = Array.isArray(rootRecord.results) ? rootRecord.results : []
+  const envelopes = rows
+    .filter((item): item is CapabilityEnvelope => Boolean(item) && typeof item === 'object' && !Array.isArray(item))
+    .filter(item => !capabilityId || item.capability_id === capabilityId)
+
+  for (let index = envelopes.length - 1; index >= 0; index -= 1) {
+    const data = envelopes[index].data
+    if (data && typeof data === 'object' && !Array.isArray(data)) {
+      return data as Record<string, unknown>
+    }
+  }
+
+  // Some non-composed/legacy-compatible responses may already expose the
+  // capability payload at result.data. Keep that shape supported, but never
+  // mistake the V4 envelope itself for business data.
+  if (!Array.isArray(rootRecord.results)) return rootRecord
+  return {}
+}
+
 const COLLECTION_KEYS = new Set([
   'tasks', 'queue', 'risks', 'risk_queue', 'matches', 'candidates',
   'results', 'items', 'dependencies', 'members', 'sprints', 'releases',
@@ -111,7 +144,7 @@ export function classifyResult(
     return 'SOURCE_CONDITIONAL'
   }
 
-  if (isProvenEmptyCollection(result.data)) return 'REAL_EMPTY'
+  if (isProvenEmptyCollection(getCapabilityData(result))) return 'REAL_EMPTY'
   return 'SUCCESS_WITH_DATA'
 }
 
