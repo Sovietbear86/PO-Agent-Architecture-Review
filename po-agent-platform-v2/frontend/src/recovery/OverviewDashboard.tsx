@@ -3,7 +3,7 @@ import { useOutletContext } from 'react-router-dom'
 import { agent, HarnessQueryResponse } from '../api/client'
 import { ResultStatePanel } from '../components/ResultStatePanel'
 import { RichAnswer } from '../components/agent/RichAnswer'
-import { classifyResult, stateAllowsBusinessData } from './resultState'
+import { classifyResult, getCapabilityData, stateAllowsBusinessData } from './resultState'
 import './OverviewDashboard.css'
 
 type WorkspaceContext = { openAgent(): void }
@@ -33,10 +33,10 @@ export function OverviewDashboard() {
   const attention = useHarness('Покажи очередь внимания')
   const brief = useHarness('Сделай daily brief')
   const status = useHarness('Сделай status report')
-  const od = (overview?.data ?? {}) as Record<string, unknown>
-  const ad = (attention?.data ?? {}) as { count?: number; queue?: QueueRow[]; scoring_version?: string }
-  const bd = (brief?.data ?? {}) as Record<string, unknown>
-  const sd = (status?.data ?? {}) as { completion_percent?: number; by_product?: Record<string, { total?: number; completed?: number; blocked?: number }> }
+  const od = getCapabilityData(overview) as Record<string, unknown>
+  const ad = getCapabilityData(attention) as { count?: number; queue?: QueueRow[]; scoring_version?: string }
+  const bd = getCapabilityData(brief) as Record<string, unknown>
+  const sd = getCapabilityData(status) as { completion_percent?: number; by_product?: Record<string, { total?: number; completed?: number; blocked?: number }> }
   const queue = ad.queue ?? []
   const products = Object.entries(sd.by_product ?? {})
   const attentionState = classifyResult(attention)
