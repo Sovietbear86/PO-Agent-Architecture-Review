@@ -6,7 +6,16 @@ import { classifyResult, getCapabilityData, stateAllowsBusinessData } from './re
 
 type WorkspaceContext = { openAgent(): void }
 type TaskRow = Record<string, unknown>
-type LocalTask = { id: string; title: string; description: string; owner: string; createdAt: string }
+type LocalTask = {
+  id: string
+  title: string
+  description: string
+  owner: string
+  priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
+  status: 'TODO' | 'IN_PROGRESS' | 'BLOCKED' | 'DONE'
+  labels: string[]
+  createdAt: string
+}
 type FilterMode = 'text' | 'assignee' | 'status' | 'sprint' | 'release'
 type IntelligenceMode = 'summary' | 'quality' | 'history' | 'missing'
 
@@ -49,11 +58,23 @@ function LocalTaskDrawer({ open, onClose, onCreate }: { open: boolean; onClose()
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [owner, setOwner] = useState('')
+  const [priority, setPriority] = useState<LocalTask['priority']>('MEDIUM')
+  const [status, setStatus] = useState<LocalTask['status']>('TODO')
+  const [labels, setLabels] = useState('')
   const submit = (event: FormEvent) => {
     event.preventDefault()
     if (!title.trim()) return
-    onCreate({ id: `LOCAL-${Date.now()}`, title: title.trim(), description: description.trim(), owner: owner.trim(), createdAt: new Date().toISOString() })
-    setTitle(''); setDescription(''); setOwner(''); onClose()
+    onCreate({
+      id: `LOCAL-${Date.now()}`,
+      title: title.trim(),
+      description: description.trim(),
+      owner: owner.trim(),
+      priority,
+      status,
+      labels: labels.split(',').map(item => item.trim()).filter(Boolean),
+      createdAt: new Date().toISOString(),
+    })
+    setTitle(''); setDescription(''); setOwner(''); setPriority('MEDIUM'); setStatus('TODO'); setLabels(''); onClose()
   }
   return <>
     <div className={`drawer-scrim ${open ? 'visible' : ''}`} onClick={onClose} />
@@ -63,6 +84,9 @@ function LocalTaskDrawer({ open, onClose, onCreate }: { open: boolean; onClose()
         <label>Название<input value={title} onChange={e => setTitle(e.target.value)} placeholder="Что нужно сделать" autoFocus={open} /></label>
         <label>Описание<textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Контекст, ожидаемый результат, ограничения" rows={7} /></label>
         <label>Ответственный<input value={owner} onChange={e => setOwner(e.target.value)} placeholder="Опционально" /></label>
+        <label>Приоритет<select value={priority} onChange={e => setPriority(e.target.value as LocalTask['priority'])}><option value="LOW">LOW</option><option value="MEDIUM">MEDIUM</option><option value="HIGH">HIGH</option><option value="CRITICAL">CRITICAL</option></select></label>
+        <label>Статус<select value={status} onChange={e => setStatus(e.target.value as LocalTask['status'])}><option value="TODO">TODO</option><option value="IN_PROGRESS">IN PROGRESS</option><option value="BLOCKED">BLOCKED</option><option value="DONE">DONE</option></select></label>
+        <label>Метки<input value={labels} onChange={e => setLabels(e.target.value)} placeholder="через запятую" /></label>
         <div className="form-note">Локальная задача сохраняется только в браузере и не пишет в AS21 без отдельного approval/write capability.</div>
         <div className="form-actions"><button type="button" onClick={onClose}>Отмена</button><button className="primary-button" type="submit" disabled={!title.trim()}>Создать</button></div>
       </form>
@@ -138,7 +162,19 @@ export function TasksPage() {
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [selectedTask, setSelectedTask] = useState<TaskRow | null>(null)
   const [localTasks, setLocalTasks] = useState<LocalTask[]>(() => {
-    try { return JSON.parse(localStorage.getItem('po-local-tasks') ?? '[]') as LocalTask[] } catch { return [] }
+    try {
+      const raw = JSON.parse(localStorage.getItem('po-local-tasks') ?? '[]') as Array<Partial<LocalTask>>
+      return raw.map(task => ({
+        id: String(task.id ?? `LOCAL-${Date.now()}`),
+        title: String(task.title ?? ''),
+        description: String(task.description ?? ''),
+        owner: String(task.owner ?? ''),
+        priority: task.priority ?? 'MEDIUM',
+        status: task.status ?? 'TODO',
+        labels: Array.isArray(task.labels) ? task.labels : [],
+        createdAt: String(task.createdAt ?? new Date().toISOString()),
+      }))
+    } catch { return [] }
   })
   useEffect(() => { localStorage.setItem('po-local-tasks', JSON.stringify(localTasks)) }, [localTasks])
   const allCount = useMemo(() => tasks.length + localTasks.length, [tasks.length, localTasks.length])
@@ -151,7 +187,33 @@ export function TasksPage() {
       <div className="filter-input-row"><input value={search} onChange={e => setSearch(e.target.value)} placeholder={placeholder} /><button type="submit">Найти</button><button type="button" onClick={() => setDrawerOpen(true)}>+ Локальная задача</button></div>
       <HarnessMeta result={result} />
     </form>
-    {localTasks.length > 0 && <div className="panel local-panel"><div className="panel-title"><strong>Локальные задачи</strong><span>{localTasks.length}</span></div>{localTasks.map(t => <div className="task-row" key={t.id}><div className="task-key">{t.id}</div><div className="task-main"><b>{t.title}</b><span>{t.owner || 'Без ответственного'}</span></div><div className="status-pill">LOCAL</div></div>)}</div>}
+    {localTasks.length > 0 && <div className="panel local-panel">
+      <div className="panel-title"><strong>Локальные задачи</strong><span>{localTasks.length}</span></div>
+      {localTasks.map(t => <div className="task-row" key={t.id}>
+        <div className="task-key">{t.id}</div>
+        <div className="task-main">
+          <b>{t.title}</b>
+          <span>{t.owner || 'Без ответственного'} · {t.priority}{t.labels.length ? ` · ${t.labels.join(', ')}` : ''}</span>
+        </div>
+        <select
+          className="status-pill"
+          value={t.status}
+          onChange={e => setLocalTasks(items => items.map(item => item.id === t.id ? { ...item, status: e.target.value as LocalTask['status'] } : item))}
+          aria-label={`Статус ${t.id}`}
+        >
+          <option value="TODO">TODO</option>
+          <option value="IN_PROGRESS">IN PROGRESS</option>
+          <option value="BLOCKED">BLOCKED</option>
+          <option value="DONE">DONE</option>
+        </select>
+        <button
+          type="button"
+          className="icon-button"
+          aria-label={`Удалить ${t.id}`}
+          onClick={() => setLocalTasks(items => items.filter(item => item.id !== t.id))}
+        >×</button>
+      </div>)}
+    </div>}
     <div className="panel"><div className="panel-title"><strong>Задачи</strong><span>{stateAllowsBusinessData(resultState) ? allCount : '—'}</span></div>{stateAllowsBusinessData(resultState) ? (tasks.length ? <div className="task-card-grid">{tasks.map(t => <TaskCard key={String(t.key)} task={t} onOpen={setSelectedTask} />)}</div> : <EmptyData text="Источник подтвердил: задачи не найдены" />) : <ResultStatePanel result={result} />}</div>
     <LocalTaskDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} onCreate={task => setLocalTasks(items => [task, ...items])} />
     <TaskDetailsDrawer task={selectedTask} onClose={() => setSelectedTask(null)} />
