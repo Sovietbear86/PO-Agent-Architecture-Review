@@ -1,6 +1,8 @@
 import { FormEvent, useEffect, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { agent, HarnessQueryResponse } from '../api/client'
+import { ResultStatePanel } from '../components/ResultStatePanel'
+import { classifyResult, stateAllowsBusinessData } from './resultState'
 
 type WorkspaceContext = { openAgent(): void }
 type Row = Record<string, unknown>
@@ -25,13 +27,13 @@ function HarnessMeta({ result }: { result: HarnessQueryResponse | null }) {
 
 export function TeamDashboard() {
   const { openAgent } = useOutletContext<WorkspaceContext>()
-  const [capacityHours, setCapacityHours] = useState('40')
-  const [capacityBaseline, setCapacityBaseline] = useState('40')
+  const [capacityHours, setCapacityHours] = useState('')
+  const [capacityBaseline, setCapacityBaseline] = useState<string | null>(null)
 
   const workload = useHarness('Покажи нагрузку команды')
   const wip = useHarness('Покажи WIP команды')
   const blocked = useHarness('Покажи блокировки команды')
-  const capacity = useHarness(`Покажи capacity команды ${capacityBaseline} часов`)
+  const capacity = useHarness(capacityBaseline ? `Покажи capacity команды ${capacityBaseline} часов` : 'Покажи capacity команды')
   const bottlenecks = useHarness('Покажи узкие места команды')
   const distribution = useHarness('Покажи распределение задач команды')
 
@@ -46,6 +48,8 @@ export function TeamDashboard() {
   const capacityRows = capacityData.members ?? []
   const bottleneckRows = bottleneckData.bottlenecks ?? []
   const distributionRows = distributionData.members ?? []
+  const workloadState = classifyResult(workload)
+  const capacityState = classifyResult(capacity)
 
   function updateCapacity(event: FormEvent) {
     event.preventDefault()
@@ -60,7 +64,7 @@ export function TeamDashboard() {
     </div>
 
     <form className="panel entity-toolbar" onSubmit={updateCapacity}>
-      <div><span>Capacity baseline, часов на человека</span><input value={capacityHours} onChange={e => setCapacityHours(e.target.value)} inputMode="decimal" /></div>
+      <div><span>Capacity baseline, часов на человека</span><input value={capacityHours} onChange={e => setCapacityHours(e.target.value)} inputMode="decimal" placeholder="Пусто = owner policy" /></div>
       <button type="submit">Пересчитать</button>
     </form>
 
@@ -68,17 +72,19 @@ export function TeamDashboard() {
       <MetricCard label="Активных задач" value={String(workloadData.active_tasks ?? '—')} />
       <MetricCard label="WIP" value={String(wipData.total_wip ?? '—')} />
       <MetricCard label="Blocked" value={String(blockedData.total_blocked ?? '—')} hint="требуют внимания" />
-      <MetricCard label="Capacity baseline" value={`${String(capacityData.capacity_hours_per_member ?? capacityBaseline)} ч`} hint={capacity?.warnings.includes('configured_capacity_baseline') ? 'configured baseline' : undefined} />
+      <MetricCard label="Capacity baseline" value={stateAllowsBusinessData(capacityState) ? `${String(capacityData.capacity_hours_per_member ?? '—')} ч` : '—'} hint={capacityBaseline ? 'explicit user baseline' : 'owner policy'} />
     </div>
 
     <div className="content-grid">
       <div className="panel">
         <div className="panel-title"><strong>Активная нагрузка</strong><span>{workloadRows.length}</span></div>
-        {workloadRows.length ? workloadRows.map(row => <div className="team-member-row" key={String(row.member)}>
-          <div className="avatar">{String(row.member ?? '?').slice(0, 1).toUpperCase()}</div>
-          <div className="task-main"><b>{String(row.member)}</b><span>{String(row.tasks)} задач в активном контуре</span></div>
-          <div className="team-load"><strong>{String(row.estimated_hours)} ч</strong><span>estimate</span></div>
-        </div>) : <div className="muted">Активная нагрузка не обнаружена.</div>}
+        {stateAllowsBusinessData(workloadState)
+          ? (workloadRows.length ? workloadRows.map(row => <div className="team-member-row" key={String(row.member)}>
+            <div className="avatar">{String(row.member ?? '?').slice(0, 1).toUpperCase()}</div>
+            <div className="task-main"><b>{String(row.member)}</b><span>{String(row.active_tasks ?? 0)} активных · WIP {String(row.wip ?? 0)} · blocked {String(row.blocked ?? 0)}</span></div>
+            <div className="team-load"><strong>{String(row.active_tasks ?? 0)}</strong><span>active tasks</span></div>
+          </div>) : <div className="muted">Источник подтвердил отсутствие активной нагрузки.</div>)
+          : <ResultStatePanel result={workload} compact />}
         <HarnessMeta result={workload} />
       </div>
 
@@ -94,7 +100,7 @@ export function TeamDashboard() {
 
     <div className="panel team-capacity-panel">
       <div className="panel-title"><strong>Capacity & utilization</strong><span>{capacityRows.length}</span></div>
-      {capacityRows.length ? <div className="capacity-table">
+      {stateAllowsBusinessData(capacityState) ? (capacityRows.length ? <div className="capacity-table">
         <div className="capacity-head"><span>Исполнитель</span><span>Задачи</span><span>Нагрузка</span><span>Utilization</span><span>Состояние</span></div>
         {capacityRows.map(row => {
           const utilization = Number(row.utilization_percent ?? 0)
@@ -107,7 +113,7 @@ export function TeamDashboard() {
             <span className={row.over_capacity ? 'warning-badge' : 'green-badge'}>{row.over_capacity ? 'OVER' : 'OK'}</span>
           </div>
         })}
-      </div> : <div className="muted">Нет оценённых активных задач для расчёта capacity.</div>}
+      </div> : <div className="muted">Источник подтвердил отсутствие оценённых активных задач для расчёта capacity.</div>) : <ResultStatePanel result={capacity} compact />}
       <HarnessMeta result={capacity} />
     </div>
 
@@ -129,6 +135,6 @@ export function TeamDashboard() {
       </div>
     </div>
 
-    <div className="form-note release-note">Competency match и рекомендация исполнителя пока не активированы: master-spec требует подключённый источник компетенций команды. UI намеренно не имитирует эти возможности по ключевым словам.</div>
+    <div className="form-note release-note">Competency match и рекомендация исполнителя SOURCE_READY: используются заявленные компетенции из team_members.yaml и bounded current-sprint нагрузка. Расширенный task-archetype анализ отложен в техдолг.</div>
   </section>
 }
