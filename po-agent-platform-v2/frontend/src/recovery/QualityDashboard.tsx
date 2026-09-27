@@ -2,7 +2,7 @@ import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { agent, HarnessQueryResponse } from '../api/client'
 import { ResultStatePanel } from '../components/ResultStatePanel'
-import { classifyResult, stateAllowsBusinessData } from './resultState'
+import { classifyResult, getCapabilityData, stateAllowsBusinessData } from './resultState'
 
 type WorkspaceContext = { openAgent(): void }
 type Row = Record<string, unknown>
@@ -37,10 +37,10 @@ export function QualityDashboard() {
   const acceptance = useHarness(`Покажи критерии приемки ${submitted}`)
   const aging = useHarness(`Покажи старые задачи ${agingSubmitted} дней`)
 
-  const qd = (quality?.data ?? {}) as Row
-  const md = (missing?.data ?? {}) as { missing_elements?: string[]; issues?: string[]; recommendations?: string[]; quality_score?: number }
-  const ad = (acceptance?.data ?? {}) as { score?: number; criteria?: string[]; testable_criteria?: string[]; gaps?: string[] }
-  const gd = (aging?.data ?? {}) as { threshold_days?: number; count?: number; tasks?: Row[] }
+  const qd = getCapabilityData(quality) as Row
+  const md = getCapabilityData(missing) as { missing_elements?: string[]; issues?: string[]; recommendations?: string[]; quality_score?: number }
+  const ad = getCapabilityData(acceptance) as { score?: number; criteria?: string[]; testable_criteria?: string[]; gaps?: string[] }
+  const gd = getCapabilityData(aging) as { threshold_days?: number; count?: number; tasks?: Row[] }
 
   const qualityState = classifyResult(quality)
   const missingState = classifyResult(missing)
@@ -51,21 +51,24 @@ export function QualityDashboard() {
   const acceptanceReady = stateAllowsBusinessData(acceptanceState)
   const decisionReady = qualityReady && missingReady && acceptanceReady
 
-  const score = qualityReady ? Number(qd.score ?? md.quality_score) : null
-  const acceptanceScore = acceptanceReady ? Number(ad.score) : null
+  const rawScore = qualityReady ? Number(qd.score ?? md.quality_score) : NaN
+  const rawAcceptanceScore = acceptanceReady ? Number(ad.score) : NaN
+  const score = Number.isFinite(rawScore) ? rawScore : null
+  const acceptanceScore = Number.isFinite(rawAcceptanceScore) ? rawAcceptanceScore : null
   const missingCount = missingReady ? (md.missing_elements?.length ?? 0) : null
-  const returnForRework = decisionReady && ((score ?? 0) < 70 || (acceptanceScore ?? 0) < 70 || (missingCount ?? 0) > 0)
-  const decisionLabel = !decisionReady ? 'Ожидание данных' : returnForRework ? 'Вернуть на доработку' : 'Можно брать в работу'
-  const decisionTone = !decisionReady ? 'status-pill' : returnForRework ? 'attention-badge' : 'green-badge'
+  const decisionHasScores = decisionReady && score != null && acceptanceScore != null && missingCount != null
+  const returnForRework = decisionHasScores && (score < 70 || acceptanceScore < 70 || missingCount > 0)
+  const decisionLabel = !decisionHasScores ? 'Ожидание данных' : returnForRework ? 'Вернуть на доработку' : 'Можно брать в работу'
+  const decisionTone = !decisionHasScores ? 'status-pill' : returnForRework ? 'attention-badge' : 'green-badge'
 
   const reasons = useMemo(() => {
     const rows: string[] = []
-    if (!decisionReady) return rows
+    if (!decisionHasScores) return rows
     if ((score ?? 0) < 70) rows.push(`Quality score ${score}/100`)
     if ((acceptanceScore ?? 0) < 70) rows.push(`Acceptance ${acceptanceScore}/100`)
     if (missingCount) rows.push(`Пробелов: ${missingCount}`)
     return rows
-  }, [score, acceptanceScore, missingCount, decisionReady])
+  }, [score, acceptanceScore, missingCount, decisionHasScores])
 
   function submitTask(event: FormEvent) {
     event.preventDefault()
@@ -91,12 +94,12 @@ export function QualityDashboard() {
       <Metric label="Quality score" value={score == null ? '—' : `${score}/100`} hint={qualityReady ? (String(qd.quality_level ?? '') || undefined) : undefined} />
       <Metric label="Acceptance" value={acceptanceScore == null ? '—' : `${acceptanceScore}/100`} hint={acceptanceReady ? `${ad.testable_criteria?.length ?? 0} проверяемых условий` : undefined} />
       <Metric label="Пробелы" value={missingCount == null ? '—' : missingCount} hint={missingReady ? 'missing requirements' : undefined} />
-      <Metric label="Решение PO" value={!decisionReady ? 'NOT RUN' : returnForRework ? 'REWORK' : 'READY'} hint={decisionLabel} />
+      <Metric label="Решение PO" value={!decisionHasScores ? 'NOT RUN' : returnForRework ? 'REWORK' : 'READY'} hint={decisionLabel} />
     </div>
 
     <div className="quality-decision panel">
       <div><span className={decisionTone}>{decisionLabel}</span><strong>{submitted}</strong></div>
-      {decisionReady
+      {decisionHasScores
         ? <p>{reasons.length ? reasons.join(' · ') : 'Детерминированные проверки не выявили блокирующих пробелов в постановке.'}</p>
         : <ResultStatePanel result={!qualityReady ? quality : !missingReady ? missing : acceptance} compact />}
       <Meta result={quality} />
