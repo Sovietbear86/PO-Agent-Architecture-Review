@@ -1,6 +1,8 @@
 import { FormEvent, useEffect, useMemo, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { agent, HarnessQueryResponse } from '../api/client'
+import { ResultStatePanel } from '../components/ResultStatePanel'
+import { classifyResult, stateAllowsBusinessData } from './resultState'
 
 type WorkspaceContext = { openAgent(): void }
 type TaskRow = Record<string, unknown>
@@ -132,6 +134,7 @@ export function TasksPage() {
   const result = useHarness(taskQuery(submitted.mode, submitted.value))
   const data = (result?.data ?? {}) as { tasks?: TaskRow[] }
   const tasks = data.tasks ?? []
+  const resultState = classifyResult(result)
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [selectedTask, setSelectedTask] = useState<TaskRow | null>(null)
   const [localTasks, setLocalTasks] = useState<LocalTask[]>(() => {
@@ -149,7 +152,7 @@ export function TasksPage() {
       <HarnessMeta result={result} />
     </form>
     {localTasks.length > 0 && <div className="panel local-panel"><div className="panel-title"><strong>Локальные задачи</strong><span>{localTasks.length}</span></div>{localTasks.map(t => <div className="task-row" key={t.id}><div className="task-key">{t.id}</div><div className="task-main"><b>{t.title}</b><span>{t.owner || 'Без ответственного'}</span></div><div className="status-pill">LOCAL</div></div>)}</div>}
-    <div className="panel"><div className="panel-title"><strong>Задачи</strong><span>{allCount}</span></div>{tasks.length ? <div className="task-card-grid">{tasks.map(t => <TaskCard key={String(t.key)} task={t} onOpen={setSelectedTask} />)}</div> : <EmptyData text="Нет данных по задачам" />}</div>
+    <div className="panel"><div className="panel-title"><strong>Задачи</strong><span>{stateAllowsBusinessData(resultState) ? allCount : '—'}</span></div>{stateAllowsBusinessData(resultState) ? (tasks.length ? <div className="task-card-grid">{tasks.map(t => <TaskCard key={String(t.key)} task={t} onOpen={setSelectedTask} />)}</div> : <EmptyData text="Источник подтвердил: задачи не найдены" />) : <ResultStatePanel result={result} />}</div>
     <LocalTaskDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} onCreate={task => setLocalTasks(items => [task, ...items])} />
     <TaskDetailsDrawer task={selectedTask} onClose={() => setSelectedTask(null)} />
   </section>
@@ -171,16 +174,22 @@ export function SprintPage() {
   const pd = (predictability?.data ?? {}) as Record<string, unknown>
   const rd = (risks?.data ?? {}) as { risks?: Array<Record<string, unknown>>; count?: number }
   const riskRows = rd.risks ?? []
+  const healthState = classifyResult(health)
+  const velocityState = classifyResult(velocity)
+  const throughputState = classifyResult(throughput)
+  const wipState = classifyResult(wip)
+  const predictabilityState = classifyResult(predictability)
+  const risksState = classifyResult(risks)
   return <section className="page">
     <PageHeader title="Спринты" subtitle="Velocity, throughput, WIP, predictability и очередь рисков" />
     <form className="panel entity-toolbar" onSubmit={e => { e.preventDefault(); if (sprintId.trim()) setSubmitted(sprintId.trim().toUpperCase()) }}><div><span>Спринт</span><input value={sprintId} onChange={e => setSprintId(e.target.value)} /></div><button type="submit">Обновить</button></form>
-    <div className="metric-grid"><MetricCard label="Scope" value={String(hd.total ?? '—')} /><MetricCard label="Completed" value={String(hd.completed ?? '—')} /><MetricCard label="Velocity" value={`${String(vd.velocity ?? '—')} ${String(vd.unit ?? '')}`} /><MetricCard label="Predictability" value={`${String(pd.predictability_percent ?? '—')}%`} hint={predictability?.warnings.includes('current_scope_used_as_commitment_baseline') ? 'current scope baseline' : undefined} /></div>
+    <div className="metric-grid"><MetricCard label="Scope" value={stateAllowsBusinessData(healthState) ? String(hd.total ?? '—') : '—'} /><MetricCard label="Completed" value={stateAllowsBusinessData(healthState) ? String(hd.completed ?? '—') : '—'} /><MetricCard label="Velocity" value={stateAllowsBusinessData(velocityState) ? `${String(vd.velocity ?? '—')} ${String(vd.unit ?? '')}` : '—'} /><MetricCard label="Predictability" value={stateAllowsBusinessData(predictabilityState) ? `${String(pd.predictability_percent ?? '—')}%` : '—'} hint={predictability?.warnings.includes('current_scope_used_as_commitment_baseline') ? 'current scope baseline' : undefined} /></div>
     <div className="insight-grid">
-      <div className="panel insight-card"><div className="panel-title"><strong>Throughput</strong><span>{throughput?.skill?.id ?? '—'}</span></div><div className="insight-value">{String(td.throughput_tasks ?? '—')}</div><div className="muted">завершённых задач · unit {String(td.unit ?? 'tasks')}</div><HarnessMeta result={throughput} /></div>
-      <div className="panel insight-card"><div className="panel-title"><strong>WIP</strong><span>{wip?.skill?.id ?? '—'}</span></div><div className="insight-value">{String(wd.wip ?? '—')}</div><div className="muted">задач в активной работе</div><HarnessMeta result={wip} /></div>
-      <div className="panel insight-card"><div className="panel-title"><strong>Готовность</strong><span>{health?.skill?.id ?? '—'}</span></div><div className="insight-value">{String(hd.completion_percent ?? '—')}%</div><div className="muted">{String(hd.completed ?? '—')} из {String(hd.total ?? '—')} задач</div><HarnessMeta result={health} /></div>
+      <div className="panel insight-card"><div className="panel-title"><strong>Throughput</strong><span>{throughput?.skill?.id ?? '—'}</span></div>{stateAllowsBusinessData(throughputState) ? <><div className="insight-value">{String(td.throughput_tasks ?? '—')}</div><div className="muted">завершённых задач · unit {String(td.unit ?? 'tasks')}</div></> : <ResultStatePanel result={throughput} compact />}<HarnessMeta result={throughput} /></div>
+      <div className="panel insight-card"><div className="panel-title"><strong>WIP</strong><span>{wip?.skill?.id ?? '—'}</span></div>{stateAllowsBusinessData(wipState) ? <><div className="insight-value">{String(wd.wip ?? '—')}</div><div className="muted">задач в активной работе</div></> : <ResultStatePanel result={wip} compact />}<HarnessMeta result={wip} /></div>
+      <div className="panel insight-card"><div className="panel-title"><strong>Готовность</strong><span>{health?.skill?.id ?? '—'}</span></div>{stateAllowsBusinessData(healthState) ? <><div className="insight-value">{String(hd.completion_percent ?? '—')}%</div><div className="muted">{String(hd.completed ?? '—')} из {String(hd.total ?? '—')} задач</div></> : <ResultStatePanel result={health} compact />}<HarnessMeta result={health} /></div>
     </div>
-    <div className="panel"><div className="panel-title"><strong>Risk Queue</strong><span>{String(rd.count ?? riskRows.length)}</span></div>{riskRows.length ? riskRows.map(row => <div className="risk-row" key={String(row.key)}><div><b>{String(row.key)}</b><span>{String(row.title ?? '')} · {(row.reasons as string[] | undefined)?.join(', ')}</span></div><em>{String(row.risk_score ?? '')}</em></div>) : <div className="muted">Риски не выявлены.</div>}<HarnessMeta result={risks} /></div>
+    <div className="panel"><div className="panel-title"><strong>Risk Queue</strong><span>{stateAllowsBusinessData(risksState) ? String(rd.count ?? riskRows.length) : '—'}</span></div>{stateAllowsBusinessData(risksState) ? (riskRows.length ? riskRows.map(row => <div className="risk-row" key={String(row.key)}><div><b>{String(row.key)}</b><span>{String(row.title ?? '')} · {(row.reasons as string[] | undefined)?.join(', ')}</span></div><em>{String(row.risk_score ?? '')}</em></div>) : <div className="muted">Источник подтвердил: риски не выявлены.</div>) : <ResultStatePanel result={risks} compact />}<HarnessMeta result={risks} /></div>
   </section>
 }
 
@@ -198,13 +207,18 @@ export function ReleasesPage() {
   const dd = (dependencies?.data ?? {}) as { internal?: Array<Record<string, unknown>>; external?: Array<Record<string, unknown>> }
   const rd = (risks?.data ?? {}) as { risk_queue?: Array<Record<string, unknown>> }
   const riskRows = rd.risk_queue ?? []
+  const scopeState = classifyResult(scope)
+  const progressState = classifyResult(progress)
+  const blockersState = classifyResult(blockers)
+  const dependenciesState = classifyResult(dependencies)
+  const releaseRisksState = classifyResult(risks)
   return <section className="page">
     <PageHeader title="Релизы" subtitle="Progress, blockers, dependencies и deterministic risk queue" />
     <form className="panel entity-toolbar" onSubmit={e => { e.preventDefault(); if (releaseId.trim()) setSubmitted(releaseId.trim().toUpperCase()) }}><div><span>Релиз</span><input value={releaseId} onChange={e => setReleaseId(e.target.value)} /></div><button type="submit">Обновить</button></form>
-    <div className="metric-grid"><MetricCard label="Scope" value={String(sd.count ?? '—')} /><MetricCard label="Completed" value={String(pd.completed ?? '—')} /><MetricCard label="Blocked" value={String(pd.blocked ?? '—')} /><MetricCard label="Готовность" value={`${String(pd.task_completion_percent ?? '—')}%`} hint={pd.effort_completion_percent != null ? `effort ${String(pd.effort_completion_percent)}%` : undefined} /></div>
-    <div className="content-grid"><div className="panel"><div className="panel-title"><strong>Очередь рисков релиза</strong><span>{riskRows.length}</span></div>{riskRows.length ? riskRows.map((row, index) => { const task = (row.task ?? {}) as TaskRow; return <div className="risk-row" key={String(task.key ?? index)}><div><b>{String(task.key ?? '')}</b><span>{String(task.title ?? '')} · {((row.reasons ?? []) as string[]).join(', ')}</span></div><em>{String(row.risk_score ?? '')}</em></div> }) : <div className="muted">Риски не выявлены.</div>}<HarnessMeta result={risks} /></div>
-      <div className="panel"><div className="panel-title"><strong>Dependencies</strong><span>{(dd.internal?.length ?? 0) + (dd.external?.length ?? 0)}</span></div><div className="fact-row"><span>Внутренние</span><b>{dd.internal?.length ?? 0}</b></div><div className="fact-row"><span>Внешние</span><b>{dd.external?.length ?? 0}</b></div><HarnessMeta result={dependencies} /></div></div>
-    <div className="panel"><div className="panel-title"><strong>Blockers</strong><span>{bd.count ?? 0}</span></div>{bd.tasks?.length ? bd.tasks.map(task => <div className="task-row" key={String(task.key)}><div className="task-key">{String(task.key)}</div><div className="task-main"><b>{String(task.title ?? '')}</b><span>{String(task.assignee ?? 'Не назначен')}</span></div><div className="status-pill">{String(task.status ?? '')}</div></div>) : <div className="muted">Заблокированных задач нет.</div>}<HarnessMeta result={blockers} /></div>
+    <div className="metric-grid"><MetricCard label="Scope" value={stateAllowsBusinessData(scopeState) ? String(sd.count ?? '—') : '—'} /><MetricCard label="Completed" value={stateAllowsBusinessData(progressState) ? String(pd.completed ?? '—') : '—'} /><MetricCard label="Blocked" value={stateAllowsBusinessData(progressState) ? String(pd.blocked ?? '—') : '—'} /><MetricCard label="Готовность" value={stateAllowsBusinessData(progressState) ? `${String(pd.task_completion_percent ?? '—')}%` : '—'} hint={stateAllowsBusinessData(progressState) && pd.effort_completion_percent != null ? `effort ${String(pd.effort_completion_percent)}%` : undefined} /></div>
+    <div className="content-grid"><div className="panel"><div className="panel-title"><strong>Очередь рисков релиза</strong><span>{stateAllowsBusinessData(releaseRisksState) ? riskRows.length : '—'}</span></div>{stateAllowsBusinessData(releaseRisksState) ? (riskRows.length ? riskRows.map((row, index) => { const task = (row.task ?? {}) as TaskRow; return <div className="risk-row" key={String(task.key ?? index)}><div><b>{String(task.key ?? '')}</b><span>{String(task.title ?? '')} · {((row.reasons ?? []) as string[]).join(', ')}</span></div><em>{String(row.risk_score ?? '')}</em></div> }) : <div className="muted">Источник подтвердил: риски не выявлены.</div>) : <ResultStatePanel result={risks} compact />}<HarnessMeta result={risks} /></div>
+      <div className="panel"><div className="panel-title"><strong>Dependencies</strong><span>{stateAllowsBusinessData(dependenciesState) ? (dd.internal?.length ?? 0) + (dd.external?.length ?? 0) : '—'}</span></div>{stateAllowsBusinessData(dependenciesState) ? <><div className="fact-row"><span>Внутренние</span><b>{dd.internal?.length ?? 0}</b></div><div className="fact-row"><span>Внешние</span><b>{dd.external?.length ?? 0}</b></div></> : <ResultStatePanel result={dependencies} compact />}<HarnessMeta result={dependencies} /></div></div>
+    <div className="panel"><div className="panel-title"><strong>Blockers</strong><span>{stateAllowsBusinessData(blockersState) ? (bd.count ?? '—') : '—'}</span></div>{stateAllowsBusinessData(blockersState) ? (bd.tasks?.length ? bd.tasks.map(task => <div className="task-row" key={String(task.key)}><div className="task-key">{String(task.key)}</div><div className="task-main"><b>{String(task.title ?? '')}</b><span>{String(task.assignee ?? 'Не назначен')}</span></div><div className="status-pill">{String(task.status ?? '')}</div></div>) : <div className="muted">Источник подтвердил: заблокированных задач нет.</div>) : <ResultStatePanel result={blockers} compact />}<HarnessMeta result={blockers} /></div>
     <div className="form-note release-note">Forecast не активирован: master-spec требует честный исторический baseline. До появления source data UI не показывает псевдопрогноз.</div>
   </section>
 }
