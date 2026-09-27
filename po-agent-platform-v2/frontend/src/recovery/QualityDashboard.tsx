@@ -31,11 +31,13 @@ export function QualityDashboard() {
   const [submitted, setSubmitted] = useState('WMB-102')
   const [agingDays, setAgingDays] = useState('7')
   const [agingSubmitted, setAgingSubmitted] = useState('7')
+  const [agingSpace, setAgingSpace] = useState('WMB')
+  const [agingSpaceSubmitted, setAgingSpaceSubmitted] = useState('WMB')
 
   const quality = useHarness(`Оцени постановку ${submitted}`)
   const missing = useHarness(`Чего не хватает в задаче ${submitted}`)
   const acceptance = useHarness(`Покажи критерии приемки ${submitted}`)
-  const aging = useHarness(`Покажи старые задачи ${agingSubmitted} дней`)
+  const aging = useHarness(`Покажи старые задачи ${agingSpaceSubmitted} старше ${agingSubmitted} дней`)
 
   const qd = getCapabilityData(quality) as Row
   const md = getCapabilityData(missing) as { missing_elements?: string[]; issues?: string[]; recommendations?: string[]; quality_score?: number }
@@ -80,6 +82,7 @@ export function QualityDashboard() {
     const parsed = Math.max(1, Number.parseInt(agingDays, 10) || 7)
     setAgingDays(String(parsed))
     setAgingSubmitted(String(parsed))
+    setAgingSpaceSubmitted(agingSpace)
   }
 
   return <section className="page">
@@ -123,7 +126,11 @@ export function QualityDashboard() {
 
     <div className="panel aging-panel">
       <div className="panel-title"><strong>Aging queue</strong><span>{stateAllowsBusinessData(agingState) ? (gd.count ?? '—') : '—'}</span></div>
-      <form className="aging-toolbar" onSubmit={submitAging}><label>Старше <input value={agingDays} onChange={e => setAgingDays(e.target.value)} inputMode="numeric" /> дней</label><button type="submit">Обновить</button></form>
+      <form className="aging-toolbar" onSubmit={submitAging}>
+        <label>Пространство <select value={agingSpace} onChange={e => setAgingSpace(e.target.value)}><option value="WMB">WMB</option><option value="DMS">DMS</option><option value="OLP">OLP</option><option value="CRPV">CRPV</option><option value="STS">STS</option></select></label>
+        <label>Старше <input value={agingDays} onChange={e => setAgingDays(e.target.value)} inputMode="numeric" /> дней</label>
+        <button type="submit">Обновить</button>
+      </form>
       {stateAllowsBusinessData(agingState) ? (gd.tasks?.length ? gd.tasks.map(task => <div className="task-row" key={String(task.key)}><div className="task-key">{String(task.key)}</div><div className="task-main"><b>{String(task.title ?? '')}</b><span>{String(task.assignee ?? 'Не назначен')} · {String(task.status ?? '')}</span></div><div className="attention-badge">{String(task.age_days ?? '')} дн.</div></div>) : <div className="muted">Источник подтвердил: задач старше выбранного порога нет.</div>) : <ResultStatePanel result={aging} compact />}
       <Meta result={aging} />
     </div>
