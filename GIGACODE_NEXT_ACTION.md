@@ -1,59 +1,176 @@
 # GigaCode — Current Action
 
-## ACTIVE: Assignment 224R — UI usability re-gate
+## ACTIVE: Assignment 224R — exact space totals + finish usability gate
 
-Role: QA/adversarial tester only. Do NOT modify production code.
+Role: QA/adversarial tester only. Do NOT modify code.
 
-A224 stopped at P2 because full-space row materialization hit the 10k pagination ceiling. Owner remediation now uses the bounded REAL AS21 per-space count surface based on source totalElements, isolates unavailable spaces, and removes false-zero UI.
+### Prior verdict
+A224 = RED_P2_FULL_SPACE_COUNTS_UNAVAILABLE_PAGINATION_CAP
 
-### P0
-Pull current branch and record HEAD. Prove no Agent Core/planner/runtime/session changes. Run V4 tests, batch5 tests, tsc --noEmit and vite build. Require 0 unexplained failures and 0 AS21 mutations.
+Root cause:
+- full-space row materialization via /task-query is capped by pagination;
+- CRPV/STS cannot be fully materialized;
+- one space failure sank the entire status report;
+- UI could show false 0 next to SOURCE_UNAVAILABLE.
 
-### P2R — first mandatory re-gate
-For WMB, DMS, OLP, CRPV and STS:
-- independently read the bounded REAL AS21 count surface/source metadata;
-- compare exact total with po.status_report.data.by_space_tasks[SPACE].total;
-- require exact total parity for every source-ready space, including CRPV/STS above 10k;
-- prove the count path does not enumerate the entire task corpus and does not use task-query pagination;
-- verify a single unavailable space is represented only as typed SOURCE_UNAVAILABLE with total=null while other source-ready spaces remain usable;
-- Browser C title must be "Задачи по пространствам";
-- source-ready total is shown exactly;
-- unavailable total is "—"/typed unavailable, never 0;
-- active/completed/blocked must not be fabricated. Current bounded source certifies total only, so typed SOURCE_CONDITIONAL status breakdown is expected and GREEN.
+### Owner remediation
+Commits:
+- d6993d4402be9ca16f54a6c6792f807b3164bc89 — task-api /swtr-read/task-count using one-page totalElements metadata
+- 984a601484dde37234a812d4529372c612c58568 — adapter get_space_task_count()
+- 94c41d3307520254380a9f60fe7f557484441834 — po.status_report uses metadata counts + per-space isolation
+- a2e866f0c4e47eb45e0386ef8cda8b74d564378e — Overview renders exact totals and typed unavailable state
+- a36a2a8990695ba6ce27823da1e301e9da5cd0ac — Overview status-breakdown note styling
+- 5f496598d770c519b6a616bd42c6435d93099523 — focused metadata-count tests
+- 11fdba597cb8c6ef63ef55a8cfca9669f09efb37 — per-space failure-isolation regression
 
-If P2R is RED, STOP.
+### Revised source contract
+Important: do NOT require full-space active/completed/blocked parity in A224R.
 
-### P1 — Overview
-Attention renders at most 10 rows initially; when more exist show "Показаны первые N из M"; internal scroll works; Attention and Daily Brief have comparable visible height; desktop and 480px viewports have no harmful horizontal overflow.
+A224 proved that current source contract cannot safely produce those breakdowns for >10k spaces without a verified source-side aggregation/filter-count capability.
 
-### P3 — local task CRUD
-Create a local task with HIGH priority, TODO status, at least two labels, owner and description. Verify reload persistence, status TODO -> IN_PROGRESS -> DONE persistence, deletion, old-schema migration to MEDIUM/TODO/[], and 0 AS21 writes.
+Current intended behavior:
+- full-space TOTAL per space = SOURCE_READY exact count from source totalElements
+- active/completed/blocked full-space breakdown = SOURCE_CONDITIONAL / not displayed as factual numbers
+- one failed space => that space typed SOURCE_UNAVAILABLE; remaining spaces still return
+- all failed => whole capability may fail source-unavailable
+- no row materialization for total counting
+- no false zero
 
-### P4 — Sprint predictability
-DMS-SPRNT-3. If authoritative sprint-start commitment baseline is absent, predictability remains fail-closed and UI explains the missing baseline. No fabricated percentage/current-scope substitution.
+## P0 — diff/build/tests
+1. Pull branch, clean worktree, record START_HEAD.
+2. Diff from A224 report commit.
+3. Prove count route uses one source page only, page=0, size=1, query scoped to one approved space.
+4. Prove no tenant-wide scan.
+5. Run:
+   - task-api relevant tests / import checks
+   - test_agent_core_v4_batch5_po.py
+   - full relevant V4 regression
+   - frontend tsc --noEmit
+   - vite build
+6. Zero unexplained failures.
 
-### P5 — Releases
-OLP 1.6.0 and WMB 24Q1: explicit source limitation, no fake zero/empty scope, no pseudo forecast. Sparse UI is accepted until AS21 release linkage exists.
+## P1 — task-count route exactness
+For each:
+- WMB
+- DMS
+- OLP
+- CRPV
+- STS
 
-### P6 — Team
-Test DMS, OLP, WMB and CRPV or STS. No manual capacity baseline input and no "Пересчитать". 40h/week/person policy is visible and automatic. Every team request carries selected space. Source-ready widgets populate and switching space cannot leak old-space values. Capacity may be SOURCE_CONDITIONAL when estimates are absent, never fake 0.
+Call:
+GET /api/v1/swtr-read/task-count?space=X
 
-### P7 — Quality Aging
-WMB and DMS, thresholds 7 and 15. Query includes selected space plus threshold. Compare source-ready keys/count/age_days with independent bounded Oracle B. REAL_EMPTY only when source proves it. No unscoped aging query.
+Independently compare returned total against REAL AS21 source metadata from find_units_by_filter with the same space predicate.
 
-### P8 — retained smoke
-Do not rerun full 54/54. Retain Quality WMB-102 semantics, Sprint DMS-SPRNT-3 throughput/risk, rich chat rendering, competency recommendation and release source-conditional behavior.
+Require:
+- exact total parity
+- CRPV/STS succeed without walking all pages
+- one bounded source call per count request
+- latency materially below previous full row scans
+- route returns status_breakdown_available=false
+- no task rows returned
 
-### P9 — audit
-Require 0 AS21 mutations, 0 local factual fallback, 0 tenant-wide task scans, no full-space row materialization for counts, and localStorage writes only for LOCAL tasks.
+If source metadata itself is missing/unreliable, RED and stop.
 
-### Verdict
-Exactly one:
+## P2 — po.status_report isolation
+Run po.status_report repeatedly.
+
+Require:
+- by_space_tasks contains all approved spaces
+- each SOURCE_READY row has exact total
+- active/completed/blocked are null / not fabricated
+- no current-sprint count is mislabeled as full-space count
+- current-sprint by_product/current totals remain A219/A221 compatible
+- one injected/stubbed per-space count failure does not sink other spaces
+- failed row state=SOURCE_UNAVAILABLE, total=null
+- if at least one space succeeds, report remains terminal/usable
+
+## P3 — Overview Browser C
+Require:
+- title exactly "Задачи по пространствам"
+- cards show exact total task count
+- status breakdown is explicitly marked unavailable/conditional
+- no false 0 beside SOURCE_UNAVAILABLE
+- CRPV/STS no longer show zero merely due pagination cap
+- PO Attention still shows first 10 of total and internal scroll
+- Daily Brief comparable visible height
+- no page-length explosion
+
+Also re-check narrow viewport:
+- no destructive horizontal overflow
+- if minor overflow remains, record as finding and only RED if core controls/content are unreachable.
+
+## P4 — local task CRUD
+Continue previously deferred A224 P3:
+- create with HIGH + TODO + >=2 labels
+- reload persists
+- change TODO -> IN_PROGRESS -> DONE
+- reload persists state
+- delete removes from UI/localStorage
+- old-schema row safely defaults MEDIUM/TODO/[]
+- zero AS21 mutation
+
+## P5 — Sprint predictability
+Continue deferred A224 P4:
+- DMS-SPRNT-3
+- source-limited predictability must explain missing authoritative sprint-start baseline
+- no fake percentage
+- retained sprint metrics remain GREEN
+
+## P6 — Releases
+Continue deferred A224 P5:
+- OLP 1.6.0 / WMB 24Q1
+- honest SOURCE_CONDITIONAL/UNAVAILABLE
+- no fake zero/empty
+- no pseudo forecast
+- sparse UI is accepted
+
+## P7 — Team
+Continue deferred A224 P6:
+- test DMS, OLP, WMB and one of CRPV/STS
+- no manual capacity baseline field
+- no Recalculate button
+- visible 40h/week owner-policy baseline
+- requests are space-scoped
+- workload/WIP/blocked/bottlenecks/distribution populate for source-ready selected space
+- space switch does not leak stale values
+- capacity may remain SOURCE_CONDITIONAL if estimates are missing
+
+## P8 — Quality Aging queue
+Continue deferred A224 P7:
+- WMB and DMS
+- thresholds 7, 15 and one source-proven empty threshold
+- request must include selected space + threshold
+- exact count/keys/age_days vs Oracle B where source-ready
+- no unscoped aging request
+- source-unavailable != proven empty
+
+## P9 — retained smoke/audit
+Retain:
+- Quality WMB-102 = 85/100, 0/100, missing 1, REWORK
+- Sprint DMS-SPRNT-3 throughput/risk queue
+- chat rich rendering
+- competency recommendation
+- release source limitation
+
+Audit:
+- 0 AS21 mutations
+- 0 local factual fallback reads
+- 0 tenant-wide task scans
+- localStorage writes only for local tasks
+
+## Verdict
+Use exactly one:
 - AGENT_CORE_V4_UI_USABILITY_GREEN_A224R
 - AGENT_CORE_V4_UI_USABILITY_RED_A224R
 
-If GREEN recommend checkpoint/v4-ui-usability-green-a224r and next owner phase = visual design system plus slide-derived backgrounds. Do NOT start Learning Reviewer yet.
+If GREEN:
+- recommend checkpoint/v4-ui-usability-green-a224r
+- next owner phase = visual design system + slide-derived backgrounds
+- do NOT start Learning Reviewer
 
-If RED preserve exact source/backend/UI evidence and stop at first confirmed boundary.
+If RED:
+- preserve first failing screenshot + exact backend/source evidence
+- STOP
 
 Do not modify code.
