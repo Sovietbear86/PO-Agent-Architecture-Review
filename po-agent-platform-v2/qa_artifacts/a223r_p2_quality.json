@@ -1,0 +1,304 @@
+{
+  "WMB-102": {
+    "taskKey": "WMB-102",
+    "queries": [
+      {
+        "query": "Покажи критерии приемки WMB-102",
+        "status": "COMPLETED",
+        "capability_id": "task.acceptance",
+        "capData": {
+          "task_key": "WMB-102",
+          "score": 0,
+          "has_explicit_section": false,
+          "criteria": [],
+          "testable_criteria": [],
+          "gaps": [
+            "Нет явно выделенных критериев приемки",
+            "Нет отдельных проверяемых условий"
+          ]
+        },
+        "warnings": [],
+        "answer": "**WMB-102 — критерии приёмки**\n\nКритерии приёмки для этой задачи **отсутствуют**.\n\n- Явно выделенного раздела «Критерии приёмки» нет.\n- Отдельных проверяемых условий не найдено.\n- Оценка качества: **0/100**.\n\n**Рекомендация:** добавьте в задачу явный блок критериев приёмки с конкретными проверяемыми условиями (например, «Система возвращает код 200 при…», «Поле X заполняется значением Y при…»)."
+      },
+      {
+        "query": "Чего не хватает в задаче WMB-102",
+        "status": "COMPLETED",
+        "capability_id": "task.missing_requirements",
+        "capData": {
+          "task_key": "WMB-102",
+          "missing_elements": [
+            "acceptance_expectations"
+          ],
+          "issues": [
+            "Не найдены проверяемые ожидания или критерии приемки"
+          ],
+          "recommendations": [
+            "Добавить критерии, по которым можно однозначно принять результат"
+          ],
+          "quality_score": 85
+        },
+        "warnings": [],
+        "answer": "В задаче **WMB-102** отсутствуют **критерии приёмки** (acceptance expectations).\n\n**Проблема:** не найдены проверяемые ожидания или критерии, по которым можно однозначно принять результат.\n\n**Рекомендация:** добавить критерии приёмки, позволяющие однозначно определить, что задача выполнена."
+      },
+      {
+        "query": "Покажи старые задачи 7 дней",
+        "status": "NEEDS_CLARIFICATION",
+        "capability_id": null,
+        "capData": null,
+        "warnings": [
+          "v4_ready_without_source_observation"
+        ],
+        "answer": ""
+      },
+      {
+        "query": "Оцени постановку WMB-102",
+        "status": "COMPLETED",
+        "capability_id": "task.quality",
+        "capData": {
+          "score": 85,
+          "quality_level": "good",
+          "missing_elements": [
+            "acceptance_expectations"
+          ],
+          "issues": [
+            "Не найдены проверяемые ожидания или критерии приемки"
+          ],
+          "recommendations": [
+            "Добавить критерии, по которым можно однозначно принять результат"
+          ],
+          "rules": [
+            {
+              "id": "title_present",
+              "passed": true,
+              "penalty": 0,
+              "message": "Не указан заголовок задачи"
+            },
+            {
+              "id": "title_specific",
+              "passed": true,
+              "penalty": 0,
+              "message": "Заголовок слишком короткий и может быть неоднозначным"
+            },
+            {
+              "id": "description_present",
+              "passed": true,
+              "penalty": 0,
+              "message": "Отсутствует описание задачи"
+            },
+            {
+              "id": "description_substantive",
+              "passed": true,
+              "penalty": 0,
+              "message": "Описание слишком короткое для однозначной постановки"
+            },
+            {
+              "id": "goal_or_context",
+              "passed": true,
+              "penalty": 0,
+              "message": "Неочевидны цель или контекст задачи"
+            },
+            {
+              "id": "acceptance_expectations",
+              "passed": false,
+              "penalty": 15,
+              "message": "Не найдены проверяемые ожидания или критерии приемки"
+            }
+          ],
+          "metrics": {
+            "title_length": 62,
+            "description_length": 3125,
+            "has_title": true,
+            "has_description": true
+          },
+          "task_key": "WMB-102",
+          "task_title": "[UI] Отнесение сотрудников на продукты и корректность профилей",
+          "analysis_timestamp": "2026-09-27T16:41:12.062525",
+          "summary": "Task quality is good (score: 85/100). 1 issue(s) detected."
+        },
+        "warnings": [],
+        "answer": "## Оценка постановки WMB-102\n\n**Заголовок:** [UI] Отнесение сотрудников на продукты и корректность профилей\n\n**Итоговый балл: 85/100 — good**\n\n### Что в порядке\n\n| Критерий | Статус |\n|----------|--------|\n| Заголовок присутствует | ✅ |\n| Заголовок конкретный (62 симв.) | ✅ |\n| Описание присутствует (3125 симв.) | ✅ |\n| Описание содержательное | ✅ |\n| Цель / контекст очевидны | ✅ |\n\n### Замечание (−15 баллов)\n\n**Отсутствуют проверяемые ожидания / критерии приёмки.**\nВ описании нет чётких условий, по которым можно однозначно принять результат.\n\n### Рекомендация\n\nДобавить в задачу критерии приёмки (acceptance criteria) — конкретные, проверяемые условия, при выполнении которых задача считается завершённой."
+      }
+    ],
+    "metricCards": [
+      {
+        "label": "Quality score",
+        "value": "85/100",
+        "hint": "good"
+      },
+      {
+        "label": "Acceptance",
+        "value": "0/100",
+        "hint": "0 проверяемых условий"
+      },
+      {
+        "label": "Пробелы",
+        "value": "1",
+        "hint": "missing requirements"
+      },
+      {
+        "label": "Решение PO",
+        "value": "REWORK",
+        "hint": "Вернуть на доработку"
+      }
+    ],
+    "decisionText": "Вернуть на доработку",
+    "missingCount": "1",
+    "missingItems": [
+      "acceptance_expectations"
+    ],
+    "accGaps": [
+      "⚠ Нет явно выделенных критериев приемки⚠ Нет отдельных проверяемых условий"
+    ],
+    "nanCount": 0,
+    "screenshot": "/Users/kalachanov.v.v/Desktop/Мои документы/Обучение/GIGACodeCLI/PO_Agent_Harness/qa_223r_browser_c/quality_WMB-102.png"
+  },
+  "WMB-999999": {
+    "taskKey": "WMB-999999",
+    "queries": [
+      {
+        "query": "Покажи критерии приемки WMB-102",
+        "status": "COMPLETED",
+        "capability_id": "task.acceptance",
+        "capData": {
+          "task_key": "WMB-102",
+          "score": 0,
+          "has_explicit_section": false,
+          "criteria": [],
+          "testable_criteria": [],
+          "gaps": [
+            "Нет явно выделенных критериев приемки",
+            "Нет отдельных проверяемых условий"
+          ]
+        },
+        "warnings": [],
+        "answer": "**WMB-102 — критерии приёмки**\n\nКачество критериев приёмки: **0/100**\n\nЯвно выделенного раздела критериев приёмки в задаче **нет**. Отдельных проверяемых условий не найдено.\n\n**Выявленные пробелы:**\n- Нет явно выделенных критериев приёмки\n- Нет отдельных проверяемых условий\n\nРекомендую добавить в задачу блок «Критерии приёмки» с конкретными проверяемыми условиями."
+      },
+      {
+        "query": "Чего не хватает в задаче WMB-102",
+        "status": "COMPLETED",
+        "capability_id": "task.missing_requirements",
+        "capData": {
+          "task_key": "WMB-102",
+          "missing_elements": [
+            "acceptance_expectations"
+          ],
+          "issues": [
+            "Не найдены проверяемые ожидания или критерии приемки"
+          ],
+          "recommendations": [
+            "Добавить критерии, по которым можно однозначно принять результат"
+          ],
+          "quality_score": 85
+        },
+        "warnings": [],
+        "answer": "В задаче **WMB-102** отсутствуют **критерии приёмки** (acceptance expectations).\n\n**Проблема:** не найдены проверяемые ожидания или критерии, по которым можно однозначно принять результат.\n\n**Рекомендация:** добавить критерии, по которым можно однозначно принять результат."
+      },
+      {
+        "query": "Покажи старые задачи 7 дней",
+        "status": "NEEDS_CLARIFICATION",
+        "capability_id": null,
+        "capData": null,
+        "warnings": [
+          "v4_ready_without_source_observation"
+        ],
+        "answer": ""
+      },
+      {
+        "query": "Оцени постановку WMB-102",
+        "status": "COMPLETED",
+        "capability_id": "task.quality",
+        "capData": {
+          "score": 85,
+          "quality_level": "good",
+          "missing_elements": [
+            "acceptance_expectations"
+          ],
+          "issues": [
+            "Не найдены проверяемые ожидания или критерии приемки"
+          ],
+          "recommendations": [
+            "Добавить критерии, по которым можно однозначно принять результат"
+          ],
+          "rules": [
+            {
+              "id": "title_present",
+              "passed": true,
+              "penalty": 0,
+              "message": "Не указан заголовок задачи"
+            },
+            {
+              "id": "title_specific",
+              "passed": true,
+              "penalty": 0,
+              "message": "Заголовок слишком короткий и может быть неоднозначным"
+            },
+            {
+              "id": "description_present",
+              "passed": true,
+              "penalty": 0,
+              "message": "Отсутствует описание задачи"
+            },
+            {
+              "id": "description_substantive",
+              "passed": true,
+              "penalty": 0,
+              "message": "Описание слишком короткое для однозначной постановки"
+            },
+            {
+              "id": "goal_or_context",
+              "passed": true,
+              "penalty": 0,
+              "message": "Неочевидны цель или контекст задачи"
+            },
+            {
+              "id": "acceptance_expectations",
+              "passed": false,
+              "penalty": 15,
+              "message": "Не найдены проверяемые ожидания или критерии приемки"
+            }
+          ],
+          "metrics": {
+            "title_length": 62,
+            "description_length": 3125,
+            "has_title": true,
+            "has_description": true
+          },
+          "task_key": "WMB-102",
+          "task_title": "[UI] Отнесение сотрудников на продукты и корректность профилей",
+          "analysis_timestamp": "2026-09-27T16:41:29.449048",
+          "summary": "Task quality is good (score: 85/100). 1 issue(s) detected."
+        },
+        "warnings": [],
+        "answer": "**Оценка постановки WMB-102**\n\n**Заголовок:** [UI] Отнесение сотрудников на продукты и корректность профилей\n\n**Итог:** 85/100 — **good**\n\n| Критерий | Статус |\n|----------|--------|\n| Заголовок присутствует | ✅ |\n| Заголовок конкретный | ✅ |\n| Описание присутствует | ✅ |\n| Описание содержательное | ✅ |\n| Цель / контекст | ✅ |\n| Критерии приёмки | ❌ |\n\n**Замечание (1):**\nНе найдены проверяемые ожидания или критерии приёмки.\n\n**Рекомендация:**\nДобавить критерии, по которым можно однозначно принять результат."
+      }
+    ],
+    "metricCards": [
+      {
+        "label": "Quality score",
+        "value": "—",
+        "hint": ""
+      },
+      {
+        "label": "Acceptance",
+        "value": "—",
+        "hint": ""
+      },
+      {
+        "label": "Пробелы",
+        "value": "—",
+        "hint": ""
+      },
+      {
+        "label": "Решение PO",
+        "value": "NOT RUN",
+        "hint": "Ожидание данных"
+      }
+    ],
+    "decisionText": "Ожидание данных",
+    "missingCount": "—",
+    "missingItems": [],
+    "accGaps": [],
+    "nanCount": 0,
+    "screenshot": "/Users/kalachanov.v.v/Desktop/Мои документы/Обучение/GIGACodeCLI/PO_Agent_Harness/qa_223r_browser_c/quality_WMB-999999.png"
+  }
+}
