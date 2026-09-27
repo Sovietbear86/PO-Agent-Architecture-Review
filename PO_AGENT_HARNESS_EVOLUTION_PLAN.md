@@ -877,3 +877,54 @@ RELEASE_READY = YES only after all mandatory gates are GREEN
 ```
 
 V5 multi-agent/GVS5H work remains explicitly deferred until V4 is complete.
+
+### UI product usability remediation after A223R2
+
+**Status:** ACTIVE before visual redesign.
+
+A223R2 closed the shared state/lineage gate GREEN. Before visual styling, the product UI must close the following owner-observed usability/data issues so design does not freeze incorrect behavior.
+
+1. **Overview height / scrolling**
+   - PO attention queue and Daily Brief must have comparable visual height.
+   - Long collections use internal scrolling.
+   - Attention queue initially renders at most 10 highest-ranked tasks and explicitly shows "first N of total".
+   - Downstream blocks such as task-by-space summary must stay visible without page-length explosion.
+
+2. **Tasks by spaces**
+   - Rename "Статус продуктов" to **"Задачи по пространствам"**.
+   - Do not use current-sprint membership as the full-space task count.
+   - Add bounded project-scoped REAL AS21 counts for each approved space (WMB, DMS, OLP, CRPV, STS) with no tenant-wide scan.
+   - Show total / active / completed / blocked.
+   - Cross-check exact counts independently in QA; suspiciously tiny current-sprint counts must not be presented as full-space totals.
+
+3. **Local task CRUD**
+   - Local browser task supports priority, labels and status on creation.
+   - Status is editable after creation.
+   - Local task can be deleted from browser/local storage.
+   - Existing old localStorage rows migrate safely to defaults.
+   - No AS21 write is introduced.
+
+4. **Sprint predictability**
+   - Keep fail-closed behavior while source lacks an authoritative sprint-start commitment baseline.
+   - UI must explain why predictability is unavailable rather than showing an unexplained dash.
+   - Do not fabricate predictability from current scope.
+
+5. **Releases**
+   - Release page remains intentionally source-limited until AS21 provides reliable release-to-task/sprint linkage.
+   - Preserve explicit SOURCE_CONDITIONAL/UNAVAILABLE panels and no pseudo forecast.
+   - This is not a UI blocker for the next phase.
+
+6. **Team**
+   - Remove manual capacity-baseline input and "Пересчитать" button.
+   - Add product-space selector so team skills are always issued with a bounded space and do not fall into bare-query clarification.
+   - Default UI policy: 40-hour work week per person; period/availability normalization is automatic through owner policy.
+   - Workload/WIP/blocked/bottlenecks/distribution must populate for the selected source-ready space.
+   - Capacity may still be SOURCE_CONDITIONAL when task estimates are absent; show the limitation instead of fake utilization.
+
+7. **Quality / Aging queue**
+   - Aging requests must be explicitly bounded by a selected space.
+   - Threshold refresh must issue a source-backed space + threshold query.
+   - Proven-empty may render zero; unscoped/source-limited must not look like an empty queue.
+
+Only after this usability/data remediation is GREEN should the slide-derived visual redesign start.
+
