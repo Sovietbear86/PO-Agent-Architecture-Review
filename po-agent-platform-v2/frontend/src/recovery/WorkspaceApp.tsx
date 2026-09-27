@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useState } from 'react'
 import { NavLink, Outlet } from 'react-router-dom'
 import { agent, HarnessQueryResponse, RuntimeHealth, system } from '../api/client'
 import { V4ResultPanel } from '../components/V4ResultPanel'
+import { RichAnswer } from '../components/agent/RichAnswer'
 import './workspace.css'
 
 type Message = {
@@ -203,7 +204,9 @@ function AgentChat({ open, onClose }: { open: boolean; onClose(): void }) {
       <div className="chat-stream">
         {messages.map(message => (
           <div className={`message ${message.role}`} key={message.id}>
-            <div className="bubble">{message.text}</div>
+            <div className="bubble">
+              {message.role === 'agent' ? <RichAnswer text={message.text} /> : message.text}
+            </div>
             {message.result && (
               <div className="trace" style={{ marginTop: 6 }}>
                 {runtimeLabel(health, message.result)} · {message.result.status} · {Math.round(message.result.latency_ms)} ms
