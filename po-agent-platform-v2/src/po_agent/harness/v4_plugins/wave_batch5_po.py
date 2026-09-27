@@ -122,11 +122,13 @@ async def _team_task_summary(runtime: Any) -> dict[str, dict[str, Any]]:
     }
     seen_by_space: dict[str, set[str]] = {space: set() for space in rows}
     available_members = 0
+    failed_members: list[str] = []
 
     for login in logins:
         try:
             tasks = list(await runtime.adapter.search_tasks(f'assignee = "{login}"', max_results=10000))
         except AS21SourceUnavailable:
+            failed_members.append(login)
             continue
         available_members += 1
         for task in tasks:
@@ -146,7 +148,10 @@ async def _team_task_summary(runtime: Any) -> dict[str, dict[str, Any]]:
         raise V4CapabilityUnavailable("REAL AS21 assignee task reads are unavailable for configured team members")
 
     for space, row in rows.items():
+        row["state"] = "SOURCE_BACKED" if not failed_members else "SOURCE_PARTIAL"
         row["member_count_source"] = len(logins)
+        row["member_count_available"] = available_members
+        row["missing_members"] = list(failed_members)
         row["task_keys_counted"] = len(seen_by_space[space])
     return rows
 
