@@ -65,7 +65,9 @@ def _parse_datetime(value: Any) -> datetime | None:
 
 def _attributes(source_data: dict) -> dict[str, Any]:
     result: dict[str, Any] = {}
-    raw = source_data.get("swtr_attributes", [])
+    raw = source_data.get("swtr_attributes")
+    if not isinstance(raw, list):
+        raw = source_data.get("attributes", [])
     if not isinstance(raw, list):
         return result
     for item in raw:
