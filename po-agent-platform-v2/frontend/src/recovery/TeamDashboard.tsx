@@ -1,21 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
-import { agent, HarnessQueryResponse } from '../api/client'
+import { HarnessQueryResponse } from '../api/client'
 import { ResultStatePanel } from '../components/ResultStatePanel'
 import { classifyResult, getCapabilityData, stateAllowsBusinessData } from './resultState'
+import { SnapshotRefresh, useSnapshotHarness } from './pageSnapshot'
 
 type WorkspaceContext = { openAgent(): void }
 type Row = Record<string, unknown>
-
-function useHarness(query: string) {
-  const [result, setResult] = useState<HarnessQueryResponse | null>(null)
-  useEffect(() => {
-    let alive = true
-    agent.query({ query }).then(r => alive && setResult(r)).catch(() => alive && setResult(null))
-    return () => { alive = false }
-  }, [query])
-  return result
-}
 
 function MetricCard({ label, value, hint }: { label: string; value: string | number; hint?: string }) {
   return <div className="metric-card"><span>{label}</span><strong>{value}</strong>{hint && <small>{hint}</small>}</div>
@@ -28,18 +19,25 @@ function HarnessMeta({ result }: { result: HarnessQueryResponse | null }) {
 export function TeamDashboard() {
   const { openAgent } = useOutletContext<WorkspaceContext>()
   const [space, setSpace] = useState('DMS')
+  const [refreshNonce, setRefreshNonce] = useState(0)
 
-  const workload = useHarness(`Покажи нагрузку команды ${space}`)
-  const wip = useHarness(`Покажи WIP команды ${space}`)
-  const blocked = useHarness(`Покажи блокировки команды ${space}`)
-  const capacity = useHarness(`Покажи capacity команды ${space}`)
-  const bottlenecks = useHarness(`Покажи узкие места команды ${space}`)
-  const distribution = useHarness(`Покажи распределение задач команды ${space}`)
+  const workloadQ = useSnapshotHarness('team:' + space, `Покажи нагрузку команды ${space}`, refreshNonce)
+  const wipQ = useSnapshotHarness('team:' + space, `Покажи WIP команды ${space}`, refreshNonce)
+  const blockedQ = useSnapshotHarness('team:' + space, `Покажи блокировки команды ${space}`, refreshNonce)
+  const utilizationQ = useSnapshotHarness('team:' + space, `Покажи фактическую утилизацию команды ${space}`, refreshNonce)
+  const bottlenecksQ = useSnapshotHarness('team:' + space, `Покажи узкие места команды ${space}`, refreshNonce)
+  const distributionQ = useSnapshotHarness('team:' + space, `Покажи распределение задач команды ${space}`, refreshNonce)
+  const workload = workloadQ.result
+  const wip = wipQ.result
+  const blocked = blockedQ.result
+  const capacity = utilizationQ.result
+  const bottlenecks = bottlenecksQ.result
+  const distribution = distributionQ.result
 
   const workloadData = getCapabilityData(workload) as { active_tasks?: number; workload?: Row[] }
   const wipData = getCapabilityData(wip) as { total_wip?: number; by_member?: Row[] }
   const blockedData = getCapabilityData(blocked) as { total_blocked?: number; by_member?: Row[]; tasks?: string[] }
-  const capacityData = getCapabilityData(capacity) as { capacity_hours_per_member?: number; members?: Row[] }
+  const capacityData = getCapabilityData(capacity) as { capacity_hours_per_member?: number; total_actual_hours?: number; members?: Row[] }
   const bottleneckData = getCapabilityData(bottlenecks) as { bottlenecks?: Row[]; thresholds?: Row }
   const distributionData = getCapabilityData(distribution) as { members?: Row[] }
 
@@ -54,8 +52,8 @@ export function TeamDashboard() {
 
   return <section className="page page-team">
     <div className="page-heading">
-      <div><h1>Команда</h1><p>Нагрузка, WIP, blocked, capacity и распределение работы</p></div>
-      <button className="primary-button" onClick={openAgent}>Спросить PO Agent</button>
+      <div><h1>Команда</h1><p>Нагрузка, WIP, blocked, фактическая утилизация и распределение работы</p></div>
+      <div className="page-heading-actions"><SnapshotRefresh updatedAt={[workloadQ.updatedAt, wipQ.updatedAt, blockedQ.updatedAt, utilizationQ.updatedAt, bottlenecksQ.updatedAt, distributionQ.updatedAt]} refreshing={workloadQ.refreshing || wipQ.refreshing || blockedQ.refreshing || utilizationQ.refreshing || bottlenecksQ.refreshing || distributionQ.refreshing} refreshError={workloadQ.refreshError || wipQ.refreshError || blockedQ.refreshError || utilizationQ.refreshError || bottlenecksQ.refreshError || distributionQ.refreshError} onRefresh={() => setRefreshNonce(value => value + 1)} /><button className="primary-button" onClick={openAgent}>Спросить PO Agent</button></div>
     </div>
 
     <div className="panel entity-toolbar">
@@ -102,8 +100,8 @@ export function TeamDashboard() {
           const capped = Math.max(0, Math.min(utilization, 100))
           return <div className="capacity-row" key={String(row.member)}>
             <div><b>{String(row.member)}</b></div>
-            <span>{String(row.tasks)}</span>
-            <span>{String(row.estimated_hours)} / {String(row.capacity_hours)} ч</span>
+            <span>{String(row.worklog_count ?? '—')}</span>
+            <span>{String(row.actual_hours ?? '—')} / {String(row.available_capacity_hours ?? capacityData.capacity_hours_per_member ?? '—')} ч</span>
             <div className="utilization-cell"><div className="utilization-track"><div className="utilization-fill" style={{ width: `${capped}%` }} /></div><span>{String(row.utilization_percent)}%</span></div>
             <span className={row.over_capacity ? 'warning-badge' : 'green-badge'}>{row.over_capacity ? 'OVER' : 'OK'}</span>
           </div>
