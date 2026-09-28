@@ -1,0 +1,16 @@
+{
+ "log_window_lines": 52,
+ "mutations": 0,
+ "mutation_samples": [],
+ "local_fallback_reads": 0,
+ "task_query_reads": 17,
+ "task_query_unscoped": 0,
+ "unscoped_samples": [],
+ "swtr_read_total": 52,
+ "browser_api_query_calls": 7,
+ "browser_api_non_get": 7,
+ "localStorage_keys": [
+  "po-local-tasks"
+ ],
+ "localStorage_only_local": true
+}

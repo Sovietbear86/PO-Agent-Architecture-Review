@@ -1,0 +1,104 @@
+{
+ "overview": {
+  "by_space": {
+   "CRPV": {
+    "text": "CRPV Всего задач 510 Активно 249 Завершено 261 Blocked 8",
+    "nums": [
+     510,
+     249,
+     261,
+     8
+    ]
+   },
+   "DMS": {
+    "text": "DMS Всего задач 313 Активно 188 Завершено 125 Blocked 2",
+    "nums": [
+     313,
+     188,
+     125,
+     2
+    ]
+   },
+   "OLP": {
+    "text": "OLP Всего задач 399 Активно 200 Завершено 199 Blocked 5",
+    "nums": [
+     399,
+     200,
+     199,
+     5
+    ]
+   },
+   "STS": {
+    "text": "STS Всего задач 3201 Активно 663 Завершено 2538 Blocked 0",
+    "nums": [
+     3201,
+     663,
+     2538,
+     0
+    ]
+   },
+   "WMB": {
+    "text": "WMB Всего задач 6 Активно 0 Завершено 6 Blocked 0",
+    "nums": [
+     6,
+     0,
+     6,
+     0
+    ]
+   }
+  },
+  "by_space_count": 5,
+  "all_cards_populated": true,
+  "attention_rows": 107,
+  "daily_brief_visible": true
+ },
+ "overview_states": [],
+ "tasks": {
+  "cards": 340,
+  "header": "340/340"
+ },
+ "sprint": {
+  "scope": "73",
+  "completed": "19",
+  "velocity": "19 tasks/sprint",
+  "predictability": "—",
+  "predictability_hint": "нужен source-backed baseline старта спринта",
+  "risk_rows": 38
+ },
+ "releases": {
+  "panel_states": [
+   "SOURCE_UNAVAILABLE",
+   "SOURCE_UNAVAILABLE",
+   "NEEDS_CLARIFICATION"
+  ],
+  "scope": "—",
+  "no_fake_zero": true
+ },
+ "team": {
+  "active": "54",
+  "wip": "31",
+  "blocked": "2",
+  "workload_rows": 13,
+  "capacity_states": [
+   "SOURCE_UNAVAILABLE"
+  ]
+ },
+ "quality": {
+  "score": "85/100",
+  "acceptance": "0/100",
+  "missing": "1",
+  "decision": "REWORK",
+  "aging_wmb7_count": "265"
+ },
+ "p3": {
+  "distinct_states": [
+   "SOURCE_UNAVAILABLE",
+   "NEEDS_CLARIFICATION"
+  ],
+  "state_label_examples": [],
+  "all_states_have_text_label": true,
+  "readable": true,
+  "sample_panel": null,
+  "console_errors": 0
+ }
+}

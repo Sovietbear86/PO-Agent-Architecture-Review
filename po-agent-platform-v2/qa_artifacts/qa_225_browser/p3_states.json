@@ -1,0 +1,78 @@
+{
+ "releases": {
+  "panels": [
+   {
+    "state": "LOADING",
+    "label": "Загрузка",
+    "label_color": "rgb(233, 250, 255)",
+    "msg": "Получаем данные из источника…",
+    "msg_color": "rgb(169, 195, 210)",
+    "bg": "rgba(0, 0, 0, 0) linear-gradient(145deg, rgba(6, 29, 49, 0.82), rgba(4, 20, 35, 0.72)) repeat scroll 0% 0% / auto padding-box border-box",
+    "border": "rgba(126, 226, 255, 0.16)"
+   },
+   {
+    "state": "SOURCE_UNAVAILABLE",
+    "label": "Источник недоступен",
+    "label_color": "rgb(233, 250, 255)",
+    "msg": "Источник временно недоступен. Нули не подставляются.",
+    "msg_color": "rgb(169, 195, 210)",
+    "bg": "rgba(0, 0, 0, 0) linear-gradient(145deg, rgba(6, 29, 49, 0.82), rgba(4, 20, 35, 0.72)) repeat scroll 0% 0% / auto padding-box border-box",
+    "border": "rgba(126, 226, 255, 0.16)"
+   },
+   {
+    "state": "SOURCE_UNAVAILABLE",
+    "label": "Источник недоступен",
+    "label_color": "rgb(233, 250, 255)",
+    "msg": "Источник временно недоступен. Нули не подставляются.",
+    "msg_color": "rgb(169, 195, 210)",
+    "bg": "rgba(0, 0, 0, 0) linear-gradient(145deg, rgba(6, 29, 49, 0.82), rgba(4, 20, 35, 0.72)) repeat scroll 0% 0% / auto padding-box border-box",
+    "border": "rgba(126, 226, 255, 0.16)"
+   }
+  ],
+  "evidence": 3,
+  "trace_present": true
+ },
+ "team": {
+  "panels": [
+   {
+    "state": "SOURCE_UNAVAILABLE",
+    "label": "Источник недоступен",
+    "label_color": "rgb(233, 250, 255)",
+    "msg": "Источник временно недоступен. Нули не подставляются.",
+    "msg_color": "rgb(169, 195, 210)",
+    "bg": "rgba(0, 0, 0, 0) linear-gradient(145deg, rgba(6, 29, 49, 0.82), rgba(4, 20, 35, 0.72)) repeat scroll 0% 0% / auto padding-box border-box",
+    "border": "rgba(126, 226, 255, 0.16)"
+   }
+  ]
+ },
+ "verdict": {
+  "panel_count": 4,
+  "states": [
+   "LOADING",
+   "SOURCE_UNAVAILABLE"
+  ],
+  "all_have_label": true,
+  "all_have_message": true,
+  "label_luminance_high": true,
+  "sample": [
+   {
+    "state": "LOADING",
+    "label": "Загрузка",
+    "label_color": "rgb(233, 250, 255)",
+    "msg": "Получаем данные из источника…",
+    "msg_color": "rgb(169, 195, 210)",
+    "bg": "rgba(0, 0, 0, 0) linear-gradient(145deg, rgba(6, 29, 49, 0.82), rgba(4, 20, 35, 0.72)) repeat scroll 0% 0% / auto padding-box border-box",
+    "border": "rgba(126, 226, 255, 0.16)"
+   },
+   {
+    "state": "SOURCE_UNAVAILABLE",
+    "label": "Источник недоступен",
+    "label_color": "rgb(233, 250, 255)",
+    "msg": "Источник временно недоступен. Нули не подставляются.",
+    "msg_color": "rgb(169, 195, 210)",
+    "bg": "rgba(0, 0, 0, 0) linear-gradient(145deg, rgba(6, 29, 49, 0.82), rgba(4, 20, 35, 0.72)) repeat scroll 0% 0% / auto padding-box border-box",
+    "border": "rgba(126, 226, 255, 0.16)"
+   }
+  ]
+ }
+}

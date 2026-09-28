@@ -1,0 +1,259 @@
+{
+ "pages": {
+  "Overview": {
+   "route": "/",
+   "section_class_found": true,
+   "background_image": "url(\"http://[::1]:5175/design/overview-bg.svg\")",
+   "background_url": "http://[::1]:5175/design/overview-bg.svg",
+   "mapped_bg": "overview-bg.svg",
+   "bg_matches_expected": true,
+   "svg_loaded_200": 1,
+   "body": {
+    "body_bg": "rgb(2, 10, 19)",
+    "body_color": "rgb(244, 251, 255)",
+    "card_bg": "rgba(0, 0, 0, 0)",
+    "card_border": "rgba(126, 226, 255, 0.18)",
+    "card_backdrop": "blur(16px)",
+    "h1_color": "rgb(247, 253, 255)",
+    "nav_active_found": true,
+    "chrome": {
+     "works": true,
+     "po_space": true,
+     "db_tribe": true
+    }
+   }
+  },
+  "Tasks": {
+   "route": "/tasks",
+   "section_class_found": true,
+   "background_image": "url(\"http://[::1]:5175/design/tasks-bg.svg\")",
+   "background_url": "http://[::1]:5175/design/tasks-bg.svg",
+   "mapped_bg": "tasks-bg.svg",
+   "bg_matches_expected": true,
+   "svg_loaded_200": 1,
+   "body": {
+    "body_bg": "rgb(2, 10, 19)",
+    "body_color": "rgb(244, 251, 255)",
+    "card_bg": "rgba(0, 0, 0, 0)",
+    "card_border": "rgba(126, 226, 255, 0.18)",
+    "card_backdrop": "blur(16px)",
+    "h1_color": "rgb(247, 253, 255)",
+    "nav_active_found": true,
+    "chrome": {
+     "works": true,
+     "po_space": true,
+     "db_tribe": true
+    }
+   }
+  },
+  "Sprints": {
+   "route": "/sprint",
+   "section_class_found": true,
+   "background_image": "url(\"http://[::1]:5175/design/sprint-bg.svg\")",
+   "background_url": "http://[::1]:5175/design/sprint-bg.svg",
+   "mapped_bg": "sprint-bg.svg",
+   "bg_matches_expected": true,
+   "svg_loaded_200": 1,
+   "body": {
+    "body_bg": "rgb(2, 10, 19)",
+    "body_color": "rgb(244, 251, 255)",
+    "card_bg": "rgba(0, 0, 0, 0)",
+    "card_border": "rgba(126, 226, 255, 0.18)",
+    "card_backdrop": "blur(16px)",
+    "h1_color": "rgb(247, 253, 255)",
+    "nav_active_found": true,
+    "chrome": {
+     "works": true,
+     "po_space": true,
+     "db_tribe": true
+    }
+   }
+  },
+  "Releases": {
+   "route": "/releases",
+   "section_class_found": true,
+   "background_image": "url(\"http://[::1]:5175/design/releases-bg.svg\")",
+   "background_url": "http://[::1]:5175/design/releases-bg.svg",
+   "mapped_bg": "releases-bg.svg",
+   "bg_matches_expected": true,
+   "svg_loaded_200": 1,
+   "body": {
+    "body_bg": "rgb(2, 10, 19)",
+    "body_color": "rgb(244, 251, 255)",
+    "card_bg": "rgba(0, 0, 0, 0)",
+    "card_border": "rgba(126, 226, 255, 0.18)",
+    "card_backdrop": "blur(16px)",
+    "h1_color": "rgb(247, 253, 255)",
+    "nav_active_found": true,
+    "chrome": {
+     "works": true,
+     "po_space": true,
+     "db_tribe": true
+    }
+   }
+  },
+  "Team": {
+   "route": "/team",
+   "section_class_found": true,
+   "background_image": "url(\"http://[::1]:5175/design/team-bg.svg\")",
+   "background_url": "http://[::1]:5175/design/team-bg.svg",
+   "mapped_bg": "team-bg.svg",
+   "bg_matches_expected": true,
+   "svg_loaded_200": 1,
+   "body": {
+    "body_bg": "rgb(2, 10, 19)",
+    "body_color": "rgb(244, 251, 255)",
+    "card_bg": "rgba(0, 0, 0, 0)",
+    "card_border": "rgba(126, 226, 255, 0.18)",
+    "card_backdrop": "blur(16px)",
+    "h1_color": "rgb(247, 253, 255)",
+    "nav_active_found": true,
+    "chrome": {
+     "works": true,
+     "po_space": true,
+     "db_tribe": true
+    }
+   }
+  },
+  "Quality": {
+   "route": "/quality",
+   "section_class_found": true,
+   "background_image": "url(\"http://[::1]:5175/design/quality-bg.svg\")",
+   "background_url": "http://[::1]:5175/design/quality-bg.svg",
+   "mapped_bg": "quality-bg.svg",
+   "bg_matches_expected": true,
+   "svg_loaded_200": 1,
+   "body": {
+    "body_bg": "rgb(2, 10, 19)",
+    "body_color": "rgb(244, 251, 255)",
+    "card_bg": "rgba(0, 0, 0, 0)",
+    "card_border": "rgba(126, 226, 255, 0.18)",
+    "card_backdrop": "blur(16px)",
+    "h1_color": "rgb(247, 253, 255)",
+    "nav_active_found": true,
+    "chrome": {
+     "works": true,
+     "po_space": true,
+     "db_tribe": true
+    }
+   }
+  }
+ },
+ "network": {
+  "svg": [
+   {
+    "url": "http://[::1]:5175/design/overview-bg.svg",
+    "status": 200
+   },
+   {
+    "url": "http://[::1]:5175/design/tasks-bg.svg",
+    "status": 200
+   },
+   {
+    "url": "http://[::1]:5175/design/sprint-bg.svg",
+    "status": 200
+   },
+   {
+    "url": "http://[::1]:5175/design/releases-bg.svg",
+    "status": 200
+   },
+   {
+    "url": "http://[::1]:5175/design/team-bg.svg",
+    "status": 200
+   },
+   {
+    "url": "http://[::1]:5175/design/quality-bg.svg",
+    "status": 200
+   },
+   {
+    "url": "http://[::1]:5175/design/overview-bg.svg",
+    "status": 200
+   }
+  ],
+  "failed": [],
+  "console_errors": []
+ },
+ "theme": {
+  "Overview": {
+   "body_dark": true,
+   "body_bg": "rgb(2, 10, 19)",
+   "card_dark": true
+  },
+  "Tasks": {
+   "body_dark": true,
+   "body_bg": "rgb(2, 10, 19)",
+   "card_dark": true
+  },
+  "Sprints": {
+   "body_dark": true,
+   "body_bg": "rgb(2, 10, 19)",
+   "card_dark": true
+  },
+  "Releases": {
+   "body_dark": true,
+   "body_bg": "rgb(2, 10, 19)",
+   "card_dark": true
+  },
+  "Team": {
+   "body_dark": true,
+   "body_bg": "rgb(2, 10, 19)",
+   "card_dark": true
+  },
+  "Quality": {
+   "body_dark": true,
+   "body_bg": "rgb(2, 10, 19)",
+   "card_dark": true
+  }
+ },
+ "distinct_backgrounds": 6,
+ "all_backgrounds_loaded": true,
+ "svg_total_200": 6,
+ "svg_non200": [],
+ "route_retention": {
+  "steps": [
+   {
+    "to": "Обзор",
+    "url": "http://[::1]:5175/design/overview-bg.svg",
+    "expected": "overview-bg.svg",
+    "correct": true,
+    "retained_previous": null
+   },
+   {
+    "to": "Задачи",
+    "url": "http://[::1]:5175/design/tasks-bg.svg",
+    "expected": "tasks-bg.svg",
+    "correct": true,
+    "retained_previous": null
+   },
+   {
+    "to": "Спринты",
+    "url": "http://[::1]:5175/design/sprint-bg.svg",
+    "expected": "sprint-bg.svg",
+    "correct": true,
+    "retained_previous": null
+   },
+   {
+    "to": "Релизы",
+    "url": "http://[::1]:5175/design/releases-bg.svg",
+    "expected": "releases-bg.svg",
+    "correct": true,
+    "retained_previous": null
+   },
+   {
+    "to": "Команда",
+    "url": "http://[::1]:5175/design/team-bg.svg",
+    "expected": "team-bg.svg",
+    "correct": true,
+    "retained_previous": null
+   },
+   {
+    "to": "Качество",
+    "url": "http://[::1]:5175/design/quality-bg.svg",
+    "expected": "quality-bg.svg",
+    "correct": true,
+    "retained_previous": null
+   }
+  ],
+  "all_correct": true
+ }
+}
