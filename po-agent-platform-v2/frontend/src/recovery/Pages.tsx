@@ -9,6 +9,7 @@ type WorkspaceContext = { openAgent(): void }
 type TaskRow = Record<string, unknown>
 type LocalTask = {
   id: string
+  number: number
   title: string
   description: string
   owner: string
@@ -60,7 +61,19 @@ function TaskCard({ task, onOpen }: { task: TaskRow; onOpen(task: TaskRow): void
   </button>
 }
 
-function LocalTaskDrawer({ open, onClose, onCreate }: { open: boolean; onClose(): void; onCreate(task: LocalTask): void }) {
+function LocalTaskDrawer({
+  open,
+  onClose,
+  task,
+  nextNumber,
+  onSave,
+}: {
+  open: boolean
+  onClose(): void
+  task: LocalTask | null
+  nextNumber: number
+  onSave(task: LocalTask): void
+}) {
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
   const [owner, setOwner] = useState('')
@@ -68,11 +81,24 @@ function LocalTaskDrawer({ open, onClose, onCreate }: { open: boolean; onClose()
   const [status, setStatus] = useState<LocalTask['status']>('TODO')
   const [labels, setLabels] = useState('')
   const [deadline, setDeadline] = useState('')
+
+  useEffect(() => {
+    if (!open) return
+    setTitle(task?.title ?? '')
+    setDescription(task?.description ?? '')
+    setOwner(task?.owner ?? '')
+    setPriority(task?.priority ?? 'MEDIUM')
+    setStatus(task?.status ?? 'TODO')
+    setLabels(task?.labels.join(', ') ?? '')
+    setDeadline(task?.deadline ?? '')
+  }, [open, task])
+
   const submit = (event: FormEvent) => {
     event.preventDefault()
     if (!title.trim()) return
-    onCreate({
-      id: `LOCAL-${Date.now()}`,
+    onSave({
+      id: task?.id ?? `LOCAL-${Date.now()}`,
+      number: task?.number ?? nextNumber,
       title: title.trim(),
       description: description.trim(),
       owner: owner.trim(),
@@ -80,14 +106,26 @@ function LocalTaskDrawer({ open, onClose, onCreate }: { open: boolean; onClose()
       status,
       labels: labels.split(',').map(item => item.trim()).filter(Boolean),
       deadline,
-      createdAt: new Date().toISOString(),
+      createdAt: task?.createdAt ?? new Date().toISOString(),
     })
-    setTitle(''); setDescription(''); setOwner(''); setPriority('MEDIUM'); setStatus('TODO'); setLabels(''); setDeadline(''); onClose()
+    onClose()
   }
+
+  const addTag = (tag: string) => {
+    const existing = labels.split(',').map(item => item.trim()).filter(Boolean)
+    if (!existing.includes(tag)) setLabels([...existing, tag].join(', '))
+  }
+
   return <>
     <div className={`drawer-scrim ${open ? 'visible' : ''}`} onClick={onClose} />
     <aside className={`task-drawer ${open ? 'task-drawer-open' : ''}`} aria-hidden={!open}>
-      <div className="agent-header"><div><div className="agent-kicker">LOCAL TASK</div><strong>Создать локальную задачу</strong></div><button className="icon-button" onClick={onClose}>×</button></div>
+      <div className="agent-header">
+        <div>
+          <div className="agent-kicker">LOCAL TASK · №{task?.number ?? nextNumber}</div>
+          <strong>{task ? 'Редактировать локальную задачу' : 'Создать локальную задачу'}</strong>
+        </div>
+        <button className="icon-button" onClick={onClose}>×</button>
+      </div>
       <form className="task-form" onSubmit={submit}>
         <label>Название<input value={title} onChange={e => setTitle(e.target.value)} placeholder="Что нужно сделать" autoFocus={open} /></label>
         <label>Описание<textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Контекст, ожидаемый результат, ограничения" rows={7} /></label>
@@ -95,10 +133,13 @@ function LocalTaskDrawer({ open, onClose, onCreate }: { open: boolean; onClose()
         <label>Приоритет<select value={priority} onChange={e => setPriority(e.target.value as LocalTask['priority'])}><option value="LOW">Низкий</option><option value="MEDIUM">Средний</option><option value="HIGH">Высокий</option><option value="CRITICAL">Критичный</option></select></label>
         <label>Статус<select value={status} onChange={e => setStatus(e.target.value as LocalTask['status'])}><option value="TODO">TODO</option><option value="IN_PROGRESS">IN PROGRESS</option><option value="BLOCKED">BLOCKED</option><option value="DONE">DONE</option></select></label>
         <label>Теги<input value={labels} onChange={e => setLabels(e.target.value)} placeholder="Управленческие задачи, Поручения — через запятую" /></label>
-        <div className="tag-suggestions"><button type="button" onClick={() => setLabels(value => value ? value + ', Управленческие задачи' : 'Управленческие задачи')}>+ Управленческие задачи</button><button type="button" onClick={() => setLabels(value => value ? value + ', Поручения' : 'Поручения')}>+ Поручения</button></div>
-        <label>Дедлайн<input type="date" value={deadline} onChange={e => setDeadline(e.target.value)} /></label>
+        <div className="tag-suggestions">
+          <button type="button" onClick={() => addTag('Управленческие задачи')}>+ Управленческие задачи</button>
+          <button type="button" onClick={() => addTag('Поручения')}>+ Поручения</button>
+        </div>
+        <label>Дедлайн<input className="deadline-input" type="date" value={deadline} onChange={e => setDeadline(e.target.value)} /></label>
         <div className="form-note">Локальная задача сохраняется только в браузере и не пишет в AS21 без отдельного approval/write capability.</div>
-        <div className="form-actions"><button type="button" onClick={onClose}>Отмена</button><button className="primary-button" type="submit" disabled={!title.trim()}>Создать</button></div>
+        <div className="form-actions"><button type="button" onClick={onClose}>Отмена</button><button className="primary-button" type="submit" disabled={!title.trim()}>{task ? 'Сохранить' : 'Создать'}</button></div>
       </form>
     </aside>
   </>
@@ -178,12 +219,28 @@ export function TasksPage() {
   const [as21StatusFilter, setAs21StatusFilter] = useSessionState('tasks.as21-status', 'ALL')
   const [localStatusFilter, setLocalStatusFilter] = useSessionState<'ALL' | LocalTask['status']>('tasks.local-status', 'ALL')
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [editingLocalTask, setEditingLocalTask] = useState<LocalTask | null>(null)
   const [selectedTask, setSelectedTask] = useState<TaskRow | null>(null)
   const [localTasks, setLocalTasks] = useState<LocalTask[]>(() => {
     try {
       const raw = JSON.parse(localStorage.getItem('po-local-tasks') ?? '[]') as Array<Partial<LocalTask>>
-      return raw.map(task => ({
-        id: String(task.id ?? `LOCAL-${Date.now()}`),
+      const ordered = raw
+        .map((task, index) => ({
+          ...task,
+          __index: index,
+          createdAt: String(task.createdAt ?? new Date().toISOString()),
+        }))
+        .sort((a, b) => a.createdAt.localeCompare(b.createdAt) || a.__index - b.__index)
+      let next = Math.max(0, ...ordered.map(task => Number(task.number ?? 0)).filter(Number.isFinite))
+      const assigned = new Map<number, number>()
+      for (const task of ordered) {
+        const originalIndex = task.__index
+        const existing = Number(task.number ?? 0)
+        assigned.set(originalIndex, existing > 0 ? existing : ++next)
+      }
+      return raw.map((task, index) => ({
+        id: String(task.id ?? `LOCAL-${Date.now()}-${index}`),
+        number: assigned.get(index) ?? index + 1,
         title: String(task.title ?? ''),
         description: String(task.description ?? ''),
         owner: String(task.owner ?? ''),
@@ -196,6 +253,7 @@ export function TasksPage() {
     } catch { return [] }
   })
   useEffect(() => { localStorage.setItem('po-local-tasks', JSON.stringify(localTasks)) }, [localTasks])
+  const nextLocalNumber = useMemo(() => Math.max(0, ...localTasks.map(task => task.number || 0)) + 1, [localTasks])
   const as21Statuses = useMemo(() => Array.from(new Set(tasks.map(task => String(task.status ?? '').trim()).filter(Boolean))).sort(), [tasks])
   const visibleTasks = useMemo(
     () => as21StatusFilter === 'ALL' ? tasks : tasks.filter(task => String(task.status ?? '').toLocaleLowerCase() === as21StatusFilter.toLocaleLowerCase()),
@@ -211,7 +269,7 @@ export function TasksPage() {
       <div className="filter-modes">
         {([['text','Текст'],['attachments','Вложения'],['excel','Excel'],['pdf','PDF'],['msg','MSG'],['assignee','Исполнитель'],['status','Статус'],['sprint','Спринт'],['release','Релиз']] as Array<[FilterMode,string]>).map(([id,label]) => <button type="button" key={id} className={mode === id ? 'active' : ''} onClick={() => setMode(id)}>{label}</button>)}
       </div>
-      <div className="filter-input-row"><input value={search} onChange={e => setSearch(e.target.value)} placeholder={placeholder} /><button type="submit">Найти</button><button type="button" onClick={() => setDrawerOpen(true)}>+ Локальная задача</button></div>
+      <div className="filter-input-row"><input value={search} onChange={e => setSearch(e.target.value)} placeholder={placeholder} /><button type="submit">Найти</button><button type="button" onClick={() => { setEditingLocalTask(null); setDrawerOpen(true) }}>+ Локальная задача</button></div>
       <div className="filter-input-row">
         <label>Статус AS21
           <select value={as21StatusFilter} onChange={e => setAs21StatusFilter(e.target.value)}>
@@ -233,18 +291,21 @@ export function TasksPage() {
     </form>
     {localTasks.length > 0 && <div className="panel local-panel">
       <div className="panel-title"><strong>Локальные задачи</strong><span>{visibleLocalTasks.length}/{localTasks.length}</span></div>
-      {visibleLocalTasks.map(t => <div className="task-row" key={t.id}>
-        <div className="task-key">{t.id}</div>
-        <div className="task-main">
-          <b>{t.title}</b>
-          <span>{t.owner || 'Без ответственного'} · {priorityLabel(t.priority)}{t.deadline ? ` · до ${t.deadline}` : ''}</span>
-          {t.labels.length > 0 && <div className="local-tag-row">{t.labels.map(label => <span className="local-tag" key={label}>{label}</span>)}</div>}
-        </div>
+      {visibleLocalTasks.map(t => <div className="local-task-list-row" key={t.id}>
+        <button type="button" className="local-task-open" onClick={() => { setEditingLocalTask(t); setDrawerOpen(true) }}>
+          <span className="local-task-number">№{t.number}</span>
+          <span className="local-task-content">
+            <strong>{t.title}</strong>
+            <span className="local-task-meta">{t.owner || 'Без ответственного'} · {priorityLabel(t.priority)}{t.deadline ? ` · дедлайн ${new Date(t.deadline + 'T00:00:00').toLocaleDateString('ru-RU')}` : ' · без дедлайна'}</span>
+            {t.labels.length > 0 && <span className="local-tag-row">{t.labels.map(label => <span className="local-tag" key={label}>{label}</span>)}</span>}
+          </span>
+          <span className="local-task-tech-id">{t.id}</span>
+        </button>
         <select
           className="status-pill"
           value={t.status}
           onChange={e => setLocalTasks(items => items.map(item => item.id === t.id ? { ...item, status: e.target.value as LocalTask['status'] } : item))}
-          aria-label={`Статус ${t.id}`}
+          aria-label={`Статус №${t.number}`}
         >
           <option value="TODO">TODO</option>
           <option value="IN_PROGRESS">IN PROGRESS</option>
@@ -254,13 +315,22 @@ export function TasksPage() {
         <button
           type="button"
           className="icon-button"
-          aria-label={`Удалить ${t.id}`}
+          aria-label={`Удалить локальную задачу №${t.number}`}
           onClick={() => setLocalTasks(items => items.filter(item => item.id !== t.id))}
         >×</button>
       </div>)}
     </div>}
     <div className="panel"><div className="panel-title"><strong>Задачи AS21</strong><span>{stateAllowsBusinessData(resultState) ? `${visibleTasks.length}/${tasks.length}` : '—'}</span></div>{stateAllowsBusinessData(resultState) ? (tasks.length ? (visibleTasks.length ? <div className="task-card-grid">{visibleTasks.map(t => <TaskCard key={String(t.key)} task={t} onOpen={setSelectedTask} />)}</div> : <EmptyData text="По выбранному статусу задач нет" />) : <EmptyData text="Источник подтвердил: задачи не найдены" />) : <ResultStatePanel result={result} />}</div>
-    <LocalTaskDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} onCreate={task => setLocalTasks(items => [task, ...items])} />
+    <LocalTaskDrawer
+      open={drawerOpen}
+      task={editingLocalTask}
+      nextNumber={nextLocalNumber}
+      onClose={() => { setDrawerOpen(false); setEditingLocalTask(null) }}
+      onSave={task => setLocalTasks(items => {
+        const exists = items.some(item => item.id === task.id)
+        return exists ? items.map(item => item.id === task.id ? task : item) : [task, ...items]
+      })}
+    />
     <TaskDetailsDrawer task={selectedTask} onClose={() => setSelectedTask(null)} />
   </section>
 }
