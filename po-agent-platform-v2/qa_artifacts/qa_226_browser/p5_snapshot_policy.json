@@ -1,0 +1,356 @@
+{
+ "pages": {
+  "overview": {
+   "fresh_load": {
+    "ok": true,
+    "live_query_posts": 4,
+    "expected_min": 4,
+    "live_queries_occurred": true,
+    "snapshot_ts_visible": true,
+    "snapshot_ts": "Снимок · обновлено 08:13 PM",
+    "session_snapshot_keys": 4,
+    "session_snapshot_keys_sample": [
+     "po-page-snapshot:v1:overview:Покажи очередь внимания",
+     "po-page-snapshot:v1:overview:Сделай status report",
+     "po-page-snapshot:v1:overview:Сделай daily brief"
+    ],
+    "data_marker": {
+     "metric_cards": [
+      "—",
+      "—",
+      "—",
+      "21.2%"
+     ]
+    }
+   },
+   "nav_back": {
+    "new_posts_on_return": 0,
+    "ts_unchanged": true,
+    "ts": "Снимок · обновлено 08:13 PM",
+    "data_restored": true,
+    "data_marker": {
+     "metric_cards": [
+      "—",
+      "—",
+      "—",
+      "21.2%"
+     ]
+    }
+   },
+   "refresh": {
+    "old_data_during_refresh": true,
+    "button_during": "Обновляем…",
+    "new_posts": 4,
+    "expected_posts": 4,
+    "posts_match_expected": true,
+    "ts_updated": true,
+    "ts_after": "Снимок · обновлено 08:14 PM",
+    "snapshot_keys_after": 5,
+    "refresh_error_shown": false
+   },
+   "idle": {
+    "new_posts_30s": 0,
+    "no_background_polling": true
+   }
+  },
+  "tasks": {
+   "fresh_load": {
+    "ok": true,
+    "live_query_posts": 2,
+    "expected_min": 1,
+    "live_queries_occurred": true,
+    "snapshot_ts_visible": true,
+    "snapshot_ts": "Снимок · обновлено 08:15 PM",
+    "session_snapshot_keys": 1,
+    "session_snapshot_keys_sample": [
+     "po-page-snapshot:v1:tasks:text:login:Найди login"
+    ],
+    "data_marker": {
+     "task_cards": 0
+    }
+   },
+   "nav_back": {
+    "new_posts_on_return": 1,
+    "ts_unchanged": true,
+    "ts": "Снимок · обновлено 08:15 PM",
+    "data_restored": true,
+    "data_marker": {
+     "task_cards": 0
+    }
+   },
+   "refresh": {
+    "old_data_during_refresh": true,
+    "button_during": "Обновляем…",
+    "new_posts": 1,
+    "expected_posts": 1,
+    "posts_match_expected": true,
+    "ts_updated": true,
+    "ts_after": "Снимок · обновлено 08:16 PM",
+    "snapshot_keys_after": 5,
+    "refresh_error_shown": false
+   },
+   "idle": {
+    "new_posts_30s": 0,
+    "no_background_polling": true
+   }
+  },
+  "sprint": {
+   "fresh_load": {
+    "ok": true,
+    "live_query_posts": 6,
+    "expected_min": 6,
+    "live_queries_occurred": true,
+    "snapshot_ts_visible": true,
+    "snapshot_ts": "Снимок · обновлено 08:17 PM",
+    "session_snapshot_keys": 6,
+    "session_snapshot_keys_sample": [
+     "po-page-snapshot:v1:sprint:WMB-SPRNT-1:Покажи throughput WMB-SPRNT-1",
+     "po-page-snapshot:v1:sprint:WMB-SPRNT-1:Покажи риски спринта WMB-SPRNT-1",
+     "po-page-snapshot:v1:sprint:WMB-SPRNT-1:Покажи predictability WMB-SPRNT-1"
+    ],
+    "data_marker": {
+     "metric_cards": [
+      "2",
+      "0",
+      "0 tasks/sprint",
+      "—"
+     ]
+    }
+   },
+   "nav_back": {
+    "new_posts_on_return": 0,
+    "ts_unchanged": true,
+    "ts": "Снимок · обновлено 08:17 PM",
+    "data_restored": true,
+    "data_marker": {
+     "metric_cards": [
+      "2",
+      "0",
+      "0 tasks/sprint",
+      "—"
+     ]
+    }
+   },
+   "refresh": {
+    "old_data_during_refresh": true,
+    "button_during": "Обновляем…",
+    "new_posts": 6,
+    "expected_posts": 6,
+    "posts_match_expected": true,
+    "ts_updated": true,
+    "ts_after": "Снимок · обновлено 08:19 PM",
+    "snapshot_keys_after": 10,
+    "refresh_error_shown": false
+   },
+   "idle": {
+    "new_posts_30s": 0,
+    "no_background_polling": true
+   }
+  },
+  "releases": {
+   "fresh_load": {
+    "ok": true,
+    "live_query_posts": 5,
+    "expected_min": 5,
+    "live_queries_occurred": true,
+    "snapshot_ts_visible": true,
+    "snapshot_ts": "Снимок · обновлено 08:20 PM",
+    "session_snapshot_keys": 5,
+    "session_snapshot_keys_sample": [
+     "po-page-snapshot:v1:release:WMB-2024-Q3:Покажи scope WMB-2024-Q3",
+     "po-page-snapshot:v1:release:WMB-2024-Q3:Покажи блокеры WMB-2024-Q3",
+     "po-page-snapshot:v1:release:WMB-2024-Q3:Покажи зависимости WMB-2024-Q3"
+    ],
+    "data_marker": {
+     "metric_cards": [
+      "—",
+      "—",
+      "—",
+      "—"
+     ]
+    }
+   },
+   "nav_back": {
+    "new_posts_on_return": 0,
+    "ts_unchanged": true,
+    "ts": "Снимок · обновлено 08:20 PM",
+    "data_restored": true,
+    "data_marker": {
+     "metric_cards": [
+      "—",
+      "—",
+      "—",
+      "—"
+     ]
+    }
+   },
+   "refresh": {
+    "old_data_during_refresh": true,
+    "button_during": "Обновляем…",
+    "new_posts": 5,
+    "expected_posts": 5,
+    "posts_match_expected": true,
+    "ts_updated": true,
+    "ts_after": "Снимок · обновлено 08:22 PM",
+    "snapshot_keys_after": 9,
+    "refresh_error_shown": false
+   },
+   "idle": {
+    "new_posts_30s": 0,
+    "no_background_polling": true
+   }
+  },
+  "team": {
+   "fresh_load": {
+    "ok": true,
+    "live_query_posts": 6,
+    "expected_min": 6,
+    "live_queries_occurred": true,
+    "snapshot_ts_visible": true,
+    "snapshot_ts": "Снимок · обновлено 08:23 PM",
+    "session_snapshot_keys": 6,
+    "session_snapshot_keys_sample": [
+     "po-page-snapshot:v1:team:DMS:Покажи узкие места команды DMS",
+     "po-page-snapshot:v1:team:DMS:Покажи блокировки команды DMS",
+     "po-page-snapshot:v1:team:DMS:Покажи нагрузку команды DMS"
+    ],
+    "data_marker": {
+     "workload_rows": 14,
+     "capacity_rows": 9
+    }
+   },
+   "nav_back": {
+    "new_posts_on_return": 0,
+    "ts_unchanged": true,
+    "ts": "Снимок · обновлено 08:23 PM",
+    "data_restored": true,
+    "data_marker": {
+     "workload_rows": 14,
+     "capacity_rows": 9
+    }
+   },
+   "refresh": {
+    "old_data_during_refresh": true,
+    "button_during": "Обновляем…",
+    "new_posts": 6,
+    "expected_posts": 6,
+    "posts_match_expected": true,
+    "ts_updated": true,
+    "ts_after": "Снимок · обновлено 08:25 PM",
+    "snapshot_keys_after": 10,
+    "refresh_error_shown": false
+   },
+   "idle": {
+    "new_posts_30s": 0,
+    "no_background_polling": true
+   }
+  },
+  "quality": {
+   "fresh_load": {
+    "ok": true,
+    "live_query_posts": 4,
+    "expected_min": 4,
+    "live_queries_occurred": true,
+    "snapshot_ts_visible": true,
+    "snapshot_ts": "Снимок · обновлено 08:26 PM",
+    "session_snapshot_keys": 4,
+    "session_snapshot_keys_sample": [
+     "po-page-snapshot:v1:quality:WMB-102:Покажи критерии приемки WMB-102",
+     "po-page-snapshot:v1:quality:WMB-102:Оцени постановку WMB-102",
+     "po-page-snapshot:v1:quality:WMB-102:Чего не хватает в задаче WMB-102"
+    ],
+    "data_marker": {
+     "metric_cards": [
+      "85/100",
+      "0/100",
+      "1",
+      "REWORK"
+     ]
+    }
+   },
+   "nav_back": {
+    "new_posts_on_return": 0,
+    "ts_unchanged": true,
+    "ts": "Снимок · обновлено 08:26 PM",
+    "data_restored": true,
+    "data_marker": {
+     "metric_cards": [
+      "85/100",
+      "0/100",
+      "1",
+      "REWORK"
+     ]
+    }
+   },
+   "refresh": {
+    "old_data_during_refresh": true,
+    "button_during": "Обновляем…",
+    "new_posts": 4,
+    "expected_posts": 4,
+    "posts_match_expected": true,
+    "ts_updated": true,
+    "ts_after": "Снимок · обновлено 08:29 PM",
+    "snapshot_keys_after": 8,
+    "refresh_error_shown": false
+   },
+   "idle": {
+    "new_posts_30s": 0,
+    "no_background_polling": true
+   }
+  }
+ },
+ "failure": {
+  "valid_snapshot_first": true,
+  "data_before": {
+   "workload_rows": 14,
+   "capacity_rows": 9
+  },
+  "after_kill": {
+   "error_state_text": "Не удалось обновить · данные на 08:30 PM",
+   "shows_kept_ts": true,
+   "old_data_still_visible": true,
+   "data_after_fail": {
+    "workload_rows": 14,
+    "capacity_rows": 9
+   },
+   "snapshot_not_erased": true,
+   "snap_keys_before": 6,
+   "snap_keys_after": 6
+  },
+  "retry_after_recovery": {
+   "refresh_succeeded": true,
+   "posts_on_retry": 6,
+   "data_restored_visible": true,
+   "data_after_retry": {
+    "workload_rows": 14,
+    "capacity_rows": 9
+   }
+  }
+ },
+ "p6_team_isolation": {
+  "olp_first_load_posts": 6,
+  "olp_loaded_live": true,
+  "olp_data": {
+   "workload_rows": 0,
+   "capacity_rows": 0
+  },
+  "back_to_dms_new_posts": 0,
+  "dms_restored_no_leak": true,
+  "dms_data_after_back": {
+   "workload_rows": 14,
+   "capacity_rows": 9
+  },
+  "dms_data_original": {
+   "workload_rows": 14,
+   "capacity_rows": 9
+  }
+ },
+ "storage": {
+  "session_snapshot_keys_fresh": [],
+  "session_all_keys": [
+   "po-agent-runtime-session-id"
+  ],
+  "local_keys": [],
+  "local_only_po_local_tasks": true
+ }
+}

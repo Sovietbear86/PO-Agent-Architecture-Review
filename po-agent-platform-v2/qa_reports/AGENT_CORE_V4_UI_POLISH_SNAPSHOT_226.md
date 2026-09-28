@@ -2,14 +2,16 @@
 
 **Verdict:** `AGENT_CORE_V4_UI_POLISH_SNAPSHOT_RED_A226`
 
-**Classification:** `RED_SOURCE_TIMESTAMP_PLUMBING` (team-scoped `task.aging` depends on the live assignee route, which does not expose source `created_at`; the capability therefore fails closed on every space)
+**Classification:** two independent confirmed defects —
+1. **D-A226-1** `RED_SOURCE_TIMESTAMP_PLUMBING` (P4): team-scoped `task.aging` depends on the live assignee route, which does not expose source `created_at`; the capability therefore fails closed on every space.
+2. **D-A226-2** `RED_SNAPSHOT_POLICY_PLACEHOLDER_QUERY` (P5): the tasks page's always-mounted `TaskDetailsDrawer` issues a live `Найди __none__` query on every mount (fresh load = 2 POSTs, nav-return = 1 POST), bypassing the snapshot layer and violating the "no new source reads on return" policy.
 
 **Test HEAD / START_HEAD:** `de4cc9c07395c4f8760ef3ca7d85c970d1e50378`
 **Frozen baseline:** A225 `AGENT_CORE_V4_UI_VISUAL_DESIGN_GREEN_A225` at `09bcbd22d87b478396970d0ddf89cbf6d531d421` (diff base for this assignment)
-**Test stack:** agent 8212 (PID 42486, `PO_AGENT_EXPECTED_HEAD=de4cc9c`, fresh restart at report time), task-api 8241 (PID 26008, system py3), MCP-SWTR 3000 (PID 25954), vite `[::1]:5175` (PID 42534, fresh). All 200 at session start; agent `/live` 200.
-**Artifacts:** `po-agent-platform-v2/qa_artifacts/qa_226_browser/` (`capability_direct.json`, `oracle_p2.json`, `oracle_p4.json`, `p2_team_dms.png`, `p4_agent_api.json`, `p4_agent_trajectory.json`, `p4_quality_aging_ui.png`, `p7_backgrounds_overflow.json`, `p2_team_p4_ui.json`).
+**Test stack:** agent 8212 (PID 42486 at P0–P4; the P5 harness performed the spec'd refresh-failure test, which killed and restarted the agent → current PID 42740, same `PO_AGENT_EXPECTED_HEAD=de4cc9c`), task-api 8241 (PID 26008, system py3), MCP-SWTR 3000 (PID 25954), vite `[::1]:5175` (PID 42534 → 42797 after the P5-harness restart, same build). All 200 throughout; agent `/live` 200 verified after restart.
+**Artifacts:** `po-agent-platform-v2/qa_artifacts/qa_226_browser/` (`capability_direct.json`, `oracle_p2.json`, `oracle_p4.json`, `p1_dark_surfaces.json`, `p1_brief_dom_hash.json`, `p1_brief_raw_answer.txt`, `p1_overview_brief.png`, `p1_v4_result_panel.png`, `p1_competency.png`, `p2_team_dms.png`, `p4_agent_api.json`, `p4_agent_trajectory.json`, `p4_quality_aging_ui.png`, `p5_snapshot_policy.json`, `p5_tasks_forensic.json`, `p5_tasks_forensic.log`, `p5_run.log`, `p5_refresh_failure.png`, `p5_refresh_retry_ok.png`, `p7_backgrounds_overflow.json`, `p2_team_p4_ui.json`).
 
-**STOP rule applied:** first confirmed boundary reached at **P4**; P1 (Browser C dark surfaces), P5 (snapshot policy), P6 (snapshot context isolation) and the full P8 audit were **not** gated (spec: "identify first confirmed boundary … STOP"). Evidence for the boundary (screenshots + source + API trajectory + Oracle B) is preserved below and in artifacts.
+**STOP rule applied (initial report):** first confirmed boundary reached at **P4** (below). P1 and P5 were subsequently gated in this session (continuation); **P5 confirmed a second, independent defect D-A226-2** (tasks page live placeholder query on every mount). P6 (full snapshot context isolation) and the full P8 audit remain **not gated**. Evidence for both confirmed boundaries is preserved below and in artifacts.
 
 ---
 
@@ -18,12 +20,12 @@
 | Phase | Result | Note |
 |---|---|---|
 | P0 diff/build/architecture | **GREEN** | 0 Agent Core/planner/runtime drift; backend deltas = plugin team-aging + utilization worklog_count only; frontend = presentation/snapshot wiring; 0 mutation verbs added |
-| P1 dark structured surfaces | **NOT GATED** | STOP at P4 |
+| P1 dark structured surfaces | **GREEN** | Daily Brief table, V4 result panel, competency table all dark glass; `#` raw-MD flag was a false positive (`<TH>` rank cell); no raw-markdown regression |
 | P2 Team actual utilization | **GREEN** | exact per-member parity DMS 9/9 + OLP REAL_EMPTY; worklog_count present; numerator REAL_AS21 / denominator OWNER_POLICY; 40ч visible; no false SOURCE_UNAVAILABLE |
 | P3 top-right products | **GREEN** | exactly `OLAP` + `DataMarts`; DTMS absent; click inert (no query fired); route nav unaffected |
-| P4 team-scoped Aging | **RED (first confirmed boundary)** | `/assignee-tasks` route lacks `created_at` → `task.aging` team_scope fails closed on every space |
-| P5 snapshot policy | **NOT GATED** | STOP at P4 (snapshot layer code-reviewed, see below) |
-| P6 snapshot context isolation | **NOT GATED** | STOP at P4 |
+| P4 team-scoped Aging | **RED (first confirmed boundary, D-A226-1)** | `/assignee-tasks` route lacks `created_at` → `task.aging` team_scope fails closed on every space |
+| P5 snapshot policy | **RED (D-A226-2)** | 5/6 pages exact policy; tasks page fires a live `Найди __none__` placeholder query on **every mount** (fresh=2, return=1 POST) — always-mounted `TaskDetailsDrawer` uses non-snapshot `useHarness` |
+| P6 snapshot context isolation | **SUBSET GREEN / full NOT GATED** | Team DMS↔OLP subset (run inside the P5 harness): OLP first load 6 live POSTs (uncached — correct), back to DMS **0** POSTs, DMS data byte-identical |
 | P7 retained design smoke | **GREEN (backgrounds + overflow portion)** | 6 distinct slide-derived backgrounds; 0 document overflow at 1440 and 480 |
 | P8 audit | **PARTIAL (clean so far)** | 0 AS21 mutations, 0 local `/api/v1/tasks` reads, 0 tenant-wide scans in the tested window; full audit deferred by STOP |
 
@@ -53,6 +55,18 @@ Proven:
 **Pre-existing failure (not A226):** `test_skill_registry.py::test_get_active_skills` fails **identically on the A225 checkpoint** `09bcbd2` (reproduced in a read-only worktree: same `assert 8 == 9`). It passes in isolation on both. This is a legacy test-isolation artifact (shared `INITIAL_SKILLS` registry state under broad `-k` selection), present before A226; A226 only *added* 2 passing tests (274→276). Out of scope.
 
 **Test-masking (non-blocking, relevant to P4 fix):** the new `test_agent_core_v4_team_aging.py` builds `_task()` with `source_data={"_canonical_created_at_from_source": True}` and monkeypatches `_live_rows`. It therefore never exercises the real route; the production fail-closed branch (the only branch that fires live, because the real assignee route has no `created_at`) is untested. See P4 owner fix.
+
+---
+
+## P1 — Dark structured surfaces — GREEN
+
+Browser C across the structured (table/panel) surfaces that carry real data (`p1_dark_surfaces.json`, `p1_overview_brief.png`, `p1_v4_result_panel.png`, `p1_competency.png`):
+
+- **Daily Brief table (Overview):** dark glass theme — wrapper luminance 0.062, `<th>` 0.189, `<td>` 0.082, text `rgb(227,243,248)`. No white-dominant cells.
+- **V4 result panel (V4ResultPanel):** dark gradient `linear-gradient(145deg, rgba(5,25,43,0.9), rgba(3,17,31,0.84))`, 2 structured rows rendered, text `rgb(220,238,246)`.
+- **Competency table:** dark `<th>`/`<td>` surfaces, no raw-markdown cells.
+- **No raw-markdown regression.** The initial automated flag `raw_md_hash_heading: true` was a **false positive**: the detected `#` is the content of a `<TH>` cell (rank column of a rendered table), not an unparsed markdown heading. All `##`/`###` headings render as `.answer-heading` divs and pipe tables render as real `<table>` elements (forensic DOM inspection, `p1_brief_dom_hash.json` + `p1_brief_raw_answer.txt`).
+- **Non-blocking observation (pre-existing, not an A226 regression):** the V4 panel shows 2 structured rows because `structuredRows()` picks the top-level `results` array (2 items) before descending to the nested `tasks` array (74 items). This field-order logic predates the A226 diff; the panel itself is dark-themed and correct.
 
 ---
 
@@ -127,6 +141,47 @@ This is the same defect class as **A185 B1 / A210** (source timestamp not plumbe
 
 ---
 
+## P5 — Snapshot policy — RED (D-A226-2)
+
+**Requirement under test:** fresh live load runs the page query set once; navigating away and back restores from `sessionStorage` snapshot with **no new source reads** (ts unchanged, data identical); manual `Обновить` re-runs the exact query set with old data visible during the refresh; no background polling while idle; refresh failure keeps the old snapshot + data and shows `Не удалось обновить · данные на HH:MM`; recovery retry succeeds. Expected per-page query sets: overview 4, tasks 1, sprint 6, releases 5, team 6, quality 4. Storage policy: snapshots in `sessionStorage` only (`po-page-snapshot:v1:`), nothing in `localStorage` except `po-local-tasks`.
+
+**Per-page matrix** (`p5_snapshot_policy.json`; each page in a fresh browser context = fresh session):
+
+| page | fresh posts (exp.) | back posts | ts same | data same | refresh posts (exp.) | ts updated | old data during refresh | idle 30s posts |
+|---|---|---|---|---|---|---|---|---|
+| overview | 4 (4) | **0** | ✓ | ✓ | 4 (4) | ✓ | ✓ | 0 |
+| tasks | **2 (1)** | **1** ⚠ | ✓ | ✓ | 1 (1) | ✓ | ✓ | 0 |
+| sprint | 6 (6) | **0** | ✓ | ✓ | 6 (6) | ✓ | ✓ | 0 |
+| releases | 5 (5) | **0** | ✓ | ✓ | 5 (5) | ✓ | ✓ | 0 |
+| team | 6 (6) | **0** | ✓ | ✓ | 6 (6) | ✓ | ✓ | 0 |
+| quality | 4 (4) | **0** | ✓ | ✓ | 4 (4) | ✓ | ✓ | 0 |
+
+**5 of 6 pages satisfy the policy exactly.** The tasks page's *snapshot mechanism itself* works (ts/data restored from snapshot, refresh runs exactly the 1 expected query, old data stays visible during refresh, zero idle polling) — the violation is an **extra live query** (below).
+
+### D-A226-2 — tasks page fires a live placeholder query on every mount
+
+**Observed (payload-proven, `p5_tasks_forensic.json`):** every mount of `/tasks` — fresh load, SPA nav-return, and full document reload — issues `POST /api/v1/query` with body `{"query":"Найди __none__"}`. Fresh load = 2 POSTs (`Найди __none__` + `Найди login` at t≈343ms), SPA nav-return = 1 POST (`Найди __none__` at t≈88.6s), full reload = 1 POST. The snapshot layer is not involved for this query (only one snapshot key exists: `po-page-snapshot:v1:tasks:text:login:Найди login`).
+
+**Root cause (code, deterministic):** `TasksPage` always renders `<TaskDetailsDrawer task={selectedTask} …/>` (drawer closed ⇒ `task=null`). The drawer's body hook is `useHarness(key ? intelligenceQuery(key, mode) : 'Найди __none__')` (`Pages.tsx:108`), and `useHarness` (`Pages.tsx:23-26`) **unconditionally** fires `agent.query({ query })` on mount (its effect has no enabled-guard, no snapshot). So every page mount performs one wasted LLM+source round-trip whose result is never rendered (the drawer body is gated by `{task && …}`).
+
+**Impact:** (1) violates the P5 "no new source reads on nav-return" acceptance criterion for the tasks page; (2) one wasted agent query (LLM + bounded source reads) per visit to `/tasks`, even with the drawer never opened. No data corruption, no false state — the list itself is snapshot-correct.
+
+**Owner fix (minimal, frontend only, generic):** mount the intelligence panel only when a task is selected — extract the drawer's intelligence block into a child component (e.g. `<TaskIntelligence key={task.key} task={task} />`) rendered only when `task` is non-null, so `useHarness` runs only for user-initiated drills and the `Найди __none__` placeholder disappears entirely. Alternative: add an `enabled` flag to the hook and skip the load while disabled. Regression: with the drawer closed, mounting `/tasks` (and returning to it) must produce **zero** `/api/v1/query` POSTs beyond the single snapshot query.
+
+### Refresh-failure behavior — GREEN
+
+Killed the agent (spec'd local failure), clicked `Обновить`: state = `Не удалось обновить · данные на 08:30 PM` (old timestamp preserved), old data still visible (workload 14 rows, capacity 9 rows), **snapshot not erased** (6 sessionStorage keys before and after; `p5_refresh_failure.png`). Restarted the agent at the same HEAD; retry refresh succeeded with exactly 6 POSTs and identical data (`p5_refresh_retry_ok.png`).
+
+### P6 subset (snapshot context isolation, Team DMS↔OLP) — GREEN
+
+Same context: switch Team space to OLP (uncached) → 6 live POSTs (correct — first load is live); switch back to DMS → **0** POSTs, DMS data byte-identical to the original load (14/9 rows). No cross-space snapshot leakage in the tested direction. Full P6 (all pages × contexts) remains not gated.
+
+### Storage policy — GREEN
+
+Fresh browser context (no prior visits): `sessionStorage` snapshot keys = **0** (only `po-agent-runtime-session-id`), `localStorage` = **0** keys (the `po-local-tasks` key appears only after local-task CRUD, per A225). No snapshot data written to `localStorage` anywhere in the run.
+
+---
+
 ## P7 — Retained design smoke (backgrounds + overflow) — GREEN
 
 `p7_backgrounds_overflow.json`: **6 distinct** slide-derived SVG backgrounds, one per page (`overview/tasks/sprint/releases/team/quality-bg.svg`), all matched by computed `background-image`. **0** document overflow at 1440 and **0** at 480 across all six pages. (A225's 107-row Attention internal scroll, Tasks filters/CRUD, Sprint throughput/risk, Releases honest limitation, WMB-102 quality semantics, competency, and Evidence/Trace lineage were NOT re-gated this pass — STOP at P4; they were all GREEN at the A225 baseline and the A226 diff does not touch their data paths.)
@@ -139,7 +194,7 @@ From the agent log (agent PID 42486, session window):
 - **0 AS21 mutations** — no POST/PUT/PATCH/DELETE to any `swtr-read`/`swtr`/`as21` path (only GET reads + the expected `chat/completions` + `/api/v1/query`).
 - **0 local factual fallback reads** — 0 `GET /api/v1/tasks` (local store).
 - **0 tenant-wide scans** — the only `task-query` calls without a `space=` param are bounded **per-assignee** reads (`task-query?…&assignee=<login>`), i.e. the certified person-scoped contract (A195D/A221R2), not unscoped tenant scans. 1371 total `swtr-read` reads, all bounded.
-- (Full-window audit + snapshot-traffic isolation + `localStorage`/`sessionStorage` policy not completed — STOP at P4.)
+- **Post-restart window (agent PID 42740, P5 harness):** 25 `/api/v1/query` POSTs, all 200 (the P5 per-page query sets + P6 subset + retry); the same mutation/local-fallback/unscoped scan checks hold (all are the certified page query sets, space-scoped or person-scoped). The `sessionStorage`/`localStorage` policy portion was completed in P5 (see above). Full cross-process audit remains not gated.
 
 ---
 
@@ -149,4 +204,11 @@ From the agent log (agent PID 42486, session window):
 - Python Playwright is not in the `po-agent-platform-v2/.venv`; Browser C used Node `@playwright/test` 1.62.1 (chromium-1234 present).
 
 ## Recommendation
-**STOP.** Do not proceed to P1/P5/P6/remaining P7/P8 or to the Learning Reviewer. Owner should apply the P4 two-part task-api fix (plumb `created_at` through the live assignee route) + the non-mocked regression, then re-gate P4 (WMB:7 + DMS:15 exact parity, both must complete with source-backed rows) and the not-yet-gated phases (P1 dark surfaces, P5 snapshot policy, P6 context isolation, full P8 audit) in one consolidated A226R.
+**STOP.** Verdict remains **RED** with **two** independent confirmed defects:
+
+1. **D-A226-1 (P4, task-api only):** plumb `created_at`/`updated_at`/`deadline` through the live assignee route (`swtr_assignee.py` TQL attributes + `_canonical_row`) + non-mocked regression (the current test masks the production branch).
+2. **D-A226-2 (P5, frontend only):** stop the always-live `Найди __none__` placeholder — mount the drawer's intelligence panel only when a task is selected (or add an `enabled` guard to the hook) + regression asserting zero extra `/api/v1/query` POSTs on `/tasks` mount/return with the drawer closed.
+
+Gated GREEN and retained: P0, P1, P2, P3, P7 (backgrounds/overflow), P5 refresh-failure + storage + 5/6 pages, P6 subset (Team DMS↔OLP).
+
+**A226R re-gate scope after owner fixes:** P4 (WMB:7 + DMS:15 exact parity, source-backed rows), P5 tasks page (fresh=1, back=0, drawer-open drill still works), and the remaining not-gated items (full P6 context isolation, full P8 audit) — in one consolidated pass. Do not start the Learning Reviewer.
