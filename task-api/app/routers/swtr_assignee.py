@@ -119,6 +119,16 @@ def _canonical_row(row: dict[str, Any]) -> dict[str, Any] | None:
         status_value = _row_value(row, attrs, "workflow_status", "status")
     status = _status_identifier(status_value)
 
+    created_at = _row_value(unit, attrs, "created_at", "createdAt")
+    if created_at is None:
+        created_at = _row_value(row, attrs, "created_at", "createdAt")
+    updated_at = _row_value(unit, attrs, "updated_at", "updatedAt")
+    if updated_at is None:
+        updated_at = _row_value(row, attrs, "updated_at", "updatedAt")
+    deadline = _row_value(unit, attrs, "deadline", "dueDate")
+    if deadline is None:
+        deadline = _row_value(row, attrs, "deadline", "dueDate")
+
     swtr_attributes = [{"code": c, "value": v} for c, v in _raw_attribute_entries(row)]
     if not swtr_attributes:
         swtr_attributes = []
@@ -133,6 +143,9 @@ def _canonical_row(row: dict[str, Any]) -> dict[str, Any] | None:
         "source_id": code,
         "title": title,
         "status": status or "",
+        "created_at": created_at,
+        "updated_at": updated_at,
+        "deadline": deadline,
         "source": "swtr",
         "source_data": {
             "swtr_space": space,
@@ -282,6 +295,12 @@ async def get_assignee_tasks(
                     "workflow_status",
                     "scrum_board_plugin_sprint",
                     "fix_version_s",
+                    "created_at",
+                    "createdAt",
+                    "updated_at",
+                    "updatedAt",
+                    "deadline",
+                    "dueDate",
                 ],
                 "query": f'assigned_to = "{external_id}"',
                 "timeZone": "Europe/Moscow",
