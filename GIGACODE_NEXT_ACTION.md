@@ -295,3 +295,20 @@ Requirements:
 - deleting a task does not renumber existing display codes;
 - next created task uses max existing number + 1;
 - reload preserves the same LOCAL-NNNN codes.
+
+
+### D-A226-2 placeholder-query regression — mandatory in A226R
+
+Owner fix:
+- `useHarness(query, enabled)` now performs no request when disabled/empty;
+- closed `TaskDetailsDrawer` passes `enabled=false`;
+- the synthetic `Найди __none__` placeholder query has been removed.
+
+A226R must prove:
+1. fresh /tasks mount with no selected AS21 task produces exactly the page search request set and **zero** placeholder intelligence POSTs;
+2. navigate away/back with cached Tasks snapshot produces **zero** new POSTs;
+3. full reload with cached session snapshot produces zero placeholder POSTs;
+4. selecting one AS21 task opens Task Intelligence and then exactly one intelligence request is allowed;
+5. closing the drawer must not fire another intelligence request;
+6. no request payload may contain `__none__`;
+7. snapshot timestamps/data remain unchanged on cached revisit.
