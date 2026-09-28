@@ -1073,3 +1073,30 @@ This owner batch incorporates PO visual/behavioral feedback before final Browser
    - no background polling.
 
 A226 must be GREEN before the final PO/Browser UX checkpoint.
+
+
+### A226 RED closure / A226R owner remediation
+
+A226 stopped at P4 with `RED_SOURCE_TIMESTAMP_PLUMBING`.
+
+Root cause:
+- team-scoped `task.aging` correctly reused the live assignee route;
+- the assignee route did not request or surface source creation timestamps;
+- therefore the capability correctly failed closed instead of fabricating aging.
+
+Owner remediation:
+- task-api assignee TQL now requests `created_at/createdAt/updated_at/updatedAt/deadline/dueDate`;
+- canonical assignee rows now expose `created_at`, `updated_at`, `deadline`;
+- timestamp preservation regression added;
+- A226R must verify WMB:7 and DMS:15 exact live parity through the real assignee route.
+
+A226R also consolidates final PO UX feedback before final Browser acceptance:
+1. Tasks text search is explicit title+description search, with separate attachment/Excel/PDF/MSG modes.
+2. Tasks search mode/value/submitted criteria/status filters persist in session; `Найти` changes criteria, page `Обновить` re-runs the last submitted criteria.
+3. Local tasks add user-facing Russian priority labels, tag suggestions, deadline and show tags/priority/deadline in the list.
+4. Quality task/aging input + submitted values persist in session.
+5. Sprint/Release duplicate header refresh buttons removed; existing entity toolbar owns refresh, shows last update date+time and refreshes current submitted entity.
+6. Workspace brand label changed from `WORKS` to `Platform V`.
+7. Daily Brief again renders completed + attention count + top-attention tasks + current sprint breakdown while staying internally scrollable.
+
+A226R must close P4 first, then the deferred A226 P1/P5/P6/P8 gates and these UX acceptance cases.
