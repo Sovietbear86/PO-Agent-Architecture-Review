@@ -266,8 +266,8 @@ export function TasksPage() {
 }
 
 export function SprintPage() {
-  const [sprintId, setSprintId] = useState('WMB-SPRNT-1')
-  const [submitted, setSubmitted] = useState('WMB-SPRNT-1')
+  const [sprintId, setSprintId] = useSessionState('sprint.input', 'WMB-SPRNT-1')
+  const [submitted, setSubmitted] = useSessionState('sprint.submitted', 'WMB-SPRNT-1')
   const [refreshNonce, setRefreshNonce] = useState(0)
   const healthQ = useSnapshotHarness('sprint:' + submitted, `Покажи состояние ${submitted}`, refreshNonce)
   const velocityQ = useSnapshotHarness('sprint:' + submitted, `Покажи velocity ${submitted}`, refreshNonce)
@@ -311,8 +311,8 @@ export function SprintPage() {
 }
 
 export function ReleasesPage() {
-  const [releaseId, setReleaseId] = useState('WMB-2024-Q3')
-  const [submitted, setSubmitted] = useState('WMB-2024-Q3')
+  const [releaseId, setReleaseId] = useSessionState('release.input', 'WMB-2024-Q3')
+  const [submitted, setSubmitted] = useSessionState('release.submitted', 'WMB-2024-Q3')
   const [refreshNonce, setRefreshNonce] = useState(0)
   const scopeQ = useSnapshotHarness('release:' + submitted, `Покажи scope ${submitted}`, refreshNonce)
   const progressQ = useSnapshotHarness('release:' + submitted, `Покажи прогресс ${submitted}`, refreshNonce)
