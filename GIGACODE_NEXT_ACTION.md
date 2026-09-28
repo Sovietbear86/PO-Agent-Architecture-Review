@@ -275,3 +275,23 @@ A226R P4 must additionally prove:
 8. create another -> next number is max+1, not reused;
 9. technical LOCAL-* id is visually separate from the user-facing number and title;
 10. zero AS21 writes.
+
+
+### A226R owner addendum — local task display code
+
+Local task user-facing numbering format is now:
+`LOCAL-NNNN`
+
+Examples:
+- LOCAL-0001
+- LOCAL-0002
+- LOCAL-0127
+
+Requirements:
+- display code is derived from the stable sequential local task number;
+- it is shown in the local task list and edit drawer;
+- no `№1` / `№2` presentation remains;
+- internal timestamp-based storage id is not shown to the user;
+- deleting a task does not renumber existing display codes;
+- next created task uses max existing number + 1;
+- reload preserves the same LOCAL-NNNN codes.
