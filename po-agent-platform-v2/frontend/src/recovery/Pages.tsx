@@ -3,7 +3,7 @@ import { useOutletContext } from 'react-router-dom'
 import { agent, HarnessQueryResponse } from '../api/client'
 import { ResultStatePanel } from '../components/ResultStatePanel'
 import { classifyResult, getCapabilityData, stateAllowsBusinessData } from './resultState'
-import { SnapshotRefresh, useSnapshotHarness } from './pageSnapshot'
+import { SnapshotRefresh, SnapshotStatus, useSessionState, useSnapshotHarness } from './pageSnapshot'
 
 type WorkspaceContext = { openAgent(): void }
 type TaskRow = Record<string, unknown>
@@ -15,9 +15,10 @@ type LocalTask = {
   priority: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL'
   status: 'TODO' | 'IN_PROGRESS' | 'BLOCKED' | 'DONE'
   labels: string[]
+  deadline: string
   createdAt: string
 }
-type FilterMode = 'text' | 'assignee' | 'status' | 'sprint' | 'release'
+type FilterMode = 'text' | 'attachments' | 'excel' | 'pdf' | 'msg' | 'assignee' | 'status' | 'sprint' | 'release'
 type IntelligenceMode = 'summary' | 'quality' | 'history' | 'missing'
 
 function useHarness(query: string) {
@@ -37,6 +38,10 @@ function MetricCard({ label, value, hint }: { label: string; value: string | num
 function PageHeader({ title, subtitle, extra }: { title: string; subtitle: string; extra?: ReactNode }) {
   const { openAgent } = useOutletContext<WorkspaceContext>()
   return <div className="page-heading"><div><h1>{title}</h1><p>{subtitle}</p></div><div className="page-heading-actions">{extra}<button className="primary-button" onClick={openAgent}>Спросить PO Agent</button></div></div>
+}
+
+function priorityLabel(value: LocalTask['priority']) {
+  return value === 'LOW' ? 'Низкий' : value === 'MEDIUM' ? 'Средний' : value === 'HIGH' ? 'Высокий' : 'Критичный'
 }
 
 function EmptyData({ text }: { text: string }) {
@@ -62,6 +67,7 @@ function LocalTaskDrawer({ open, onClose, onCreate }: { open: boolean; onClose()
   const [priority, setPriority] = useState<LocalTask['priority']>('MEDIUM')
   const [status, setStatus] = useState<LocalTask['status']>('TODO')
   const [labels, setLabels] = useState('')
+  const [deadline, setDeadline] = useState('')
   const submit = (event: FormEvent) => {
     event.preventDefault()
     if (!title.trim()) return
@@ -73,9 +79,10 @@ function LocalTaskDrawer({ open, onClose, onCreate }: { open: boolean; onClose()
       priority,
       status,
       labels: labels.split(',').map(item => item.trim()).filter(Boolean),
+      deadline,
       createdAt: new Date().toISOString(),
     })
-    setTitle(''); setDescription(''); setOwner(''); setPriority('MEDIUM'); setStatus('TODO'); setLabels(''); onClose()
+    setTitle(''); setDescription(''); setOwner(''); setPriority('MEDIUM'); setStatus('TODO'); setLabels(''); setDeadline(''); onClose()
   }
   return <>
     <div className={`drawer-scrim ${open ? 'visible' : ''}`} onClick={onClose} />
@@ -85,9 +92,11 @@ function LocalTaskDrawer({ open, onClose, onCreate }: { open: boolean; onClose()
         <label>Название<input value={title} onChange={e => setTitle(e.target.value)} placeholder="Что нужно сделать" autoFocus={open} /></label>
         <label>Описание<textarea value={description} onChange={e => setDescription(e.target.value)} placeholder="Контекст, ожидаемый результат, ограничения" rows={7} /></label>
         <label>Ответственный<input value={owner} onChange={e => setOwner(e.target.value)} placeholder="Опционально" /></label>
-        <label>Приоритет<select value={priority} onChange={e => setPriority(e.target.value as LocalTask['priority'])}><option value="LOW">LOW</option><option value="MEDIUM">MEDIUM</option><option value="HIGH">HIGH</option><option value="CRITICAL">CRITICAL</option></select></label>
+        <label>Приоритет<select value={priority} onChange={e => setPriority(e.target.value as LocalTask['priority'])}><option value="LOW">Низкий</option><option value="MEDIUM">Средний</option><option value="HIGH">Высокий</option><option value="CRITICAL">Критичный</option></select></label>
         <label>Статус<select value={status} onChange={e => setStatus(e.target.value as LocalTask['status'])}><option value="TODO">TODO</option><option value="IN_PROGRESS">IN PROGRESS</option><option value="BLOCKED">BLOCKED</option><option value="DONE">DONE</option></select></label>
-        <label>Метки<input value={labels} onChange={e => setLabels(e.target.value)} placeholder="через запятую" /></label>
+        <label>Теги<input value={labels} onChange={e => setLabels(e.target.value)} placeholder="Управленческие задачи, Поручения — через запятую" /></label>
+        <div className="tag-suggestions"><button type="button" onClick={() => setLabels(value => value ? value + ', Управленческие задачи' : 'Управленческие задачи')}>+ Управленческие задачи</button><button type="button" onClick={() => setLabels(value => value ? value + ', Поручения' : 'Поручения')}>+ Поручения</button></div>
+        <label>Дедлайн<input type="date" value={deadline} onChange={e => setDeadline(e.target.value)} /></label>
         <div className="form-note">Локальная задача сохраняется только в браузере и не пишет в AS21 без отдельного approval/write capability.</div>
         <div className="form-actions"><button type="button" onClick={onClose}>Отмена</button><button className="primary-button" type="submit" disabled={!title.trim()}>Создать</button></div>
       </form>
@@ -138,7 +147,11 @@ function taskQuery(mode: FilterMode, value: string) {
   if (mode === 'status') return `Покажи задачи в статусе ${v}`
   if (mode === 'sprint') return `Покажи задачи спринта ${v}`
   if (mode === 'release') return `Покажи задачи релиза ${v}`
-  return `Найди ${v || 'login'}`
+  if (mode === 'attachments') return `Найди задачи с вложениями по тексту "${v}"`
+  if (mode === 'excel') return `Найди задачи с Excel-вложениями по тексту "${v}"`
+  if (mode === 'pdf') return `Найди задачи с PDF-вложениями по тексту "${v}"`
+  if (mode === 'msg') return `Найди задачи с MSG-вложениями по тексту "${v}"`
+  return `Найди задачи по тексту "${v}" в названии и описании`
 }
 
 export function OverviewPage() {
@@ -153,17 +166,17 @@ export function OverviewPage() {
 }
 
 export function TasksPage() {
-  const [mode, setMode] = useState<FilterMode>('text')
-  const [search, setSearch] = useState('login')
-  const [submitted, setSubmitted] = useState({ mode: 'text' as FilterMode, value: 'login' })
+  const [mode, setMode] = useSessionState<FilterMode>('tasks.mode', 'text')
+  const [search, setSearch] = useSessionState('tasks.search', 'БП 2027')
+  const [submitted, setSubmitted] = useSessionState<{ mode: FilterMode; value: string }>('tasks.submitted', { mode: 'text', value: 'БП 2027' })
   const [refreshNonce, setRefreshNonce] = useState(0)
   const resultQ = useSnapshotHarness('tasks:' + submitted.mode + ':' + submitted.value, taskQuery(submitted.mode, submitted.value), refreshNonce)
   const result = resultQ.result
   const data = getCapabilityData(result) as { tasks?: TaskRow[] }
   const tasks = data.tasks ?? []
   const resultState = classifyResult(result)
-  const [as21StatusFilter, setAs21StatusFilter] = useState('ALL')
-  const [localStatusFilter, setLocalStatusFilter] = useState<'ALL' | LocalTask['status']>('ALL')
+  const [as21StatusFilter, setAs21StatusFilter] = useSessionState('tasks.as21-status', 'ALL')
+  const [localStatusFilter, setLocalStatusFilter] = useSessionState<'ALL' | LocalTask['status']>('tasks.local-status', 'ALL')
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [selectedTask, setSelectedTask] = useState<TaskRow | null>(null)
   const [localTasks, setLocalTasks] = useState<LocalTask[]>(() => {
@@ -177,6 +190,7 @@ export function TasksPage() {
         priority: task.priority ?? 'MEDIUM',
         status: task.status ?? 'TODO',
         labels: Array.isArray(task.labels) ? task.labels : [],
+        deadline: String(task.deadline ?? ''),
         createdAt: String(task.createdAt ?? new Date().toISOString()),
       }))
     } catch { return [] }
@@ -191,11 +205,11 @@ export function TasksPage() {
     () => localStatusFilter === 'ALL' ? localTasks : localTasks.filter(task => task.status === localStatusFilter),
     [localTasks, localStatusFilter],
   )
-  const placeholder = mode === 'text' ? 'Текст или ключ задачи' : mode === 'assignee' ? 'Ivanov.I.I' : mode === 'status' ? 'In Progress' : mode === 'sprint' ? 'WMB-SPRNT-1' : 'WMB-2024-Q3'
+  const placeholder = mode === 'text' ? 'Например: БП 2027' : mode === 'attachments' ? 'Текст + любые вложения' : mode === 'excel' ? 'Текст + Excel' : mode === 'pdf' ? 'Текст + PDF' : mode === 'msg' ? 'Текст + MSG' : mode === 'assignee' ? 'Ivanov.I.I' : mode === 'status' ? 'In Progress' : mode === 'sprint' ? 'WMB-SPRNT-1' : 'WMB-2024-Q3'
   return <section className="page page-tasks"><PageHeader title="Задачи" subtitle="Поиск, статус, постановка, вложения и task intelligence" extra={<SnapshotRefresh updatedAt={[resultQ.updatedAt]} refreshing={resultQ.refreshing} refreshError={resultQ.refreshError} onRefresh={() => setRefreshNonce(value => value + 1)} />} />
     <form className="panel filter-toolbar" onSubmit={e => { e.preventDefault(); if (search.trim()) setSubmitted({ mode, value: search.trim() }) }}>
       <div className="filter-modes">
-        {([['text','Текст'],['assignee','Исполнитель'],['status','Статус'],['sprint','Спринт'],['release','Релиз']] as Array<[FilterMode,string]>).map(([id,label]) => <button type="button" key={id} className={mode === id ? 'active' : ''} onClick={() => { setMode(id); setSearch('') }}>{label}</button>)}
+        {([['text','Текст'],['attachments','Вложения'],['excel','Excel'],['pdf','PDF'],['msg','MSG'],['assignee','Исполнитель'],['status','Статус'],['sprint','Спринт'],['release','Релиз']] as Array<[FilterMode,string]>).map(([id,label]) => <button type="button" key={id} className={mode === id ? 'active' : ''} onClick={() => setMode(id)}>{label}</button>)}
       </div>
       <div className="filter-input-row"><input value={search} onChange={e => setSearch(e.target.value)} placeholder={placeholder} /><button type="submit">Найти</button><button type="button" onClick={() => setDrawerOpen(true)}>+ Локальная задача</button></div>
       <div className="filter-input-row">
@@ -223,7 +237,8 @@ export function TasksPage() {
         <div className="task-key">{t.id}</div>
         <div className="task-main">
           <b>{t.title}</b>
-          <span>{t.owner || 'Без ответственного'} · {t.priority}{t.labels.length ? ` · ${t.labels.join(', ')}` : ''}</span>
+          <span>{t.owner || 'Без ответственного'} · {priorityLabel(t.priority)}{t.deadline ? ` · до ${t.deadline}` : ''}</span>
+          {t.labels.length > 0 && <div className="local-tag-row">{t.labels.map(label => <span className="local-tag" key={label}>{label}</span>)}</div>}
         </div>
         <select
           className="status-pill"
