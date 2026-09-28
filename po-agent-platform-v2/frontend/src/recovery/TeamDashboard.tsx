@@ -106,7 +106,7 @@ export function TeamDashboard() {
             <span className={row.over_capacity ? 'warning-badge' : 'green-badge'}>{row.over_capacity ? 'OVER' : 'OK'}</span>
           </div>
         })}
-      </div> : <div className="muted">Источник подтвердил отсутствие оценённых активных задач для расчёта capacity.</div>) : <ResultStatePanel result={capacity} compact />}
+      </div> : <div className="muted">Источник подтвердил отсутствие списаний в текущем спринте для расчёта фактической утилизации.</div>) : <ResultStatePanel result={capacity} compact />}
       <HarnessMeta result={capacity} />
     </div>
 
