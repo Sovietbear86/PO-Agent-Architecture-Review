@@ -246,3 +246,32 @@ If RED:
 - STOP.
 
 Do not modify code.
+
+
+### A226R owner addendum — local task editing / numbering
+
+Owner feedback added during A226R:
+- local task creation/edit drawer must visibly expose a native date picker for deadline;
+- saved deadline must appear in the local-task list;
+- previously created local tasks must be clickable and reopen the same drawer in edit mode;
+- editing must allow title/description/owner/priority/status/tags/deadline changes and persist them;
+- local tasks must use a stable user-facing sequential number №1, №2, №3...;
+- technical LOCAL-* id remains separate secondary metadata and must not visually merge with title/description;
+- existing old-schema localStorage rows without number/deadline must migrate safely;
+- deletion must not renumber existing tasks or reuse an older task number; the next new task uses max(existing number)+1.
+
+Commits:
+- 14927a7e23ce2a69d7e34d0c73e21ebe24f06a0b
+- b55e4b642758c6c670cc3eb39bff1c447e250a15
+
+A226R P4 must additionally prove:
+1. create task №N with deadline using visible date picker;
+2. deadline is rendered in list as a readable date;
+3. click task row -> edit drawer opens with all saved fields prefilled;
+4. edit title/tags/priority/deadline -> save -> list and localStorage update;
+5. reload -> edits persist;
+6. create second task -> №N+1;
+7. delete first task -> remaining number stays unchanged;
+8. create another -> next number is max+1, not reused;
+9. technical LOCAL-* id is visually separate from the user-facing number and title;
+10. zero AS21 writes.
