@@ -45,6 +45,10 @@ function priorityLabel(value: LocalTask['priority']) {
   return value === 'LOW' ? 'Низкий' : value === 'MEDIUM' ? 'Средний' : value === 'HIGH' ? 'Высокий' : 'Критичный'
 }
 
+function localTaskCode(number: number) {
+  return `LOCAL-${String(number).padStart(4, '0')}`
+}
+
 function EmptyData({ text }: { text: string }) {
   return <div className="panel empty-panel"><strong>{text}</strong><span>Данные появятся после ответа Harness API.</span></div>
 }
@@ -121,7 +125,7 @@ function LocalTaskDrawer({
     <aside className={`task-drawer ${open ? 'task-drawer-open' : ''}`} aria-hidden={!open}>
       <div className="agent-header">
         <div>
-          <div className="agent-kicker">LOCAL TASK · №{task?.number ?? nextNumber}</div>
+          <div className="agent-kicker">{localTaskCode(task?.number ?? nextNumber)}</div>
           <strong>{task ? 'Редактировать локальную задачу' : 'Создать локальную задачу'}</strong>
         </div>
         <button className="icon-button" onClick={onClose}>×</button>
@@ -293,19 +297,18 @@ export function TasksPage() {
       <div className="panel-title"><strong>Локальные задачи</strong><span>{visibleLocalTasks.length}/{localTasks.length}</span></div>
       {visibleLocalTasks.map(t => <div className="local-task-list-row" key={t.id}>
         <button type="button" className="local-task-open" onClick={() => { setEditingLocalTask(t); setDrawerOpen(true) }}>
-          <span className="local-task-number">№{t.number}</span>
+          <span className="local-task-number">{localTaskCode(t.number)}</span>
           <span className="local-task-content">
             <strong>{t.title}</strong>
             <span className="local-task-meta">{t.owner || 'Без ответственного'} · {priorityLabel(t.priority)}{t.deadline ? ` · дедлайн ${new Date(t.deadline + 'T00:00:00').toLocaleDateString('ru-RU')}` : ' · без дедлайна'}</span>
             {t.labels.length > 0 && <span className="local-tag-row">{t.labels.map(label => <span className="local-tag" key={label}>{label}</span>)}</span>}
           </span>
-          <span className="local-task-tech-id">{t.id}</span>
         </button>
         <select
           className="status-pill"
           value={t.status}
           onChange={e => setLocalTasks(items => items.map(item => item.id === t.id ? { ...item, status: e.target.value as LocalTask['status'] } : item))}
-          aria-label={`Статус №${t.number}`}
+          aria-label={`Статус ${localTaskCode(t.number)}`}
         >
           <option value="TODO">TODO</option>
           <option value="IN_PROGRESS">IN PROGRESS</option>
@@ -315,7 +318,7 @@ export function TasksPage() {
         <button
           type="button"
           className="icon-button"
-          aria-label={`Удалить локальную задачу №${t.number}`}
+          aria-label={`Удалить локальную задачу ${localTaskCode(t.number)}`}
           onClick={() => setLocalTasks(items => items.filter(item => item.id !== t.id))}
         >×</button>
       </div>)}
