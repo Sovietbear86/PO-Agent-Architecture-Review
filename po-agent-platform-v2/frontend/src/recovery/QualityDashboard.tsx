@@ -3,7 +3,7 @@ import { useOutletContext } from 'react-router-dom'
 import { HarnessQueryResponse } from '../api/client'
 import { ResultStatePanel } from '../components/ResultStatePanel'
 import { classifyResult, getCapabilityData, stateAllowsBusinessData } from './resultState'
-import { SnapshotRefresh, useSnapshotHarness } from './pageSnapshot'
+import { SnapshotRefresh, useSessionState, useSnapshotHarness } from './pageSnapshot'
 
 type WorkspaceContext = { openAgent(): void }
 type Row = Record<string, unknown>
@@ -18,12 +18,12 @@ function Metric({ label, value, hint }: { label: string; value: string | number;
 
 export function QualityDashboard() {
   const { openAgent } = useOutletContext<WorkspaceContext>()
-  const [taskKey, setTaskKey] = useState('WMB-102')
-  const [submitted, setSubmitted] = useState('WMB-102')
-  const [agingDays, setAgingDays] = useState('7')
-  const [agingSubmitted, setAgingSubmitted] = useState('7')
-  const [agingSpace, setAgingSpace] = useState('WMB')
-  const [agingSpaceSubmitted, setAgingSpaceSubmitted] = useState('WMB')
+  const [taskKey, setTaskKey] = useSessionState('quality.taskKey', 'WMB-102')
+  const [submitted, setSubmitted] = useSessionState('quality.submitted', 'WMB-102')
+  const [agingDays, setAgingDays] = useSessionState('quality.agingDays', '7')
+  const [agingSubmitted, setAgingSubmitted] = useSessionState('quality.agingSubmitted', '7')
+  const [agingSpace, setAgingSpace] = useSessionState('quality.agingSpace', 'WMB')
+  const [agingSpaceSubmitted, setAgingSpaceSubmitted] = useSessionState('quality.agingSpaceSubmitted', 'WMB')
   const [refreshNonce, setRefreshNonce] = useState(0)
 
   const qualityQ = useSnapshotHarness('quality:' + submitted, `Оцени постановку ${submitted}`, refreshNonce)
