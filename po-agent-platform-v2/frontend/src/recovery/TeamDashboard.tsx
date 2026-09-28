@@ -100,7 +100,7 @@ export function TeamDashboard() {
           const capped = Math.max(0, Math.min(utilization, 100))
           return <div className="capacity-row" key={String(row.member)}>
             <div><b>{String(row.member)}</b></div>
-            <span>—</span>
+            <span>{String(row.worklog_count ?? '—')}</span>
             <span>{String(row.actual_hours ?? '—')} / {String(row.available_capacity_hours ?? capacityData.capacity_hours_per_member ?? '—')} ч</span>
             <div className="utilization-cell"><div className="utilization-track"><div className="utilization-fill" style={{ width: `${capped}%` }} /></div><span>{String(row.utilization_percent)}%</span></div>
             <span className={row.over_capacity ? 'warning-badge' : 'green-badge'}>{row.over_capacity ? 'OVER' : 'OK'}</span>
