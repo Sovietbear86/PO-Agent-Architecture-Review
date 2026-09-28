@@ -236,12 +236,21 @@ def build_team_utilization_actual(runtime: Any):
         policy = available_capacity_for_calendar_days(calendar_days)
         capacity = float(policy["available_capacity_hours_for_period"])
 
+        worklog_count_by_member: Counter[str] = Counter()
+        for entry in entries:
+            user = entry.get("user") if isinstance(entry.get("user"), dict) else {}
+            external_id = str(user.get("external_id") or "").strip()
+            if external_id:
+                worklog_count_by_member[external_id] += 1
+
         rows = []
         for member_row in agg["by_member"]:
+            member = str(member_row["member"])
             spent = float(member_row["hours"])
             rows.append({
-                "member": member_row["member"],
+                "member": member,
                 "actual_hours": spent,
+                "worklog_count": worklog_count_by_member.get(member, 0),
                 "available_capacity_hours": capacity,
                 "utilization_percent": round(spent / capacity * 100.0, 1) if capacity > 0 else 0.0,
                 "over_capacity": spent > capacity,
