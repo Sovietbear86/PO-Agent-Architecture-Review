@@ -1,237 +1,221 @@
 # GigaCode — Current Action
 
-## ACTIVE: Assignment 225 — visual design system + slide-derived backgrounds
+## ACTIVE: Assignment 226 — final UI polish + actual utilization + team aging + page snapshots
 
-Role: QA/adversarial tester only. Do NOT modify production/frontend/backend code.
+Role: QA/adversarial tester only. Do NOT modify production/frontend/backend/plugin/test/config code.
 
-## Frozen functional baseline
+## Frozen baseline
 
-A224R2 is GREEN:
-- checkpoint: `checkpoint/v4-ui-usability-green-a224r2@612116894572f72af4f024486799458d3870d539`
-- state/lineage/usability semantics are frozen
-- visual work must not reopen backend functionality
+A225 verdict:
+`AGENT_CORE_V4_UI_VISUAL_DESIGN_GREEN_A225`
 
-## Design contract
+Checkpoint:
+`checkpoint/v4-ui-visual-design-green-a225@09bcbd22d87b478396970d0ddf89cbf6d531d421`
 
-Read:
-`UI_VISUAL_DESIGN_2026_SPEC.md`
+A226 is an owner feedback batch after visual acceptance. Preserve all A224R2/A225 business/state/design semantics unless explicitly changed below.
 
-The source visual language is the 2026 design cookbook. The implementation uses abstract slide-derived assets, not literal slide screenshots/text/logos.
+## Owner changes under test
 
-Expected page mapping:
-- Overview -> slide-13 family: lens / circular crystal composition
-- Tasks -> slides-21/22 family: framed application composition + glass fins
-- Sprints -> slide-4/17 family: timeline + crystalline object
-- Releases -> slide-23/26 family: structured table/grid + fins
-- Team -> slide-18/15 family: structured cards + crystalline object
-- Quality -> slide-17/25 family: timeline/KPI composition + fins
+Expected changes after A225:
+- shared `pageSnapshot.tsx` session-snapshot/manual-refresh layer;
+- snapshot/manual refresh wired to all six main pages;
+- remaining light Daily Brief / V4 structured-result surfaces removed;
+- Team page switched from estimate-based `team.capacity` to existing certified `team.utilization_actual`;
+- `team.utilization_actual` now exposes per-member worklog_count;
+- top-right chips now only OLAP + DataMarts;
+- `task.aging` extended with explicit team_scope using configured team logins;
+- Quality Aging query now explicitly asks for team-scoped aging;
+- focused regressions for actual-utilization row counts and team-scoped aging.
 
-## Owner implementation under test
-
-Visual-only changes include:
-- `frontend/public/design/overview-bg.svg`
-- `frontend/public/design/tasks-bg.svg`
-- `frontend/public/design/sprint-bg.svg`
-- `frontend/public/design/releases-bg.svg`
-- `frontend/public/design/team-bg.svg`
-- `frontend/public/design/quality-bg.svg`
-- route-specific `page-*` classes
-- shared dark navy/cyan glass theme in `workspace.css`
-- ResultStatePanel dark-glass adaptation
-- responsive Attention row wrapping fix
-- `UI_VISUAL_DESIGN_2026_SPEC.md`
-
-No backend/Core/planner/runtime/source contract changes are expected.
+No Agent Core/planner/runtime architecture changes.
 
 ## P0 — diff / build / architecture
 
-1. Pull current branch; record START_HEAD and clean worktree.
-2. Diff from A224R2 checkpoint.
-3. Prove all production changes after A224R2 are frontend/static-assets/docs only.
-4. Prove:
-   - 0 Agent Core/planner/runtime/plugin/source changes;
-   - 0 new npm dependencies;
-   - 0 AS21 mutation path;
-   - no V4 state adapter semantics changed.
-5. Run:
-   - `tsc --noEmit`
-   - `vite build`
-   - existing frontend/e2e smoke
-6. Require zero build/type/runtime errors.
+1. Pull current branch, record START_HEAD, clean worktree.
+2. Diff from A225 checkpoint.
+3. Prove:
+   - 0 Agent Core/planner/runtime/session architecture changes;
+   - backend semantic deltas are limited to plugin-level task aging + actual-utilization output;
+   - frontend changes are presentation/snapshot wiring;
+   - no AS21 mutation capability added.
+4. Run:
+   - V4 plugin/registry regressions;
+   - `test_agent_core_v4_time_accounting_aggregate.py`;
+   - `test_agent_core_v4_team_aging.py`;
+   - task catalog regressions;
+   - `tsc --noEmit`;
+   - `vite build`.
+5. Zero unexplained failures.
 
-Any backend semantic delta => RED STOP.
+Any core architecture drift => RED STOP.
 
-## P1 — asset and page mapping
+## P1 — dark structured surfaces
 
-For all six pages, Browser C must prove that the distinct background asset loads successfully:
-
-1. Overview -> `/design/overview-bg.svg`
-2. Tasks -> `/design/tasks-bg.svg`
-3. Sprints -> `/design/sprint-bg.svg`
-4. Releases -> `/design/releases-bg.svg`
-5. Team -> `/design/team-bg.svg`
-6. Quality -> `/design/quality-bg.svg`
+Browser C:
+- Overview Daily Brief with a markdown table;
+- PO Agent answer with V4 structured result;
+- competency recommendation table.
 
 Require:
-- no 404s;
-- each page uses a different background;
-- background is decorative only and does not contain operational copy;
-- route navigation does not retain the previous page background.
+- no white/light legacy table or V4ResultPanel surfaces;
+- table wrapper/header/body all use dark glass theme;
+- primary text remains readable;
+- state labels/evidence remain readable;
+- no raw markdown regression.
 
-Capture one 1440px screenshot per page.
+Capture screenshots.
 
-## P2 — shared visual language
+## P2 — Team actual utilization
 
-Across all six pages require:
-- dark navy / near-black canvas;
-- cyan/blue accents;
-- translucent dark glass cards;
-- thin cyan borders/dividers;
-- high-contrast white primary text;
-- consistent muted secondary text;
-- stable WORKS / PO Space / DB Tribe chrome;
-- stable sidebar/topbar styling across pages;
-- active nav clearly visible;
-- visual hierarchy remains data-first.
+Use source-ready Team space, preferably DMS first.
 
-Reject:
-- white legacy card surfaces dominating the page;
-- unreadable low-contrast text;
-- excessive glow that competes with data;
-- six unrelated page styles.
+Independent Oracle B:
+1. Resolve authoritative current sprint and period.
+2. Read bounded worklogs for sprint task membership.
+3. Aggregate worklogs by worklog-author external_id.
+4. Apply owner capacity policy for sprint period.
+5. Compute per-member:
+   - actual_hours;
+   - worklog_count;
+   - available_capacity_hours;
+   - utilization_percent;
+   - over_capacity.
 
-## P3 — readability / state semantics
+Require UI:
+- underlying skill = `team.utilization_actual`, NOT `team.capacity`;
+- exact per-member parity with Oracle B;
+- numerator source = REAL AS21 worklogs;
+- denominator source = OWNER_POLICY;
+- 40h/week policy remains visible;
+- estimate absence does not incorrectly produce SOURCE_UNAVAILABLE;
+- true worklog/source failure still fails closed.
 
-Re-run representative typed states:
-- SUCCESS_WITH_DATA
-- REAL_EMPTY
-- NEEDS_CLARIFICATION
-- SOURCE_CONDITIONAL or SOURCE_UNAVAILABLE
-- ERROR if safely reproducible
+Important:
+`team.capacity` may remain SOURCE_CONDITIONAL because it requires task estimates. This is NOT a defect; the UI now intentionally uses actual utilization instead.
 
-Require:
-- state remains semantically distinguishable after styling;
-- source-unavailable/conditional text is more legible than background decoration;
-- zero/empty semantics from A224R2 unchanged;
-- no state hidden only by color; text labels remain present;
-- Evidence / Trace / Skill lineage remains readable.
+Test DMS + one additional source-ready space.
 
-## P4 — functional retained smoke
+## P3 — top-right products
 
-Do not rerun full 54/54.
-
-Retain A224R2 scenarios:
-- Overview: team-scoped by-space exact cards + 107-row attention internal scroll
-- Tasks: AS21/local status filters + local CRUD
-- Sprints: source-correct metrics/risk queue + honest predictability limitation
-- Releases: honest sparse SOURCE_CONDITIONAL/UNAVAILABLE behavior
-- Team: space selector + workload/WIP/blocked; capacity source limitation
-- Quality: WMB-102 quality semantics + scoped Aging queue
-- Chat: rich markdown/table rendering + competency recommendation
-
-Require identical business values/states to current source truth.
-
-## P5 — responsive desktop + 480px
-
-For EVERY page capture:
-- 1440px screenshot
-- 480px screenshot
+Require exactly two chips/buttons:
+- OLAP
+- DataMarts
 
 Require:
-- no document-level horizontal overflow;
-- content remains reachable;
-- metric cards reflow cleanly;
-- toolbar/select/input controls remain usable;
-- drawers fit viewport;
-- internal vertical scroll areas remain usable.
+- DTMS absent;
+- route navigation unaffected;
+- no functional request fired by merely rendering the chips.
 
-Mandatory regression for A224R2 finding:
-PO Attention at 480px:
-- document scrollWidth == viewport width (or no meaningful >2px overflow);
-- long task titles wrap;
-- score badge does not force the row wider;
-- can scroll vertically to final attention item.
+## P4 — Team-scoped Aging queue
 
-If the previous ~14–75px overflow remains => RED.
+Quality page, WMB and DMS, threshold 7 and 15.
 
-## P6 — drawer / overlay styling
-
-Test:
-- PO Agent drawer
-- Task details drawer
-- Local task create drawer
-- evidence panel
-- clarification options
-- feedback controls
+Independent Oracle B:
+1. Read configured member logins from `task-api/config/team_members.yaml`.
+2. For each login perform bounded REAL AS21 assignee+space read.
+3. Deduplicate by canonical task key.
+4. Keep only source-created-at rows that are active/open and age >= threshold.
+5. Sort by age descending.
 
 Require:
-- dark theme is coherent with main workspace;
-- no white legacy drawer shell dominating;
-- text/forms remain readable;
-- overlay/scrim layering correct;
-- open/close and session behavior unchanged.
+- agent trajectory for Quality Aging calls `task.aging` with team_scope=true;
+- no whole-space corpus scan;
+- exact task-key/count/age parity with Oracle B;
+- tasks assigned to people outside configured team are excluded;
+- duplicate task keys are counted once;
+- if one member read is unavailable, capability fails closed rather than presenting a partial exact queue;
+- REAL_EMPTY only when complete team-member reads prove empty.
 
-## P7 — visual regression by page
+## P5 — page snapshot policy
 
-### Overview
-- Attention and Daily Brief remain comparable visible height.
-- By-space cards readable over lens background.
-- Decorative lens shapes do not obscure content.
+Test every main page:
+- Overview
+- Tasks
+- Sprints
+- Releases
+- Team
+- Quality
 
-### Tasks
-- Search/filter surface reads as one coherent control area.
-- Local tasks visually distinct but still same product system.
-- Large result card grids readable.
+Fresh browser session:
+1. Clear only `po-page-snapshot:v1:*` sessionStorage keys.
+2. Open page first time.
+3. Prove live agent/AS21 queries occur and snapshot timestamp appears.
+4. Navigate away and back without pressing Refresh.
+5. Prove page restores the snapshot and makes NO new agent query/source reads for the cached context.
 
-### Sprints
-- Timeline/crystal background does not look like actual metric data.
-- risk queue and sprint metrics remain dominant.
+Manual Refresh:
+1. Press page-level `Обновить`.
+2. Old data must remain visible while refresh is in progress.
+3. Only the current page's required query set re-runs.
+4. Successful refresh atomically updates visible data + timestamp + sessionStorage snapshot.
 
-### Releases
-- source-limited panels look intentional, not broken.
-- decorative table/grid does not imply fake release data.
+Refresh failure:
+- force safe source/backend failure after a valid snapshot exists;
+- old snapshot must remain visible;
+- UI shows `Не удалось обновить · данные на HH:MM`;
+- snapshot must not be erased/replaced by null;
+- retry after recovery succeeds.
 
-### Team
-- long workload/WIP/bottleneck lists remain readable.
-- Capacity source-unavailable state looks intentional.
+No background polling/timer refresh is allowed.
 
-### Quality
-- READY/REWORK and Quality/Aging information dominate the background.
-- warning/acceptance states retain visual priority.
+## P6 — snapshot context isolation
 
-## P8 — performance / asset hygiene
+Require separate cache identity for:
+- Team DMS vs Team OLP;
+- Quality WMB-102 vs another task;
+- Quality Aging WMB:7 vs DMS:15;
+- Sprint id A vs sprint id B;
+- Release id A vs release id B;
+- Tasks search mode/value A vs B.
 
-Browser/network audit:
-- six SVG backgrounds load locally from Vite/static assets;
-- no external image/font/network dependency added;
-- no huge raster background payload;
-- route switch does not repeatedly leak requests or accumulate overlays;
-- no console errors caused by SVG/CSS.
+Switching context:
+- cached value for one context must never leak into another;
+- first unseen context loads live;
+- returning to a previously cached context restores its own snapshot without a live request.
 
-## P9 — source/write audit
+Storage policy:
+- AS21 snapshots use `sessionStorage` only;
+- `localStorage` remains reserved for LOCAL tasks;
+- new browser session must reload live source data.
+
+## P7 — retained functional/design smoke
+
+Retain:
+- A225 six distinct page backgrounds;
+- 1440 + 480 no document overflow;
+- Overview 107-row internal Attention scroll;
+- Tasks AS21/local status filters + local CRUD;
+- Sprint throughput/risk + predictability fail-closed;
+- Releases honest source limitation;
+- Quality WMB-102 = current source-backed quality semantics;
+- competency recommendation;
+- Evidence/Trace/Skill lineage.
+
+## P8 — audit
 
 Require:
 - 0 AS21 mutations;
-- 0 new source reads attributable to visual styling;
-- 0 local factual fallbacks;
-- no change to A224R2 team-scoped task reads;
-- localStorage still only used for LOCAL tasks.
+- 0 local factual fallback reads;
+- 0 tenant-wide scans;
+- no new background source traffic after page snapshots are populated;
+- manual refresh traffic is page-bounded;
+- localStorage writes only LOCAL tasks;
+- sessionStorage page snapshots are the only new persistence.
 
 ## Verdict
 
 Use exactly one:
-
-- `AGENT_CORE_V4_UI_VISUAL_DESIGN_GREEN_A225`
-- `AGENT_CORE_V4_UI_VISUAL_DESIGN_RED_A225`
+- `AGENT_CORE_V4_UI_POLISH_SNAPSHOT_GREEN_A226`
+- `AGENT_CORE_V4_UI_POLISH_SNAPSHOT_RED_A226`
 
 If GREEN:
-- recommend `checkpoint/v4-ui-visual-design-green-a225`;
-- next owner phase = PO visual acceptance + final Browser UX re-gate;
-- Learning Reviewer still does NOT start until owner/PO acceptance.
+- recommend `checkpoint/v4-ui-polish-snapshot-green-a226`;
+- next owner phase = PO final Browser UX acceptance / release-hardening continuation;
+- Learning Reviewer still waits for owner acceptance.
 
 If RED:
-- identify first failing visual/functional boundary;
-- preserve screenshot at 1440 and/or 480 plus computed-style/network evidence;
+- identify first confirmed boundary;
+- preserve screenshot + source/network/storage evidence;
 - STOP.
 
 Do not modify code.
