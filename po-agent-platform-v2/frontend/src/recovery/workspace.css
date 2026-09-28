@@ -301,3 +301,34 @@ input::placeholder,textarea::placeholder{color:#6f8aa0}
 .page-overview .product-status-card>strong{color:#79e9fb}
 .page-overview .product-status-card span{color:#9bb4c4}
 .page-overview .space-source-note{border-top-color:rgba(126,226,255,.08);color:#90aabb}
+
+.snapshot-refresh{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.snapshot-refresh button{border:1px solid var(--po-border);background:rgba(10,43,70,.66);color:#c9eaf6;border-radius:8px;padding:9px 12px;cursor:pointer}
+.snapshot-refresh button:disabled{opacity:.55;cursor:wait}
+.snapshot-state{font-size:10px;color:#8fb5c7;white-space:nowrap}
+.snapshot-state-error{color:#ffb18b}
+.page-heading-actions{display:flex;align-items:center;justify-content:flex-end;gap:10px;flex-wrap:wrap}
+
+.v4-result-panel{margin-top:10px;border:1px solid rgba(126,226,255,.16);border-radius:10px;background:linear-gradient(145deg,rgba(5,25,43,.9),rgba(3,17,31,.84));overflow:hidden;color:#dceef6}
+.v4-result-header{padding:9px 11px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;border-bottom:1px solid rgba(126,226,255,.09);font-size:11px;color:#94afbf}
+.v4-result-header strong{color:#eefcff}
+.v4-structured-result{max-height:260px;overflow:auto;background:rgba(2,15,27,.34)}
+.v4-structured-row{padding:8px 11px;border-bottom:1px solid rgba(126,226,255,.08);font-size:12px;color:#dceef6;overflow-wrap:anywhere}
+.v4-structured-more{padding:8px 11px;font-size:11px;color:#8faabb}
+.v4-evidence-details{padding:8px 11px;font-size:11px;color:#91aebe}
+.v4-evidence-details summary{cursor:pointer;color:#bfe9f5}
+.v4-evidence-list{margin-top:7px;display:grid;gap:5px}
+
+.answer-table{background:transparent;color:#deeff6}
+.answer-table thead,.answer-table tbody,.answer-table tr{background:transparent}
+.answer-table-wrap{background:rgba(3,18,32,.82)!important}
+.answer-table th{background:rgba(13,55,83,.88)!important;color:#c8f4fb!important}
+.answer-table td{background:rgba(4,24,40,.72)!important;color:#e3f3f8!important}
+
+@media(max-width:900px){
+  .page-heading-actions{width:100%;justify-content:flex-start}
+}
+@media(max-width:520px){
+  .snapshot-refresh{justify-content:flex-start}
+  .snapshot-state{white-space:normal}
+}
