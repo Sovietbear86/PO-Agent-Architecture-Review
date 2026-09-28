@@ -1,21 +1,12 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { FormEvent, useMemo, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
-import { agent, HarnessQueryResponse } from '../api/client'
+import { HarnessQueryResponse } from '../api/client'
 import { ResultStatePanel } from '../components/ResultStatePanel'
 import { classifyResult, getCapabilityData, stateAllowsBusinessData } from './resultState'
+import { SnapshotRefresh, useSnapshotHarness } from './pageSnapshot'
 
 type WorkspaceContext = { openAgent(): void }
 type Row = Record<string, unknown>
-
-function useHarness(query: string) {
-  const [result, setResult] = useState<HarnessQueryResponse | null>(null)
-  useEffect(() => {
-    let alive = true
-    agent.query({ query }).then(r => alive && setResult(r)).catch(() => alive && setResult(null))
-    return () => { alive = false }
-  }, [query])
-  return result
-}
 
 function Meta({ result }: { result: HarnessQueryResponse | null }) {
   return <div className="filter-status"><span>Skill: {result?.skill?.id ?? '—'}</span><span>Evidence: {result?.evidence.length ?? 0}</span><span>Trace: {result?.trace_id?.slice(0, 8) ?? '—'}</span></div>
@@ -33,11 +24,16 @@ export function QualityDashboard() {
   const [agingSubmitted, setAgingSubmitted] = useState('7')
   const [agingSpace, setAgingSpace] = useState('WMB')
   const [agingSpaceSubmitted, setAgingSpaceSubmitted] = useState('WMB')
+  const [refreshNonce, setRefreshNonce] = useState(0)
 
-  const quality = useHarness(`Оцени постановку ${submitted}`)
-  const missing = useHarness(`Чего не хватает в задаче ${submitted}`)
-  const acceptance = useHarness(`Покажи критерии приемки ${submitted}`)
-  const aging = useHarness(`Покажи старые задачи ${agingSpaceSubmitted} старше ${agingSubmitted} дней`)
+  const qualityQ = useSnapshotHarness('quality:' + submitted, `Оцени постановку ${submitted}`, refreshNonce)
+  const missingQ = useSnapshotHarness('quality:' + submitted, `Чего не хватает в задаче ${submitted}`, refreshNonce)
+  const acceptanceQ = useSnapshotHarness('quality:' + submitted, `Покажи критерии приемки ${submitted}`, refreshNonce)
+  const agingQ = useSnapshotHarness('quality-aging:' + agingSpaceSubmitted + ':' + agingSubmitted, `Покажи старые задачи команды ${agingSpaceSubmitted} старше ${agingSubmitted} дней`, refreshNonce)
+  const quality = qualityQ.result
+  const missing = missingQ.result
+  const acceptance = acceptanceQ.result
+  const aging = agingQ.result
 
   const qd = getCapabilityData(quality) as Row
   const md = getCapabilityData(missing) as { missing_elements?: string[]; issues?: string[]; recommendations?: string[]; quality_score?: number }
