@@ -126,8 +126,10 @@ def test_actual_utilization_scales_owner_policy_to_sprint_period():
     assert result.data["capacity_hours_per_member"] == 65.94
     rows = {row["member"]: row for row in result.data["members"]}
     assert rows["alice"]["actual_hours"] == 8.0
+    assert rows["alice"]["worklog_count"] == 1
     assert rows["alice"]["utilization_percent"] == 12.1
     assert rows["bob"]["actual_hours"] == 6.0
+    assert rows["bob"]["worklog_count"] == 1
     assert rows["bob"]["utilization_percent"] == 9.1
     assert result.data["numerator_source"] == "REAL_AS21_WORKLOGS"
     assert result.data["denominator_source"] == "OWNER_POLICY"
