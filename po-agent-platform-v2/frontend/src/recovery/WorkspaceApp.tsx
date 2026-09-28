@@ -263,7 +263,7 @@ export function WorkspaceApp() {
     <div className="workspace">
       <aside className="sidebar">
         <div className="brand-block">
-          <div className="works-logo">WORKS</div>
+          <div className="works-logo">Platform V</div>
           <div className="brand-title">PO Space</div>
           <div className="brand-subtitle">DB Tribe</div>
         </div>
