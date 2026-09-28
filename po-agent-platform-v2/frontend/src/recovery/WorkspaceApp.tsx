@@ -281,7 +281,7 @@ export function WorkspaceApp() {
       <main className="main-area">
         <header className="topbar">
           <div><strong>Пространство владельца продукта</strong><span>Platform V · DB</span></div>
-          <div className="topbar-actions"><button>OLP</button><button>DataMarts</button><button>DTMS</button></div>
+          <div className="topbar-actions"><button>OLAP</button><button>DataMarts</button></div>
         </header>
         <Outlet context={{ openAgent: () => setAgentOpen(true) }} />
       </main>
