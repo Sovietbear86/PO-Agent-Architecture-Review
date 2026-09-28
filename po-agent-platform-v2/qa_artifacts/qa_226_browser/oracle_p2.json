@@ -1,0 +1,101 @@
+{
+ "DMS": {
+  "space": "DMS",
+  "sprint_id": "DMS-SPRNT-3",
+  "period_start": "2026-09-13",
+  "period_finish": "2026-09-27",
+  "calendar_days": 15,
+  "task_count": 74,
+  "entry_count": 95,
+  "total_hours": 626.5,
+  "worklog_failures": [],
+  "capacity": 70.65,
+  "rows": [
+   {
+    "member": "Semavin.M.M",
+    "actual_hours": 94.0,
+    "worklog_count": 12,
+    "available_capacity_hours": 70.65,
+    "utilization_percent": 133.1,
+    "over_capacity": true
+   },
+   {
+    "member": "Alekseev.K.S",
+    "actual_hours": 88.0,
+    "worklog_count": 21,
+    "available_capacity_hours": 70.65,
+    "utilization_percent": 124.6,
+    "over_capacity": true
+   },
+   {
+    "member": "Galtsov.A.A",
+    "actual_hours": 80.0,
+    "worklog_count": 10,
+    "available_capacity_hours": 70.65,
+    "utilization_percent": 113.2,
+    "over_capacity": true
+   },
+   {
+    "member": "Moiseev.A.N",
+    "actual_hours": 80.0,
+    "worklog_count": 10,
+    "available_capacity_hours": 70.65,
+    "utilization_percent": 113.2,
+    "over_capacity": true
+   },
+   {
+    "member": "Zhdanov.A.Ni",
+    "actual_hours": 80.0,
+    "worklog_count": 10,
+    "available_capacity_hours": 70.65,
+    "utilization_percent": 113.2,
+    "over_capacity": true
+   },
+   {
+    "member": "Garanin.R.V",
+    "actual_hours": 72.0,
+    "worklog_count": 9,
+    "available_capacity_hours": 70.65,
+    "utilization_percent": 101.9,
+    "over_capacity": true
+   },
+   {
+    "member": "Kondratchikova.P.I",
+    "actual_hours": 52.5,
+    "worklog_count": 13,
+    "available_capacity_hours": 70.65,
+    "utilization_percent": 74.3,
+    "over_capacity": false
+   },
+   {
+    "member": "Agataeva.A.Z",
+    "actual_hours": 40.0,
+    "worklog_count": 5,
+    "available_capacity_hours": 70.65,
+    "utilization_percent": 56.6,
+    "over_capacity": false
+   },
+   {
+    "member": "Dolgovskoy.E.N",
+    "actual_hours": 40.0,
+    "worklog_count": 5,
+    "available_capacity_hours": 70.65,
+    "utilization_percent": 56.6,
+    "over_capacity": false
+   }
+  ]
+ },
+ "OLP": {
+  "space": "OLP",
+  "sprint_id": "OLP-SPRNT-8",
+  "period_start": "2026-09-21",
+  "period_finish": "2026-10-05",
+  "calendar_days": 15,
+  "task_count": 76,
+  "entry_count": 0,
+  "total_hours": 0,
+  "worklog_failures": [],
+  "capacity": 70.65,
+  "rows": []
+ }
+}

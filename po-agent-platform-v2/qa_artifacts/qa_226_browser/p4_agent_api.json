@@ -1,0 +1,80 @@
+[
+ {
+  "space": "WMB",
+  "threshold": 7,
+  "status": "FAILED",
+  "skill": null,
+  "elapsed_s": 62.7,
+  "error": null,
+  "data": {
+   "_agent_core_v4": {
+    "loaded_skills": [
+     "task.aging"
+    ],
+    "trajectory": [
+     {
+      "planner_turn": 1,
+      "decision": "load_skill",
+      "skill_id": "task.aging",
+      "capability_id": null,
+      "arguments": {},
+      "rationale": "The user asks for old/aging tasks of team WMB older than 7 days. The task.aging skill is the most directly relevant — it finds aging active tasks using a deterministic day threshold."
+     },
+     {
+      "planner_turn": 2,
+      "decision": "call",
+      "skill_id": null,
+      "capability_id": "task.aging",
+      "arguments": {
+       "threshold_days": "7",
+       "space": "WMB",
+       "team_scope": "True"
+      },
+      "rationale": "User explicitly asks for team WMB tasks older than 7 days. The task.aging skill is loaded and supports team_scope=true for team-scoped aging queries with a day threshold."
+     }
+    ],
+    "semantic_prepass_used": false
+   }
+  },
+  "answer": "Источник AS21 временно недоступен. Данные не интерпретируются как пустой результат."
+ },
+ {
+  "space": "DMS",
+  "threshold": 15,
+  "status": "FAILED",
+  "skill": null,
+  "elapsed_s": 56.3,
+  "error": null,
+  "data": {
+   "_agent_core_v4": {
+    "loaded_skills": [
+     "task.aging"
+    ],
+    "trajectory": [
+     {
+      "planner_turn": 1,
+      "decision": "load_skill",
+      "skill_id": "task.aging",
+      "capability_id": null,
+      "arguments": {},
+      "rationale": "The user asks for old/aging tasks of the DMS team older than 15 days. The task.aging skill is the most directly relevant — it finds aging active tasks using a deterministic day threshold."
+     },
+     {
+      "planner_turn": 2,
+      "decision": "call",
+      "skill_id": null,
+      "capability_id": "task.aging",
+      "arguments": {
+       "space": "DMS",
+       "threshold_days": "15",
+       "team_scope": "True"
+      },
+      "rationale": "User explicitly asks for team (команды) tasks in DMS older than 15 days. The task.aging skill is already loaded; calling with space=DMS, threshold_days=15, team_scope=true per procedure."
+     }
+    ],
+    "semantic_prepass_used": false
+   }
+  },
+  "answer": "Источник AS21 временно недоступен. Данные не интерпретируются как пустой результат."
+ }
+]
