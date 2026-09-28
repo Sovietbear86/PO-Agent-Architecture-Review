@@ -82,7 +82,7 @@ export function QualityDashboard() {
   }
 
   return <section className="page page-quality">
-    <div className="page-heading"><div><h1>Качество</h1><p>Качество постановки, критерии приёмки, пробелы и aging без LLM-выдумок</p></div><button className="primary-button" onClick={openAgent}>Спросить PO Agent</button></div>
+    <div className="page-heading"><div><h1>Качество</h1><p>Качество постановки, критерии приёмки, пробелы и team-scoped aging</p></div><div className="page-heading-actions"><SnapshotRefresh updatedAt={[qualityQ.updatedAt, missingQ.updatedAt, acceptanceQ.updatedAt, agingQ.updatedAt]} refreshing={qualityQ.refreshing || missingQ.refreshing || acceptanceQ.refreshing || agingQ.refreshing} refreshError={qualityQ.refreshError || missingQ.refreshError || acceptanceQ.refreshError || agingQ.refreshError} onRefresh={() => setRefreshNonce(value => value + 1)} /><button className="primary-button" onClick={openAgent}>Спросить PO Agent</button></div></div>
 
     <form className="panel entity-toolbar" onSubmit={submitTask}>
       <div><span>Задача</span><input value={taskKey} onChange={e => setTaskKey(e.target.value)} placeholder="WMB-102" /></div>
