@@ -22,13 +22,17 @@ type LocalTask = {
 type FilterMode = 'text' | 'attachments' | 'excel' | 'pdf' | 'msg' | 'assignee' | 'status' | 'sprint' | 'release'
 type IntelligenceMode = 'summary' | 'quality' | 'history' | 'missing'
 
-function useHarness(query: string) {
+function useHarness(query: string, enabled = true) {
   const [result, setResult] = useState<HarnessQueryResponse | null>(null)
   useEffect(() => {
+    if (!enabled || !query.trim()) {
+      setResult(null)
+      return
+    }
     let alive = true
     agent.query({ query }).then(r => alive && setResult(r)).catch(() => alive && setResult(null))
     return () => { alive = false }
-  }, [query])
+  }, [query, enabled])
   return result
 }
 
@@ -159,7 +163,7 @@ function intelligenceQuery(key: string, mode: IntelligenceMode) {
 function TaskDetailsDrawer({ task, onClose }: { task: TaskRow | null; onClose(): void }) {
   const [mode, setMode] = useState<IntelligenceMode>('summary')
   const key = String(task?.key ?? '')
-  const result = useHarness(key ? intelligenceQuery(key, mode) : 'Найди __none__')
+  const result = useHarness(key ? intelligenceQuery(key, mode) : '', Boolean(key))
   useEffect(() => { setMode('summary') }, [key])
   return <>
     <div className={`drawer-scrim ${task ? 'visible' : ''}`} onClick={onClose} />
