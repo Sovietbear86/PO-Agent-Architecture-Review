@@ -3,7 +3,7 @@ import { useOutletContext } from 'react-router-dom'
 import { HarnessQueryResponse } from '../api/client'
 import { ResultStatePanel } from '../components/ResultStatePanel'
 import { classifyResult, getCapabilityData, stateAllowsBusinessData } from './resultState'
-import { SnapshotRefresh, useSnapshotHarness } from './pageSnapshot'
+import { SnapshotRefresh, useSessionState, useSnapshotHarness } from './pageSnapshot'
 
 type WorkspaceContext = { openAgent(): void }
 type Row = Record<string, unknown>
@@ -18,7 +18,7 @@ function HarnessMeta({ result }: { result: HarnessQueryResponse | null }) {
 
 export function TeamDashboard() {
   const { openAgent } = useOutletContext<WorkspaceContext>()
-  const [space, setSpace] = useState('DMS')
+  const [space, setSpace] = useSessionState('team.space', 'DMS')
   const [refreshNonce, setRefreshNonce] = useState(0)
 
   const workloadQ = useSnapshotHarness('team:' + space, `Покажи нагрузку команды ${space}`, refreshNonce)
