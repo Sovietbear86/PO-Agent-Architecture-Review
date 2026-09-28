@@ -10,6 +10,7 @@ import asyncio
 from typing import Any
 
 from po_agent.adapters.task_api import AS21SourceUnavailable
+from po_agent.config.real_team import get_all_member_logins
 from po_agent.domain.models import AttachmentType
 
 from ..contracts import CapabilityResult, Evidence
@@ -342,10 +343,36 @@ def build_task_aging(runtime: Any):
         if threshold_days < 0:
             raise ValueError("threshold_days must be >= 0")
         space = str(args.get("space") or "").strip().upper() or None
+        team_scope = str(args.get("team_scope") or args.get("scope") or "").strip().casefold() in {
+            "1", "true", "yes", "team", "команда", "команды",
+        }
         assignee, source_assignee = await _source_assignee_from_args(runtime, args, space=space)
         if not space and not assignee:
             raise AS21SourceUnavailable("task.aging requires a bounded space or assignee on the live source path")
-        tasks = await _live_rows(runtime, space=space, assignee=source_assignee)
+
+        if team_scope and space and not assignee:
+            logins = [login for login in get_all_member_logins() if login]
+            if not logins:
+                raise AS21SourceUnavailable("configured team directory is unavailable for team-scoped aging")
+            tasks_by_key: dict[str, Any] = {}
+            failed: list[str] = []
+            for login in logins:
+                try:
+                    member_tasks = await _live_rows(runtime, space=space, assignee=login)
+                except AS21SourceUnavailable:
+                    failed.append(login)
+                    continue
+                for task in member_tasks:
+                    tasks_by_key[task.key] = task
+            if failed:
+                raise AS21SourceUnavailable(
+                    "team-scoped aging requires complete assignee reads; unavailable members: "
+                    + ", ".join(failed)
+                )
+            tasks = list(tasks_by_key.values())
+        else:
+            tasks = await _live_rows(runtime, space=space, assignee=source_assignee)
+
         with_source_age = [
             task for task in tasks
             if bool((getattr(task, "source_data", None) or {}).get("_canonical_created_at_from_source"))
@@ -373,6 +400,8 @@ def build_task_aging(runtime: Any):
                 "space": space,
                 "assignee": assignee,
                 "source_assignee": source_assignee,
+                "team_scope": team_scope,
+                "team_member_count": len(get_all_member_logins()) if team_scope else None,
                 "source": "REAL_AS21",
             },
             evidence=[
