@@ -28,6 +28,30 @@ function writeSnapshot(key: string, value: SnapshotRecord) {
   try { window.sessionStorage.setItem(key, JSON.stringify(value)) } catch { /* non-fatal */ }
 }
 
+export function useSessionState<T>(key: string, fallback: T) {
+  const storageKey = 'po-page-ui:v1:' + key
+  const [value, setValue] = useState<T>(() => {
+    try {
+      const raw = window.sessionStorage.getItem(storageKey)
+      return raw == null ? fallback : JSON.parse(raw) as T
+    } catch {
+      return fallback
+    }
+  })
+  useEffect(() => {
+    try { window.sessionStorage.setItem(storageKey, JSON.stringify(value)) } catch { /* non-fatal */ }
+  }, [storageKey, value])
+  return [value, setValue] as const
+}
+
+function snapshotLabel(updatedAt: Array<string | null>) {
+  const dates = updatedAt.filter(Boolean).map(value => new Date(value as string).getTime()).filter(Number.isFinite)
+  const latest = dates.length ? new Date(Math.max(...dates)) : null
+  return latest
+    ? latest.toLocaleString([], { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    : '—'
+}
+
 export function useSnapshotHarness(namespace: string, query: string, refreshNonce = 0) {
   const cacheKey = useMemo(() => keyFor(namespace, query), [namespace, query])
   const initial = useMemo(() => readSnapshot(cacheKey), [cacheKey])
@@ -85,13 +109,27 @@ export function SnapshotRefresh({
   refreshError: boolean
   onRefresh(): void
 }) {
-  const dates = updatedAt.filter(Boolean).map(value => new Date(value as string).getTime()).filter(Number.isFinite)
-  const latest = dates.length ? new Date(Math.max(...dates)) : null
-  const label = latest ? latest.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) : '—'
+  const label = snapshotLabel(updatedAt)
   return <div className="snapshot-refresh">
     <span className={refreshError ? 'snapshot-state snapshot-state-error' : 'snapshot-state'}>
       {refreshError ? `Не удалось обновить · данные на ${label}` : `Снимок · обновлено ${label}`}
     </span>
     <button type="button" onClick={onRefresh} disabled={refreshing}>{refreshing ? 'Обновляем…' : 'Обновить'}</button>
   </div>
+}
+
+
+export function SnapshotStatus({
+  updatedAt,
+  refreshing,
+  refreshError,
+}: {
+  updatedAt: Array<string | null>
+  refreshing: boolean
+  refreshError: boolean
+}) {
+  const label = snapshotLabel(updatedAt)
+  return <span className={refreshError ? 'snapshot-state snapshot-state-error' : 'snapshot-state'}>
+    {refreshing ? 'Обновляем…' : refreshError ? `Не удалось обновить · данные на ${label}` : `Последнее обновление: ${label}`}
+  </span>
 }
