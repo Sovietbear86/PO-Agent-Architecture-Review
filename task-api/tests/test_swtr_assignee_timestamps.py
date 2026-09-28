@@ -1,4 +1,4 @@
-from task_api.app.routers.swtr_assignee import _canonical_row
+from app.routers.swtr_assignee import _canonical_row
 
 
 def test_canonical_row_surfaces_source_timestamps():
