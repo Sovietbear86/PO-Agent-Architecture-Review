@@ -1,8 +1,9 @@
-import { FormEvent, useEffect, useMemo, useState } from 'react'
+import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { agent, HarnessQueryResponse } from '../api/client'
 import { ResultStatePanel } from '../components/ResultStatePanel'
 import { classifyResult, getCapabilityData, stateAllowsBusinessData } from './resultState'
+import { SnapshotRefresh, useSnapshotHarness } from './pageSnapshot'
 
 type WorkspaceContext = { openAgent(): void }
 type TaskRow = Record<string, unknown>
@@ -33,9 +34,9 @@ function MetricCard({ label, value, hint }: { label: string; value: string | num
   return <div className="metric-card"><span>{label}</span><strong>{value}</strong>{hint && <small>{hint}</small>}</div>
 }
 
-function PageHeader({ title, subtitle }: { title: string; subtitle: string }) {
+function PageHeader({ title, subtitle, extra }: { title: string; subtitle: string; extra?: ReactNode }) {
   const { openAgent } = useOutletContext<WorkspaceContext>()
-  return <div className="page-heading"><div><h1>{title}</h1><p>{subtitle}</p></div><button className="primary-button" onClick={openAgent}>Спросить PO Agent</button></div>
+  return <div className="page-heading"><div><h1>{title}</h1><p>{subtitle}</p></div><div className="page-heading-actions">{extra}<button className="primary-button" onClick={openAgent}>Спросить PO Agent</button></div></div>
 }
 
 function EmptyData({ text }: { text: string }) {
@@ -155,7 +156,9 @@ export function TasksPage() {
   const [mode, setMode] = useState<FilterMode>('text')
   const [search, setSearch] = useState('login')
   const [submitted, setSubmitted] = useState({ mode: 'text' as FilterMode, value: 'login' })
-  const result = useHarness(taskQuery(submitted.mode, submitted.value))
+  const [refreshNonce, setRefreshNonce] = useState(0)
+  const resultQ = useSnapshotHarness('tasks:' + submitted.mode + ':' + submitted.value, taskQuery(submitted.mode, submitted.value), refreshNonce)
+  const result = resultQ.result
   const data = getCapabilityData(result) as { tasks?: TaskRow[] }
   const tasks = data.tasks ?? []
   const resultState = classifyResult(result)
@@ -189,7 +192,7 @@ export function TasksPage() {
     [localTasks, localStatusFilter],
   )
   const placeholder = mode === 'text' ? 'Текст или ключ задачи' : mode === 'assignee' ? 'Ivanov.I.I' : mode === 'status' ? 'In Progress' : mode === 'sprint' ? 'WMB-SPRNT-1' : 'WMB-2024-Q3'
-  return <section className="page page-tasks"><PageHeader title="Задачи" subtitle="Поиск, статус, постановка, вложения и task intelligence" />
+  return <section className="page page-tasks"><PageHeader title="Задачи" subtitle="Поиск, статус, постановка, вложения и task intelligence" extra={<SnapshotRefresh updatedAt={[resultQ.updatedAt]} refreshing={resultQ.refreshing} refreshError={resultQ.refreshError} onRefresh={() => setRefreshNonce(value => value + 1)} />} />
     <form className="panel filter-toolbar" onSubmit={e => { e.preventDefault(); if (search.trim()) setSubmitted({ mode, value: search.trim() }) }}>
       <div className="filter-modes">
         {([['text','Текст'],['assignee','Исполнитель'],['status','Статус'],['sprint','Спринт'],['release','Релиз']] as Array<[FilterMode,string]>).map(([id,label]) => <button type="button" key={id} className={mode === id ? 'active' : ''} onClick={() => { setMode(id); setSearch('') }}>{label}</button>)}
@@ -250,12 +253,19 @@ export function TasksPage() {
 export function SprintPage() {
   const [sprintId, setSprintId] = useState('WMB-SPRNT-1')
   const [submitted, setSubmitted] = useState('WMB-SPRNT-1')
-  const health = useHarness(`Покажи состояние ${submitted}`)
-  const velocity = useHarness(`Покажи velocity ${submitted}`)
-  const throughput = useHarness(`Покажи throughput ${submitted}`)
-  const wip = useHarness(`Покажи WIP ${submitted}`)
-  const predictability = useHarness(`Покажи predictability ${submitted}`)
-  const risks = useHarness(`Покажи риски спринта ${submitted}`)
+  const [refreshNonce, setRefreshNonce] = useState(0)
+  const healthQ = useSnapshotHarness('sprint:' + submitted, `Покажи состояние ${submitted}`, refreshNonce)
+  const velocityQ = useSnapshotHarness('sprint:' + submitted, `Покажи velocity ${submitted}`, refreshNonce)
+  const throughputQ = useSnapshotHarness('sprint:' + submitted, `Покажи throughput ${submitted}`, refreshNonce)
+  const wipQ = useSnapshotHarness('sprint:' + submitted, `Покажи WIP ${submitted}`, refreshNonce)
+  const predictabilityQ = useSnapshotHarness('sprint:' + submitted, `Покажи predictability ${submitted}`, refreshNonce)
+  const risksQ = useSnapshotHarness('sprint:' + submitted, `Покажи риски спринта ${submitted}`, refreshNonce)
+  const health = healthQ.result
+  const velocity = velocityQ.result
+  const throughput = throughputQ.result
+  const wip = wipQ.result
+  const predictability = predictabilityQ.result
+  const risks = risksQ.result
   const hd = getCapabilityData(health) as Record<string, unknown>
   const vd = getCapabilityData(velocity) as Record<string, unknown>
   const td = getCapabilityData(throughput) as Record<string, unknown>
@@ -270,7 +280,7 @@ export function SprintPage() {
   const predictabilityState = classifyResult(predictability)
   const risksState = classifyResult(risks)
   return <section className="page page-sprint">
-    <PageHeader title="Спринты" subtitle="Velocity, throughput, WIP, predictability и очередь рисков" />
+    <PageHeader title="Спринты" subtitle="Velocity, throughput, WIP, predictability и очередь рисков" extra={<SnapshotRefresh updatedAt={[healthQ.updatedAt, velocityQ.updatedAt, throughputQ.updatedAt, wipQ.updatedAt, predictabilityQ.updatedAt, risksQ.updatedAt]} refreshing={healthQ.refreshing || velocityQ.refreshing || throughputQ.refreshing || wipQ.refreshing || predictabilityQ.refreshing || risksQ.refreshing} refreshError={healthQ.refreshError || velocityQ.refreshError || throughputQ.refreshError || wipQ.refreshError || predictabilityQ.refreshError || risksQ.refreshError} onRefresh={() => setRefreshNonce(value => value + 1)} />} />
     <form className="panel entity-toolbar" onSubmit={e => { e.preventDefault(); if (sprintId.trim()) setSubmitted(sprintId.trim().toUpperCase()) }}><div><span>Спринт</span><input value={sprintId} onChange={e => setSprintId(e.target.value)} /></div><button type="submit">Обновить</button></form>
     <div className="metric-grid"><MetricCard label="Scope" value={stateAllowsBusinessData(healthState) ? String(hd.total ?? '—') : '—'} /><MetricCard label="Completed" value={stateAllowsBusinessData(healthState) ? String(hd.completed ?? '—') : '—'} /><MetricCard label="Velocity" value={stateAllowsBusinessData(velocityState) ? `${String(vd.velocity ?? '—')} ${String(vd.unit ?? '')}` : '—'} /><MetricCard label="Predictability" value={stateAllowsBusinessData(predictabilityState) ? `${String(pd.predictability_percent ?? '—')}%` : '—'} hint={stateAllowsBusinessData(predictabilityState) ? (predictability?.warnings.includes('current_scope_used_as_commitment_baseline') ? 'current scope baseline' : undefined) : 'нужен source-backed baseline старта спринта'} /></div>
     <div className="insight-grid">
@@ -285,11 +295,17 @@ export function SprintPage() {
 export function ReleasesPage() {
   const [releaseId, setReleaseId] = useState('WMB-2024-Q3')
   const [submitted, setSubmitted] = useState('WMB-2024-Q3')
-  const scope = useHarness(`Покажи scope ${submitted}`)
-  const progress = useHarness(`Покажи прогресс ${submitted}`)
-  const blockers = useHarness(`Покажи блокеры ${submitted}`)
-  const dependencies = useHarness(`Покажи зависимости ${submitted}`)
-  const risks = useHarness(`Покажи риски релиза ${submitted}`)
+  const [refreshNonce, setRefreshNonce] = useState(0)
+  const scopeQ = useSnapshotHarness('release:' + submitted, `Покажи scope ${submitted}`, refreshNonce)
+  const progressQ = useSnapshotHarness('release:' + submitted, `Покажи прогресс ${submitted}`, refreshNonce)
+  const blockersQ = useSnapshotHarness('release:' + submitted, `Покажи блокеры ${submitted}`, refreshNonce)
+  const dependenciesQ = useSnapshotHarness('release:' + submitted, `Покажи зависимости ${submitted}`, refreshNonce)
+  const risksQ = useSnapshotHarness('release:' + submitted, `Покажи риски релиза ${submitted}`, refreshNonce)
+  const scope = scopeQ.result
+  const progress = progressQ.result
+  const blockers = blockersQ.result
+  const dependencies = dependenciesQ.result
+  const risks = risksQ.result
   const sd = getCapabilityData(scope) as { count?: number; tasks?: TaskRow[] }
   const pd = getCapabilityData(progress) as Record<string, unknown>
   const bd = getCapabilityData(blockers) as { count?: number; tasks?: TaskRow[] }
@@ -302,7 +318,7 @@ export function ReleasesPage() {
   const dependenciesState = classifyResult(dependencies)
   const releaseRisksState = classifyResult(risks)
   return <section className="page page-releases">
-    <PageHeader title="Релизы" subtitle="Progress, blockers, dependencies и deterministic risk queue" />
+    <PageHeader title="Релизы" subtitle="Progress, blockers, dependencies и deterministic risk queue" extra={<SnapshotRefresh updatedAt={[scopeQ.updatedAt, progressQ.updatedAt, blockersQ.updatedAt, dependenciesQ.updatedAt, risksQ.updatedAt]} refreshing={scopeQ.refreshing || progressQ.refreshing || blockersQ.refreshing || dependenciesQ.refreshing || risksQ.refreshing} refreshError={scopeQ.refreshError || progressQ.refreshError || blockersQ.refreshError || dependenciesQ.refreshError || risksQ.refreshError} onRefresh={() => setRefreshNonce(value => value + 1)} />} />
     <form className="panel entity-toolbar" onSubmit={e => { e.preventDefault(); if (releaseId.trim()) setSubmitted(releaseId.trim().toUpperCase()) }}><div><span>Релиз</span><input value={releaseId} onChange={e => setReleaseId(e.target.value)} /></div><button type="submit">Обновить</button></form>
     <div className="metric-grid"><MetricCard label="Scope" value={stateAllowsBusinessData(scopeState) ? String(sd.count ?? '—') : '—'} /><MetricCard label="Completed" value={stateAllowsBusinessData(progressState) ? String(pd.completed ?? '—') : '—'} /><MetricCard label="Blocked" value={stateAllowsBusinessData(progressState) ? String(pd.blocked ?? '—') : '—'} /><MetricCard label="Готовность" value={stateAllowsBusinessData(progressState) ? `${String(pd.task_completion_percent ?? '—')}%` : '—'} hint={stateAllowsBusinessData(progressState) && pd.effort_completion_percent != null ? `effort ${String(pd.effort_completion_percent)}%` : undefined} /></div>
     <div className="content-grid"><div className="panel"><div className="panel-title"><strong>Очередь рисков релиза</strong><span>{stateAllowsBusinessData(releaseRisksState) ? riskRows.length : '—'}</span></div>{stateAllowsBusinessData(releaseRisksState) ? (riskRows.length ? riskRows.map((row, index) => { const task = (row.task ?? {}) as TaskRow; return <div className="risk-row" key={String(task.key ?? index)}><div><b>{String(task.key ?? '')}</b><span>{String(task.title ?? '')} · {((row.reasons ?? []) as string[]).join(', ')}</span></div><em>{String(row.risk_score ?? '')}</em></div> }) : <div className="muted">Источник подтвердил: риски не выявлены.</div>) : <ResultStatePanel result={risks} compact />}<HarnessMeta result={risks} /></div>
