@@ -66,9 +66,9 @@ export function V4ResultPanel({ result }: Props) {
   const rows = structuredRows(result.data)
 
   return (
-    <div data-testid="v4-result-panel" style={{ marginTop: 10, border: '1px solid #e3e8ef', borderRadius: 10, background: '#fff', overflow: 'hidden' }}>
-      <div style={{ padding: '9px 11px', display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', borderBottom: '1px solid #eef1f5', fontSize: 11, color: '#667085' }}>
-        <strong style={{ color: '#344054' }}>V4</strong>
+    <div data-testid="v4-result-panel" className="v4-result-panel">
+      <div className="v4-result-header">
+        <strong>V4</strong>
         <span className={'v4-state v4-state-' + state.toLowerCase()}>{RESULT_STATE_LABELS[state]}</span>
         {widget && <span>widget: {widget}</span>}
         {result.ui?.result_kind && <span>kind: {result.ui.result_kind}</span>}
@@ -83,20 +83,20 @@ export function V4ResultPanel({ result }: Props) {
       )}
 
       {rows.length > 0 && (
-        <div data-testid="v4-structured-result" style={{ maxHeight: 260, overflow: 'auto' }}>
+        <div data-testid="v4-structured-result" className="v4-structured-result">
           {rows.slice(0, 50).map((row, index) => (
-            <div key={`${rowLabel(row)}-${index}`} style={{ padding: '8px 11px', borderBottom: '1px solid #f2f4f7', fontSize: 12, color: '#344054' }}>
+            <div key={`${rowLabel(row)}-${index}`} className="v4-structured-row">
               {rowLabel(row)}
             </div>
           ))}
-          {rows.length > 50 && <div style={{ padding: '8px 11px', fontSize: 11, color: '#667085' }}>Показаны первые 50 из {rows.length}</div>}
+          {rows.length > 50 && <div className="v4-structured-more">Показаны первые 50 из {rows.length}</div>}
         </div>
       )}
 
       {result.evidence.length > 0 && (
-        <details style={{ padding: '8px 11px', fontSize: 11, color: '#667085' }}>
-          <summary style={{ cursor: 'pointer' }}>Evidence: {result.evidence.length}</summary>
-          <div style={{ marginTop: 7, display: 'grid', gap: 5 }}>
+        <details className="v4-evidence-details">
+          <summary>Evidence: {result.evidence.length}</summary>
+          <div className="v4-evidence-list">
             {result.evidence.slice(0, 20).map((item, index) => (
               <div key={`${item.source}-${item.entity_id || index}`}>{item.source} · {item.entity_id || item.label} · {item.label}</div>
             ))}
