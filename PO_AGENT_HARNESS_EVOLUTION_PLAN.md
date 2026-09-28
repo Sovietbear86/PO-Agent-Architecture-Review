@@ -1019,3 +1019,57 @@ The implementation is presentation-only:
 - existing A224R2 state/lineage and usability semantics must remain unchanged.
 
 A225 must be GREEN before Browser UX/PO acceptance is frozen.
+
+
+### A225 closure — visual design GREEN
+
+A225 certified the cookbook-derived visual system GREEN:
+- six distinct page backgrounds;
+- one shared dark navy/cyan glass system;
+- typed V4 states remained readable;
+- 1440px + 480px responsive checks GREEN;
+- PO Attention overflow closed;
+- 0 mutations / 0 extra source reads caused by styling.
+
+Checkpoint:
+`checkpoint/v4-ui-visual-design-green-a225@09bcbd22d87b478396970d0ddf89cbf6d531d421`
+
+### A226 — final owner UI polish + page snapshots
+
+**Status:** IMPLEMENTED_PENDING_QA.
+
+This owner batch incorporates PO visual/behavioral feedback before final Browser UX acceptance.
+
+1. **Dark structured data surfaces**
+   - remove remaining white legacy surfaces from V4 structured-result panels and Daily Brief/rich tables;
+   - keep readable cyan/white text over dark glass.
+
+2. **Team actual utilization**
+   - Team UI now uses certified `team.utilization_actual`, not estimate-based `team.capacity`;
+   - numerator = REAL AS21 worklogs;
+   - denominator = owner policy normalized to sprint period (40h/week baseline);
+   - estimate-based `team.capacity` remains source-conditional and is not used for this widget;
+   - expose per-member worklog count alongside actual hours / available capacity / utilization.
+
+3. **Top-right product chips**
+   - keep only `OLAP` and `DataMarts`;
+   - remove `DTMS`.
+
+4. **Team-scoped Aging queue**
+   - `task.aging` gains explicit `team_scope=true`;
+   - UI asks for old tasks of the configured team in the selected space;
+   - source reads are bounded by configured member logins and space;
+   - deduplicate by task key;
+   - any missing member read fails closed instead of presenting partial aging as exact.
+
+5. **Stable page snapshots + manual refresh**
+   - every main page loads live data on first open in a browser session;
+   - successful responses are cached in `sessionStorage`;
+   - route navigation/back does not automatically re-query AS21 when a page-context snapshot exists;
+   - each page has a manual `Обновить` control and timestamp;
+   - manual refresh keeps the previous snapshot visible while requests run;
+   - refresh failure preserves the old snapshot and shows a stale/error indicator;
+   - context-specific keys isolate Team space, Quality task/aging threshold, Sprint id, Release id, Tasks search/filter;
+   - no background polling.
+
+A226 must be GREEN before the final PO/Browser UX checkpoint.
