@@ -31,7 +31,15 @@ export function OverviewDashboard() {
   const status = statusQ.result
   const od = getCapabilityData(overview) as Record<string, unknown>
   const ad = getCapabilityData(attention) as { count?: number; queue?: QueueRow[]; scoring_version?: string }
-  const bd = getCapabilityData(brief) as Record<string, unknown>
+  const bd = getCapabilityData(brief) as {
+    active?: number
+    blocked?: number
+    unassigned?: number
+    completed?: number
+    attention_count?: number
+    top_attention?: QueueRow[]
+    spaces?: Array<{ space?: string; sprint_id?: string; state?: string; task_count?: number | null }>
+  }
   const sd = getCapabilityData(status) as {
     completion_percent?: number
     by_product?: Record<string, { total?: number; completed?: number; blocked?: number }>
@@ -69,7 +77,15 @@ export function OverviewDashboard() {
         {stateAllowsBusinessData(briefState)
           ? <div className="brief-copy"><RichAnswer text={brief?.answer ?? ''} /></div>
           : <ResultStatePanel result={brief} compact />}
-        {stateAllowsBusinessData(briefState) && <><div className="fact-row"><span>Активно</span><b>{String(bd.active ?? '—')}</b></div><div className="fact-row"><span>Blocked</span><b>{String(bd.blocked ?? '—')}</b></div><div className="fact-row"><span>Без исполнителя</span><b>{String(bd.unassigned ?? '—')}</b></div></>}
+        {stateAllowsBusinessData(briefState) && <>
+          <div className="fact-row"><span>Активно</span><b>{String(bd.active ?? '—')}</b></div>
+          <div className="fact-row"><span>Завершено</span><b>{String(bd.completed ?? '—')}</b></div>
+          <div className="fact-row"><span>Blocked</span><b>{String(bd.blocked ?? '—')}</b></div>
+          <div className="fact-row"><span>Без исполнителя</span><b>{String(bd.unassigned ?? '—')}</b></div>
+          <div className="fact-row"><span>Точек внимания</span><b>{String(bd.attention_count ?? '—')}</b></div>
+          {(bd.top_attention?.length ?? 0) > 0 && <div className="brief-section"><strong>Top attention</strong>{bd.top_attention!.map((row, index) => { const task = row.task ?? {}; return <div className="brief-attention-row" key={String(task.key ?? index)}><span><b>{String(task.key ?? '')}</b> {String(task.title ?? '')}</span><em>{String(row.attention_score ?? '')}</em></div> })}</div>}
+          {(bd.spaces?.length ?? 0) > 0 && <div className="brief-section"><strong>Текущие спринты</strong>{bd.spaces!.map((row, index) => <div className="fact-row compact" key={String(row.space ?? index)}><span>{String(row.space ?? '—')} · {String(row.sprint_id ?? row.state ?? '—')}</span><b>{row.task_count ?? '—'}</b></div>)}</div>}
+        </>}
         </div>
         {brief?.warnings.length ? <div className="warning">{brief.warnings.join(' · ')}</div> : null}<Meta result={brief} />
       </div>
