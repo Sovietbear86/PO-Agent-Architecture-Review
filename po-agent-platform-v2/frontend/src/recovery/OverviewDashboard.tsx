@@ -1,23 +1,14 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
-import { agent, HarnessQueryResponse } from '../api/client'
+import { HarnessQueryResponse } from '../api/client'
 import { ResultStatePanel } from '../components/ResultStatePanel'
 import { RichAnswer } from '../components/agent/RichAnswer'
 import { classifyResult, getCapabilityData, stateAllowsBusinessData } from './resultState'
 import './OverviewDashboard.css'
+import { SnapshotRefresh, useSnapshotHarness } from './pageSnapshot'
 
 type WorkspaceContext = { openAgent(): void }
 type QueueRow = { task?: Record<string, unknown>; attention_score?: number; reasons?: string[] }
-
-function useHarness(query: string) {
-  const [result, setResult] = useState<HarnessQueryResponse | null>(null)
-  useEffect(() => {
-    let alive = true
-    agent.query({ query }).then(r => alive && setResult(r)).catch(() => alive && setResult(null))
-    return () => { alive = false }
-  }, [query])
-  return result
-}
 
 function Meta({ result }: { result: HarnessQueryResponse | null }) {
   return <div className="filter-status"><span>Skill: {result?.skill?.id ?? '—'}</span><span>Evidence: {result?.evidence.length ?? 0}</span><span>Trace: {result?.trace_id?.slice(0,8) ?? '—'}</span></div>
@@ -29,10 +20,15 @@ function Metric({ label, value, hint }: { label: string; value: unknown; hint?: 
 
 export function OverviewDashboard() {
   const { openAgent } = useOutletContext<WorkspaceContext>()
-  const overview = useHarness('Дай обзор и риски')
-  const attention = useHarness('Покажи очередь внимания')
-  const brief = useHarness('Сделай daily brief')
-  const status = useHarness('Сделай status report')
+  const [refreshNonce, setRefreshNonce] = useState(0)
+  const overviewQ = useSnapshotHarness('overview', 'Дай обзор и риски', refreshNonce)
+  const attentionQ = useSnapshotHarness('overview', 'Покажи очередь внимания', refreshNonce)
+  const briefQ = useSnapshotHarness('overview', 'Сделай daily brief', refreshNonce)
+  const statusQ = useSnapshotHarness('overview', 'Сделай status report', refreshNonce)
+  const overview = overviewQ.result
+  const attention = attentionQ.result
+  const brief = briefQ.result
+  const status = statusQ.result
   const od = getCapabilityData(overview) as Record<string, unknown>
   const ad = getCapabilityData(attention) as { count?: number; queue?: QueueRow[]; scoring_version?: string }
   const bd = getCapabilityData(brief) as Record<string, unknown>
@@ -48,7 +44,7 @@ export function OverviewDashboard() {
   const statusState = classifyResult(status)
 
   return <section className="page page-overview">
-    <div className="page-heading"><div><h1>Обзор</h1><p>Единая точка внимания PO: портфель, риски, brief и статус продуктов</p></div><button className="primary-button" onClick={openAgent}>Спросить PO Agent</button></div>
+    <div className="page-heading"><div><h1>Обзор</h1><p>Единая точка внимания PO: портфель, риски, brief и задачи по пространствам</p></div><div className="page-heading-actions"><SnapshotRefresh updatedAt={[overviewQ.updatedAt, attentionQ.updatedAt, briefQ.updatedAt, statusQ.updatedAt]} refreshing={overviewQ.refreshing || attentionQ.refreshing || briefQ.refreshing || statusQ.refreshing} refreshError={overviewQ.refreshError || attentionQ.refreshError || briefQ.refreshError || statusQ.refreshError} onRefresh={() => setRefreshNonce(value => value + 1)} /><button className="primary-button" onClick={openAgent}>Спросить PO Agent</button></div></div>
     <div className="metric-grid">
       <Metric label="Активно" value={stateAllowsBusinessData(classifyResult(overview)) ? (od.active ?? '—') : '—'} />
       <Metric label="Завершено" value={stateAllowsBusinessData(classifyResult(overview)) ? (od.completed ?? '—') : '—'} />
