@@ -94,13 +94,13 @@ export function TeamDashboard() {
     <div className="panel team-capacity-panel">
       <div className="panel-title"><strong>Capacity & utilization</strong><span>{stateAllowsBusinessData(capacityState) ? capacityRows.length : '—'}</span></div>
       {stateAllowsBusinessData(capacityState) ? (capacityRows.length ? <div className="capacity-table">
-        <div className="capacity-head"><span>Исполнитель</span><span>Задачи</span><span>Нагрузка</span><span>Utilization</span><span>Состояние</span></div>
+        <div className="capacity-head"><span>Исполнитель</span><span>Списания</span><span>Факт / capacity</span><span>Utilization</span><span>Состояние</span></div>
         {capacityRows.map(row => {
           const utilization = Number(row.utilization_percent ?? 0)
           const capped = Math.max(0, Math.min(utilization, 100))
           return <div className="capacity-row" key={String(row.member)}>
             <div><b>{String(row.member)}</b></div>
-            <span>{String(row.worklog_count ?? '—')}</span>
+            <span>—</span>
             <span>{String(row.actual_hours ?? '—')} / {String(row.available_capacity_hours ?? capacityData.capacity_hours_per_member ?? '—')} ч</span>
             <div className="utilization-cell"><div className="utilization-track"><div className="utilization-fill" style={{ width: `${capped}%` }} /></div><span>{String(row.utilization_percent)}%</span></div>
             <span className={row.over_capacity ? 'warning-badge' : 'green-badge'}>{row.over_capacity ? 'OVER' : 'OK'}</span>
