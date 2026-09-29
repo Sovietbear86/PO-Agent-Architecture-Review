@@ -1204,3 +1204,20 @@ Owner review after A226R3 GREEN found three product-level issues that must be cl
    - No one-widget refresh should fan out all four Quality queries.
 
 A227 is the final PO UX correction gate before release hardening. Learning Reviewer remains blocked.
+
+
+### A227 RED closure / A227R
+
+A227 P0-P2 are GREEN. First RED is P3: pre-existing planner reliability on natural-language composition, not the A227 frontend.
+
+Findings:
+- person + multi-constraint queries can hit repeated provider/client ValidationError at the next planner turn; the robust loop repeated the same prompt, so repair did not actually change the retry;
+- sprint-period + "В работе" can false-zero because the source exposes canonical workflow category status_type=progress.
+
+A227R owner fixes:
+- normalize null/list/non-string OpenAI-compatible message content before LLMResponse validation;
+- after provider/client decode exception, append generic action-only repair before retrying;
+- normalize "В работе" / "In Progress" / "in_progress" to source category "progress";
+- focused regressions cover both fixes.
+
+A227R resumes at P3, then completes deferred P4-P7 including Quality/Aging exactness. PO sign-off remains blocked until GREEN.
