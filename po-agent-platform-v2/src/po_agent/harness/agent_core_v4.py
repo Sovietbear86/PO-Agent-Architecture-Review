@@ -1317,12 +1317,27 @@ class AgentCoreV4Runtime:
                 # READY.  This is runtime-generated from verified completion
                 # state — never model-recovered text — and fails closed to the
                 # normal planner path whenever any contract is unmet.
+                #
+                # Composite trajectories may legitimately load helper skills
+                # (for example task.search_assignee before task.search_attachments).
+                # Once the latest loaded skill has its typed terminal contract
+                # satisfied, earlier helper contracts must not force another
+                # stochastic planner turn.  Pin the completion frontier to that
+                # terminal skill generically; no skill id or query phrase is
+                # hard-coded here.
+                effective_completion_skills = required_completion_skills
+                if not effective_completion_skills and loaded:
+                    latest_skill = loaded[-1]
+                    if latest_skill in self._skill_contracts:
+                        effective_completion_skills = (latest_skill,)
                 completion_satisfied = self._trajectory_completion_satisfied(
                     tuple(loaded),
                     observations,
-                    required_completion_skills=required_completion_skills,
+                    required_completion_skills=effective_completion_skills,
                 )
-                runtime_autocomplete_allowed = self.catalog.runtime_autocomplete_allowed(tuple(loaded))
+                runtime_autocomplete_allowed = self.catalog.runtime_autocomplete_allowed(
+                    effective_completion_skills or tuple(loaded)
+                )
                 if completion_satisfied and runtime_autocomplete_allowed:
                     trajectory.append({
                         "planner_turn": len(trajectory) + 1,
