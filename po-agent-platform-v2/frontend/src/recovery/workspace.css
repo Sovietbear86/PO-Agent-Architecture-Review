@@ -361,3 +361,5 @@ input::placeholder,textarea::placeholder{color:#6f8aa0}
 }
 
 body.task-drawer-active .agent-launcher{display:none!important}
+
+.task-space-select{min-width:92px;border:1px solid rgba(126,226,255,.18);border-radius:7px;padding:9px 10px;background:rgba(2,16,29,.72);color:#eafaff;outline:none}
