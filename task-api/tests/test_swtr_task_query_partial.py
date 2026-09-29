@@ -28,7 +28,14 @@ async def test_unscoped_phrase_search_isolates_failed_spaces(monkeypatch):
     )
     monkeypatch.setattr(swtr_query, "_row_text", lambda row, *names: "")
 
-    result = await swtr_query.query_live_tasks(phrase="БП 2027")
+    result = await swtr_query.query_live_tasks(
+        phrase="БП 2027",
+        space=None,
+        assignee=None,
+        release=None,
+        limit=100,
+        max_pages=100,
+    )
 
     assert result["source_complete"] is False
     assert {row["space"] for row in result["incomplete_spaces"]} == {"CRPV", "STS"}
@@ -46,6 +53,13 @@ async def test_scoped_phrase_search_keeps_failure_strict(monkeypatch):
     monkeypatch.setattr(swtr_query, "_fetch_space_rows", fake_fetch)
 
     with pytest.raises(HTTPException) as exc:
-        await swtr_query.query_live_tasks(phrase="БП 2027", space="WMB")
+        await swtr_query.query_live_tasks(
+            phrase="БП 2027",
+            space="WMB",
+            assignee=None,
+            release=None,
+            limit=100,
+            max_pages=100,
+        )
 
     assert exc.value.status_code == 502
