@@ -53,7 +53,7 @@ function snapshotLabel(updatedAt: Array<string | null>) {
     : '—'
 }
 
-export function useSnapshotHarness(namespace: string, query: string, refreshNonce = 0) {
+export function useSnapshotHarness(namespace: string, query: string, refreshNonce = 0, enabled = true) {
   const cacheKey = useMemo(() => keyFor(namespace, query), [namespace, query])
   const initial = useMemo(() => readSnapshot(cacheKey), [cacheKey])
   const [result, setResult] = useState<HarnessQueryResponse | null>(initial?.result ?? null)
@@ -63,6 +63,7 @@ export function useSnapshotHarness(namespace: string, query: string, refreshNonc
   const requestId = useRef(0)
 
   const load = useCallback(async () => {
+    if (!enabled || !query.trim()) return
     const id = ++requestId.current
     setRefreshing(true)
     setRefreshError(false)
@@ -83,14 +84,15 @@ export function useSnapshotHarness(namespace: string, query: string, refreshNonc
     } finally {
       if (id === requestId.current) setRefreshing(false)
     }
-  }, [cacheKey, query])
+  }, [cacheKey, enabled, query])
 
   useEffect(() => {
-    const cached = readSnapshot(cacheKey)
+    const cached = enabled ? readSnapshot(cacheKey) : null
     setResult(cached?.result ?? null)
     setUpdatedAt(cached?.updatedAt ?? null)
     setRefreshError(false)
-    if (!cached) void load()
+    setRefreshing(false)
+    if (enabled && !cached) void load()
     return () => { requestId.current += 1 }
   }, [cacheKey, load])
 
@@ -98,7 +100,7 @@ export function useSnapshotHarness(namespace: string, query: string, refreshNonc
   useEffect(() => {
     if (refreshNonce === lastRefresh.current) return
     lastRefresh.current = refreshNonce
-    void load()
+    if (enabled) void load()
   }, [refreshNonce, load])
 
   return { result, updatedAt, refreshing, refreshError }
