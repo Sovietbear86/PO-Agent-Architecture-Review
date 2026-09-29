@@ -7,6 +7,7 @@ type SnapshotRecord = {
 }
 
 const PREFIX = 'po-page-snapshot:v1:'
+const REFRESH_TIMEOUT_MS = 65_000
 
 function keyFor(namespace: string, query: string): string {
   return PREFIX + namespace + ':' + query
@@ -48,7 +49,7 @@ function snapshotLabel(updatedAt: Array<string | null>) {
   const dates = updatedAt.filter(Boolean).map(value => new Date(value as string).getTime()).filter(Number.isFinite)
   const latest = dates.length ? new Date(Math.max(...dates)) : null
   return latest
-    ? latest.toLocaleString([], { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+    ? latest.toLocaleString('ru-RU', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false })
     : '—'
 }
 
@@ -66,7 +67,12 @@ export function useSnapshotHarness(namespace: string, query: string, refreshNonc
     setRefreshing(true)
     setRefreshError(false)
     try {
-      const next = await agent.query({ query })
+      const next = await Promise.race([
+        agent.query({ query }),
+        new Promise<never>((_, reject) => {
+          window.setTimeout(() => reject(new Error('page refresh timeout')), REFRESH_TIMEOUT_MS)
+        }),
+      ])
       if (id !== requestId.current) return
       const timestamp = new Date().toISOString()
       setResult(next)
