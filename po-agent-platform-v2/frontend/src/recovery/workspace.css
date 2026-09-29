@@ -372,3 +372,7 @@ body.task-drawer-active .agent-launcher{display:none!important}
   .free-search-row{grid-template-columns:1fr}
   .free-search-row button{width:100%}
 }
+
+.local-panel-tools{display:flex;align-items:center;gap:10px}
+.local-panel-tools select{min-width:130px}
+.search-idle{padding:18px 4px}
