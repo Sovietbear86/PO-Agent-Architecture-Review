@@ -1,115 +1,62 @@
 # GigaCode — Current Action
 
-## ACTIVE: Assignment 227R — planner reliability re-gate + deferred PO acceptance
+## ACTIVE: Assignment 227R — re-gate first RED only
 
-Role: QA/adversarial tester only. Do NOT modify code.
+Role: QA/adversarial tester only. Do NOT modify production/frontend/backend/plugin/test/config code.
 
-Prior verdict:
-`AGENT_CORE_V4_PO_ACCEPTANCE_RED_A227`
+A227 stopped correctly at P3. P0/P1/P2 and P3-D were GREEN. Preserve those results; do not repeat unaffected gates.
 
-Retain P0/P1/P2 GREEN from A227 unless contradicted by the current diff.
+Owner fixes since A227 RED:
+- generic composite completion frontier now terminates when the latest loaded typed terminal skill is source-satisfied, so an earlier helper skill does not force four identical stochastic repair attempts;
+- REAL task rows retain authoritative status_raw/status_type in typed observations;
+- generic task.search literal workflow status filtering uses those authoritative source fields instead of collapsing "В работе" to a false zero.
 
-## Owner fixes under test
+## P0R — focused build/regression
+1. Pull current HEAD; clean worktree; record START_HEAD.
+2. Run tsc --noEmit and vite build.
+3. Run focused V4 reliable/plugin/completion tests including the new literal-status regression.
+4. No production edits.
 
-1. RealLLMClient normalizes null/list/non-string message content before LLMResponse validation.
-2. Robust planner no longer retries an identical prompt after provider/client decode failure; it appends the generic action-only recovery instruction for the next bounded attempt.
-3. Production V4 runtime normalizes `В работе / In Progress / in_progress` to source workflow category `progress`.
-4. Focused regressions added for provider-exception recovery and progress normalization.
+## P3R-A — exact original composite case
+Query exactly:
+`Открытые задачи Калачанова с вложениями в пространстве WMB`
 
-No phrase/person/entity-specific production router is allowed.
-
-## P0 — focused build/protocol gate
-
-- clean worktree, record START_HEAD;
-- tsc + vite build;
-- run robust protocol tests, task-search/composition tests, sprint discovery tests;
-- prove no semantic-prepass/person router/phrase router introduced;
-- prove recovery remains action-only and cannot mint READY after a malformed turn.
-
-Unexpected regression => RED STOP.
-
-## P1 — blocking NL composition re-gate
-
-Run each case at least 5 fresh sessions; exact source Oracle B refreshed immediately before the batch.
-
-A. `Открытые задачи Калачанова с вложениями в пространстве WMB`
-- expected source truth may be empty after intersecting open + assignee + attachments;
-- all constraints must be preserved;
-- no confident non-empty/empty unless Oracle B proves it;
-- no ValidationError/V4ContractError planner failure.
-
-B. `Задачи Семавина по рискам`
-- source-resolve Semavin;
-- no invented risk/task rows;
-- no planner transport failure;
-- if the implemented skill interprets "по рискам" as phrase/risk analysis, prove exact source behavior and document trajectory.
-
-C. `Задачи в работе в сентябрьском спринте по DMS`
-- resolve source sprint for September;
-- task.search must use the canonical progress semantic, not literal-localized equality;
-- exact key parity against source status_type=progress set;
-- confident false zero is blocking RED.
-
-D. `Спринты в DMS`
-- grounded non-task answer remains GREEN.
-
-Acceptance:
-- A/B: 5/5 terminally correct/fail-closed with no planner runtime failure;
-- C: 5/5 exact keys;
-- D: 3/3 grounded.
-First failure => STOP.
-
-## P2 — task rendering/persistence
-
-Complete the deferred A227 P4:
-- task collections render cards;
-- cards open Task Details;
-- non-task result renders grounded answer;
-- away/back = 0 new POST;
-- editing input without Find does not change submitted result;
-- Refresh re-runs the exact submitted NL query.
-
-## P3 — Quality refresh isolation
-
-Use DMS-380:
-- top page refresh triggers only quality/missing/acceptance;
-- Aging does not re-fire;
-- same-task Проверить re-runs only task-quality group;
-- normal response before 120s must not false-timeout.
-
-## P4 — Aging exactness
-
-Use DMS >7 and >15 days.
-Refresh Oracle B first.
 Require:
-- Aging button only fires Aging;
-- team-scoped bounded reads;
-- exact key/count parity;
-- rows show key/title/assignee/status/age_days;
-- same criteria refresh performs a live re-read;
-- no false zero / no fake source state.
+- person + WMB + open/not-completed + attachment constraints preserved;
+- source-backed identity resolution;
+- bounded source reads only;
+- terminal attachment collection completes without planner repair loop;
+- exact source parity for returned keys/count;
+- no tenant-wide scan;
+- no fabricated rows.
+Run 5 times. All 5 must complete correctly. Any planner failed robust bounded repair => RED STOP.
 
-## P5 — retained regression/audit
+## P3R-C — exact original sprint/status case
+Query exactly:
+`Задачи в работе в сентябрьском спринте по DMS`
 
-Recheck:
-- LOCAL-NNNN CRUD/deadline/tags/priority/edit/delete;
-- Overview cached revisit and refresh;
-- Sprint DMS-SPRNT-3 exact;
-- Releases typed source limitation;
-- Team utilization;
-- Platform V + OLAP/DataMarts;
-- six backgrounds / responsive;
-- 0 local factual reads;
-- 0 tenant-wide scans;
-- 0 mutations.
+Require:
+- source-backed September DMS sprint resolution;
+- literal source status "В работе" preserved;
+- exact task-key/count parity against independent REAL AS21 oracle;
+- do not accept false zero when oracle has matching rows;
+- bounded reads only.
+Run 5 times. All 5 must match oracle exactly.
+
+## Then resume A227 from P4
+Only if P3R-A and P3R-C are GREEN:
+- resume P4 completion/card/drawer checks;
+- P5 Quality refresh isolation;
+- P6 exact Aging DMS >15 and >7;
+- P7 retained regression.
+Do not rerun already GREEN P1/P2/P3-D unless a focused regression requires it.
 
 ## Verdict
-
 Exactly one:
 - `AGENT_CORE_V4_PO_ACCEPTANCE_GREEN_A227R`
 - `AGENT_CORE_V4_PO_ACCEPTANCE_RED_A227R`
 
-GREEN -> recommend checkpoint `checkpoint/v4-po-acceptance-green-a227r`, then release hardening.
-RED -> preserve first failing evidence and STOP.
+If RED: preserve first failing evidence and STOP.
+If GREEN: recommend checkpoint `checkpoint/v4-po-acceptance-green-a227r`.
 
 Do not modify code.
