@@ -359,3 +359,5 @@ input::placeholder,textarea::placeholder{color:#6f8aa0}
   .local-task-list-row{grid-template-columns:minmax(0,1fr) auto}
   .local-task-open{grid-column:1/-1;grid-template-columns:auto minmax(0,1fr)}
 }
+
+body.task-drawer-active .agent-launcher{display:none!important}
