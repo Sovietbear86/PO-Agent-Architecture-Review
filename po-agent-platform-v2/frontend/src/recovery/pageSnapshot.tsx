@@ -7,7 +7,7 @@ type SnapshotRecord = {
 }
 
 const PREFIX = 'po-page-snapshot:v1:'
-const REFRESH_TIMEOUT_MS = 65_000
+const REFRESH_TIMEOUT_MS = 120_000
 
 function keyFor(namespace: string, query: string): string {
   return PREFIX + namespace + ':' + query
