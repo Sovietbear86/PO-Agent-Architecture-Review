@@ -42,7 +42,7 @@ def _task_dict(task: Any) -> dict[str, Any]:
     }
 
 
-async def _live_rows(runtime: Any, *, phrase: str | None = None, space: str | None = None, assignee: str | None = None) -> list[Any]:
+async def _live_query(runtime: Any, *, phrase: str | None = None, space: str | None = None, assignee: str | None = None) -> tuple[list[Any], dict[str, Any]]:
     adapter = runtime.adapter
     params: dict[str, Any] = {"limit": 100, "max_pages": 100}
     if phrase:
@@ -63,6 +63,16 @@ async def _live_rows(runtime: Any, *, phrase: str | None = None, space: str | No
         mapped = adapter._map(row)
         if mapped is not None:
             tasks.append(mapped)
+    metadata = {
+        "completed_spaces": payload.get("completed_spaces") if isinstance(payload, dict) else None,
+        "incomplete_spaces": payload.get("incomplete_spaces") if isinstance(payload, dict) else None,
+        "source_complete": payload.get("source_complete", True) if isinstance(payload, dict) else True,
+    }
+    return tasks, metadata
+
+
+async def _live_rows(runtime: Any, *, phrase: str | None = None, space: str | None = None, assignee: str | None = None) -> list[Any]:
+    tasks, _ = await _live_query(runtime, phrase=phrase, space=space, assignee=assignee)
     return tasks
 
 
@@ -159,12 +169,29 @@ def build_task_search_text(runtime: Any):
             raise ValueError("phrase is required")
         space = str(args.get("space") or "").strip() or None
         assignee, source_assignee = await _source_assignee_from_args(runtime, args, space=space)
-        tasks = await _live_rows(runtime, phrase=phrase, space=space, assignee=source_assignee)
+        tasks, source_meta = await _live_query(runtime, phrase=phrase, space=space, assignee=source_assignee)
         rows = [_task_dict(task) for task in tasks]
+        incomplete_spaces = list(source_meta.get("incomplete_spaces") or [])
+        source_complete = bool(source_meta.get("source_complete", not incomplete_spaces))
+        answer = f"Найдено задач по фразе «{phrase}»: {len(rows)}."
+        if incomplete_spaces:
+            answer += " Результат частичный: часть пространств недоступна из-за ограничения источника."
         return CapabilityResult(
-            answer=f"Найдено задач по фразе «{phrase}»: {len(rows)}.",
-            data={"count": len(rows), "tasks": rows, "task_keys": [row["key"] for row in rows], "phrase": phrase, "assignee": assignee, "source_assignee": source_assignee, "source": "REAL_AS21"},
+            answer=answer,
+            data={
+                "count": len(rows),
+                "tasks": rows,
+                "task_keys": [row["key"] for row in rows],
+                "phrase": phrase,
+                "assignee": assignee,
+                "source_assignee": source_assignee,
+                "source": "REAL_AS21",
+                "source_complete": source_complete,
+                "completed_spaces": source_meta.get("completed_spaces") or [],
+                "incomplete_spaces": incomplete_spaces,
+            },
             evidence=[Evidence(type="task", source="as21", entity_id=row["key"], label=row["title"], value=row["status"]) for row in rows],
+            warnings=["partial_source_spaces"] if incomplete_spaces else [],
         )
     return execute
 
