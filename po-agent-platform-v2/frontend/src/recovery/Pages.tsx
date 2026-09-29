@@ -212,16 +212,16 @@ export function OverviewPage() {
 }
 
 export function TasksPage() {
-  const [search, setSearch] = useSessionState('tasks.search', 'Открытые задачи Калачанова с вложениями в пространстве WMB')
-  const [submitted, setSubmitted] = useSessionState('tasks.submitted-query', 'Открытые задачи Калачанова с вложениями в пространстве WMB')
+  const [search, setSearch] = useSessionState('tasks.search', '')
+  const [submitted, setSubmitted] = useSessionState('tasks.submitted-query', '')
   const [refreshNonce, setRefreshNonce] = useState(0)
-  const resultQ = useSnapshotHarness('tasks:nl:' + submitted, submitted, refreshNonce)
+  const hasSubmitted = Boolean(submitted.trim())
+  const resultQ = useSnapshotHarness('tasks:nl:' + submitted, submitted, refreshNonce, hasSubmitted)
   const result = resultQ.result
   const data = getCapabilityData(result) as { tasks?: TaskRow[] }
   const hasTaskCollection = Array.isArray(data.tasks)
   const tasks = hasTaskCollection ? (data.tasks ?? []) : []
-  const resultState = classifyResult(result)
-  const [as21StatusFilter, setAs21StatusFilter] = useSessionState('tasks.as21-status', 'ALL')
+  const resultState = classifyResult(result, { loading: hasSubmitted && resultQ.refreshing, hasRun: hasSubmitted })
   const [localStatusFilter, setLocalStatusFilter] = useSessionState<'ALL' | LocalTask['status']>('tasks.local-status', 'ALL')
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [editingLocalTask, setEditingLocalTask] = useState<LocalTask | null>(null)
@@ -259,16 +259,11 @@ export function TasksPage() {
   })
   useEffect(() => { localStorage.setItem('po-local-tasks', JSON.stringify(localTasks)) }, [localTasks])
   const nextLocalNumber = useMemo(() => Math.max(0, ...localTasks.map(task => task.number || 0)) + 1, [localTasks])
-  const as21Statuses = useMemo(() => Array.from(new Set(tasks.map(task => String(task.status ?? '').trim()).filter(Boolean))).sort(), [tasks])
-  const visibleTasks = useMemo(
-    () => as21StatusFilter === 'ALL' ? tasks : tasks.filter(task => String(task.status ?? '').toLocaleLowerCase() === as21StatusFilter.toLocaleLowerCase()),
-    [tasks, as21StatusFilter],
-  )
   const visibleLocalTasks = useMemo(
     () => localStatusFilter === 'ALL' ? localTasks : localTasks.filter(task => task.status === localStatusFilter),
     [localTasks, localStatusFilter],
   )
-  return <section className="page page-tasks"><PageHeader title="Задачи" subtitle="Свободный поиск по задачам и рабочему контексту через навыки PO Agent" extra={<SnapshotRefresh updatedAt={[resultQ.updatedAt]} refreshing={resultQ.refreshing} refreshError={resultQ.refreshError} onRefresh={() => setRefreshNonce(value => value + 1)} />} />
+  return <section className="page page-tasks"><PageHeader title="Задачи" subtitle="Свободный поиск по задачам и рабочему контексту через навыки PO Agent" extra={hasSubmitted ? <SnapshotRefresh updatedAt={[resultQ.updatedAt]} refreshing={resultQ.refreshing} refreshError={resultQ.refreshError} onRefresh={() => setRefreshNonce(value => value + 1)} /> : undefined} />
     <form className="panel filter-toolbar" onSubmit={e => { e.preventDefault(); const next = search.trim(); if (next) setSubmitted(next) }}>
       <div className="filter-input-row free-search-row">
         <input
@@ -281,27 +276,10 @@ export function TasksPage() {
         <button type="button" onClick={() => { setEditingLocalTask(null); setDrawerOpen(true) }}>+ Локальная задача</button>
       </div>
       <div className="search-examples">Можно писать естественным языком: «Задачи Семавина по рискам», «Задачи в работе в сентябрьском спринте по DMS», «Спринты в DMS».</div>
-      <div className="filter-input-row">
-        <label>Статус AS21
-          <select value={as21StatusFilter} onChange={e => setAs21StatusFilter(e.target.value)}>
-            <option value="ALL">Все</option>
-            {as21Statuses.map(status => <option key={status} value={status}>{status}</option>)}
-          </select>
-        </label>
-        <label>Статус локальных
-          <select value={localStatusFilter} onChange={e => setLocalStatusFilter(e.target.value as 'ALL' | LocalTask['status'])}>
-            <option value="ALL">Все</option>
-            <option value="TODO">TODO</option>
-            <option value="IN_PROGRESS">IN PROGRESS</option>
-            <option value="BLOCKED">BLOCKED</option>
-            <option value="DONE">DONE</option>
-          </select>
-        </label>
-      </div>
       <HarnessMeta result={result} />
     </form>
     {localTasks.length > 0 && <div className="panel local-panel">
-      <div className="panel-title"><strong>Локальные задачи</strong><span>{visibleLocalTasks.length}/{localTasks.length}</span></div>
+      <div className="panel-title"><strong>Локальные задачи</strong><div className="local-panel-tools"><select value={localStatusFilter} onChange={e => setLocalStatusFilter(e.target.value as 'ALL' | LocalTask['status'])} aria-label="Статус локальных задач"><option value="ALL">Все статусы</option><option value="TODO">TODO</option><option value="IN_PROGRESS">IN PROGRESS</option><option value="BLOCKED">BLOCKED</option><option value="DONE">DONE</option></select><span>{visibleLocalTasks.length}/{localTasks.length}</span></div></div>
       {visibleLocalTasks.map(t => <div className="local-task-list-row" key={t.id}>
         <button type="button" className="local-task-open" onClick={() => { setEditingLocalTask(t); setDrawerOpen(true) }}>
           <span className="local-task-number">{localTaskCode(t.number)}</span>
@@ -330,16 +308,14 @@ export function TasksPage() {
         >×</button>
       </div>)}
     </div>}
-    <div className="panel"><div className="panel-title"><strong>Результат поиска</strong><span>{stateAllowsBusinessData(resultState) && hasTaskCollection ? `${visibleTasks.length}/${tasks.length}` : (result?.skill?.id ?? '—')}</span></div>
+    <div className="panel"><div className="panel-title"><strong>Результат поиска</strong><span>{stateAllowsBusinessData(resultState) && hasTaskCollection ? `${tasks.length}` : (result?.skill?.id ?? '—')}</span></div>
       {stateAllowsBusinessData(resultState)
         ? (hasTaskCollection
           ? (tasks.length
-            ? (visibleTasks.length
-              ? <div className="task-card-grid">{visibleTasks.map(t => <TaskCard key={String(t.key)} task={t} onOpen={setSelectedTask} />)}</div>
-              : <EmptyData text="По выбранному статусу задач нет" />)
+            ? <div className="task-card-grid">{tasks.map(t => <TaskCard key={String(t.key)} task={t} onOpen={setSelectedTask} />)}</div>
             : <EmptyData text="Источник подтвердил: задачи не найдены" />)
           : <div className="search-answer"><RichAnswer text={result?.answer ?? ''} /></div>)
-        : <ResultStatePanel result={result} />}
+        : (hasSubmitted ? <ResultStatePanel result={result} /> : <div className="muted search-idle">Введите запрос естественным языком и нажмите «Найти».</div>)}
     </div>
     <LocalTaskDrawer
       open={drawerOpen}
