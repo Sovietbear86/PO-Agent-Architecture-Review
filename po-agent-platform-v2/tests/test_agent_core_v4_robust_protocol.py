@@ -9,6 +9,22 @@ from po_agent.harness.agent_core_v4 import CapabilitySpecV4, SkillCatalogV4, Ski
 from po_agent.harness.agent_core_v4_robust import RobustSkillNativePlannerV4
 
 
+class RaisesThenRespondsClient:
+    def __init__(self, response: str) -> None:
+        self.response = response
+        self.calls = 0
+        self.messages = []
+
+    async def complete(self, messages, *args, **kwargs):
+        self.calls += 1
+        self.messages.append(messages)
+        if self.calls == 1:
+            raise ValueError("provider response shape validation failed")
+        return SimpleNamespace(
+            choices=[SimpleNamespace(message=SimpleNamespace(content=self.response))]
+        )
+
+
 class StubClient:
     def __init__(self, *responses: str) -> None:
         self._responses = iter(responses)
@@ -203,3 +219,31 @@ def test_robust_planner_accepts_and_forwards_generic_session_context() -> None:
     messages = client.calls[0][0][0]
     payload = messages[1].content
     assert '"session_context": {"space": "DMS", "sprint_id": "DMS-SPRNT-3"}' in payload
+
+
+def test_planner_changes_retry_after_provider_decode_exception() -> None:
+    client = RaisesThenRespondsClient(
+        "CALL task.search assignee=$obs.1.assignee_login status=not_completed"
+    )
+    planner = RobustSkillNativePlannerV4(client, model="test")
+    decision = asyncio.run(
+        planner.next_decision(
+            user_query="Покажи задачи исполнителя",
+            catalog=_catalog(),
+            loaded_skills=("task-search",),
+            observations=[],
+        )
+    )
+    assert decision.kind == "call"
+    assert decision.capability_id == "task.search"
+    assert client.calls == 2
+    assert len(client.messages[1]) == 3
+    assert "provider response could not be decoded" in client.messages[1][-1].content.lower()
+
+
+def test_runtime_normalizes_in_progress_wording_to_source_progress_category() -> None:
+    from po_agent.harness.agent_core_v4_robust import RobustReliableAgentCoreV4Runtime
+
+    assert RobustReliableAgentCoreV4Runtime._safe_status("В работе") == "progress"
+    assert RobustReliableAgentCoreV4Runtime._safe_status("In Progress") == "progress"
+    assert RobustReliableAgentCoreV4Runtime._safe_status("open") == "not_completed"
