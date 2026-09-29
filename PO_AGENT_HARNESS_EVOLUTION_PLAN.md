@@ -1100,3 +1100,38 @@ A226R also consolidates final PO UX feedback before final Browser acceptance:
 7. Daily Brief again renders completed + attention count + top-attention tasks + current sprint breakdown while staying internally scrollable.
 
 A226R must close P4 first, then the deferred A226 P1/P5/P6/P8 gates and these UX acceptance cases.
+
+
+### A226R RED closure / A226R2 owner remediation
+
+A226R stopped at P3 with:
+`RED_P3_UNSCOPED_TEXT_SEARCH_SOURCE_SCALE`.
+
+Independent QA proved:
+- WMB contains 99 real matches for "БП 2027";
+- DMS/OLP are source-proven empty for that phrase;
+- STS/CRPV exceed the bounded row-materialization cap;
+- one large-space failure previously sank the whole unscoped phrase search.
+
+Owner remediation for A226R2:
+1. task-api unscoped phrase search isolates failures per space and returns completed-space rows plus explicit `incomplete_spaces` / `source_complete=false` metadata instead of discarding healthy-space results.
+2. task.search_text propagates that completeness metadata and warning; partial source coverage is never silently presented as exact.
+3. Main Tasks UI is simplified back to five search modes only:
+   - Текстовый поиск
+   - Исполнитель
+   - Статус
+   - Спринт
+   - Релиз
+4. UI text search is explicitly scoped by product-space selector (WMB/DMS/OLP/CRPV/STS); the mandatory "БП 2027" case defaults to WMB and therefore uses a bounded exact source query rather than an all-space corpus scan.
+5. Floating PO Agent launcher is hidden while task/local-task drawers are open, closing the A226R submit-button overlap.
+6. Snapshot timestamp uses ru-RU date+time formatting.
+7. Page refresh has a 65s UI completion bound so a slow child query cannot leave the button in "Обновляем…" indefinitely; stale snapshot is preserved on timeout.
+8. Aging "Обновить" with unchanged criteria now forces a live re-read.
+
+PO observations to re-gate in the same batch:
+- Overview refresh must leave loading state and show the new date/time;
+- Sprint must be verified with the correct source-backed id `DMS-SPRNT-3` (not the observed typo `DMS-DPRNT-3`);
+- Sprint risk queue and predictability require independent source parity;
+- Release page must be verified on source-backed release identities (for example 1.6.0 / 24Q1) and preserve honest SOURCE_CONDITIONAL when release-to-task membership is unavailable.
+
+A226R2 must be GREEN before the final PO Browser UX acceptance checkpoint.
