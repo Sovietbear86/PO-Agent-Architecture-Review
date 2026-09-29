@@ -1157,3 +1157,16 @@ Owner remediation:
 
 A226R3 resumes at P2, then completes the deferred P3-P8 forensic/UX checks:
 local drawer hit testing, Overview refresh completion, Aging re-read, Sprint DMS-SPRNT-3, Releases source-contract behavior, retained smoke/audit.
+
+
+### A226R3 closure — final UI polish GREEN
+
+Verdict: `AGENT_CORE_V4_UI_POLISH_SNAPSHOT_GREEN_A226R3`
+
+Checkpoint: `checkpoint/v4-ui-polish-snapshot-green-a226r3@486747298bc812bebab64a86b81585a202ab6ccc`
+
+Certified: Tasks Text/Status source scoping exact; 5-mode Tasks UX; local-task CRUD with LOCAL-NNNN/deadline/tags/priority/edit/reload; Overview refresh/stale preservation; Quality Aging re-read; Sprint DMS-SPRNT-3 forensic including Risk Queue; Releases typed source limitation; six-page responsive/design audit; zero local factual reads, zero tenant-wide scans, zero mutations.
+
+Carry as non-blocking tech debt: F1 drawer close X under sticky topbar at 1366x768; F2 65s Overview timeout race with slow source; F3 Quality shared refreshNonce; F4 WMB 24Q1 quarter-like release phrasing may route to sprints.discover.
+
+Next sequence: PO final Browser UX sign-off; optional small non-blocking cleanup if requested; release hardening/security/restart/latency/rollback rehearsal; Learning Reviewer 2.0 only after the release gate is intentionally opened.
