@@ -205,9 +205,11 @@ async def query_live_tasks(
     spaces = [normalized_space] if normalized_space else sorted(_ALLOWED_SPACES)
 
     raw_rows: list[dict[str, Any]] = []
+    incomplete_spaces: list[dict[str, Any]] = []
+    completed_spaces: list[str] = []
     for current_space in spaces:
-        raw_rows.extend(
-            await _fetch_space_rows(
+        try:
+            rows = await _fetch_space_rows(
                 client,
                 space=current_space,
                 assignee_external_id=external_id,
@@ -215,6 +217,29 @@ async def query_live_tasks(
                 limit=limit,
                 max_pages=max_pages,
             )
+        except HTTPException as exc:
+            # Unscoped phrase search must not lose bounded results from healthy
+            # spaces merely because one very large space hits the pagination cap.
+            # Preserve the failure explicitly so consumers cannot mistake the
+            # returned union for complete source truth.
+            if normalized_space:
+                raise
+            incomplete_spaces.append({
+                "space": current_space,
+                "status_code": exc.status_code,
+                "detail": str(exc.detail),
+            })
+            continue
+        raw_rows.extend(rows)
+        completed_spaces.append(current_space)
+
+    if not completed_spaces and incomplete_spaces:
+        raise HTTPException(
+            status_code=502,
+            detail={
+                "message": "AS21 task query unavailable for every approved space",
+                "incomplete_spaces": incomplete_spaces,
+            },
         )
 
     needle = (phrase or "").strip().casefold()
@@ -260,4 +285,7 @@ async def query_live_tasks(
         "phrase": phrase,
         "count": len(canonical),
         "tasks": canonical,
+        "completed_spaces": completed_spaces,
+        "incomplete_spaces": incomplete_spaces,
+        "source_complete": len(incomplete_spaces) == 0,
     }
