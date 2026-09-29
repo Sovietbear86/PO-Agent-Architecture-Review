@@ -76,9 +76,12 @@ export function QualityDashboard() {
   function submitAging(event: FormEvent) {
     event.preventDefault()
     const parsed = Math.max(1, Number.parseInt(agingDays, 10) || 7)
-    setAgingDays(String(parsed))
-    setAgingSubmitted(String(parsed))
+    const nextDays = String(parsed)
+    const sameCriteria = nextDays === agingSubmitted && agingSpace === agingSpaceSubmitted
+    setAgingDays(nextDays)
+    setAgingSubmitted(nextDays)
     setAgingSpaceSubmitted(agingSpace)
+    if (sameCriteria) setRefreshNonce(value => value + 1)
   }
 
   return <section className="page page-quality">
