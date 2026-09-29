@@ -183,6 +183,20 @@ with the next governed skill/capability action."""
                 )
             except Exception as exc:
                 failures.append(type(exc).__name__)
+                # Do not repeat the identical prompt after a provider/response-shape
+                # failure. Give the next bounded attempt the same generic action-only
+                # recovery contract used for malformed planner text. This is transport
+                # hardening only: it names no skill, entity, or next capability.
+                messages.append(
+                    LLMMessage(
+                        role="user",
+                        content=(
+                            self.DSL_REPAIR
+                            + "\nThe previous provider response could not be decoded by the client. "
+                              "Re-emit only the same governed next action."
+                        ),
+                    )
+                )
                 continue
             if not response.choices:
                 failures.append("no_choices")
