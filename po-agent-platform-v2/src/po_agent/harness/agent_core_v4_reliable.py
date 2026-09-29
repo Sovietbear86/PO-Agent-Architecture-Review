@@ -472,6 +472,59 @@ Additional reliability rules:
                     f"planner literal is not grounded in user query or validated session context: {key}={raw}"
                 )
 
+    async def _task_search(self, args: dict[str, str]) -> CapabilityResult:
+        """Reliable generic task search with source-status literal semantics.
+
+        REAL AS21 may expose workflow labels such as "В работе" that do not map
+        to the coarse normalized enum.  For non-semantic status literals, keep
+        the bounded source collection and match the authoritative raw/type
+        status fields directly.  The base implementation remains unchanged for
+        semantic states such as not_completed/completed/blocked.
+        """
+        raw_status = str(args.get("status") or "").strip()
+        normalized = self._safe_status(raw_status)
+        semantic = {"", "not_completed", "completed", "blocked"}
+        if normalized in semantic:
+            return await super()._task_search(args)
+
+        forwarded = dict(args)
+        forwarded["status"] = ""
+        base = await super()._task_search(forwarded)
+        rows = base.data.get("tasks") if isinstance(base.data, Mapping) else None
+        if not isinstance(rows, list):
+            return base
+
+        requested = raw_status.casefold()
+        matched = []
+        for row in rows:
+            if not isinstance(row, Mapping):
+                continue
+            candidates = (
+                row.get("status_raw"),
+                row.get("status_type"),
+                row.get("status"),
+                row.get("status_category"),
+            )
+            if any(requested in str(value or "").casefold() for value in candidates):
+                matched.append(dict(row))
+
+        data = dict(base.data)
+        data["tasks"] = matched
+        data["count"] = len(matched)
+        data["filters"] = {**dict(data.get("filters") or {}), "status": raw_status}
+        return CapabilityResult(
+            answer=f"Найдено задач: {len(matched)}.",
+            data=data,
+            evidence=[
+                item for item in base.evidence
+                if any(
+                    isinstance(row, Mapping) and str(row.get("key") or "") == str(item.entity_id)
+                    for row in matched
+                )
+            ],
+            warnings=list(base.warnings),
+        )
+
     async def _sprint_current_source_backed(self, args: dict[str, str]) -> CapabilityResult:
         product = str(args.get("product") or args.get("space") or "").strip().upper()
         if product not in APPROVED_PRODUCT_SPACES:
