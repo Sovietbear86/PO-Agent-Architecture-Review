@@ -1,88 +1,174 @@
 # GigaCode — Current Action
 
-## ACTIVE: Assignment 226R2 — text-search scale + final UX re-gate
+## ACTIVE: Assignment 226R3 — Tasks scope fix + deferred final UX forensic
 
-QA only. Do not modify code.
+Role: QA/adversarial tester only. Do NOT modify code.
 
-Prior verdict: `AGENT_CORE_V4_UI_POLISH_SNAPSHOT_RED_A226R`.
-First RED: `RED_P3_UNSCOPED_TEXT_SEARCH_SOURCE_SCALE`.
+Prior verdict:
+`AGENT_CORE_V4_UI_POLISH_SNAPSHOT_RED_A226R2`
 
-Owner fixes under test:
-- task-api isolates per-space failures for unscoped phrase search and returns `incomplete_spaces` + `source_complete=false`;
-- task.search_text propagates completeness metadata/warning;
-- Tasks UI has only 5 modes: Текстовый поиск / Исполнитель / Статус / Спринт / Релиз;
-- Text search has explicit space selector, default WMB;
-- AI launcher hidden while task drawers are open;
-- snapshot timestamps use ru-RU date+time;
-- page refresh leaves loading after max ~65s and preserves stale snapshot on timeout;
-- unchanged Aging refresh forces live re-read;
-- all LOCAL-NNNN/local-task fixes retained.
+A226R2 P1 was GREEN. First RED was P2:
+- selected search space was dropped on submit, so DMS UI selection could still execute WMB;
+- Status mode omitted space and expanded into an all-space scan.
 
-### P0 Build/diff
-Prove no Agent Core/planner/runtime drift. Run focused task-api/task-search/aging/local-task tests, tsc and vite build.
+## Owner fixes under test
 
-### P1 Text search blocker
-Browser: Tasks -> Text -> WMB -> `БП 2027` -> Найти.
-Require exact current WMB oracle parity, including description matches, with no reads of other spaces from this scoped request.
-Away/back = 0 POST. Page Refresh re-runs same WMB+text criteria.
+- Tasks uses persisted `searchSpace`;
+- Text and Status submit the selected space explicitly;
+- snapshot key includes submitted space;
+- Status mode shows the same space selector;
+- task-api partial-search tests now pass concrete endpoint args;
+- all prior A226R2 fixes remain in place.
 
-Direct unscoped task-api phrase probe:
-- healthy-space matches remain available if STS/CRPV hit bounds;
-- `source_complete=false`;
-- failed spaces listed in `incomplete_spaces`;
-- no fake exactness/zero.
+## P0 — preflight
 
-RED here => STOP.
+1. Pull current branch; clean worktree; record START_HEAD.
+2. Prove no Agent Core/planner/runtime architecture drift.
+3. Run focused tests:
+   - task-api phrase-search partial/isolation tests;
+   - task catalog/live-handler tests;
+   - aging/time/local-task regressions;
+   - tsc --noEmit;
+   - vite build.
+4. Any unexplained failure => RED STOP.
 
-### P2 Tasks UX
-Visible modes exactly 5: Text, Assignee, Status, Sprint, Release.
+## P1 — Tasks space selector exactness
+
+### Text
+- select DMS;
+- enter `БП 2027`;
+- press Найти.
+
+Require:
+- submitted query says DMS, never WMB;
+- task-api network/log shows space=DMS;
+- exact DMS oracle parity;
+- switch to WMB and repeat; exact WMB parity;
+- away/back preserves both selected and submitted space;
+- page Refresh re-runs the same submitted space/query.
+
+### Status
+Use a source-ready status and WMB first.
+Require:
+- query includes selected WMB;
+- task-api reads WMB only;
+- no all-space scan;
+- exact source parity.
+Then change to DMS and repeat.
+
+If any mode silently falls back to another space or scans all spaces => RED STOP.
+
+## P2 — Tasks UX retained
+
+Visible modes exactly:
+- Текстовый поиск
+- Исполнитель
+- Статус
+- Спринт
+- Релиз
+
 No attachment/Excel/PDF/MSG buttons.
-Smoke:
-- Text WMB / БП 2027
-- Assignee Kalachanov.V.V
-- live status
-- Sprint DMS-SPRNT-3
-- valid release identity
-No tenant-wide fallback scan.
+Assignee Kalachanov.V.V remains source-exact.
+Sprint uses DMS-SPRNT-3.
+Release mode uses a source-backed release identity and remains typed if membership is unavailable.
 
-### P3 Local drawer overlap
-At 1440x900 open local-task drawer and click center of Создать/Сохранить.
-Require AI launcher hidden/not hit-testable while local or AS21 task drawer is open.
-LOCAL-NNNN, deadline, tags, priority, edit/reload remain GREEN.
-0 AS21 writes.
+## P3 — local drawer hit testing
 
-### P4 Overview refresh
-Press Обновить on populated Overview.
-Old data stays visible; loading ends within ~65s plus small tolerance.
-Timestamp format must be ru-RU date+time.
-Failure/timeout preserves stale snapshot and shows error.
-Away/back = 0 unwanted reread.
+At 1440×900 and a common laptop viewport:
+- open local task create drawer;
+- fill title, priority, tags, deadline;
+- click center of Создать.
 
-### P5 Quality Aging
-DMS + 15. Press Aging Обновить again with identical criteria.
-Require a live re-read with same DMS/15 criteria and exact source parity.
+Require:
+- AI launcher hidden/non-hit-testable while local or AS21 task drawer is open;
+- create/edit/reload/delete works;
+- LOCAL-NNNN stable;
+- 0 AS21 writes.
 
-### P6 Sprint forensic
-Use exact valid id `DMS-SPRNT-3` (NOT DMS-DPRNT-3).
-Verify exact source parity for Scope, Completed, Velocity, Throughput, WIP, Risk Queue, Predictability/readiness.
-Previous live baseline was about 74 / 22 / 22 / 1.571 / 32 / 29.7%, risk queue ~37; source drift allowed only if independently proven.
-For predictability prove the source-backed baseline. If historical source is insufficient, typed SOURCE_CONDITIONAL is acceptable; no fabrication.
-Unexpected NEEDS_CLARIFICATION/FAILED for valid sprint id => RED.
+## P4 — Overview refresh completion
 
-### P7 Releases forensic
-Use release.search / source directory; do not judge only stale default WMB-2024-Q3.
-Test source-backed ids such as `1.6.0` and `24Q1` (or current equivalents).
-Verify Scope/Progress/Blockers/Dependencies/Risk Queue separately.
-If release-to-task membership is absent, typed SOURCE_CONDITIONAL/UNAVAILABLE is expected; never fake zero or pseudo forecast.
-Valid release identity must not become generic NEEDS_CLARIFICATION solely because membership is absent.
+Press Обновить on populated Overview:
+- old snapshot stays visible;
+- loading ends on success/error/timeout;
+- must not remain indefinitely in `Обновляем…`;
+- timestamp is ru-RU date+time;
+- timeout/failure preserves stale data and shows error;
+- away/back causes 0 new POST.
 
-### P8 Retained smoke/audit
-Recheck Platform V, OLAP+DataMarts only, rich Daily Brief, Team actual utilization, team Aging, 6 backgrounds, 1440+480 no overflow, cached revisit 0 POST, 0 mutations, 0 local factual fallback.
+## P5 — Quality Aging
 
-Verdict exactly:
-- `AGENT_CORE_V4_UI_POLISH_SNAPSHOT_GREEN_A226R2`
-or
-- `AGENT_CORE_V4_UI_POLISH_SNAPSHOT_RED_A226R2`
+DMS + 15:
+- load once;
+- press Aging Обновить with unchanged criteria.
 
-GREEN -> recommend `checkpoint/v4-ui-polish-snapshot-green-a226r2`.
-RED -> preserve first failing evidence and STOP.
+Require one live re-read with same DMS/15 criteria and exact source parity.
+
+## P6 — Sprint forensic
+
+Use exact id:
+`DMS-SPRNT-3`
+
+Verify independently:
+- Scope
+- Completed
+- Velocity
+- Throughput
+- WIP
+- Risk Queue
+- Predictability/readiness
+
+No generic NEEDS_CLARIFICATION/FAILED is acceptable for a source-ready metric with this valid id.
+For Predictability, prove the actual source-backed baseline:
+- if historical previous-sprint data is sufficient, exact value required;
+- otherwise typed SOURCE_CONDITIONAL is acceptable;
+- no fabricated baseline/current-scope proxy.
+
+## P7 — Releases forensic
+
+Use release.search/source directory first.
+Test valid current release identities, including 1.6.0 / 24Q1 if still present.
+
+Verify separately:
+- Scope
+- Progress
+- Blockers
+- Dependencies
+- Risk Queue
+
+If release-to-task membership is absent:
+- typed SOURCE_CONDITIONAL/UNAVAILABLE is expected;
+- no fake zero;
+- no pseudo forecast;
+- valid release id must not degrade to generic clarification merely because membership is unavailable.
+
+## P8 — retained snapshot/design/audit
+
+Recheck:
+- Platform V brand;
+- OLAP + DataMarts only;
+- rich Daily Brief;
+- Team actual utilization;
+- team-scoped Aging;
+- six backgrounds;
+- 1440 + 480 no document overflow;
+- cached revisit = 0 extra POST;
+- manual refresh page-bounded;
+- 0 mutations;
+- 0 local factual fallback;
+- 0 tenant-wide scan.
+
+## Verdict
+
+Exactly one:
+- `AGENT_CORE_V4_UI_POLISH_SNAPSHOT_GREEN_A226R3`
+- `AGENT_CORE_V4_UI_POLISH_SNAPSHOT_RED_A226R3`
+
+If GREEN:
+- recommend checkpoint `checkpoint/v4-ui-polish-snapshot-green-a226r3`;
+- next owner phase = final PO Browser UX acceptance + release hardening;
+- Learning Reviewer still waits for owner acceptance.
+
+If RED:
+- preserve first failing evidence and STOP.
+
+Do not modify code.
