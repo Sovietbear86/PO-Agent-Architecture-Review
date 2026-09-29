@@ -247,3 +247,40 @@ def test_release_id_can_be_trusted_from_release_search_list_row() -> None:
         "здоровье релиза 1.6.0 в OLP",
         [observation],
     )
+
+
+def test_literal_source_status_filters_authoritative_raw_status() -> None:
+    class StatusAdapter(SprintAdapter):
+        async def get_sprint_tasks(self, sprint_id, space=None):
+            del sprint_id, space
+            Task = type("Task", (), {})
+            def row(key, raw, normalized):
+                task = Task()
+                task.key = key
+                task.title = key
+                task.status = TaskStatus.IN_PROGRESS if normalized else TaskStatus.NEW
+                task.status_category = StatusCategory.IN_PROGRESS if normalized else StatusCategory.TODO
+                task.status_raw = raw
+                task.status_type = raw
+                task.assignee = "User"
+                task.assignee_login = "user"
+                task.assignee_id = "user"
+                task.project_space = "DMS"
+                task.sprint_id = "DMS-SPRNT-3"
+                task.release_id = None
+                task.source = "swtr"
+                task.is_open = True
+                task.is_completed = False
+                task.is_blocked = False
+                return task
+            return [row("DMS-1", "В работе", True), row("DMS-2", "Новая", False)]
+
+    runtime = _runtime(StatusAdapter())
+    result = asyncio.run(runtime._task_search({
+        "sprint_id": "DMS-SPRNT-3",
+        "space": "DMS",
+        "status": "В работе",
+    }))
+    assert result.data["count"] == 1
+    assert [item["key"] for item in result.data["tasks"]] == ["DMS-1"]
+    assert result.data["tasks"][0]["status_raw"] == "В работе"
