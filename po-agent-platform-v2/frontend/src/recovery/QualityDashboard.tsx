@@ -24,12 +24,13 @@ export function QualityDashboard() {
   const [agingSubmitted, setAgingSubmitted] = useSessionState('quality.agingSubmitted', '7')
   const [agingSpace, setAgingSpace] = useSessionState('quality.agingSpace', 'WMB')
   const [agingSpaceSubmitted, setAgingSpaceSubmitted] = useSessionState('quality.agingSpaceSubmitted', 'WMB')
-  const [refreshNonce, setRefreshNonce] = useState(0)
+  const [taskRefreshNonce, setTaskRefreshNonce] = useState(0)
+  const [agingRefreshNonce, setAgingRefreshNonce] = useState(0)
 
-  const qualityQ = useSnapshotHarness('quality:' + submitted, `Оцени постановку ${submitted}`, refreshNonce)
-  const missingQ = useSnapshotHarness('quality:' + submitted, `Чего не хватает в задаче ${submitted}`, refreshNonce)
-  const acceptanceQ = useSnapshotHarness('quality:' + submitted, `Покажи критерии приемки ${submitted}`, refreshNonce)
-  const agingQ = useSnapshotHarness('quality-aging:' + agingSpaceSubmitted + ':' + agingSubmitted, `Покажи старые задачи команды ${agingSpaceSubmitted} старше ${agingSubmitted} дней`, refreshNonce)
+  const qualityQ = useSnapshotHarness('quality:' + submitted, `Оцени постановку ${submitted}`, taskRefreshNonce)
+  const missingQ = useSnapshotHarness('quality:' + submitted, `Чего не хватает в задаче ${submitted}`, taskRefreshNonce)
+  const acceptanceQ = useSnapshotHarness('quality:' + submitted, `Покажи критерии приемки ${submitted}`, taskRefreshNonce)
+  const agingQ = useSnapshotHarness('quality-aging:' + agingSpaceSubmitted + ':' + agingSubmitted, `Покажи старые задачи команды ${agingSpaceSubmitted} старше ${agingSubmitted} дней`, agingRefreshNonce)
   const quality = qualityQ.result
   const missing = missingQ.result
   const acceptance = acceptanceQ.result
@@ -70,7 +71,10 @@ export function QualityDashboard() {
 
   function submitTask(event: FormEvent) {
     event.preventDefault()
-    if (taskKey.trim()) setSubmitted(taskKey.trim().toUpperCase())
+    const next = taskKey.trim().toUpperCase()
+    if (!next) return
+    if (next === submitted) setTaskRefreshNonce(value => value + 1)
+    else setSubmitted(next)
   }
 
   function submitAging(event: FormEvent) {
@@ -81,11 +85,11 @@ export function QualityDashboard() {
     setAgingDays(nextDays)
     setAgingSubmitted(nextDays)
     setAgingSpaceSubmitted(agingSpace)
-    if (sameCriteria) setRefreshNonce(value => value + 1)
+    if (sameCriteria) setAgingRefreshNonce(value => value + 1)
   }
 
   return <section className="page page-quality">
-    <div className="page-heading"><div><h1>Качество</h1><p>Качество постановки, критерии приёмки, пробелы и team-scoped aging</p></div><div className="page-heading-actions"><SnapshotRefresh updatedAt={[qualityQ.updatedAt, missingQ.updatedAt, acceptanceQ.updatedAt, agingQ.updatedAt]} refreshing={qualityQ.refreshing || missingQ.refreshing || acceptanceQ.refreshing || agingQ.refreshing} refreshError={qualityQ.refreshError || missingQ.refreshError || acceptanceQ.refreshError || agingQ.refreshError} onRefresh={() => setRefreshNonce(value => value + 1)} /><button className="primary-button" onClick={openAgent}>Спросить PO Agent</button></div></div>
+    <div className="page-heading"><div><h1>Качество</h1><p>Качество постановки, критерии приёмки, пробелы и team-scoped aging</p></div><div className="page-heading-actions"><SnapshotRefresh updatedAt={[qualityQ.updatedAt, missingQ.updatedAt, acceptanceQ.updatedAt, agingQ.updatedAt]} refreshing={qualityQ.refreshing || missingQ.refreshing || acceptanceQ.refreshing || agingQ.refreshing} refreshError={qualityQ.refreshError || missingQ.refreshError || acceptanceQ.refreshError || agingQ.refreshError} onRefresh={() => { setTaskRefreshNonce(value => value + 1); setAgingRefreshNonce(value => value + 1) }} /><button className="primary-button" onClick={openAgent}>Спросить PO Agent</button></div></div>
 
     <form className="panel entity-toolbar" onSubmit={submitTask}>
       <div><span>Задача</span><input value={taskKey} onChange={e => setTaskKey(e.target.value)} placeholder="WMB-102" /></div>
