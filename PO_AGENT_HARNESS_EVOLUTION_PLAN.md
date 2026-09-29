@@ -1170,3 +1170,37 @@ Certified: Tasks Text/Status source scoping exact; 5-mode Tasks UX; local-task C
 Carry as non-blocking tech debt: F1 drawer close X under sticky topbar at 1366x768; F2 65s Overview timeout race with slow source; F3 Quality shared refreshNonce; F4 WMB 24Q1 quarter-like release phrasing may route to sprints.discover.
 
 Next sequence: PO final Browser UX sign-off; optional small non-blocking cleanup if requested; release hardening/security/restart/latency/rollback rehearsal; Learning Reviewer 2.0 only after the release gate is intentionally opened.
+
+
+### A227 — PO acceptance corrections
+
+Owner review after A226R3 GREEN found three product-level issues that must be closed before PO sign-off.
+
+1. **Overview refresh reliability**
+   - A226R3 proved a 65s client/source latency race.
+   - Snapshot request timeout increased to 120s so legitimate 60–70s source reads do not surface as false refresh failures.
+   - Stale snapshot remains visible during refresh and on genuine failure.
+
+2. **Tasks becomes a Google-like natural-language search surface**
+   - Remove mode buttons for assignee/status/sprint/release.
+   - Remove explicit product-space selector from the search UI.
+   - Keep one natural-language input + Find + Local Task.
+   - The raw submitted query goes to Agent Core V4 so skill discovery/composition chooses the correct task/sprint/release/attachment/risk capabilities.
+   - Examples to support include:
+     - "Открытые задачи Калачанова с вложениями в пространстве WMB"
+     - "Задачи Семавина по рискам"
+     - "Задачи в работе в сентябрьском спринте по DMS"
+     - "Спринты в DMS"
+   - Task collections render as task cards; non-task results render as the grounded agent answer.
+   - Search input/submitted query/snapshot persist on navigation; refresh repeats the same submitted natural-language query.
+   - No automatic search occurs on first page open.
+   - Local-task status filter remains local to the Local Tasks block only.
+
+3. **Quality refresh / Aging**
+   - Quality task-analysis refresh and Aging refresh are isolated.
+   - Top page refresh re-runs only quality/missing/acceptance.
+   - Aging's own Refresh re-runs only the persisted space+threshold aging query.
+   - Aging must populate from REAL AS21 for source-ready cases such as DMS > 7 / 15 days.
+   - No one-widget refresh should fan out all four Quality queries.
+
+A227 is the final PO UX correction gate before release hardening. Learning Reviewer remains blocked.
