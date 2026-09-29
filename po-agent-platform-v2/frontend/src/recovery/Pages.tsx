@@ -2,6 +2,7 @@ import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
 import { agent, HarnessQueryResponse } from '../api/client'
 import { ResultStatePanel } from '../components/ResultStatePanel'
+import { RichAnswer } from '../components/agent/RichAnswer'
 import { classifyResult, getCapabilityData, stateAllowsBusinessData } from './resultState'
 import { SnapshotRefresh, SnapshotStatus, useSessionState, useSnapshotHarness } from './pageSnapshot'
 
@@ -19,7 +20,6 @@ type LocalTask = {
   deadline: string
   createdAt: string
 }
-type FilterMode = 'text' | 'assignee' | 'status' | 'sprint' | 'release'
 type IntelligenceMode = 'summary' | 'quality' | 'history' | 'missing'
 
 function useHarness(query: string, enabled = true) {
@@ -199,14 +199,6 @@ function TaskDetailsDrawer({ task, onClose }: { task: TaskRow | null; onClose():
   </>
 }
 
-function taskQuery(mode: FilterMode, value: string, searchSpace = 'WMB') {
-  const v = value.trim()
-  if (mode === 'assignee') return `Покажи задачи исполнитель ${v}`
-  if (mode === 'status') return `Покажи задачи в статусе ${v} в пространстве ${searchSpace}`
-  if (mode === 'sprint') return `Покажи задачи спринта ${v}`
-  if (mode === 'release') return `Покажи задачи релиза ${v}`
-  return `Найди задачи по тексту "${v}" в названии и описании в пространстве ${searchSpace}`
-}
 
 export function OverviewPage() {
   const result = useHarness('Дай обзор и риски')
@@ -220,16 +212,14 @@ export function OverviewPage() {
 }
 
 export function TasksPage() {
-  const [mode, setMode] = useSessionState<FilterMode>('tasks.mode', 'text')
-  const [search, setSearch] = useSessionState('tasks.search', 'БП 2027')
-  const [searchSpace, setSearchSpace] = useSessionState('tasks.search-space', 'WMB')
-  const [submitted, setSubmitted] = useSessionState<{ mode: FilterMode; value: string; searchSpace?: string }>('tasks.submitted', { mode: 'text', value: 'БП 2027', searchSpace: 'WMB' })
+  const [search, setSearch] = useSessionState('tasks.search', 'Открытые задачи Калачанова с вложениями в пространстве WMB')
+  const [submitted, setSubmitted] = useSessionState('tasks.submitted-query', 'Открытые задачи Калачанова с вложениями в пространстве WMB')
   const [refreshNonce, setRefreshNonce] = useState(0)
-  const submittedSearchSpace = submitted.searchSpace || 'WMB'
-  const resultQ = useSnapshotHarness('tasks:' + submitted.mode + ':' + submitted.value + ':' + submittedSearchSpace, taskQuery(submitted.mode, submitted.value, submittedSearchSpace), refreshNonce)
+  const resultQ = useSnapshotHarness('tasks:nl:' + submitted, submitted, refreshNonce)
   const result = resultQ.result
   const data = getCapabilityData(result) as { tasks?: TaskRow[] }
-  const tasks = data.tasks ?? []
+  const hasTaskCollection = Array.isArray(data.tasks)
+  const tasks = hasTaskCollection ? (data.tasks ?? []) : []
   const resultState = classifyResult(result)
   const [as21StatusFilter, setAs21StatusFilter] = useSessionState('tasks.as21-status', 'ALL')
   const [localStatusFilter, setLocalStatusFilter] = useSessionState<'ALL' | LocalTask['status']>('tasks.local-status', 'ALL')
@@ -278,18 +268,19 @@ export function TasksPage() {
     () => localStatusFilter === 'ALL' ? localTasks : localTasks.filter(task => task.status === localStatusFilter),
     [localTasks, localStatusFilter],
   )
-  const placeholder = mode === 'text' ? 'Например: БП 2027' : mode === 'assignee' ? 'Ivanov.I.I' : mode === 'status' ? 'In Progress' : mode === 'sprint' ? 'WMB-SPRNT-1' : 'WMB-2024-Q3'
-  return <section className="page page-tasks"><PageHeader title="Задачи" subtitle="Поиск, статус, постановка, вложения и task intelligence" extra={<SnapshotRefresh updatedAt={[resultQ.updatedAt]} refreshing={resultQ.refreshing} refreshError={resultQ.refreshError} onRefresh={() => setRefreshNonce(value => value + 1)} />} />
-    <form className="panel filter-toolbar" onSubmit={e => { e.preventDefault(); if (search.trim()) setSubmitted({ mode, value: search.trim(), searchSpace: mode === 'text' || mode === 'status' ? searchSpace : undefined }) }}>
-      <div className="filter-modes">
-        {([['text','Текстовый поиск'],['assignee','Исполнитель'],['status','Статус'],['sprint','Спринт'],['release','Релиз']] as Array<[FilterMode,string]>).map(([id,label]) => <button type="button" key={id} className={mode === id ? 'active' : ''} onClick={() => setMode(id)}>{label}</button>)}
-      </div>
-      <div className="filter-input-row">
-        {(mode === 'text' || mode === 'status') && <select className="task-space-select" value={searchSpace} onChange={e => setSearchSpace(e.target.value)} aria-label="Пространство поиска"><option value="WMB">WMB</option><option value="DMS">DMS</option><option value="OLP">OLP</option><option value="CRPV">CRPV</option><option value="STS">STS</option></select>}
-        <input value={search} onChange={e => setSearch(e.target.value)} placeholder={placeholder} />
+  return <section className="page page-tasks"><PageHeader title="Задачи" subtitle="Свободный поиск по задачам и рабочему контексту через навыки PO Agent" extra={<SnapshotRefresh updatedAt={[resultQ.updatedAt]} refreshing={resultQ.refreshing} refreshError={resultQ.refreshError} onRefresh={() => setRefreshNonce(value => value + 1)} />} />
+    <form className="panel filter-toolbar" onSubmit={e => { e.preventDefault(); const next = search.trim(); if (next) setSubmitted(next) }}>
+      <div className="filter-input-row free-search-row">
+        <input
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Например: Открытые задачи Калачанова с вложениями в пространстве WMB"
+          aria-label="Текстовый поиск"
+        />
         <button type="submit">Найти</button>
         <button type="button" onClick={() => { setEditingLocalTask(null); setDrawerOpen(true) }}>+ Локальная задача</button>
       </div>
+      <div className="search-examples">Можно писать естественным языком: «Задачи Семавина по рискам», «Задачи в работе в сентябрьском спринте по DMS», «Спринты в DMS».</div>
       <div className="filter-input-row">
         <label>Статус AS21
           <select value={as21StatusFilter} onChange={e => setAs21StatusFilter(e.target.value)}>
@@ -339,7 +330,17 @@ export function TasksPage() {
         >×</button>
       </div>)}
     </div>}
-    <div className="panel"><div className="panel-title"><strong>Задачи AS21</strong><span>{stateAllowsBusinessData(resultState) ? `${visibleTasks.length}/${tasks.length}` : '—'}</span></div>{stateAllowsBusinessData(resultState) ? (tasks.length ? (visibleTasks.length ? <div className="task-card-grid">{visibleTasks.map(t => <TaskCard key={String(t.key)} task={t} onOpen={setSelectedTask} />)}</div> : <EmptyData text="По выбранному статусу задач нет" />) : <EmptyData text="Источник подтвердил: задачи не найдены" />) : <ResultStatePanel result={result} />}</div>
+    <div className="panel"><div className="panel-title"><strong>Результат поиска</strong><span>{stateAllowsBusinessData(resultState) && hasTaskCollection ? `${visibleTasks.length}/${tasks.length}` : (result?.skill?.id ?? '—')}</span></div>
+      {stateAllowsBusinessData(resultState)
+        ? (hasTaskCollection
+          ? (tasks.length
+            ? (visibleTasks.length
+              ? <div className="task-card-grid">{visibleTasks.map(t => <TaskCard key={String(t.key)} task={t} onOpen={setSelectedTask} />)}</div>
+              : <EmptyData text="По выбранному статусу задач нет" />)
+            : <EmptyData text="Источник подтвердил: задачи не найдены" />)
+          : <div className="search-answer"><RichAnswer text={result?.answer ?? ''} /></div>)
+        : <ResultStatePanel result={result} />}
+    </div>
     <LocalTaskDrawer
       open={drawerOpen}
       task={editingLocalTask}
