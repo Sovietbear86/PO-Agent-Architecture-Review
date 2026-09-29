@@ -236,6 +236,16 @@ with the next governed skill/capability action."""
 class RobustReliableAgentCoreV4Runtime(ReliableAgentCoreV4Runtime):
     """Reliable V4 runtime using the provider-robust decision transport."""
 
+    @staticmethod
+    def _safe_status(raw: str) -> str:
+        value = str(raw or "").strip().casefold()
+        if value in {"in_progress", "in progress", "в работе", "работе"}:
+            # The task source exposes workflow category as status_type=progress.
+            # Normalize natural-language progress wording to that source-backed
+            # semantic category rather than comparing a localized label literally.
+            return "progress"
+        return ReliableAgentCoreV4Runtime._safe_status(raw)
+
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
         inherited_system = self.planner.SYSTEM
