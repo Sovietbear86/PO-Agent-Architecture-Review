@@ -702,6 +702,8 @@ class AgentCoreV4Runtime:
             "title": task.title,
             "status": task.status.value,
             "status_category": task.status_category.value,
+            "status_raw": getattr(task, "status_raw", None),
+            "status_type": getattr(task, "status_type", None),
             "assignee": task.assignee,
             "assignee_login": getattr(task, "assignee_login", None),
             "assignee_id": getattr(task, "assignee_id", None),
