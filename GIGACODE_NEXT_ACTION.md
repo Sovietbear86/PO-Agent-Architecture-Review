@@ -1,172 +1,164 @@
 # GigaCode — Current Action
 
-## ACTIVE: Assignment 226R3 — Tasks scope fix + deferred final UX forensic
+## ACTIVE: Assignment 227 — PO acceptance corrections
 
-Role: QA/adversarial tester only. Do NOT modify code.
+Role: QA/adversarial tester only. Do NOT modify production/frontend/backend/plugin/test/config code.
 
-Prior verdict:
-`AGENT_CORE_V4_UI_POLISH_SNAPSHOT_RED_A226R2`
+A226R3 was GREEN, but PO browser review reopened sign-off with three UX/reliability issues:
+1. Overview refresh can false-fail because the previous 65s client timeout races slow source reads.
+2. Tasks should be one Google-like natural-language search field, not mode buttons/selectors.
+3. Quality page refresh and Aging refresh must be isolated; Aging must actually populate from REAL AS21.
 
-A226R2 P1 was GREEN. First RED was P2:
-- selected search space was dropped on submit, so DMS UI selection could still execute WMB;
-- Status mode omitted space and expanded into an all-space scan.
+## Owner changes under test
 
-## Owner fixes under test
+- snapshot timeout increased from 65s to 120s;
+- Tasks page now has one natural-language input only;
+- no Assignee/Status/Sprint/Release mode buttons;
+- no product-space selector;
+- no automatic query on first Tasks open;
+- raw submitted text is sent directly to V4 Agent Core;
+- task collections render as cards; non-task results render the grounded answer;
+- local-task status filter remains only inside Local Tasks;
+- Quality uses separate taskRefreshNonce and agingRefreshNonce;
+- page-level Quality refresh updates quality/missing/acceptance only;
+- Aging Refresh updates Aging only.
 
-- Tasks uses persisted `searchSpace`;
-- Text and Status submit the selected space explicitly;
-- snapshot key includes submitted space;
-- Status mode shows the same space selector;
-- task-api partial-search tests now pass concrete endpoint args;
-- all prior A226R2 fixes remain in place.
-
-## P0 — preflight
+## P0 — build/diff
 
 1. Pull current branch; clean worktree; record START_HEAD.
 2. Prove no Agent Core/planner/runtime architecture drift.
-3. Run focused tests:
-   - task-api phrase-search partial/isolation tests;
-   - task catalog/live-handler tests;
-   - aging/time/local-task regressions;
+3. Run:
    - tsc --noEmit;
-   - vite build.
-4. Any unexplained failure => RED STOP.
+   - vite build;
+   - focused V4 task search/composition tests;
+   - aging/team-scoped task tests;
+   - snapshot/result-state tests.
+4. Any unexplained build/test regression => RED STOP.
 
-## P1 — Tasks space selector exactness
+## P1 — Overview refresh reliability
 
-### Text
-- select DMS;
-- enter `БП 2027`;
-- press Найти.
+Browser C:
+1. Load populated Overview.
+2. Press Обновить.
+3. Preserve old snapshot while requests run.
+4. Under normal source latency (including 60–80s), refresh must complete successfully rather than false-timeout at 65s.
+5. Button must return from Обновляем… to Обновить.
+6. Timestamp must advance on successful refresh.
+7. Inject genuine failure/timeout >120s: stale data remains, error state appears, retry remains available.
+8. Away/back after success = 0 unwanted POSTs.
 
-Require:
-- submitted query says DMS, never WMB;
-- task-api network/log shows space=DMS;
-- exact DMS oracle parity;
-- switch to WMB and repeat; exact WMB parity;
-- away/back preserves both selected and submitted space;
-- page Refresh re-runs the same submitted space/query.
+If normal source read completes before 120s but UI still reports failure => RED STOP.
 
-### Status
-Use a source-ready status and WMB first.
-Require:
-- query includes selected WMB;
-- task-api reads WMB only;
-- no all-space scan;
+## P2 — Tasks UI surface
+
+Require exactly one search field plus:
+- Найти
+- + Локальная задача
+
+Require absent:
+- Исполнитель mode button
+- Статус mode button
+- Спринт mode button
+- Релиз mode button
+- product-space selector
+- attachment/Excel/PDF/MSG buttons
+
+On first open with no prior submitted query:
+- no automatic agent POST;
+- result area says to enter a natural-language query.
+
+Search input and last submitted query persist on away/back.
+Page-level Refresh repeats the exact last submitted natural-language query.
+
+## P3 — Natural-language task/work search composition
+
+Run all four browser cases and independently inspect trajectory/source reads:
+
+A. `Открытые задачи Калачанова с вложениями в пространстве WMB`
+- preserve person + open-status + attachments + WMB constraints;
+- use compositional V4 skills/capabilities;
+- no tenant-wide scan;
+- exact source parity for returned task keys where source supports the intersection.
+
+B. `Задачи Семавина по рискам`
+- resolve Semavin from authoritative team identity;
+- use risk/task analysis skills, not a phrase-specific UI router;
+- no invented risk rows.
+
+C. `Задачи в работе в сентябрьском спринте по DMS`
+- resolve the relevant DMS sprint from source;
+- preserve in-progress status constraint;
 - exact source parity.
-Then change to DMS and repeat.
 
-If any mode silently falls back to another space or scans all spaces => RED STOP.
+D. `Спринты в DMS`
+- this is intentionally non-task output;
+- page must render a grounded rich answer / sprint result rather than fake empty task cards.
 
-## P2 — Tasks UX retained
+For ambiguous natural-language queries:
+- clarification is acceptable;
+- tenant-wide fallback scan is not.
 
-Visible modes exactly:
-- Текстовый поиск
-- Исполнитель
-- Статус
-- Спринт
-- Релиз
+## P4 — task result rendering/persistence
 
-No attachment/Excel/PDF/MSG buttons.
-Assignee Kalachanov.V.V remains source-exact.
-Sprint uses DMS-SPRNT-3.
-Release mode uses a source-backed release identity and remains typed if membership is unavailable.
+1. For a task-collection query, cards show real key/title/status/assignee and are clickable into Task Details.
+2. For a non-task skill result, render grounded answer, not "tasks not found".
+3. Navigate away/back: 0 new POST and exact result retained.
+4. Modify input without pressing Найти: displayed submitted result must not silently change.
+5. Press Refresh: one re-run of the submitted query.
 
-## P3 — local drawer hit testing
+## P5 — Quality page refresh isolation
 
-At 1440×900 and a common laptop viewport:
-- open local task create drawer;
-- fill title, priority, tags, deadline;
-- click center of Создать.
+Use DMS-380 or another source-ready task.
+
+Top page Обновить:
+- only quality/missing/acceptance refresh;
+- Aging query must NOT re-fire;
+- old quality snapshot remains while loading;
+- successful source response before 120s must not show false refresh failure.
+
+Task Проверить with same task:
+- re-runs task quality group only;
+- Aging remains untouched.
+
+## P6 — Aging queue source load
+
+Use:
+- DMS > 15 days
+- DMS > 7 days
 
 Require:
-- AI launcher hidden/non-hit-testable while local or AS21 task drawer is open;
-- create/edit/reload/delete works;
-- LOCAL-NNNN stable;
-- 0 AS21 writes.
+- Aging own button triggers only Aging query;
+- team-scoped bounded assignee reads;
+- exact key/count parity vs independent REAL AS21 oracle;
+- rows render with key/title/assignee/status/age_days;
+- same criteria + Refresh performs a live re-read;
+- no page-quality fanout;
+- source-proven empty is allowed only when oracle proves empty;
+- SOURCE_UNAVAILABLE/CONDITIONAL must not render as zero.
 
-## P4 — Overview refresh completion
-
-Press Обновить on populated Overview:
-- old snapshot stays visible;
-- loading ends on success/error/timeout;
-- must not remain indefinitely in `Обновляем…`;
-- timestamp is ru-RU date+time;
-- timeout/failure preserves stale data and shows error;
-- away/back causes 0 new POST.
-
-## P5 — Quality Aging
-
-DMS + 15:
-- load once;
-- press Aging Обновить with unchanged criteria.
-
-Require one live re-read with same DMS/15 criteria and exact source parity.
-
-## P6 — Sprint forensic
-
-Use exact id:
-`DMS-SPRNT-3`
-
-Verify independently:
-- Scope
-- Completed
-- Velocity
-- Throughput
-- WIP
-- Risk Queue
-- Predictability/readiness
-
-No generic NEEDS_CLARIFICATION/FAILED is acceptable for a source-ready metric with this valid id.
-For Predictability, prove the actual source-backed baseline:
-- if historical previous-sprint data is sufficient, exact value required;
-- otherwise typed SOURCE_CONDITIONAL is acceptable;
-- no fabricated baseline/current-scope proxy.
-
-## P7 — Releases forensic
-
-Use release.search/source directory first.
-Test valid current release identities, including 1.6.0 / 24Q1 if still present.
-
-Verify separately:
-- Scope
-- Progress
-- Blockers
-- Dependencies
-- Risk Queue
-
-If release-to-task membership is absent:
-- typed SOURCE_CONDITIONAL/UNAVAILABLE is expected;
-- no fake zero;
-- no pseudo forecast;
-- valid release id must not degrade to generic clarification merely because membership is unavailable.
-
-## P8 — retained snapshot/design/audit
+## P7 — retained regression
 
 Recheck:
-- Platform V brand;
-- OLAP + DataMarts only;
-- rich Daily Brief;
-- Team actual utilization;
-- team-scoped Aging;
-- six backgrounds;
-- 1440 + 480 no document overflow;
-- cached revisit = 0 extra POST;
-- manual refresh page-bounded;
-- 0 mutations;
+- LOCAL-NNNN CRUD + deadline/tags/priority/edit/delete;
+- Platform V / OLAP + DataMarts;
+- Sprint DMS-SPRNT-3 still source-exact;
+- Releases remain honest typed source limitation;
+- Team utilization remains source-backed;
+- six backgrounds + 1440/480 no overflow;
 - 0 local factual fallback;
-- 0 tenant-wide scan.
+- 0 unauthorized mutations;
+- 0 tenant-wide scans.
 
 ## Verdict
 
 Exactly one:
-- `AGENT_CORE_V4_UI_POLISH_SNAPSHOT_GREEN_A226R3`
-- `AGENT_CORE_V4_UI_POLISH_SNAPSHOT_RED_A226R3`
+- `AGENT_CORE_V4_PO_ACCEPTANCE_GREEN_A227`
+- `AGENT_CORE_V4_PO_ACCEPTANCE_RED_A227`
 
 If GREEN:
-- recommend checkpoint `checkpoint/v4-ui-polish-snapshot-green-a226r3`;
-- next owner phase = final PO Browser UX acceptance + release hardening;
-- Learning Reviewer still waits for owner acceptance.
+- recommend checkpoint `checkpoint/v4-po-acceptance-green-a227`;
+- next owner phase = release hardening/security/restart/latency/rollback rehearsal;
+- Learning Reviewer still not started unless owner explicitly opens it.
 
 If RED:
 - preserve first failing evidence and STOP.
