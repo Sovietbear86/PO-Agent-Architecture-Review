@@ -19,7 +19,7 @@ type LocalTask = {
   deadline: string
   createdAt: string
 }
-type FilterMode = 'text' | 'attachments' | 'excel' | 'pdf' | 'msg' | 'assignee' | 'status' | 'sprint' | 'release'
+type FilterMode = 'text' | 'assignee' | 'status' | 'sprint' | 'release'
 type IntelligenceMode = 'summary' | 'quality' | 'history' | 'missing'
 
 function useHarness(query: string, enabled = true) {
@@ -89,6 +89,11 @@ function LocalTaskDrawer({
   const [status, setStatus] = useState<LocalTask['status']>('TODO')
   const [labels, setLabels] = useState('')
   const [deadline, setDeadline] = useState('')
+
+  useEffect(() => {
+    document.body.classList.toggle('task-drawer-active', open)
+    return () => document.body.classList.remove('task-drawer-active')
+  }, [open])
 
   useEffect(() => {
     if (!open) return
@@ -165,6 +170,10 @@ function TaskDetailsDrawer({ task, onClose }: { task: TaskRow | null; onClose():
   const key = String(task?.key ?? '')
   const result = useHarness(key ? intelligenceQuery(key, mode) : '', Boolean(key))
   useEffect(() => { setMode('summary') }, [key])
+  useEffect(() => {
+    document.body.classList.toggle('task-drawer-active', Boolean(task))
+    return () => document.body.classList.remove('task-drawer-active')
+  }, [task])
   return <>
     <div className={`drawer-scrim ${task ? 'visible' : ''}`} onClick={onClose} />
     <aside className={`task-drawer ${task ? 'task-drawer-open' : ''}`} aria-hidden={!task}>
@@ -196,10 +205,6 @@ function taskQuery(mode: FilterMode, value: string) {
   if (mode === 'status') return `Покажи задачи в статусе ${v}`
   if (mode === 'sprint') return `Покажи задачи спринта ${v}`
   if (mode === 'release') return `Покажи задачи релиза ${v}`
-  if (mode === 'attachments') return `Найди задачи с вложениями по тексту "${v}"`
-  if (mode === 'excel') return `Найди задачи с Excel-вложениями по тексту "${v}"`
-  if (mode === 'pdf') return `Найди задачи с PDF-вложениями по тексту "${v}"`
-  if (mode === 'msg') return `Найди задачи с MSG-вложениями по тексту "${v}"`
   return `Найди задачи по тексту "${v}" в названии и описании`
 }
 
@@ -271,11 +276,11 @@ export function TasksPage() {
     () => localStatusFilter === 'ALL' ? localTasks : localTasks.filter(task => task.status === localStatusFilter),
     [localTasks, localStatusFilter],
   )
-  const placeholder = mode === 'text' ? 'Например: БП 2027' : mode === 'attachments' ? 'Текст + любые вложения' : mode === 'excel' ? 'Текст + Excel' : mode === 'pdf' ? 'Текст + PDF' : mode === 'msg' ? 'Текст + MSG' : mode === 'assignee' ? 'Ivanov.I.I' : mode === 'status' ? 'In Progress' : mode === 'sprint' ? 'WMB-SPRNT-1' : 'WMB-2024-Q3'
+  const placeholder = mode === 'text' ? 'Например: БП 2027' : mode === 'assignee' ? 'Ivanov.I.I' : mode === 'status' ? 'In Progress' : mode === 'sprint' ? 'WMB-SPRNT-1' : 'WMB-2024-Q3'
   return <section className="page page-tasks"><PageHeader title="Задачи" subtitle="Поиск, статус, постановка, вложения и task intelligence" extra={<SnapshotRefresh updatedAt={[resultQ.updatedAt]} refreshing={resultQ.refreshing} refreshError={resultQ.refreshError} onRefresh={() => setRefreshNonce(value => value + 1)} />} />
     <form className="panel filter-toolbar" onSubmit={e => { e.preventDefault(); if (search.trim()) setSubmitted({ mode, value: search.trim() }) }}>
       <div className="filter-modes">
-        {([['text','Текст'],['attachments','Вложения'],['excel','Excel'],['pdf','PDF'],['msg','MSG'],['assignee','Исполнитель'],['status','Статус'],['sprint','Спринт'],['release','Релиз']] as Array<[FilterMode,string]>).map(([id,label]) => <button type="button" key={id} className={mode === id ? 'active' : ''} onClick={() => setMode(id)}>{label}</button>)}
+        {([['text','Текстовый поиск'],['assignee','Исполнитель'],['status','Статус'],['sprint','Спринт'],['release','Релиз']] as Array<[FilterMode,string]>).map(([id,label]) => <button type="button" key={id} className={mode === id ? 'active' : ''} onClick={() => setMode(id)}>{label}</button>)}
       </div>
       <div className="filter-input-row"><input value={search} onChange={e => setSearch(e.target.value)} placeholder={placeholder} /><button type="submit">Найти</button><button type="button" onClick={() => { setEditingLocalTask(null); setDrawerOpen(true) }}>+ Локальная задача</button></div>
       <div className="filter-input-row">
