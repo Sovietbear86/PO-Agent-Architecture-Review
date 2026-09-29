@@ -199,13 +199,13 @@ function TaskDetailsDrawer({ task, onClose }: { task: TaskRow | null; onClose():
   </>
 }
 
-function taskQuery(mode: FilterMode, value: string, textSpace = 'WMB') {
+function taskQuery(mode: FilterMode, value: string, searchSpace = 'WMB') {
   const v = value.trim()
   if (mode === 'assignee') return `Покажи задачи исполнитель ${v}`
-  if (mode === 'status') return `Покажи задачи в статусе ${v}`
+  if (mode === 'status') return `Покажи задачи в статусе ${v} в пространстве ${searchSpace}`
   if (mode === 'sprint') return `Покажи задачи спринта ${v}`
   if (mode === 'release') return `Покажи задачи релиза ${v}`
-  return `Найди задачи по тексту "${v}" в названии и описании в пространстве ${textSpace}`
+  return `Найди задачи по тексту "${v}" в названии и описании в пространстве ${searchSpace}`
 }
 
 export function OverviewPage() {
@@ -222,11 +222,11 @@ export function OverviewPage() {
 export function TasksPage() {
   const [mode, setMode] = useSessionState<FilterMode>('tasks.mode', 'text')
   const [search, setSearch] = useSessionState('tasks.search', 'БП 2027')
-  const [textSpace, setTextSpace] = useSessionState('tasks.text-space', 'WMB')
-  const [submitted, setSubmitted] = useSessionState<{ mode: FilterMode; value: string; textSpace?: string }>('tasks.submitted', { mode: 'text', value: 'БП 2027', textSpace: 'WMB' })
+  const [searchSpace, setSearchSpace] = useSessionState('tasks.search-space', 'WMB')
+  const [submitted, setSubmitted] = useSessionState<{ mode: FilterMode; value: string; searchSpace?: string }>('tasks.submitted', { mode: 'text', value: 'БП 2027', searchSpace: 'WMB' })
   const [refreshNonce, setRefreshNonce] = useState(0)
-  const submittedTextSpace = submitted.textSpace || 'WMB'
-  const resultQ = useSnapshotHarness('tasks:' + submitted.mode + ':' + submitted.value + ':' + submittedTextSpace, taskQuery(submitted.mode, submitted.value, submittedTextSpace), refreshNonce)
+  const submittedSearchSpace = submitted.searchSpace || 'WMB'
+  const resultQ = useSnapshotHarness('tasks:' + submitted.mode + ':' + submitted.value + ':' + submittedSearchSpace, taskQuery(submitted.mode, submitted.value, submittedSearchSpace), refreshNonce)
   const result = resultQ.result
   const data = getCapabilityData(result) as { tasks?: TaskRow[] }
   const tasks = data.tasks ?? []
@@ -280,12 +280,12 @@ export function TasksPage() {
   )
   const placeholder = mode === 'text' ? 'Например: БП 2027' : mode === 'assignee' ? 'Ivanov.I.I' : mode === 'status' ? 'In Progress' : mode === 'sprint' ? 'WMB-SPRNT-1' : 'WMB-2024-Q3'
   return <section className="page page-tasks"><PageHeader title="Задачи" subtitle="Поиск, статус, постановка, вложения и task intelligence" extra={<SnapshotRefresh updatedAt={[resultQ.updatedAt]} refreshing={resultQ.refreshing} refreshError={resultQ.refreshError} onRefresh={() => setRefreshNonce(value => value + 1)} />} />
-    <form className="panel filter-toolbar" onSubmit={e => { e.preventDefault(); if (search.trim()) setSubmitted({ mode, value: search.trim() }) }}>
+    <form className="panel filter-toolbar" onSubmit={e => { e.preventDefault(); if (search.trim()) setSubmitted({ mode, value: search.trim(), searchSpace: mode === 'text' || mode === 'status' ? searchSpace : undefined }) }}>
       <div className="filter-modes">
         {([['text','Текстовый поиск'],['assignee','Исполнитель'],['status','Статус'],['sprint','Спринт'],['release','Релиз']] as Array<[FilterMode,string]>).map(([id,label]) => <button type="button" key={id} className={mode === id ? 'active' : ''} onClick={() => setMode(id)}>{label}</button>)}
       </div>
       <div className="filter-input-row">
-        {mode === 'text' && <select className="task-space-select" value={textSpace} onChange={e => setTextSpace(e.target.value)} aria-label="Пространство текстового поиска"><option value="WMB">WMB</option><option value="DMS">DMS</option><option value="OLP">OLP</option><option value="CRPV">CRPV</option><option value="STS">STS</option></select>}
+        {(mode === 'text' || mode === 'status') && <select className="task-space-select" value={searchSpace} onChange={e => setSearchSpace(e.target.value)} aria-label="Пространство поиска"><option value="WMB">WMB</option><option value="DMS">DMS</option><option value="OLP">OLP</option><option value="CRPV">CRPV</option><option value="STS">STS</option></select>}
         <input value={search} onChange={e => setSearch(e.target.value)} placeholder={placeholder} />
         <button type="submit">Найти</button>
         <button type="button" onClick={() => { setEditingLocalTask(null); setDrawerOpen(true) }}>+ Локальная задача</button>
