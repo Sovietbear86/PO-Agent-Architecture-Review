@@ -1135,3 +1135,25 @@ PO observations to re-gate in the same batch:
 - Release page must be verified on source-backed release identities (for example 1.6.0 / 24Q1) and preserve honest SOURCE_CONDITIONAL when release-to-task membership is unavailable.
 
 A226R2 must be GREEN before the final PO Browser UX acceptance checkpoint.
+
+
+### A226R2 RED closure / A226R3
+
+A226R2 closed P1 GREEN:
+- WMB "БП 2027" exact source parity;
+- scoped UI request touched WMB only;
+- unscoped API probe retained healthy WMB rows and exposed CRPV/STS as incomplete.
+
+P2 found two UI/source-scope defects:
+1. Tasks submit handler dropped the selected space, so a visible DMS selection could still submit the WMB fallback.
+2. Status mode supplied no source space and therefore expanded into an all-approved-spaces task scan.
+
+Owner remediation:
+- Tasks now persists a generic `searchSpace` and copies it into submitted state for Text and Status modes;
+- Text and Status queries both include the explicit product space;
+- snapshot cache identity includes the submitted space;
+- status mode displays the same bounded space selector;
+- direct task-api partial-search tests now pass concrete FastAPI endpoint arguments rather than Query() defaults.
+
+A226R3 resumes at P2, then completes the deferred P3-P8 forensic/UX checks:
+local drawer hit testing, Overview refresh completion, Aging re-read, Sprint DMS-SPRNT-3, Releases source-contract behavior, retained smoke/audit.
