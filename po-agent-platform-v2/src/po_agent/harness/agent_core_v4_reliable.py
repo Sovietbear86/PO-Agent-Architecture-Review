@@ -516,11 +516,15 @@ Additional reliability rules:
             answer=f"Найдено задач: {len(matched)}.",
             data=data,
             evidence=[
-                item for item in base.evidence
-                if any(
-                    isinstance(row, Mapping) and str(row.get("key") or "") == str(item.entity_id)
-                    for row in matched
+                Evidence(
+                    type="task",
+                    source="as21",
+                    entity_id=str(row.get("key") or ""),
+                    label=str(row.get("title") or ""),
+                    value=str(row.get("status_raw") or row.get("status") or ""),
                 )
+                for row in matched
+                if isinstance(row, Mapping) and str(row.get("key") or "")
             ],
             warnings=list(base.warnings),
         )
