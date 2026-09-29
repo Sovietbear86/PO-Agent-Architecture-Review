@@ -199,13 +199,13 @@ function TaskDetailsDrawer({ task, onClose }: { task: TaskRow | null; onClose():
   </>
 }
 
-function taskQuery(mode: FilterMode, value: string) {
+function taskQuery(mode: FilterMode, value: string, textSpace = 'WMB') {
   const v = value.trim()
   if (mode === 'assignee') return `Покажи задачи исполнитель ${v}`
   if (mode === 'status') return `Покажи задачи в статусе ${v}`
   if (mode === 'sprint') return `Покажи задачи спринта ${v}`
   if (mode === 'release') return `Покажи задачи релиза ${v}`
-  return `Найди задачи по тексту "${v}" в названии и описании`
+  return `Найди задачи по тексту "${v}" в названии и описании в пространстве ${textSpace}`
 }
 
 export function OverviewPage() {
@@ -222,9 +222,11 @@ export function OverviewPage() {
 export function TasksPage() {
   const [mode, setMode] = useSessionState<FilterMode>('tasks.mode', 'text')
   const [search, setSearch] = useSessionState('tasks.search', 'БП 2027')
-  const [submitted, setSubmitted] = useSessionState<{ mode: FilterMode; value: string }>('tasks.submitted', { mode: 'text', value: 'БП 2027' })
+  const [textSpace, setTextSpace] = useSessionState('tasks.text-space', 'WMB')
+  const [submitted, setSubmitted] = useSessionState<{ mode: FilterMode; value: string; textSpace?: string }>('tasks.submitted', { mode: 'text', value: 'БП 2027', textSpace: 'WMB' })
   const [refreshNonce, setRefreshNonce] = useState(0)
-  const resultQ = useSnapshotHarness('tasks:' + submitted.mode + ':' + submitted.value, taskQuery(submitted.mode, submitted.value), refreshNonce)
+  const submittedTextSpace = submitted.textSpace || 'WMB'
+  const resultQ = useSnapshotHarness('tasks:' + submitted.mode + ':' + submitted.value + ':' + submittedTextSpace, taskQuery(submitted.mode, submitted.value, submittedTextSpace), refreshNonce)
   const result = resultQ.result
   const data = getCapabilityData(result) as { tasks?: TaskRow[] }
   const tasks = data.tasks ?? []
@@ -282,7 +284,12 @@ export function TasksPage() {
       <div className="filter-modes">
         {([['text','Текстовый поиск'],['assignee','Исполнитель'],['status','Статус'],['sprint','Спринт'],['release','Релиз']] as Array<[FilterMode,string]>).map(([id,label]) => <button type="button" key={id} className={mode === id ? 'active' : ''} onClick={() => setMode(id)}>{label}</button>)}
       </div>
-      <div className="filter-input-row"><input value={search} onChange={e => setSearch(e.target.value)} placeholder={placeholder} /><button type="submit">Найти</button><button type="button" onClick={() => { setEditingLocalTask(null); setDrawerOpen(true) }}>+ Локальная задача</button></div>
+      <div className="filter-input-row">
+        {mode === 'text' && <select className="task-space-select" value={textSpace} onChange={e => setTextSpace(e.target.value)} aria-label="Пространство текстового поиска"><option value="WMB">WMB</option><option value="DMS">DMS</option><option value="OLP">OLP</option><option value="CRPV">CRPV</option><option value="STS">STS</option></select>}
+        <input value={search} onChange={e => setSearch(e.target.value)} placeholder={placeholder} />
+        <button type="submit">Найти</button>
+        <button type="button" onClick={() => { setEditingLocalTask(null); setDrawerOpen(true) }}>+ Локальная задача</button>
+      </div>
       <div className="filter-input-row">
         <label>Статус AS21
           <select value={as21StatusFilter} onChange={e => setAs21StatusFilter(e.target.value)}>
