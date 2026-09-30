@@ -11,7 +11,7 @@ from typing import Any
 
 from po_agent.adapters.task_api import AS21SourceUnavailable
 from po_agent.config.real_team import get_all_member_logins
-from po_agent.domain.models import AttachmentType
+from po_agent.domain.models import AttachmentType, TaskStatus, normalize_task_status
 
 from ..contracts import CapabilityResult, Evidence
 
@@ -119,6 +119,10 @@ def _matches_requested_status(runtime: Any, task: Any, raw_status: str) -> bool:
         return bool(getattr(task, "is_completed", False))
     if normalized == "blocked":
         return bool(getattr(task, "is_blocked", False))
+
+    requested_domain_status = normalize_task_status(raw)
+    if requested_domain_status == TaskStatus.IN_PROGRESS:
+        return getattr(task, "status", None) == TaskStatus.IN_PROGRESS
     if normalized == "progress":
         return str(getattr(task, "status_type", "") or "").strip().casefold() == "progress"
 
@@ -287,7 +291,8 @@ def build_task_search_assignee(runtime: Any):
 
 def build_task_search_status(runtime: Any):
     async def execute(args: dict[str, str]) -> CapabilityResult:
-        status = str(args.get("status") or "").strip().casefold()
+        raw_status = str(args.get("status") or "").strip()
+        status = raw_status.casefold()
         if not status:
             raise ValueError("status is required")
         space = str(args.get("space") or "").strip() or None
@@ -299,6 +304,9 @@ def build_task_search_status(runtime: Any):
         elif status in {"completed", "done", "closed", "закрытые", "завершенные", "завершённые"}:
             tasks = [task for task in tasks if task.is_completed]
             normalized = "completed"
+        elif normalize_task_status(raw_status) == TaskStatus.IN_PROGRESS:
+            tasks = [task for task in tasks if task.status == TaskStatus.IN_PROGRESS]
+            normalized = TaskStatus.IN_PROGRESS.value
         else:
             tasks = [task for task in tasks if status in task.status.value.casefold() or status in task.status_category.value.casefold()]
             normalized = status
