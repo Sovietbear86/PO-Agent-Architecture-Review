@@ -9,7 +9,7 @@ This is a focused pre-gate before A227R. Do not run the full A227R yet.
 ### P0 — build
 1. Pull current `feat/core8-real-query-hardening-v2`; record START_HEAD and clean worktree.
 2. Run frontend `tsc --noEmit` and `vite build`.
-3. Run focused retained V4/plugin tests relevant to task attachment search and release forecast.
+3. Run focused retained V4/plugin tests relevant to task attachment search, sprint predictability and release forecast.
 4. Any failure => RED STOP.
 
 ### P1 — Tasks UI = same Agent query behavior
@@ -59,7 +59,7 @@ Require:
 - no updated_at-as-completion proxy;
 - no tenant-wide scan.
 
-### P3 — architecture audit
+### P4 — architecture audit
 
 Require:
 - Tasks raw text goes unchanged to Agent endpoint;
