@@ -1,91 +1,45 @@
 # GigaCode — Current Action
 
-## ACTIVE: A227 UI parity pre-gate R2
+## ACTIVE: Assignment A227R — resume P3–P7
 
-Role: **QA/tester only. Do NOT modify production/frontend/backend/plugin/test/config code.**
+Role: QA/adversarial tester only. Do not modify code.
 
-Owner has reconciled stable Core to A227 baseline `db5e35f`.
-Before live UI checks, prove that reconciliation independently.
+Pre-gate R2 is GREEN. Core is proven identical to A227 baseline; Tasks UI parity, Sprint Predictability, Release Forecast and full V4 regression are GREEN. Do not repeat P0-P2 unless owner code changes again.
 
-### P0 — build + Core integrity
+## P3 — multi-constraint composition
+Run each live case 5 times with an independent REAL AS21 oracle first.
 
-1. Pull current `feat/core8-real-query-hardening-v2`; record START_HEAD and clean tracked worktree.
-2. Verify exact zero diff vs `db5e35f1b378b6ffde0c10085af8b68e4bf1e6b5` for:
-   - `src/po_agent/harness/agent_core_v4.py`
-   - `src/po_agent/harness/agent_core_v4_reliable.py`
-   - `src/po_agent/harness/agent_core_v4_robust.py`
-   - `src/po_agent/llm/real.py`
-   - `tests/test_agent_core_v4_reliable.py`
-   - `tests/test_agent_core_v4_robust_protocol.py`
-3. Run frontend `tsc --noEmit` and `vite build`.
-4. Run focused tests:
-   - attachment skill/plugin tests;
-   - sprint predictability tests;
-   - release forecast tests;
-   - retained reliable/robust tests.
-5. Run full V4 blast-radius: `tests/test_agent_core_v4*.py tests/test_v4*.py`.
-6. Any unexplained failure => RED STOP.
+A) `Открытые задачи Калачанова с вложениями в пространстве WMB`
+Require all constraints preserved, exact source parity, valid REAL_EMPTY allowed, no repair-loop failure, no tenant-wide scan.
 
-### P1 — Tasks UI parity with direct PO Agent
+B) `Задачи Семавина по рискам`
+Require source-backed identity, compositional task/risk path, no fabricated rows, 5/5 correct.
 
-Use exactly:
-`Найди открытые задачи Калачанова с вложениями в пространстве WMB`
+C) `Задачи в работе в сентябрьском спринте по DMS`
+Require source-backed September sprint resolution; terminal result is task collection; preserve space+sprint_id+status; exact task-key/count parity; false zero is RED.
 
-First run it in a fresh direct PO Agent dialogue and record trace/result.
+D) `Спринты в DMS`
+Require grounded rich non-task result.
 
-Then on **Задачи**:
-- same raw text must go to normal `/api/v1/query`;
-- first Find => exactly one POST;
-- compare factual status/answer/evidence with direct Agent;
-- if attachments exist but open intersection is empty, show the grounded empty/intersection answer, not generic error;
-- press Find again unchanged => exactly one new POST + fresh trace;
-- navigate away/back => zero automatic POSTs, snapshot preserved;
-- Refresh => exactly one repeat of last submitted raw query.
+Any P3 RED => preserve first failing trajectory/oracle and STOP.
 
-No client-side phrase/person/space router. No direct AS21 frontend call.
+## P4 — task cards / persistence
+Require real task cards and Task Details for task collections; grounded rich answer for non-task result; away/back zero POST with snapshot preserved; input edits without submit do not change current result; Refresh repeats exactly one last submitted raw query.
 
-### P2 — Sprint Predictability
+## P5 — Quality refresh isolation
+Top Quality Refresh updates quality/missing/acceptance only. Task Проверить updates task-quality group only. Neither triggers Aging. Aging Refresh triggers Aging only. Preserve stale snapshot while refreshing.
 
-Use a valid source-backed sprint, preferably `DMS-SPRNT-3` if still present.
+## P6 — Aging live parity
+Refresh independent REAL AS21 oracle immediately before DMS >7 and >15. Require exact keys/count, team-scoped bounded reads, live reread on same criteria, expected row fields, no false zero, no tenant-wide scan.
 
-Require:
-- request goes through `/api/v1/query`;
-- terminal skill/capability = `sprint.predictability`;
-- if committed baseline exists: UI displays `predictability * 100` and exact `completed / baseline_committed`;
-- if baseline is absent: explicit SOURCE_CONDITIONAL/SOURCE_UNAVAILABLE;
-- blank metric despite valid payload = RED;
-- current scope must never substitute for committed baseline.
-
-### P3 — Release Forecast integration
-
-Use a source-backed release identity.
-
-Require:
-- Releases page invokes normal Agent query for forecast;
-- terminal capability = `release.forecast` when source supports it;
-- sufficient history => source-backed forecast;
-- insufficient history/membership => explicit SOURCE_CONDITIONAL/SOURCE_UNAVAILABLE;
-- no fabricated date/percentage;
-- no updated_at-as-completion proxy.
-
-### P4 — architecture audit
-
-Require:
-- six reconciled Core/Core-test files have zero diff vs A227 baseline;
-- Tasks raw query is unchanged;
-- attachment status extension remains plugin-owned;
-- zero phrase-specific routers;
-- zero direct AS21 calls from frontend;
-- zero local-store factual reads;
-- zero tenant-wide scans introduced by these UI fixes.
+## P7 — retained regression
+Recheck local-task CRUD; Platform V + OLAP/DataMarts; Sprint DMS-SPRNT-3 metrics/risk/predictability state; Release limitation; Team utilization; six backgrounds and responsive overflow; zero local factual reads; zero unauthorized mutations; zero tenant-wide scans.
 
 ## Verdict
-
 Exactly one:
-- `AGENT_CORE_V4_UI_PARITY_GREEN_A227_PRE_GATE_R2`
-- `AGENT_CORE_V4_UI_PARITY_RED_A227_PRE_GATE_R2`
+- `AGENT_CORE_V4_PO_ACCEPTANCE_GREEN_A227R`
+- `AGENT_CORE_V4_PO_ACCEPTANCE_RED_A227R`
 
-If GREEN: resume A227R P3-P7.
-If RED: preserve first failing evidence and STOP.
+If GREEN recommend checkpoint `checkpoint/v4-po-acceptance-green-a227r` and next owner phase release hardening: restart/recovery, latency, security, rollback rehearsal. Learning Reviewer 2.0 remains blocked.
 
-Do not modify code.
+If RED preserve first failing evidence and STOP.
