@@ -93,8 +93,8 @@ CANONICAL_TASK_SKILL_IDS = (
 CAPABILITIES = (
     CapabilitySpecV4(
         "task.search_text",
-        "Search REAL AS21 tasks by a user-supplied phrase in task key/title/description using the live source only.",
-        {"phrase": "required user-supplied phrase", "space": "optional grounded product space", "reference": "optional natural person reference"},
+        "Search REAL AS21 tasks by a user-supplied phrase in task key/title/description, optionally scoped by a natural person reference and/or space. The capability resolves the person source-backed internally, so a separate member.resolve step is not required for phrase+person search.",
+        {"phrase": "required user-supplied phrase", "space": "optional grounded product space", "reference": "optional natural person reference resolved by this capability against REAL AS21"},
     ),
     CapabilitySpecV4(
         "task.search_attachments",
@@ -137,8 +137,14 @@ CAPABILITIES = (
 
 SKILLS = (
     SkillSpecV4(
-        "task.search_text", "Search tasks by a phrase or fragment supplied by the user.",
-        ("Call task.search_text with the literal phrase from the request and any grounded space/person constraints; never use a local task store.", "Return exact source-backed keys/count."),
+        "task.search_text",
+        "Search tasks by a phrase or fragment, including phrase + named-person requests.",
+        (
+            "For text/phrase search, call task.search_text directly with the literal phrase from the request.",
+            "If the same request names a person, pass that natural person text in reference; task.search_text performs the governed REAL AS21 identity resolution internally. Do not add a separate member.resolve hop before this capability.",
+            "Pass a grounded space when explicitly requested. Never use a local task store.",
+            "Return exact source-backed keys/count, including a source-proven REAL_EMPTY result.",
+        ),
         ("task.search_text",), completion=(CompletionRequirement("task.search_text", data_keys=("count",)),),
     ),
     SkillSpecV4(
