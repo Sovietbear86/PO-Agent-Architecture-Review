@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 from types import SimpleNamespace
 
-from po_agent.domain.models import AttachmentType
+from po_agent.domain.models import AttachmentType, TaskStatus
 from po_agent.harness.v4_plugins._task_live_handlers import build_task_search_attachments
 
 
@@ -22,7 +22,7 @@ def _task(key: str, *, sprint_id: str, with_file: bool, status_label: str = "In 
         id=key,
         title=key,
         description="",
-        status=SimpleNamespace(value=status_label),
+        status=TaskStatus.IN_PROGRESS if status_type == "progress" else SimpleNamespace(value=status_label),
         status_raw=status_label,
         status_type=status_type,
         status_category=SimpleNamespace(value="active_work"),
