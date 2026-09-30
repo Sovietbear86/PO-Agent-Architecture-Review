@@ -1257,3 +1257,21 @@ Release manual verification also found an integration gap:
 - insufficient release membership/history must surface as SOURCE_CONDITIONAL / SOURCE_UNAVAILABLE, never as a fake forecast or blank metric.
 
 Run the focused UI/source parity pre-gate before A227R. Only after it is GREEN should the remaining A227R P3-P7 acceptance gate resume.
+
+
+### A227 pre-gate correction — Sprint Predictability
+
+PO clarified that the observed Predictability defect is on **Sprints**, not Releases.
+
+Root cause:
+- canonical plugin `sprint.predictability` already returns a source-backed fractional field `predictability` plus `baseline_committed` and `completed`;
+- SprintPage incorrectly read a non-contract field `predictability_percent`, so valid plugin data rendered as an empty/dash metric;
+- when the committed baseline is unavailable, the plugin correctly fails closed with SOURCE_CONDITIONAL/UNAVAILABLE; UI must show that explicit state rather than looking broken.
+
+Owner fix:
+- no Agent Core change;
+- SprintPage now reads the plugin contract `predictability` and converts ratio -> percent only for presentation;
+- top Predictability metric shows completed / committed baseline when available;
+- a dedicated Predictability panel renders the same source-backed result or an explicit ResultStatePanel limitation when baseline data is absent.
+
+Release Forecast wiring from the previous pre-gate owner fix remains as a separate useful integration, but it is not the originally reported Predictability defect.
