@@ -183,20 +183,6 @@ with the next governed skill/capability action."""
                 )
             except Exception as exc:
                 failures.append(type(exc).__name__)
-                # Do not repeat the identical prompt after a provider/response-shape
-                # failure. Give the next bounded attempt the same generic action-only
-                # recovery contract used for malformed planner text. This is transport
-                # hardening only: it names no skill, entity, or next capability.
-                messages.append(
-                    LLMMessage(
-                        role="user",
-                        content=(
-                            self.DSL_REPAIR
-                            + "\nThe previous provider response could not be decoded by the client. "
-                              "Re-emit only the same governed next action."
-                        ),
-                    )
-                )
                 continue
             if not response.choices:
                 failures.append("no_choices")
@@ -235,16 +221,6 @@ with the next governed skill/capability action."""
 
 class RobustReliableAgentCoreV4Runtime(ReliableAgentCoreV4Runtime):
     """Reliable V4 runtime using the provider-robust decision transport."""
-
-    @staticmethod
-    def _safe_status(raw: str) -> str:
-        value = str(raw or "").strip().casefold()
-        if value in {"in_progress", "in progress", "в работе", "работе"}:
-            # The task source exposes workflow category as status_type=progress.
-            # Normalize natural-language progress wording to that source-backed
-            # semantic category rather than comparing a localized label literally.
-            return "progress"
-        return ReliableAgentCoreV4Runtime._safe_status(raw)
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
