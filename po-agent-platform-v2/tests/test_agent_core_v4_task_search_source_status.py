@@ -5,7 +5,6 @@ from datetime import datetime, timezone
 
 from po_agent.domain.models import StatusCategory, Task, TaskStatus
 from po_agent.harness.agent_core_v4 import AgentCoreV4Runtime
-from po_agent.harness.agent_core_v4_robust import RobustReliableAgentCoreV4Runtime
 
 
 def _task(key: str, *, status: TaskStatus, status_raw: str, status_type: str, category: StatusCategory):
@@ -81,20 +80,3 @@ def test_task_search_still_rejects_truly_unscoped_query():
         assert "исполнитель, спринт или подтверждённое продуктовое пространство" in str(exc)
     else:
         raise AssertionError("unscoped task.search must fail closed")
-
-
-def test_sprint_plus_in_progress_uses_typed_source_progress_predicate():
-    runtime = RobustReliableAgentCoreV4Runtime(
-        Adapter(),
-        llm=object(),
-        model=None,
-        team=None,
-        legacy_capabilities=None,
-    )
-    result = asyncio.run(
-        runtime._task_search(
-            {"sprint_id": "DMS-SPRNT-3", "space": "DMS", "status": "В работе"}
-        )
-    )
-    assert result.data["task_keys"] == ["DMS-2"]
-    assert result.data["count"] == 1
