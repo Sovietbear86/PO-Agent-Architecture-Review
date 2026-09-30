@@ -1,45 +1,59 @@
 # GigaCode — Current Action
 
-## ACTIVE: Assignment A227R — resume P3–P7
+## ACTIVE: Assignment A227R2 — P3-C re-gate, then resume
 
 Role: QA/adversarial tester only. Do not modify code.
 
-Pre-gate R2 is GREEN. Core is proven identical to A227 baseline; Tasks UI parity, Sprint Predictability, Release Forecast and full V4 regression are GREEN. Do not repeat P0-P2 unless owner code changes again.
+Owner fix is plugin-only. Stable Core must remain zero diff vs A227 baseline `db5e35f`.
 
-## P3 — multi-constraint composition
-Run each live case 5 times with an independent REAL AS21 oracle first.
+### P0 — focused integrity
+1. Pull current branch and record START_HEAD.
+2. Prove zero diff vs `db5e35f` for stable Core/LLM files.
+3. Run focused tests for:
+   - plugin task-search status normalization;
+   - attachment sprint/status composition;
+   - retained task search/composition;
+   - full V4 blast-radius.
+4. Any unexplained failure => RED STOP.
 
+### P3-C first — 5/5 exact parity
+Query:
+`Задачи в работе в сентябрьском спринте по DMS`
+
+Build a fresh independent REAL AS21 oracle immediately before runs.
+
+Require on all 5 runs:
+- source-backed DMS September sprint resolution;
+- terminal task collection;
+- preserved space + sprint_id + status;
+- Russian `В работе` and English `In Progress` converge on canonical IN_PROGRESS semantics;
+- exact task-key/count parity with the canonical IN_PROGRESS oracle;
+- no false zero;
+- no tenant-wide scan.
+
+If any run is RED, preserve trajectory and STOP.
+
+### P3 remaining
+After P3-C GREEN run:
 A) `Открытые задачи Калачанова с вложениями в пространстве WMB`
-Require all constraints preserved, exact source parity, valid REAL_EMPTY allowed, no repair-loop failure, no tenant-wide scan.
-
 B) `Задачи Семавина по рискам`
-Require source-backed identity, compositional task/risk path, no fabricated rows, 5/5 correct.
-
-C) `Задачи в работе в сентябрьском спринте по DMS`
-Require source-backed September sprint resolution; terminal result is task collection; preserve space+sprint_id+status; exact task-key/count parity; false zero is RED.
-
 D) `Спринты в DMS`
-Require grounded rich non-task result.
 
-Any P3 RED => preserve first failing trajectory/oracle and STOP.
+Use independent REAL AS21 oracles and retained acceptance rules.
 
-## P4 — task cards / persistence
-Require real task cards and Task Details for task collections; grounded rich answer for non-task result; away/back zero POST with snapshot preserved; input edits without submit do not change current result; Refresh repeats exactly one last submitted raw query.
-
-## P5 — Quality refresh isolation
-Top Quality Refresh updates quality/missing/acceptance only. Task Проверить updates task-quality group only. Neither triggers Aging. Aging Refresh triggers Aging only. Preserve stale snapshot while refreshing.
-
-## P6 — Aging live parity
-Refresh independent REAL AS21 oracle immediately before DMS >7 and >15. Require exact keys/count, team-scoped bounded reads, live reread on same criteria, expected row fields, no false zero, no tenant-wide scan.
-
-## P7 — retained regression
-Recheck local-task CRUD; Platform V + OLAP/DataMarts; Sprint DMS-SPRNT-3 metrics/risk/predictability state; Release limitation; Team utilization; six backgrounds and responsive overflow; zero local factual reads; zero unauthorized mutations; zero tenant-wide scans.
+### P4–P7
+If all P3 GREEN, continue unchanged:
+- P4 task cards/persistence;
+- P5 Quality refresh isolation;
+- P6 fresh Aging exact parity DMS >7 / >15;
+- P7 retained regression/source audit.
 
 ## Verdict
 Exactly one:
-- `AGENT_CORE_V4_PO_ACCEPTANCE_GREEN_A227R`
-- `AGENT_CORE_V4_PO_ACCEPTANCE_RED_A227R`
+- `AGENT_CORE_V4_PO_ACCEPTANCE_GREEN_A227R2`
+- `AGENT_CORE_V4_PO_ACCEPTANCE_RED_A227R2`
 
-If GREEN recommend checkpoint `checkpoint/v4-po-acceptance-green-a227r` and next owner phase release hardening: restart/recovery, latency, security, rollback rehearsal. Learning Reviewer 2.0 remains blocked.
+If GREEN recommend checkpoint `checkpoint/v4-po-acceptance-green-a227r2` and release hardening next.
+Learning Reviewer 2.0 remains blocked.
 
 If RED preserve first failing evidence and STOP.
