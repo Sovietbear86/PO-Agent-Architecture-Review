@@ -146,104 +146,6 @@ with the next governed skill/capability action."""
             return True, None
         return False, f"unknown_decision_kind:{decision.kind}"
 
-    @staticmethod
-    def _query_status_hint(user_query: str) -> str | None:
-        """Return only conservative semantic status enums for recovery.
-
-        This is a bounded transport fallback, not a semantic pre-pass: it is used
-        only after the provider has repeatedly failed to serialize a planner
-        action. It recognizes generic status concepts already supported by the
-        governed task capabilities and never injects entity/source facts.
-        """
-        value = str(user_query or "").casefold()
-        if any(token in value for token in ("открыт", "незаверш", "not completed", "open task", "open tasks")):
-            return "not_completed"
-        if any(token in value for token in ("закрыт", "заверш", "completed", "closed task", "closed tasks")):
-            return "completed"
-        if any(token in value for token in ("заблок", "blocked")):
-            return "blocked"
-        if any(token in value for token in ("в работе", "in progress", "in_progress")):
-            return "progress"
-        return None
-
-    @classmethod
-    def _deterministic_action_recovery(
-        cls,
-        *,
-        user_query: str,
-        catalog: SkillCatalogV4,
-        loaded_skills: tuple[str, ...],
-        observations: list[V4Observation],
-    ) -> V4Decision | None:
-        """Recover one unambiguous pending action without inventing source facts.
-
-        The fallback is intentionally narrow:
-        - only the most recently loaded skill is considered;
-        - that skill must expose exactly one capability not yet observed;
-        - arguments are bound only from prior typed observations or conservative
-          semantic enums already supported by governed capability contracts;
-        - required arguments that cannot be grounded abort recovery.
-
-        This keeps normal/simple trajectories fully planner-driven while avoiding
-        an infinite repeat of the same malformed composite decision.
-        """
-        if not loaded_skills:
-            return None
-        detail = catalog.load(loaded_skills[-1])
-        capabilities = list(detail.get("capabilities") or [])
-        seen = {item.capability_id for item in observations}
-        pending = [item for item in capabilities if str(item.get("id") or "") not in seen]
-        if len(pending) != 1:
-            return None
-
-        capability = pending[0]
-        capability_id = str(capability.get("id") or "").strip()
-        schema = capability.get("arguments") or {}
-        if not capability_id or not isinstance(schema, Mapping):
-            return None
-
-        aliases = {
-            "assignee": ("member_login", "external_id", "assignee_login", "assignee_id"),
-            "reference": ("reference",),
-            "space": ("space", "product"),
-            "product": ("product", "space"),
-            "sprint_id": ("sprint_id",),
-            "release_id": ("release_id",),
-            "task_key": ("task_key",),
-        }
-        arguments: dict[str, str] = {}
-        for name in schema:
-            if name == "status":
-                hint = cls._query_status_hint(user_query)
-                if hint:
-                    arguments[name] = hint
-                continue
-            for observation in reversed(observations):
-                data = observation.data if isinstance(observation.data, Mapping) else {}
-                found = None
-                for field in aliases.get(name, (name,)):
-                    value = data.get(field)
-                    if isinstance(value, (str, int, float)) and str(value).strip():
-                        found = field
-                        break
-                if found:
-                    arguments[name] = f"$obs.{observation.step}.{found}"
-                    break
-
-        missing_required = [
-            name
-            for name, description in schema.items()
-            if "required" in str(description).casefold() and name not in arguments
-        ]
-        if missing_required:
-            return None
-        return V4Decision(
-            "call",
-            capability_id=capability_id,
-            arguments=arguments,
-            rationale="deterministic_transport_recovery",
-        )
-
     async def next_decision(
         self,
         *,
@@ -271,7 +173,6 @@ with the next governed skill/capability action."""
             LLMMessage(role="user", content=json.dumps(payload, ensure_ascii=False)),
         ]
         failures: list[str] = []
-        provider_failure_signatures: dict[str, int] = {}
         for attempt in range(4):
             try:
                 response = await self.client.complete(
@@ -281,53 +182,21 @@ with the next governed skill/capability action."""
                     max_tokens=800,
                 )
             except Exception as exc:
-                signature = f"{type(exc).__name__}:{str(exc)[:160]}"
                 failures.append(type(exc).__name__)
-                provider_failure_signatures[signature] = provider_failure_signatures.get(signature, 0) + 1
-
-                # Never spend the whole bounded repair budget replaying the same
-                # invalid provider shape. After a repeated identical failure, first
-                # try a narrow deterministic action assembled only from typed
-                # observations + generic safe enums.
-                if provider_failure_signatures[signature] >= 2:
-                    recovered = self._deterministic_action_recovery(
-                        user_query=user_query,
-                        catalog=catalog,
-                        loaded_skills=loaded_skills,
-                        observations=observations,
-                    )
-                    if recovered is not None:
-                        allowed, _ = self._decision_allowed(
-                            recovered,
-                            catalog=catalog,
-                            loaded_skills=loaded_skills,
-                        )
-                        if allowed:
-                            return recovered
-
-                # The next provider attempt uses a constrained action-only prompt,
-                # not the identical primary prompt. It includes only governed
-                # catalog/observation state already present in the original payload.
-                recovery_payload = {
-                    "user_query": user_query,
-                    "loaded_skills": [catalog.load(skill_id) for skill_id in loaded_skills],
-                    "observations": [item.planner_view() for item in observations],
-                    "allowed_capabilities": sorted(catalog.allowed_capabilities(loaded_skills)),
-                }
-                messages = [
-                    LLMMessage(
-                        role="system",
-                        content=(
-                            "Recover one governed planner ACTION only. "
-                            "Return valid JSON with load_skill or call, or one LOAD/CALL DSL line. "
-                            "READY is forbidden. Do not invent ids or source facts."
-                        ),
-                    ),
+                # Do not repeat the identical prompt after a provider/response-shape
+                # failure. Give the next bounded attempt the same generic action-only
+                # recovery contract used for malformed planner text. This is transport
+                # hardening only: it names no skill, entity, or next capability.
+                messages.append(
                     LLMMessage(
                         role="user",
-                        content=json.dumps(recovery_payload, ensure_ascii=False) + "\n" + self.DSL_REPAIR,
-                    ),
-                ]
+                        content=(
+                            self.DSL_REPAIR
+                            + "\nThe previous provider response could not be decoded by the client. "
+                              "Re-emit only the same governed next action."
+                        ),
+                    )
+                )
                 continue
             if not response.choices:
                 failures.append("no_choices")
@@ -361,20 +230,6 @@ with the next governed skill/capability action."""
                     LLMMessage(role="user", content=self.DSL_REPAIR),
                 ]
             )
-        recovered = self._deterministic_action_recovery(
-            user_query=user_query,
-            catalog=catalog,
-            loaded_skills=loaded_skills,
-            observations=observations,
-        )
-        if recovered is not None:
-            allowed, _ = self._decision_allowed(
-                recovered,
-                catalog=catalog,
-                loaded_skills=loaded_skills,
-            )
-            if allowed:
-                return recovered
         raise V4ContractError(f"planner failed robust bounded repair: {failures}")
 
 
