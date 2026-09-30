@@ -12,7 +12,27 @@ from ..agent_core_v4 import CapabilitySpecV4, SkillSpecV4, V4CapabilityUnavailab
 from ..agent_core_v4_completion import CompletionRequirement
 from ..contracts import CapabilityResult, Evidence
 from ..v4_plugin_registry import CapabilityBindingV4, UIContractV4, V4SkillPlugin
+from po_agent.domain.models import TaskStatus, normalize_task_status
 from ._task_live_handlers import build_task_lookup
+
+def build_task_search(runtime: Any):
+    """Plugin-owned adapter for canonical task-status literals.
+
+    The stable Agent Core task search remains untouched. At the plugin binding
+    seam, normalize only a domain-recognized IN_PROGRESS status to the canonical
+    TaskStatus value. This makes equivalent localized literals (for example the
+    Russian "в работе") converge on the same governed source predicate without
+    introducing phrase/entity routing into Agent Core.
+    """
+    async def execute(args: dict[str, str]) -> CapabilityResult:
+        forwarded = dict(args)
+        raw_status = str(forwarded.get("status") or "").strip()
+        if raw_status and normalize_task_status(raw_status) == TaskStatus.IN_PROGRESS:
+            forwarded["status"] = TaskStatus.IN_PROGRESS.value
+        return await runtime._task_search(forwarded)
+
+    return execute
+
 
 def build_release_health(runtime: Any):
     """Bounded, source-backed release health.
@@ -180,7 +200,7 @@ BINDINGS = (
     CapabilityBindingV4("sprint.search", handler_method="_sprint_search"),
     CapabilityBindingV4("sprint.list", handler_method="_sprint_list"),
     CapabilityBindingV4("release.resolve", handler_method="_release_resolve"),
-    CapabilityBindingV4("task.search", handler_method="_task_search"),
+    CapabilityBindingV4("task.search", handler_builder=build_task_search),
     CapabilityBindingV4("task.lookup", handler_builder=build_task_lookup),
     CapabilityBindingV4("task.summary", legacy_capability_id="task.summary"),
     CapabilityBindingV4("task.quality", legacy_capability_id="task.quality"),
