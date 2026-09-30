@@ -53,26 +53,8 @@ class RealLLMClient(LLMClient):
             )
         choices = []
         for choice in data.get("choices", []):
-            msg = choice.get("message", {}) if isinstance(choice, dict) else {}
-            raw_content = msg.get("content", "")
-            if raw_content is None:
-                raw_content = msg.get("reasoning_content") or ""
-            if isinstance(raw_content, list):
-                parts = []
-                for item in raw_content:
-                    if isinstance(item, dict):
-                        text = item.get("text") or item.get("content")
-                        if text is not None:
-                            parts.append(str(text))
-                    elif item is not None:
-                        parts.append(str(item))
-                raw_content = "\n".join(parts)
-            elif not isinstance(raw_content, str):
-                raw_content = str(raw_content or "")
-            choices.append({
-                "message": {"role": str(msg.get("role") or "assistant"), "content": raw_content},
-                "finish_reason": choice.get("finish_reason") if isinstance(choice, dict) else None,
-            })
+            msg = choice.get("message", {})
+            choices.append({"message": {"role": msg.get("role", "assistant"), "content": msg.get("content", "")}, "finish_reason": choice.get("finish_reason")})
         return LLMResponse(choices=choices, usage=usage, model=data.get("model"), id=data.get("id"))
 
     async def stream(self, messages: list[LLMMessage], model: Optional[str] = None, temperature: float = 0.7,
