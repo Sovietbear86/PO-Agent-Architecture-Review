@@ -1303,3 +1303,21 @@ Current owner changes are therefore constrained to:
 - docs/QA instructions.
 
 Next step: repeat the A227 UI parity pre-gate from P0. If P0 GREEN, continue live P1-P4.
+
+
+### A227 UI parity pre-gate R2 — GREEN
+
+Verdict: `AGENT_CORE_V4_UI_PARITY_GREEN_A227_PRE_GATE_R2`.
+
+Certified:
+- A227 stable Core reconciliation proven by zero diff / identical blobs for the four Core production files and two Core tests vs `db5e35f`;
+- frontend build GREEN;
+- focused 48/48 and full V4 229/229 GREEN;
+- Tasks UI raw natural-language query is byte-identical to direct PO Agent and every repeated Find issues a fresh POST;
+- direct and UI task result parity is source-backed: WMB/Kalachanov has attachment-bearing tasks, but the requested open/not-completed intersection is REAL_EMPTY;
+- Sprint Predictability is wired to `sprint.predictability`; current DMS source has no committed baseline, so typed SOURCE_UNAVAILABLE is the correct live outcome, with no fabricated percent;
+- Release Forecast is wired to `release.forecast`; current WMB 24Q1 linkage/history is source-insufficient, so typed SOURCE_UNAVAILABLE is correct;
+- attachment-status extension remains plugin-owned;
+- zero phrase-specific routers, zero direct AS21 frontend reads, zero local factual reads, zero tenant-wide scans.
+
+The pre-gate is closed. Resume A227R from P3 through P7 only. P0/P1/P2 are already certified and must not be repeated unless a new owner code change invalidates them.
