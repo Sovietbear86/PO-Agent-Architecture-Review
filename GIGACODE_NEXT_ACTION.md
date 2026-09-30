@@ -1,80 +1,91 @@
 # GigaCode — Current Action
 
-## ACTIVE: A227 UI parity pre-gate
+## ACTIVE: A227 UI parity pre-gate R2
 
 Role: **QA/tester only. Do NOT modify production/frontend/backend/plugin/test/config code.**
 
-This is a focused pre-gate before A227R. Do not run the full A227R yet.
+Owner has reconciled stable Core to A227 baseline `db5e35f`.
+Before live UI checks, prove that reconciliation independently.
 
-### P0 — build
-1. Pull current `feat/core8-real-query-hardening-v2`; record START_HEAD and clean worktree.
-2. Run frontend `tsc --noEmit` and `vite build`.
-3. Run focused retained V4/plugin tests relevant to task attachment search, sprint predictability and release forecast.
-4. Any failure => RED STOP.
+### P0 — build + Core integrity
 
-### P1 — Tasks UI = same Agent query behavior
+1. Pull current `feat/core8-real-query-hardening-v2`; record START_HEAD and clean tracked worktree.
+2. Verify exact zero diff vs `db5e35f1b378b6ffde0c10085af8b68e4bf1e6b5` for:
+   - `src/po_agent/harness/agent_core_v4.py`
+   - `src/po_agent/harness/agent_core_v4_reliable.py`
+   - `src/po_agent/harness/agent_core_v4_robust.py`
+   - `src/po_agent/llm/real.py`
+   - `tests/test_agent_core_v4_reliable.py`
+   - `tests/test_agent_core_v4_robust_protocol.py`
+3. Run frontend `tsc --noEmit` and `vite build`.
+4. Run focused tests:
+   - attachment skill/plugin tests;
+   - sprint predictability tests;
+   - release forecast tests;
+   - retained reliable/robust tests.
+5. Run full V4 blast-radius: `tests/test_agent_core_v4*.py tests/test_v4*.py`.
+6. Any unexplained failure => RED STOP.
+
+### P1 — Tasks UI parity with direct PO Agent
 
 Use exactly:
 `Найди открытые задачи Калачанова с вложениями в пространстве WMB`
 
-First establish the direct PO Agent result in a fresh dialogue.
+First run it in a fresh direct PO Agent dialogue and record trace/result.
 
 Then on **Задачи**:
-1. enter the exact same query and press **Найти**;
-2. prove exactly one POST to `/api/v1/query`;
-3. compare status, answer/evidence and factual result with the direct Agent run;
-4. if the source proves attachments exist but none satisfy open/not-completed, UI must show that grounded answer/empty intersection honestly — not generic "не удалось получить корректный результат";
-5. press **Найти** again without changing text: require exactly one new POST and a fresh trace;
-6. navigate away/back: require zero automatic POSTs and preserved snapshot;
-7. Refresh must repeat exactly the last submitted NL query once.
+- same raw text must go to normal `/api/v1/query`;
+- first Find => exactly one POST;
+- compare factual status/answer/evidence with direct Agent;
+- if attachments exist but open intersection is empty, show the grounded empty/intersection answer, not generic error;
+- press Find again unchanged => exactly one new POST + fresh trace;
+- navigate away/back => zero automatic POSTs, snapshot preserved;
+- Refresh => exactly one repeat of last submitted raw query.
 
-No separate task search engine, no client parsing/routing by surname/space/status.
+No client-side phrase/person/space router. No direct AS21 frontend call.
 
 ### P2 — Sprint Predictability
 
-Use a source-backed sprint, first preference `DMS-SPRNT-3` if still valid.
+Use a valid source-backed sprint, preferably `DMS-SPRNT-3` if still present.
 
 Require:
-- Sprint page sends `Покажи predictability <sprint_id>` through normal `/api/v1/query`;
-- terminal skill/capability is `sprint.predictability`;
-- if authoritative committed baseline exists, UI renders `predictability * 100` as percent and shows completed / baseline_committed;
-- compare exact completed count, baseline and ratio against capability payload;
-- UI must not read a nonexistent `predictability_percent` field as the primary contract;
-- if committed baseline is unavailable, render SOURCE_CONDITIONAL/SOURCE_UNAVAILABLE explicitly;
-- current sprint scope must never be substituted for missing committed baseline;
-- blank/broken Predictability with a valid capability payload is RED.
+- request goes through `/api/v1/query`;
+- terminal skill/capability = `sprint.predictability`;
+- if committed baseline exists: UI displays `predictability * 100` and exact `completed / baseline_committed`;
+- if baseline is absent: explicit SOURCE_CONDITIONAL/SOURCE_UNAVAILABLE;
+- blank metric despite valid payload = RED;
+- current scope must never substitute for committed baseline.
 
-### P3 — Release Forecast integration (separate from the reported defect)
+### P3 — Release Forecast integration
 
-
-
-Use a source-backed release identity that `release.search` can resolve.
+Use a source-backed release identity.
 
 Require:
-- Releases page sends a forecast request through normal `/api/v1/query`;
-- terminal skill/capability is `release.forecast` when source permits;
-- when history is sufficient, render source-backed forecast date/days;
-- when history or membership is insufficient, render SOURCE_CONDITIONAL/SOURCE_UNAVAILABLE with the agent explanation;
-- blank Predictability/Forecast and fabricated percentages/dates are RED;
-- no updated_at-as-completion proxy;
-- no tenant-wide scan.
+- Releases page invokes normal Agent query for forecast;
+- terminal capability = `release.forecast` when source supports it;
+- sufficient history => source-backed forecast;
+- insufficient history/membership => explicit SOURCE_CONDITIONAL/SOURCE_UNAVAILABLE;
+- no fabricated date/percentage;
+- no updated_at-as-completion proxy.
 
 ### P4 — architecture audit
 
 Require:
-- Tasks raw text goes unchanged to Agent endpoint;
-- zero phrase-specific UI router;
+- six reconciled Core/Core-test files have zero diff vs A227 baseline;
+- Tasks raw query is unchanged;
+- attachment status extension remains plugin-owned;
+- zero phrase-specific routers;
 - zero direct AS21 calls from frontend;
-- zero new owner changes to stable Harness/Core for this UI correction;
-- attachment status extension remains plugin-owned.
+- zero local-store factual reads;
+- zero tenant-wide scans introduced by these UI fixes.
 
 ## Verdict
 
 Exactly one:
-- `AGENT_CORE_V4_UI_PARITY_GREEN_A227_PRE_GATE`
-- `AGENT_CORE_V4_UI_PARITY_RED_A227_PRE_GATE`
+- `AGENT_CORE_V4_UI_PARITY_GREEN_A227_PRE_GATE_R2`
+- `AGENT_CORE_V4_UI_PARITY_RED_A227_PRE_GATE_R2`
 
-If GREEN: recommend resuming A227R P3-P7.
+If GREEN: resume A227R P3-P7.
 If RED: preserve first failing evidence and STOP.
 
 Do not modify code.
