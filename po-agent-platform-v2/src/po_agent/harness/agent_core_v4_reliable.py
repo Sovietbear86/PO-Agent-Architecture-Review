@@ -499,15 +499,6 @@ Additional reliability rules:
         for row in rows:
             if not isinstance(row, Mapping):
                 continue
-            # "in progress" is a typed source category, not a literal UI label.
-            # REAL AS21 can expose several workflow labels (for example
-            # "In progress" and "На исправлении") with status_type=progress.
-            # Preserve that typed predicate after sprint discovery instead of
-            # comparing the localized wording literally and producing false zero.
-            if normalized == "progress":
-                if str(row.get("status_type") or "").strip().casefold() == "progress":
-                    matched.append(dict(row))
-                continue
             candidates = (
                 row.get("status_raw"),
                 row.get("status_type"),
