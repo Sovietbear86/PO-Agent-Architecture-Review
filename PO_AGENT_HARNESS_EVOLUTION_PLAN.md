@@ -1359,3 +1359,31 @@ Owner UI-only correction:
 - no Agent Core/plugin behavior changed by this UI cleanup.
 
 A227R2 backend P3 evidence collected before this UI-only commit remains valid, but P4/P7 UI acceptance must run on or after the cleanup commit.
+
+
+### A227R2 RED — P3-B person + text composition reliability
+
+A227R2 proved the localized in-progress fix GREEN (P3-C 5/5 + control) and stopped on P3-B.
+
+P3-B query:
+`Задачи Семавина по рискам`
+
+Fresh source oracle:
+- Semavin.M.M has 346 tasks total;
+- 0 tasks contain risk/риск in title/description;
+- therefore REAL_EMPTY is the correct factual result when execution completes.
+
+Observed defect:
+- planner intermittently chooses a multi-step `member.resolve -> task.search_text` trajectory;
+- the second planner action is frequently schema-invalid and robust bounded repair fails closed;
+- the same failure reproduces on the pre-fix A227 code, so this is pre-existing planner-selection/composition instability, not a regression from A227R2.
+
+Owner remediation remains plugin/declarative only:
+- `task.search_text` already owns source-backed natural-person resolution internally through `reference`;
+- its skill/capability contract now explicitly defines phrase + named-person as a single-capability path;
+- planner guidance says not to pre-resolve the person for phrase/text search;
+- the broader `tasks.search` composition helper now explicitly excludes text/phrase requests and remains for structured multi-filter composition;
+- no Agent Core, robust repair protocol, literal validator or LLM client changes;
+- regression proves the text+person skill is single-capability and that its handler resolves the natural person internally before issuing the bounded source query.
+
+Next gate: A227R3 first requires P3-B 5/5 on the direct single-capability trajectory. If GREEN, resume P4-P7. P3-A/C/D are already certified GREEN unless a relevant code change invalidates them.
