@@ -1345,3 +1345,17 @@ Owner remediation is plugin-only:
 No phrase-specific router, person/space hardcode or tenant-wide fallback was added.
 
 Next gate: A227R2 starts with focused P3-C 5/5 exact parity, then resumes P3-A/B/D and P4-P7 if GREEN.
+
+
+### Sprint Predictability UI cleanup during A227R2
+
+Manual PO check found two Predictability surfaces on SprintPage after the earlier source-state remediation.
+
+Owner UI-only correction:
+- removed the duplicate lower Predictability insight card;
+- retained the canonical top MetricCard as the single Sprint Predictability surface;
+- when the source-backed committed baseline is absent, the card now shows `н/д` with the explicit reason `AS21 не отдаёт committed baseline на старт спринта` instead of a bare dash;
+- no formula/source fallback was introduced;
+- no Agent Core/plugin behavior changed by this UI cleanup.
+
+A227R2 backend P3 evidence collected before this UI-only commit remains valid, but P4/P7 UI acceptance must run on or after the cleanup commit.
