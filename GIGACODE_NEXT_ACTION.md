@@ -30,7 +30,23 @@ Then on **Задачи**:
 
 No separate task search engine, no client parsing/routing by surname/space/status.
 
-### P2 — Release Predictability / Forecast
+### P2 — Sprint Predictability
+
+Use a source-backed sprint, first preference `DMS-SPRNT-3` if still valid.
+
+Require:
+- Sprint page sends `Покажи predictability <sprint_id>` through normal `/api/v1/query`;
+- terminal skill/capability is `sprint.predictability`;
+- if authoritative committed baseline exists, UI renders `predictability * 100` as percent and shows completed / baseline_committed;
+- compare exact completed count, baseline and ratio against capability payload;
+- UI must not read a nonexistent `predictability_percent` field as the primary contract;
+- if committed baseline is unavailable, render SOURCE_CONDITIONAL/SOURCE_UNAVAILABLE explicitly;
+- current sprint scope must never be substituted for missing committed baseline;
+- blank/broken Predictability with a valid capability payload is RED.
+
+### P3 — Release Forecast integration (separate from the reported defect)
+
+
 
 Use a source-backed release identity that `release.search` can resolve.
 
