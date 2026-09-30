@@ -1275,3 +1275,31 @@ Owner fix:
 - a dedicated Predictability panel renders the same source-backed result or an explicit ResultStatePanel limitation when baseline data is absent.
 
 Release Forecast wiring from the previous pre-gate owner fix remains as a separate useful integration, but it is not the originally reported Predictability defect.
+
+
+### A227 UI parity pre-gate RED — Core reconciliation closure
+
+The first pre-gate RED was caused by two owner-added core tests, not by a proven runtime regression:
+- one test referenced non-existent StatusCategory enum members;
+- one test expected deterministic recovery that contradicts the stable robust fail-closed contract.
+
+Owner decision: do not patch stable Core to satisfy those tests.
+
+Reconciliation performed against A227 stable baseline `db5e35f1b378b6ffde0c10085af8b68e4bf1e6b5`:
+- `src/po_agent/harness/agent_core_v4.py` restored exactly to baseline;
+- `src/po_agent/harness/agent_core_v4_reliable.py` restored exactly to baseline;
+- `src/po_agent/harness/agent_core_v4_robust.py` restored exactly to baseline;
+- `src/po_agent/llm/real.py` restored exactly to baseline;
+- `tests/test_agent_core_v4_reliable.py` restored exactly to baseline;
+- `tests/test_agent_core_v4_robust_protocol.py` restored exactly to baseline.
+
+GitHub compare now shows **zero diff** for those six files versus A227 baseline.
+
+Current owner changes are therefore constrained to:
+- plugin/capability extensions for attachment-status composition;
+- UI parity fixes for Tasks repeated Find;
+- Sprint Predictability contract rendering;
+- Release Forecast wiring;
+- docs/QA instructions.
+
+Next step: repeat the A227 UI parity pre-gate from P0. If P0 GREEN, continue live P1-P4.
