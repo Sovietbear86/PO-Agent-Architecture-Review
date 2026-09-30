@@ -1208,16 +1208,31 @@ A227 is the final PO UX correction gate before release hardening. Learning Revie
 
 ### A227 RED closure / A227R
 
-A227 P0-P2 are GREEN. First RED is P3: pre-existing planner reliability on natural-language composition, not the A227 frontend.
+A227 P0-P2 and P3-D are GREEN. First blocking boundary is P3 multi-constraint natural-language composition.
 
-Findings:
-- person + multi-constraint queries can hit repeated provider/client ValidationError at the next planner turn; the robust loop repeated the same prompt, so repair did not actually change the retry;
-- sprint-period + "В работе" can false-zero because the source exposes canonical workflow category status_type=progress.
+Confirmed A227 root causes:
+1. **Repeated planner transport/schema failure:** after valid source-backed resolver steps, the provider/client can repeatedly emit the same schema-invalid composite decision. The old robust loop consumed all four attempts without changing the action boundary.
+2. **Attachment intersection schema gap:** `task.search_attachments` (and specialized attachment variants) could not express a requested status predicate, forcing stochastic multi-skill composition for person + space + status + attachments.
+3. **Sprint + in-progress false zero:** `В работе` / `In Progress` must resolve to the authoritative REAL AS21 typed predicate `status_type=progress`, not a literal localized label comparison.
 
-A227R owner fixes:
-- normalize null/list/non-string OpenAI-compatible message content before LLMResponse validation;
-- after provider/client decode exception, append generic action-only repair before retrying;
-- normalize "В работе" / "In Progress" / "in_progress" to source category "progress";
-- focused regressions cover both fixes.
+A227R owner remediation:
+- RobustSkillNativePlannerV4 now detects repeated identical provider failures and switches to a constrained action-only recovery prompt instead of replaying the primary prompt.
+- After a repeated identical provider failure, an additional deterministic fallback is allowed only when the most recently loaded skill has exactly one pending governed capability. Arguments may come only from prior typed observations plus conservative generic status enums; READY is never synthesized and no source facts are invented.
+- `task.search_attachments`, Excel/PDF/MSG attachment capabilities now accept/preserve an optional typed `status` constraint.
+- Attachment handlers apply the same semantic status contract as generic task search before file fan-out, so attachment filtering never drops open/completed/blocked/in-progress constraints.
+- Generic task.search now treats normalized `progress` as the source predicate `status_type=progress`; period-sprint discovery therefore carries `space + sprint_id + status` to the terminal task collection without literal-label false zero.
+- Regression coverage added for repeated provider ValidationError recovery, attachment + status intersection, and sprint + typed in-progress task collection.
 
-A227R resumes at P3, then completes deferred P4-P7 including Quality/Aging exactness. PO sign-off remains blocked until GREEN.
+Architectural invariants preserved:
+- no phrase/surname/space-specific router;
+- no tenant-wide fallback scan;
+- no local-store factual fallback;
+- no fake metrics/source rows;
+- simple/single-constraint planner trajectories remain unchanged unless transport recovery is actually triggered.
+
+A227R QA starts at P3. Re-run P3-A, P3-B and P3-C repeatedly against independent REAL AS21 oracles; after GREEN continue P4-P7. In P6 refresh the live DMS >7 / >15 Aging oracles rather than trusting A227's historical 77/68 counts.
+
+If A227R is GREEN:
+- create checkpoint `checkpoint/v4-po-acceptance-green-a227r`;
+- open release hardening: restart/recovery, latency, security, rollback rehearsal;
+- do **not** start Learning Reviewer 2.0 yet.
