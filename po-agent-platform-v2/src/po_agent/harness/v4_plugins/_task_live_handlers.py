@@ -29,6 +29,8 @@ def _task_dict(task: Any) -> dict[str, Any]:
         "description": task.description,
         "status": task.status.value,
         "status_category": task.status_category.value,
+        "status_raw": getattr(task, "status_raw", None),
+        "status_type": getattr(task, "status_type", None),
         "assignee": task.assignee,
         "assignee_id": getattr(task, "assignee_id", None),
         "assignee_login": getattr(task, "assignee_login", None),
@@ -97,6 +99,39 @@ async def _resolve_assignee_identity(runtime: Any, reference: str, *, space: str
     if not external_id:
         raise RuntimeError("member resolver returned no canonical identity")
     return external_id
+
+
+def _matches_requested_status(runtime: Any, task: Any, raw_status: str) -> bool:
+    """Apply the same typed status semantics used by generic task.search.
+
+    This keeps specialized collection capabilities composable: adding an
+    attachment/file constraint must not force the planner to drop an already
+    requested status constraint.
+    """
+    raw = str(raw_status or "").strip()
+    if not raw:
+        return True
+    normalize = getattr(runtime, "_safe_status", None)
+    normalized = str(normalize(raw) if callable(normalize) else raw).strip().casefold()
+    if normalized == "not_completed":
+        return bool(getattr(task, "is_open", False))
+    if normalized == "completed":
+        return bool(getattr(task, "is_completed", False))
+    if normalized == "blocked":
+        return bool(getattr(task, "is_blocked", False))
+    if normalized == "progress":
+        return str(getattr(task, "status_type", "") or "").strip().casefold() == "progress"
+
+    requested = raw.casefold()
+    return any(
+        requested in str(value or "").casefold()
+        for value in (
+            getattr(task, "status_raw", None),
+            getattr(task, "status_type", None),
+            getattr(getattr(task, "status", None), "value", None),
+            getattr(getattr(task, "status_category", None), "value", None),
+        )
+    )
 
 
 async def _source_assignee_from_args(
@@ -319,6 +354,13 @@ def build_task_search_attachments(runtime: Any):
                 assignee, source_assignee = await _source_assignee_from_args(runtime, args, space=space)
             candidates = await _live_rows(runtime, space=space, assignee=source_assignee)
 
+        raw_status = str(args.get("status") or "").strip()
+        if raw_status:
+            candidates = [
+                task for task in candidates
+                if _matches_requested_status(runtime, task, raw_status)
+            ]
+
         # A196 D2: 2k+ WMB tasks caused a 300s N+1 timeout. Until the source
         # offers a batch attachment search, fail closed before fan-out instead of
         # pretending a partial scan is complete.
@@ -357,7 +399,7 @@ def build_task_search_attachments(runtime: Any):
         label = kind.value.upper() if kind else "вложениями"
         return CapabilityResult(
             answer=f"Найдено задач с {label}: {len(matches)}.",
-            data={"attachment_type": kind.value if kind else None, "count": len(matches), "results": matches, "task_key": task_key, "space": space, "sprint_id": sprint_id, "assignee": assignee, "source_assignee": source_assignee, "source": "REAL_AS21"},
+            data={"attachment_type": kind.value if kind else None, "count": len(matches), "results": matches, "task_key": task_key, "space": space, "sprint_id": sprint_id, "assignee": assignee, "source_assignee": source_assignee, "status": raw_status or None, "source": "REAL_AS21"},
             evidence=evidence,
         )
     return execute
