@@ -365,6 +365,10 @@ export function SprintPage() {
   const throughputState = classifyResult(throughput)
   const wipState = classifyResult(wip)
   const predictabilityState = classifyResult(predictability)
+  const predictabilityRatio = typeof pd.predictability === 'number'
+    ? Number(pd.predictability)
+    : (typeof pd.predictability_percent === 'number' ? Number(pd.predictability_percent) / 100 : null)
+  const predictabilityPercent = predictabilityRatio == null ? null : Math.round(predictabilityRatio * 1000) / 10
   const risksState = classifyResult(risks)
   const sprintUpdated = [healthQ.updatedAt, velocityQ.updatedAt, throughputQ.updatedAt, wipQ.updatedAt, predictabilityQ.updatedAt, risksQ.updatedAt]
   const sprintRefreshing = healthQ.refreshing || velocityQ.refreshing || throughputQ.refreshing || wipQ.refreshing || predictabilityQ.refreshing || risksQ.refreshing
@@ -372,11 +376,20 @@ export function SprintPage() {
   return <section className="page page-sprint">
     <PageHeader title="Спринты" subtitle="Velocity, throughput, WIP, predictability и очередь рисков" />
     <form className="panel entity-toolbar" onSubmit={e => { e.preventDefault(); const next = sprintId.trim().toUpperCase(); if (!next) return; if (next === submitted) setRefreshNonce(value => value + 1); else setSubmitted(next) }}><div><span>Спринт</span><input value={sprintId} onChange={e => setSprintId(e.target.value)} /></div><SnapshotStatus updatedAt={sprintUpdated} refreshing={sprintRefreshing} refreshError={sprintRefreshError} /><button type="submit">{sprintRefreshing ? 'Обновляем…' : 'Обновить'}</button></form>
-    <div className="metric-grid"><MetricCard label="Scope" value={stateAllowsBusinessData(healthState) ? String(hd.total ?? '—') : '—'} /><MetricCard label="Completed" value={stateAllowsBusinessData(healthState) ? String(hd.completed ?? '—') : '—'} /><MetricCard label="Velocity" value={stateAllowsBusinessData(velocityState) ? `${String(vd.velocity ?? '—')} ${String(vd.unit ?? '')}` : '—'} /><MetricCard label="Predictability" value={stateAllowsBusinessData(predictabilityState) ? `${String(pd.predictability_percent ?? '—')}%` : '—'} hint={stateAllowsBusinessData(predictabilityState) ? (predictability?.warnings.includes('current_scope_used_as_commitment_baseline') ? 'current scope baseline' : undefined) : 'нужен source-backed baseline старта спринта'} /></div>
+    <div className="metric-grid"><MetricCard label="Scope" value={stateAllowsBusinessData(healthState) ? String(hd.total ?? '—') : '—'} /><MetricCard label="Completed" value={stateAllowsBusinessData(healthState) ? String(hd.completed ?? '—') : '—'} /><MetricCard label="Velocity" value={stateAllowsBusinessData(velocityState) ? `${String(vd.velocity ?? '—')} ${String(vd.unit ?? '')}` : '—'} /><MetricCard
+      label="Predictability"
+      value={stateAllowsBusinessData(predictabilityState) && predictabilityPercent != null ? `${predictabilityPercent}%` : '—'}
+      hint={stateAllowsBusinessData(predictabilityState)
+        ? (pd.baseline_committed != null && pd.completed != null
+          ? `${String(pd.completed)} / ${String(pd.baseline_committed)} committed`
+          : undefined)
+        : 'нужен source-backed committed baseline старта спринта'}
+    /></div>
     <div className="insight-grid">
       <div className="panel insight-card"><div className="panel-title"><strong>Throughput</strong><span>{throughput?.skill?.id ?? '—'}</span></div>{stateAllowsBusinessData(throughputState) ? <><div className="insight-value">{String(td.throughput ?? '—')}</div><div className="muted">завершённых задач · unit {String(td.unit ?? 'tasks')}</div></> : <ResultStatePanel result={throughput} compact />}<HarnessMeta result={throughput} /></div>
       <div className="panel insight-card"><div className="panel-title"><strong>WIP</strong><span>{wip?.skill?.id ?? '—'}</span></div>{stateAllowsBusinessData(wipState) ? <><div className="insight-value">{String(wd.wip ?? '—')}</div><div className="muted">задач в активной работе</div></> : <ResultStatePanel result={wip} compact />}<HarnessMeta result={wip} /></div>
       <div className="panel insight-card"><div className="panel-title"><strong>Готовность</strong><span>{health?.skill?.id ?? '—'}</span></div>{stateAllowsBusinessData(healthState) ? <><div className="insight-value">{String(hd.completion_percent ?? '—')}%</div><div className="muted">{String(hd.completed ?? '—')} из {String(hd.total ?? '—')} задач</div></> : <ResultStatePanel result={health} compact />}<HarnessMeta result={health} /></div>
+      <div className="panel insight-card"><div className="panel-title"><strong>Predictability</strong><span>{predictability?.skill?.id ?? '—'}</span></div>{stateAllowsBusinessData(predictabilityState) && predictabilityPercent != null ? <><div className="insight-value">{predictabilityPercent}%</div><div className="muted">{String(pd.completed ?? '—')} из {String(pd.baseline_committed ?? '—')} committed задач</div></> : <ResultStatePanel result={predictability} compact />}<HarnessMeta result={predictability} /></div>
     </div>
     <div className="panel"><div className="panel-title"><strong>Risk Queue</strong><span>{stateAllowsBusinessData(risksState) ? String(rd.count ?? riskRows.length) : '—'}</span></div>{stateAllowsBusinessData(risksState) ? (riskRows.length ? riskRows.map(row => <div className="risk-row" key={String(row.task_key)}><div><b>{String(row.task_key)}</b><span>{String(row.title ?? '')} · {(row.reasons as string[] | undefined)?.join(', ')}</span></div><em>{String(row.rank ?? '')}</em></div>) : <div className="muted">Источник подтвердил: риски не выявлены.</div>) : <ResultStatePanel result={risks} compact />}<HarnessMeta result={risks} /></div>
   </section>
