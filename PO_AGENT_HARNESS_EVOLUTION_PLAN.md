@@ -1236,3 +1236,24 @@ If A227R is GREEN:
 - create checkpoint `checkpoint/v4-po-acceptance-green-a227r`;
 - open release hardening: restart/recovery, latency, security, rollback rehearsal;
 - do **not** start Learning Reviewer 2.0 yet.
+
+
+### A227 pre-gate PO correction — UI parity before A227R
+
+Manual PO verification showed that the direct PO Agent dialogue already handles the target task query acceptably, while the Tasks page could appear not to search at all. The boundary is UI snapshot behavior, not a reason to extend stable Agent Core.
+
+Owner correction:
+- the extra A227 repair changes made in `agent_core_v4_robust.py` / `agent_core_v4_reliable.py` during this owner pass were reverted;
+- this correction introduces no new Harness/Core routing logic;
+- plugin-level attachment status composition remains the preferred extension seam;
+- Tasks continues to send the raw natural-language query to the same `/api/v1/query` Agent Core entry;
+- pressing **Найти** with the same submitted query now forces one fresh live POST instead of silently reusing the persisted snapshot;
+- page revisit without pressing Find still preserves the snapshot and makes zero automatic POSTs.
+
+Release manual verification also found an integration gap:
+- canonical `release.forecast` already exists as a plugin skill;
+- ReleasesPage did not call it and instead rendered a static "Forecast not activated" note;
+- ReleasesPage now queries `release.forecast` through the normal Agent endpoint and renders a Predictability / Forecast panel;
+- insufficient release membership/history must surface as SOURCE_CONDITIONAL / SOURCE_UNAVAILABLE, never as a fake forecast or blank metric.
+
+Run the focused UI/source parity pre-gate before A227R. Only after it is GREEN should the remaining A227R P3-P7 acceptance gate resume.
