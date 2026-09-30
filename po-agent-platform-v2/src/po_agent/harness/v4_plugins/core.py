@@ -120,9 +120,9 @@ CAPABILITIES = (
 SKILLS = (
     SkillSpecV4(
         "tasks.search",
-        "Compose task search when the request has multiple filters, a current/period sprint, or another multi-step constraint combination. For a single canonical assignee/status/explicit-sprint filter prefer the dedicated task catalog skill when available.",
+        "Compose task search when the request has multiple structured filters, a current/period sprint, or another multi-step constraint combination. Text/phrase searches, including phrase + named-person scope, belong to the dedicated task.search_text skill.",
         (
-            "Use this composition helper when several constraints or current/period sprint resolution must be combined; prefer a dedicated canonical single-filter skill when it directly matches the whole request.",
+            "Use this composition helper when several structured constraints or current/period sprint resolution must be combined. Do not use it for text/phrase search: task.search_text owns phrase + optional natural-person/space scope in one governed capability.",
             "Resolve only the entities needed by the user's filters.",
             "For a human reference call member.resolve.",
             "For a sprint given by id call sprint.resolve; for a sprint given by a month/period call sprint.search.",
