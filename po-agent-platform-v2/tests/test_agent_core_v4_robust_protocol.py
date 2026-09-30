@@ -25,6 +25,15 @@ class RaisesThenRespondsClient:
         )
 
 
+class AlwaysRaisesClient:
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def complete(self, messages, *args, **kwargs):
+        self.calls += 1
+        raise ValueError("provider response shape validation failed identically")
+
+
 class StubClient:
     def __init__(self, *responses: str) -> None:
         self._responses = iter(responses)
@@ -247,3 +256,66 @@ def test_runtime_normalizes_in_progress_wording_to_source_progress_category() ->
     assert RobustReliableAgentCoreV4Runtime._safe_status("В работе") == "progress"
     assert RobustReliableAgentCoreV4Runtime._safe_status("In Progress") == "progress"
     assert RobustReliableAgentCoreV4Runtime._safe_status("open") == "not_completed"
+
+
+def test_repeated_provider_validation_uses_deterministic_observation_bound_recovery() -> None:
+    capabilities = {
+        "task.search_attachments": CapabilitySpecV4(
+            "task.search_attachments",
+            "Search attachments with preserved constraints",
+            {
+                "space": "optional grounded product space",
+                "reference": "optional natural person reference",
+                "status": "optional requested task status/open-completed semantic state",
+            },
+        )
+    }
+    catalog = SkillCatalogV4(
+        (
+            SkillSpecV4(
+                "task-attachments",
+                "Attachment task collection",
+                ("Preserve every grounded constraint",),
+                ("task.search_attachments",),
+            ),
+        ),
+        capabilities,
+    )
+    from po_agent.harness.agent_core_v4 import V4Observation
+
+    observations = [
+        V4Observation(
+            step=1,
+            capability_id="space.resolve",
+            arguments={"reference": "WMB"},
+            answer="ok",
+            data={"space": "WMB"},
+        ),
+        V4Observation(
+            step=2,
+            capability_id="member.resolve",
+            arguments={"reference": "Калачанов"},
+            answer="ok",
+            data={"reference": "Калачанов", "member_login": "Kalachanov.V.V"},
+        ),
+    ]
+    client = AlwaysRaisesClient()
+    planner = RobustSkillNativePlannerV4(client, model="test")
+    decision = asyncio.run(
+        planner.next_decision(
+            user_query="Открытые задачи Калачанова с вложениями в пространстве WMB",
+            catalog=catalog,
+            loaded_skills=("task-attachments",),
+            observations=observations,
+        )
+    )
+
+    assert client.calls == 2
+    assert decision.kind == "call"
+    assert decision.capability_id == "task.search_attachments"
+    assert decision.arguments == {
+        "space": "$obs.1.space",
+        "reference": "$obs.2.reference",
+        "status": "not_completed",
+    }
+    assert decision.rationale == "deterministic_transport_recovery"
