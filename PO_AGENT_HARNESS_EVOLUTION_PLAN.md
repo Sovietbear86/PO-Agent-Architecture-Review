@@ -1321,3 +1321,27 @@ Certified:
 - zero phrase-specific routers, zero direct AS21 frontend reads, zero local factual reads, zero tenant-wide scans.
 
 The pre-gate is closed. Resume A227R from P3 through P7 only. P0/P1/P2 are already certified and must not be repeated unless a new owner code change invalidates them.
+
+
+### A227R RED — P3-C localized in-progress false zero
+
+A227R stopped at P3-C. Source/sprint resolution is correct; the defect is status-language normalization at the governed task-search boundary.
+
+Observed:
+- query: `Задачи в работе в сентябрьском спринте по DMS`;
+- source-backed sprint: `DMS-SPRNT-3`;
+- canonical IN_PROGRESS oracle: 11 tasks;
+- 4/5 planner runs emitted status=`В работе` and returned false zero;
+- 1/5 emitted `In Progress` and returned the exact 11-task set.
+
+Owner remediation is plugin-only:
+- stable Agent Core remains byte-identical to A227 baseline;
+- `builtin.core.a188` now binds `task.search` through a plugin-owned adapter;
+- the adapter uses existing domain `normalize_task_status()` and converts a recognized `TaskStatus.IN_PROGRESS` literal to the canonical TaskStatus value before delegating to the unchanged Core handler;
+- unknown source-status literals remain unchanged;
+- attachment/status plugin handlers use the same domain normalization for IN_PROGRESS equivalence;
+- regression tests cover Russian `В работе` normalization and unknown-literal preservation.
+
+No phrase-specific router, person/space hardcode or tenant-wide fallback was added.
+
+Next gate: A227R2 starts with focused P3-C 5/5 exact parity, then resumes P3-A/B/D and P4-P7 if GREEN.
