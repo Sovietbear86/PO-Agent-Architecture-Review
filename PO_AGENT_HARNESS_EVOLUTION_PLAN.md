@@ -1427,3 +1427,37 @@ Scope:
 - no fallback to local factual truth during outage.
 
 A228 is operability/recovery only. Do not alter functional routing, skills, planner or source contracts unless a reproducible restart/recovery defect requires an owner fix.
+
+
+### A228 — Release Hardening Restart/Recovery GREEN
+
+Verdict: `AGENT_CORE_V4_RELEASE_HARDENING_GREEN_A228`.
+
+Certified:
+- Agent-only restart, task-api restart, MCP-SWTR restart/reconnect, frontend restart and full cold-stack restart are GREEN;
+- factual queries fail closed during dependency outages and recover to exact REAL AS21 parity after restoration;
+- stale snapshots remain explicitly stale on failed refresh and become fresh only after successful source-backed re-read;
+- restart clears transient session context without cross-session leakage;
+- 0 local factual fallback, 0 unauthorized AS21 mutations, 0 tenant-wide scans, 0 secret leakage;
+- full V4 regression remains GREEN.
+
+Checkpoint:
+`checkpoint/v4-release-recovery-green-a228`
+
+Operational note carried into latency hardening:
+- post-restart factual requests, especially DMS sprint task retrieval, showed end-to-end latency in the ~38–108 s range;
+- cold-stack service time-to-ready was approximately MCP 33 s, task-api 71 s, Agent 49 s, frontend 34 s;
+- these are performance targets only. Correctness/source authority must not be weakened for speed.
+
+### Next phase — A229 Release Hardening: Latency
+
+Goal: measure latency by stage, identify the actual bottleneck(s), and reduce avoidable overhead without changing certified functional behavior, Agent Core routing, source authority, or exact result semantics.
+
+Primary questions:
+- how much time is planner/LLM vs capability vs Task API vs MCP/AS21 vs synthesis;
+- whether repeated planner turns or duplicate source calls dominate;
+- whether cold/reconnect latency differs from steady-state;
+- whether UI snapshot fan-out creates avoidable concurrency/queueing;
+- whether bounded metadata caching can reduce technical overhead without caching factual business truth.
+
+No optimization is allowed to introduce local factual caches, phrase routes, fake metrics, reduced source parity, skipped constraints, or broader source scans.
