@@ -8,6 +8,22 @@ type SnapshotRecord = {
 
 const PREFIX = 'po-page-snapshot:v1:'
 const REFRESH_TIMEOUT_MS = 120_000
+const SNAPSHOT_MAX_CONCURRENCY = 2
+let snapshotInFlight = 0
+const snapshotWaiters: Array<() => void> = []
+
+async function withSnapshotSlot<T>(work: () => Promise<T>): Promise<T> {
+  if (snapshotInFlight >= SNAPSHOT_MAX_CONCURRENCY) {
+    await new Promise<void>(resolve => snapshotWaiters.push(resolve))
+  }
+  snapshotInFlight += 1
+  try {
+    return await work()
+  } finally {
+    snapshotInFlight -= 1
+    snapshotWaiters.shift()?.()
+  }
+}
 
 function keyFor(namespace: string, query: string): string {
   return PREFIX + namespace + ':' + query
@@ -68,12 +84,12 @@ export function useSnapshotHarness(namespace: string, query: string, refreshNonc
     setRefreshing(true)
     setRefreshError(false)
     try {
-      const next = await Promise.race([
+      const next = await withSnapshotSlot(() => Promise.race([
         agent.query({ query }),
         new Promise<never>((_, reject) => {
           window.setTimeout(() => reject(new Error('page refresh timeout')), REFRESH_TIMEOUT_MS)
         }),
-      ])
+      ]))
       if (id !== requestId.current) return
       const timestamp = new Date().toISOString()
       setResult(next)
