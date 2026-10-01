@@ -1,145 +1,118 @@
 # GigaCode — Current Action
 
-## ACTIVE: Assignment A229R1 — Low-risk latency remediation re-gate
+## ACTIVE: Assignment A229F1 — Functional pre-gate before latency re-gate
 
-Role: QA/performance tester only. Do not modify code.
+Role: QA/adversarial tester only. Do not modify production/frontend/backend/plugin/test/config code.
 
-Baseline:
-- A229 latency checkpoint = `checkpoint/v4-latency-baseline-green-a229` @ `f1141aad`;
-- owner changes are limited to plugin/task-api/frontend scheduling/observability;
-- planner-turn reduction R4 is NOT part of this assignment.
+A229R1 latency measurement is PAUSED. First certify two manual-PO findings:
+1. one-turn conversational continuation;
+2. task creation-period filtering.
 
-## P0 — integrity
+## P0 — integrity / regression
 
 1. Pull current branch; record START_HEAD and clean worktree.
-2. Verify latency baseline checkpoint exists.
-3. Verify stable Agent Core/robust/reliable/LLM files are unchanged vs A229 baseline.
-4. Run:
-   - focused new regression tests;
-   - full V4 blast-radius;
-   - task-api focused tests;
-   - frontend tsc + vite build.
-5. Any correctness/build regression => RED STOP.
+2. Run focused tests:
+   - dialogue-context planner/API tests;
+   - task created-period tests;
+   - task catalog/plugin registry tests;
+   - retained task search tests.
+3. Run full V4 blast-radius.
+4. Run frontend tsc/build and focused Task API tests.
+5. Any unexplained regression => RED STOP.
 
-## P1 — R1 sprint single-read proof
+## P1 — dialogue continuation
 
-Scenario:
-`Задачи в работе в сентябрьском спринте по DMS`
+Use one browser session.
 
-Run 10 warm sequential samples with fresh oracle.
+Turn 1:
+`Покажи задачи Калачанова в пространстве STS созданные за последние 2 дня`
 
-Require:
-- exact 11-key source parity on every valid run;
-- exactly ONE `sprints/DMS-SPRNT-3/tasks?complete=true...` source collection read per request;
-- zero duplicate sprint-corpus reads;
-- zero local fallback / tenant-wide scan.
-
-Compare to A229 baseline:
-- baseline B p50 = 39.3s;
-- baseline duplicate cost ≈ 1.4s/request.
-
-Target:
-- duplication = 0/10;
-- B p50 <= 38.0s unless LLM variance statistically dominates; if wall target misses but source duplicate is eliminated, report both facts separately rather than hiding the variance.
-
-## P2 — R2 assignee+space source pushdown
-
-Use the same WMB/Kalachanov source scope from A229 scenario D.
-
-First independently inspect Task API/MCP request arguments.
+After the response, send:
+`Помоги`
 
 Require:
-- TQL contains BOTH source predicates: `assigned_to = <canonical id>` AND `space = "WMB"`;
-- client-side space validation still applies;
-- factual result remains exact and grounded;
-- no status/source semantics weakened.
+- same session_id;
+- planner payload contains one previous completed dialogue turn separately from source entity context;
+- second turn is interpreted as continuation of the previous conversational intent/offer, not as a generic standalone ping;
+- previous answer/query is NOT used as source evidence;
+- no capability argument may be grounded solely from dialogue_context;
+- factual entities used in source calls must still come from current query or source-validated session_context/resolver observations;
+- new unrelated standalone query after that must not inherit the previous intent.
 
-Measure direct route 10 times and end-to-end D 10 times.
+Also run:
+`а за неделю?`
+after a completed person+space created-period query.
 
-Baseline:
-- direct source route p50 34.5s / max 46.9s;
-- D wall p50 61.7s / p90 165.3s.
+Require:
+- prior source-validated person/space may be reused through session_context;
+- new relative period is taken from the current user turn;
+- exact source-backed result;
+- no phrase-specific router.
 
-Targets:
-- direct route p50 <= 10s, preferred <= 5s;
-- D wall p50 <= 45s;
-- exact parity 10/10.
+## P2 — explicit created-period task search
 
-If source still spends ~30s despite proven narrower TQL, classify it source/provider-bound; do not suggest local factual caching.
+Query:
+`Покажи задачи Калачанова в пространстве STS созданные за период с 29.09.2026 по 01.10.2026`
 
-## P3 — R3 UI bounded fan-out
+Build an independent REAL AS21 oracle from the same bounded canonical person+STS corpus using authoritative source created_at.
 
-For Overview, Sprint, Releases, Team, Quality:
-- use fresh session/load;
-- record all /api/v1/query start/end times;
-- verify at most **2** snapshot Agent POSTs are simultaneously in flight;
-- eventual snapshot count/contents must match the pre-fix page contract;
-- no snapshot silently skipped;
-- Tasks explicit submit remains one request;
-- SPA navigation back must preserve the existing zero-auto-POST snapshot behavior.
-
-Compare to A229 baseline: 4–5 concurrent POSTs/page within <=1ms.
-
-Target: max active snapshot trajectories <=2 on every route.
-
-## P4 — R5 capability stage logging
-
-For scenarios A-E:
-- confirm each executed governed capability emits one structured `V4 capability completed` log with capability_id, duration_ms and outcome;
-- no secret/user payload dumping is introduced;
-- correlate capability timings with LLM/source/total timing.
-
-Recompute stage decomposition.
-Target: unexplained residual <=15% of wall for representative median runs where logs are complete. If not achievable from current events, state exactly which stage remains unobservable.
-
-## P5 — focused before/after matrix
-
-Run 5 valid warm samples each for A-E from A229:
-A text+person;
-B sprint+status;
-C sprint list;
-D open+attachments WMB;
-E exact task.
-
-Report before -> after:
-- p50/p90;
-- LLM calls;
-- capability calls;
-- source calls;
-- exact parity.
-
-Do NOT attribute provider outage samples to optimization results; re-run them after endpoint recovery as A229 did.
-
-## P6 — correctness/source guard
-
-Across the whole assignment require:
-- exact source parity;
-- 0 false zero;
+Require:
+- planner loads/calls `task.search_created`;
+- created_period is passed as raw user wording, not planner-invented ISO literals;
+- person resolves source-backed;
+- space=STS preserved;
+- exact task-key/count parity vs independent timestamp oracle;
+- returned rows expose created_at evidence;
+- zero unrelated tasks outside the inclusive date range;
 - 0 local factual fallback;
-- 0 unauthorized mutations;
-- 0 tenant-wide scans;
-- 0 hidden truncation;
-- no cross-request factual cache.
+- 0 tenant-wide scan.
 
-## P7 — decision on R4
+Run 5 times.
 
-Based only on measured A229R1 results, answer:
-- Is ordinary latency now acceptable enough to avoid touching planner-turn behavior?
-- If not, quantify the remaining removable Agent-side LLM call-count cost.
-- Do not implement R4.
-- If recommending R4, define the smallest generic planner-turn reduction and the exact A205R/A227 regression matrix it would require.
+## P3 — relative created-period search
+
+Query:
+`Покажи задачи Калачанова в пространстве STS созданные за последние 2 дня`
+
+Immediately before test, record Moscow-local current time and construct the oracle using the documented semantics:
+- current calendar day plus the previous calendar day;
+- from 00:00 Europe/Moscow of day N-1 through current time.
+
+Require 5/5 exact parity and same source guards as P2.
+
+## P4 — timestamp fail-closed control
+
+Find or inject only through existing test fixtures a bounded corpus row with missing authoritative created_at provenance.
+
+Require:
+- capability does not use adapter fallback datetime as factual creation time;
+- returns typed source-unavailable/fail-closed behavior;
+- never silently excludes/retains the row to manufacture an exact period count.
+
+No production/source mutation.
+
+## P5 — architecture audit
+
+Require:
+- canonical 54 coverage unchanged;
+- task.search_created is plugin-owned extra live skill/capability;
+- no name/space/phrase-specific router;
+- dialogue_context contains only one prior completed turn and is TTL/session bounded;
+- dialogue_context is absent from literal-grounding authority;
+- no previous response text becomes Evidence;
+- no cross-session continuation leakage.
 
 ## Verdict
 
 Exactly one:
-- `AGENT_CORE_V4_LATENCY_GREEN_A229R1`
-- `AGENT_CORE_V4_LATENCY_RED_A229R1`
-
-GREEN requires correctness GREEN plus verified implementation of R1/R2/R3/R5. Missing an aspirational wall-clock target due solely to measured provider variance is not automatically RED if the targeted technical duplication/contention is proven removed; report it explicitly.
+- `AGENT_CORE_V4_FUNCTIONAL_PRE_GATE_GREEN_A229F1`
+- `AGENT_CORE_V4_FUNCTIONAL_PRE_GATE_RED_A229F1`
 
 If GREEN:
-- recommend whether to proceed to A229R2 (planner-turn reduction) or skip R4 and continue release hardening/security;
-- do not modify code.
+- resume A229R1 latency re-gate on this START_HEAD;
+- all latency before/after measurements must use the new functional HEAD.
 
 If RED:
 - preserve first failing evidence and STOP.
+
+Do not modify code.
