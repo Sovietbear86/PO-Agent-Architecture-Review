@@ -123,6 +123,15 @@ CAPABILITIES = (
         {"reference": "required user-grounded person reference", "space": "optional grounded product space", "status": "optional requested task status/open-completed semantic state"},
     ),
     CapabilitySpecV4(
+        "task.search_created",
+        "Find REAL AS21 tasks created during a bounded relative or explicit calendar period. The raw period wording is parsed inside the plugin capability; missing authoritative created_at provenance fails closed.",
+        {
+            "created_period": "required raw user period wording, e.g. 'последние 2 дня' or 'с 29.09.2026 по 01.10.2026'",
+            "reference": "optional natural person reference resolved source-backed inside the capability",
+            "space": "optional grounded product space",
+        },
+    ),
+    CapabilitySpecV4(
         "task.search_status",
         "Return live REAL AS21 tasks for a requested semantic/open/completed status.",
         {"status": "required status or safe semantic state", "space": "optional grounded product space", "reference": "optional natural person reference", "assignee": "optional source-derived canonical assignee"},
