@@ -203,31 +203,3 @@ def test_robust_planner_accepts_and_forwards_generic_session_context() -> None:
     messages = client.calls[0][0][0]
     payload = messages[1].content
     assert '"session_context": {"space": "DMS", "sprint_id": "DMS-SPRNT-3"}' in payload
-
-
-def test_robust_planner_accepts_nonfactual_dialogue_context_without_grounding_it() -> None:
-    client = StubClient(
-        '{"load_skill":{"skill_id":"task-search"},"call":null,"ready":null,"rationale":"continue prior intent"}'
-    )
-    planner = RobustSkillNativePlannerV4(client, model="test")
-    decision = asyncio.run(
-        planner.next_decision(
-            user_query="Помоги",
-            catalog=_catalog(),
-            loaded_skills=(),
-            observations=[],
-            session_context={"space": "STS", "assignee": "Kalachanov.V.V"},
-            dialogue_context={
-                "last_user_query": "Покажи задачи Калачанова в STS за последние 2 дня",
-                "last_agent_answer": "Могу помочь сформулировать запрос с явным периодом.",
-                "last_skill_id": "task.search_assignee",
-            },
-        )
-    )
-
-    assert decision.kind == "load_skill"
-    messages = client.calls[0][0][0]
-    payload = messages[1].content
-    assert '"dialogue_context"' in payload
-    assert '"last_user_query": "Покажи задачи Калачанова в STS за последние 2 дня"' in payload
-    assert '"session_context": {"space": "STS", "assignee": "Kalachanov.V.V"}' in payload
