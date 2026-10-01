@@ -266,6 +266,21 @@ async def _resolve_external_id(client: SWTRMCPClient, assignee: str) -> str:
     )
 
 
+def _assignee_tql(external_id: str, space: str | None) -> str:
+    """Build the narrowest already-certified source predicate.
+
+    Both `assigned_to` and `space` are existing proven TQL predicates in this
+    read facade. When a caller supplies an approved space, push that constraint
+    to REAL AS21 instead of fetching the assignee's cross-space corpus and
+    discarding unrelated rows afterwards. Client-side space validation remains
+    in place as a defense-in-depth postcondition.
+    """
+    clauses = [f'assigned_to = "{external_id}"']
+    if space:
+        clauses.append(f'space = "{space}"')
+    return " AND ".join(clauses)
+
+
 @router.get("/assignee-tasks")
 async def get_assignee_tasks(
     assignee: str = Query(..., min_length=1, max_length=120),
@@ -302,7 +317,7 @@ async def get_assignee_tasks(
                     "deadline",
                     "dueDate",
                 ],
-                "query": f'assigned_to = "{external_id}"',
+                "query": _assignee_tql(external_id, normalized_space),
                 "timeZone": "Europe/Moscow",
                 "page": page,
                 "size": limit,
