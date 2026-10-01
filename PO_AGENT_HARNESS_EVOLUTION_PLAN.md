@@ -1539,3 +1539,20 @@ Owner remediation:
 Regression coverage added for relative period, explicit period, exact filtering, fail-closed timestamp provenance, and planner dialogue-context transport.
 
 Next assignment: A229F1 functional pre-gate. Only after GREEN resume A229R1 latency measurements from the new HEAD.
+
+
+### A229F1 correction — dialogue-context experiment reverted
+
+Owner decision after architecture review:
+- the attempted one-turn `dialogue_context` required changes to Harness/Core control-plane files;
+- because Agent Core V4 has reached a certified stable state, that experiment is fully reverted;
+- `contracts.py`, `agent_core_v4.py`, `agent_core_v4_robust.py`, API session plumbing and the related robust-planner test are restored byte-for-byte to the pre-experiment A229R1 state (`c41b00c...`);
+- conversational continuation remains a known UX/tech-debt item and will not be pursued unless it becomes release-blocking and no external/plugin-side solution exists.
+
+The created-period search fix remains:
+- `task.search_created` is plugin-owned;
+- canonical 54 remains unchanged;
+- filtering is source-backed and fail-closed on missing authoritative created_at;
+- no Core/planner/session changes are required.
+
+Next gate is narrowed to created-period functionality only. After GREEN, resume A229R1 latency re-gate.
