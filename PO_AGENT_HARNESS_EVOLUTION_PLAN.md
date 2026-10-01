@@ -1556,3 +1556,20 @@ The created-period search fix remains:
 - no Core/planner/session changes are required.
 
 Next gate is narrowed to created-period functionality only. After GREEN, resume A229R1 latency re-gate.
+
+
+### A229F1R RED closure — registry spec omission
+
+A229F1R stopped at P0 because the new extra plugin capability was incompletely registered:
+- skill, binding and UI contract for `task.search_created` existed;
+- `CapabilitySpecV4("task.search_created", ...)` was missing from the plugin CAPABILITIES tuple;
+- registry correctly failed closed with `V4PluginError: capability binding mismatch`;
+- no source/LLM calls were executed and no local fallback occurred.
+
+Owner correction:
+- added the missing `CapabilitySpecV4` only;
+- refreshed the stale status-normalization unit fixture so it validates wrapper status canonicalization on the delegated path instead of unintentionally entering the sprint-only single-read optimization;
+- no Agent Core/Harness/API session changes;
+- dialogue-context experiment remains fully reverted.
+
+Next: A229F1R2 reruns from P0 and, if registry/full V4 are GREEN, proceeds with explicit and relative created-period live parity.
