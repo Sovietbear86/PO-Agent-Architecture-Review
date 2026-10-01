@@ -299,6 +299,7 @@ Rules:
 - Keep every user constraint through the trajectory.
 - Before READY, verify that every explicit user constraint that the terminal capability schema can express is present in the executed call arguments or proven by a prior source-backed resolver observation. Never answer a constrained collection request from an unconstrained collection observation.
 - session_context contains only source-validated entities from prior COMPLETED turns in the same session. Use it only when the user explicitly refers back to prior context (for example "этот спринт"/"этот релиз"); never apply it silently to unrelated new requests.
+- dialogue_context contains only the immediately previous completed user/agent turn. Use it only to interpret an explicitly referential or elliptical follow-up (for example "помоги", "а за неделю?", "а только открытые?"). It is NOT source evidence, does NOT ground new literals, and must be ignored for unrelated standalone requests.
 - You may infer safe semantic enums such as status=not_completed from words meaning open/unresolved/not completed and unassigned=true from an explicit request for tasks without an assignee.
 - Never invent people, logins, spaces, sprint ids, release ids, task ids, counts or source facts.
 - If a required entity cannot be resolved by the available capabilities, use READY only to explain the limitation/clarification.
@@ -345,6 +346,7 @@ Choose exactly one branch: load_skill, call, or ready. Do not add keys. Do not i
         loaded_skills: tuple[str, ...],
         observations: list[V4Observation],
         session_context: Mapping[str, str] | None = None,
+        dialogue_context: Mapping[str, str] | None = None,
         runtime_guidance: Mapping[str, Any] | None = None,
     ) -> V4Decision:
         payload = {
@@ -353,6 +355,7 @@ Choose exactly one branch: load_skill, call, or ready. Do not add keys. Do not i
             "loaded_skills": [catalog.load(skill_id) for skill_id in loaded_skills],
             "observations": [item.planner_view() for item in observations],
             "session_context": dict(session_context or {}),
+            "dialogue_context": dict(dialogue_context or {}),
             "runtime_guidance": dict(runtime_guidance or {}),
             "step_budget_remaining": self.max_steps - len(observations),
         }
@@ -1190,6 +1193,7 @@ class AgentCoreV4Runtime:
                     loaded_skills=tuple(loaded),
                     observations=observations,
                     session_context=request.session_context,
+                    dialogue_context=request.dialogue_context,
                     runtime_guidance=deferred_completion_guidance,
                 )
                 deferred_completion_guidance = {}
