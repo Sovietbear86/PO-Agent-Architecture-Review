@@ -51,6 +51,11 @@ class HarnessRequest:
     # session. This is planner context only: it does not satisfy completion
     # contracts by itself and is never treated as a fresh source observation.
     session_context: Mapping[str, str] = field(default_factory=dict)
+    # Previous completed dialogue turn for interpreting elliptical follow-ups.
+    # This is control-plane context only: it is never a source observation,
+    # never satisfies completion contracts, and is deliberately excluded from
+    # literal grounding/source authority.
+    dialogue_context: Mapping[str, str] = field(default_factory=dict)
 
 
 @dataclass
