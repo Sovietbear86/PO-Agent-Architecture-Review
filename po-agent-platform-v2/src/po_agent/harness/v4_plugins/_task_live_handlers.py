@@ -7,7 +7,10 @@ plugin registry and can evolve without editing planner/runtime orchestration.
 from __future__ import annotations
 
 import asyncio
+import re
+from datetime import datetime, time as dt_time, timedelta
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from po_agent.adapters.task_api import AS21SourceUnavailable
 from po_agent.config.real_team import get_all_member_logins
@@ -39,6 +42,7 @@ def _task_dict(task: Any) -> dict[str, Any]:
         "sprint_id": task.sprint_id,
         "release_id": task.release_id,
         "source": task.source,
+        "created_at": task.created_at.isoformat() if getattr(task, "created_at", None) else None,
         "source_data": task.source_data,
         "attachments": attachments,
     }
@@ -232,6 +236,125 @@ def build_task_search_text(runtime: Any):
             evidence=[Evidence(type="task", source="as21", entity_id=row["key"], label=row["title"], value=row["status"]) for row in rows],
             warnings=["partial_source_spaces"] if incomplete_spaces else [],
         )
+    return execute
+
+
+_MOSCOW_TZ = ZoneInfo("Europe/Moscow")
+
+
+def _parse_human_created_period(raw: str, *, now: datetime | None = None) -> tuple[datetime, datetime, str]:
+    """Parse a bounded human creation period without turning text into source truth.
+
+    Supported forms are generic calendar expressions, not task/entity phrases:
+    - "последние N дней" / "last N days";
+    - explicit inclusive ranges containing two DD.MM.YYYY or YYYY-MM-DD dates.
+    """
+    text = str(raw or "").strip()
+    if not text:
+        raise ValueError("created_period is required")
+
+    current = now.astimezone(_MOSCOW_TZ) if now is not None else datetime.now(_MOSCOW_TZ)
+    relative = re.search(r"(?:последн(?:ие|их)\s+|last\s+)(\d{1,3})\s*(?:дн(?:я|ей)?|days?)", text, flags=re.I)
+    if relative:
+        days = int(relative.group(1))
+        if days < 1 or days > 366:
+            raise ValueError("created_period days must be between 1 and 366")
+        start_date = current.date() - timedelta(days=days - 1)
+        start = datetime.combine(start_date, dt_time.min, tzinfo=_MOSCOW_TZ)
+        return start, current, f"last_{days}_calendar_days"
+
+    date_tokens = re.findall(r"\b(?:\d{2}\.\d{2}\.\d{4}|\d{4}-\d{2}-\d{2})\b", text)
+    if len(date_tokens) == 2:
+        def parse_one(value: str):
+            fmt = "%d.%m.%Y" if "." in value else "%Y-%m-%d"
+            return datetime.strptime(value, fmt).date()
+
+        start_date = parse_one(date_tokens[0])
+        end_date = parse_one(date_tokens[1])
+        if end_date < start_date:
+            raise ValueError("created_period end precedes start")
+        if (end_date - start_date).days > 366:
+            raise ValueError("created_period exceeds 366 days")
+        start = datetime.combine(start_date, dt_time.min, tzinfo=_MOSCOW_TZ)
+        end = datetime.combine(end_date, dt_time.max, tzinfo=_MOSCOW_TZ)
+        return start, end, "explicit_inclusive_dates"
+
+    raise ValueError(
+        "created_period must contain 'последние N дней'/'last N days' "
+        "or two explicit dates (DD.MM.YYYY or YYYY-MM-DD)"
+    )
+
+
+def _source_created_at(task: Any) -> datetime | None:
+    source_data = getattr(task, "source_data", None)
+    if not isinstance(source_data, dict) or source_data.get("_canonical_created_at_from_source") is not True:
+        return None
+    value = getattr(task, "created_at", None)
+    if not isinstance(value, datetime):
+        return None
+    if value.tzinfo is None:
+        return value.replace(tzinfo=_MOSCOW_TZ)
+    return value.astimezone(_MOSCOW_TZ)
+
+
+def build_task_search_created(runtime: Any):
+    async def execute(args: dict[str, str]) -> CapabilityResult:
+        reference = str(args.get("reference") or args.get("assignee") or "").strip() or None
+        space = str(args.get("space") or "").strip().upper() or None
+        raw_period = str(args.get("created_period") or "").strip()
+        start, end, period_kind = _parse_human_created_period(raw_period)
+
+        source_assignee = None
+        if reference:
+            source_assignee = await _resolve_assignee_identity(runtime, reference, space=space)
+
+        if not space and not source_assignee:
+            raise AS21SourceUnavailable(
+                "task.search_created requires a bounded person or product space"
+            )
+
+        tasks = await _live_rows(runtime, space=space, assignee=source_assignee)
+        missing_created = [task.key for task in tasks if _source_created_at(task) is None]
+        if missing_created:
+            raise AS21SourceUnavailable(
+                "REAL AS21 task creation timestamps are incomplete for the bounded corpus; "
+                f"cannot prove an exact created-period result ({len(missing_created)} rows missing created_at)"
+            )
+
+        matches = [
+            task for task in tasks
+            if start <= _source_created_at(task) <= end
+        ]
+        rows = [_task_dict(task) for task in matches]
+        return CapabilityResult(
+            answer=(
+                f"Найдено задач, созданных за период «{raw_period}»: {len(rows)}."
+            ),
+            data={
+                "count": len(rows),
+                "tasks": rows,
+                "task_keys": [row["key"] for row in rows],
+                "reference": reference,
+                "source_assignee": source_assignee,
+                "space": space,
+                "created_period": raw_period,
+                "created_from": start.isoformat(),
+                "created_to": end.isoformat(),
+                "period_kind": period_kind,
+                "source": "REAL_AS21",
+            },
+            evidence=[
+                Evidence(
+                    type="task",
+                    source="as21",
+                    entity_id=row["key"],
+                    label=row["title"],
+                    value=row["created_at"],
+                )
+                for row in rows
+            ],
+        )
+
     return execute
 
 
