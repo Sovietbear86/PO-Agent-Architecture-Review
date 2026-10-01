@@ -86,7 +86,7 @@ def build_task_search_release(runtime: Any):
 
 CANONICAL_TASK_SKILL_IDS = (
     "task.search_text", "task.search_attachments", "task.search_excel", "task.search_pdf",
-    "task.search_msg", "task.search_assignee", "task.search_created", "task.search_status", "task.search_sprint",
+    "task.search_msg", "task.search_assignee", "task.search_status", "task.search_sprint",
     "task.search_release", "task.missing_requirements", "task.dependencies", "task.history",
     "task.time_in_status", "task.aging", "task.similar",
 )
