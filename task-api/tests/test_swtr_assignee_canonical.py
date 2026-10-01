@@ -15,6 +15,7 @@ is driven by the source's authoritative ``statusType``/``name``.
 """
 
 from app.routers.swtr_assignee import (
+    _assignee_tql,
     _canonical_row,
     _raw_attribute_entries,
     _status_identifier,
@@ -112,3 +113,12 @@ class TestCanonicalRow:
 
     def test_no_task_code_returns_none(self):
         assert _canonical_row({"attributes": []}) is None
+
+class TestAssigneeTql:
+    def test_space_scope_is_pushed_to_source(self):
+        assert _assignee_tql("Kalachanov.V.V", "WMB") == (
+            'assigned_to = "Kalachanov.V.V" AND space = "WMB"'
+        )
+
+    def test_unscoped_assignee_keeps_existing_predicate(self):
+        assert _assignee_tql("Semavin.M.M", None) == 'assigned_to = "Semavin.M.M"'
