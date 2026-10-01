@@ -50,6 +50,17 @@ class SessionEntityContext:
 _session_entity_context: dict[str, SessionEntityContext] = {}
 
 
+@dataclass
+class SessionDialogueContext:
+    last_user_query: str
+    last_agent_answer: str
+    last_skill_id: str
+    updated_at: float
+
+
+_session_dialogue_context: dict[str, SessionDialogueContext] = {}
+
+
 @dataclass(frozen=True)
 class ClarificationContinuation:
     loaded_skills: tuple[str, ...] = ()
@@ -126,6 +137,7 @@ def set_runtime(runtime: HarnessRuntime | None) -> None:
     _runtime_init_error = None
     _pending_clarifications.clear()
     _session_entity_context.clear()
+    _session_dialogue_context.clear()
 
 
 def _decorate_v4_response(response: dict, bundle: RuntimeBundle) -> dict:
@@ -238,6 +250,39 @@ def _session_context_for(session_id: str) -> dict[str, str]:
         _session_entity_context.pop(session_id, None)
         return {}
     return dict(item.values)
+
+
+def _dialogue_context_for(session_id: str) -> dict[str, str]:
+    item = _session_dialogue_context.get(session_id)
+    if item is None:
+        return {}
+    if (time.monotonic() - item.updated_at) > _CLARIFICATION_TTL_SECONDS:
+        _session_dialogue_context.pop(session_id, None)
+        return {}
+    return {
+        "last_user_query": item.last_user_query,
+        "last_agent_answer": item.last_agent_answer,
+        "last_skill_id": item.last_skill_id,
+    }
+
+
+def _remember_completed_dialogue_context(
+    response: dict,
+    session_id: str,
+    user_query: str,
+) -> dict:
+    if response.get("status") != "COMPLETED":
+        return response
+    answer = str(response.get("answer") or "").strip()
+    skill = response.get("skill")
+    skill_id = str(skill.get("id") or "").strip() if isinstance(skill, dict) else ""
+    _session_dialogue_context[session_id] = SessionDialogueContext(
+        last_user_query=str(user_query or "").strip()[:2000],
+        last_agent_answer=answer[:3000],
+        last_skill_id=skill_id,
+        updated_at=time.monotonic(),
+    )
+    return response
 
 
 def _remember_completed_session_context(response: dict, session_id: str) -> dict:
@@ -381,9 +426,15 @@ async def _run_query(payload: QueryRequest, request: Request, *, force_v4: bool 
                 resume_observations=continuation.observations,
                 required_completion_skills=continuation.required_completion_skills,
                 session_context=_session_context_for(session_id),
+                dialogue_context=_dialogue_context_for(session_id),
             ))
             response = _decorate_v4_response(result.to_dict(), bundle)
             response = _remember_completed_session_context(response, session_id)
+            response = _remember_completed_dialogue_context(
+                response,
+                session_id,
+                effective_query or original_query,
+            )
             response = _remember_clarification(response, session_id, effective_query or original_query)
         else:
             result = await get_runtime().process(HarnessRequest(query=effective_query or original_query, session_id=session_id))
