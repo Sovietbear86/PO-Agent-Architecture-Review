@@ -15,6 +15,7 @@ from ..v4_plugin_registry import CapabilityBindingV4, UIContractV4, V4SkillPlugi
 from ._task_live_handlers import (
     build_task_search_assignee,
     build_task_search_attachments,
+    build_task_search_created,
     build_task_search_status,
     build_task_search_text,
     build_task_aging,
@@ -85,7 +86,7 @@ def build_task_search_release(runtime: Any):
 
 CANONICAL_TASK_SKILL_IDS = (
     "task.search_text", "task.search_attachments", "task.search_excel", "task.search_pdf",
-    "task.search_msg", "task.search_assignee", "task.search_status", "task.search_sprint",
+    "task.search_msg", "task.search_assignee", "task.search_created", "task.search_status", "task.search_sprint",
     "task.search_release", "task.missing_requirements", "task.dependencies", "task.history",
     "task.time_in_status", "task.aging", "task.similar",
 )
@@ -173,6 +174,18 @@ SKILLS = (
         ("task.search_assignee",), completion=(CompletionRequirement("task.search_assignee", data_keys=("count",)),),
     ),
     SkillSpecV4(
+        "task.search_created",
+        "Find tasks created during a relative or explicit calendar period.",
+        (
+            "Call task.search_created when the user constrains tasks by creation time/date.",
+            "Pass created_period as the raw user wording exactly; do not invent ISO dates in the planner.",
+            "Preserve any grounded person reference and/or product space.",
+            "The capability owns date parsing and filters only source-backed created_at; missing source timestamps fail closed rather than becoming false exclusions.",
+        ),
+        ("task.search_created",),
+        completion=(CompletionRequirement("task.search_created", data_keys=("count", "created_from", "created_to")),),
+    ),
+    SkillSpecV4(
         "task.search_status", "Find tasks by a requested task status/open-completed semantic state.",
         ("Call task.search_status with the requested status and any grounded space/person constraint. Natural person references are resolved source-backed inside the capability. Safe semantic enums such as not_completed may be normalized by the planner.",),
         ("task.search_status",), completion=(CompletionRequirement("task.search_status", data_keys=("count",)),),
@@ -207,6 +220,7 @@ BINDINGS = (
     CapabilityBindingV4("task.search_pdf", handler_builder=build_task_search_attachments, fixed_arguments={"attachment_type": "pdf"}),
     CapabilityBindingV4("task.search_msg", handler_builder=build_task_search_attachments, fixed_arguments={"attachment_type": "msg"}),
     CapabilityBindingV4("task.search_assignee", handler_builder=build_task_search_assignee),
+    CapabilityBindingV4("task.search_created", handler_builder=build_task_search_created),
     CapabilityBindingV4("task.search_status", handler_builder=build_task_search_status),
     CapabilityBindingV4("task.search_release", handler_builder=build_task_search_release),
     CapabilityBindingV4("task.missing_requirements", legacy_capability_id="task.missing_requirements"),
@@ -224,6 +238,7 @@ UI = {
     "task.search_pdf": UIContractV4("attachment_collection", preferred_widget="attachment_table", required_fields=("count", "results", "attachment_type")),
     "task.search_msg": UIContractV4("attachment_collection", preferred_widget="attachment_table", required_fields=("count", "results", "attachment_type")),
     "task.search_assignee": UIContractV4("task_collection", preferred_widget="task_table", required_fields=("count", "tasks")),
+    "task.search_created": UIContractV4("task_collection", preferred_widget="task_table", required_fields=("count", "tasks", "created_from", "created_to")),
     "task.search_status": UIContractV4("task_collection", preferred_widget="task_table", required_fields=("count", "tasks")),
     "task.search_sprint": UIContractV4("task_collection", preferred_widget="task_table", required_fields=("count", "tasks")),
     "task.search_release": UIContractV4("task_collection", preferred_widget="task_table", required_fields=("count", "tasks")),
