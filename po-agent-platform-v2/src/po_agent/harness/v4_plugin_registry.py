@@ -8,7 +8,9 @@ changing planner/runtime trajectory code.
 from __future__ import annotations
 
 import importlib
+import logging
 import pkgutil
+import time
 from dataclasses import dataclass, field
 from types import ModuleType
 from typing import Any, Callable, Mapping
@@ -17,6 +19,8 @@ from .agent_core_v4 import CapabilityHandlerV4, CapabilitySpecV4, SkillSpecV4
 
 TRUSTED_PLUGIN_PACKAGE = "po_agent.harness.v4_plugins"
 HandlerBuilderV4 = Callable[[Any], CapabilityHandlerV4]
+
+logger = logging.getLogger(__name__)
 
 
 class V4PluginError(RuntimeError):
@@ -183,6 +187,31 @@ class V4PluginRegistry:
 
         return execute
 
+    @staticmethod
+    def _instrument_handler(
+        capability_id: str,
+        handler: CapabilityHandlerV4,
+    ) -> CapabilityHandlerV4:
+        async def execute(arguments: dict[str, str]):
+            started = time.perf_counter()
+            outcome = "ok"
+            try:
+                return await handler(arguments)
+            except Exception:
+                outcome = "error"
+                raise
+            finally:
+                logger.info(
+                    "V4 capability completed",
+                    extra={
+                        "capability_id": capability_id,
+                        "duration_ms": int((time.perf_counter() - started) * 1000),
+                        "outcome": outcome,
+                    },
+                )
+
+        return execute
+
     def bind_handlers(self, runtime: Any) -> dict[str, CapabilityHandlerV4]:
         handlers: dict[str, CapabilityHandlerV4] = {}
         for capability_id in sorted(self._bindings):
@@ -203,7 +232,7 @@ class V4PluginRegistry:
                 handler = runtime._legacy(binding.legacy_capability_id)  # governed legacy facade
             if binding.fixed_arguments:
                 handler = self._apply_fixed_arguments(handler, binding.fixed_arguments)
-            handlers[capability_id] = handler
+            handlers[capability_id] = self._instrument_handler(capability_id, handler)
         return handlers
 
     def with_plugin(self, plugin: V4SkillPlugin) -> "V4PluginRegistry":
