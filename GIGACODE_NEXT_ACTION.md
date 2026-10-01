@@ -1,165 +1,145 @@
 # GigaCode — Current Action
 
-## ACTIVE: Assignment A229 — Release Hardening: Latency Baseline & Bottleneck Analysis
+## ACTIVE: Assignment A229R1 — Low-risk latency remediation re-gate
 
-Role: QA/performance tester only. Do not modify production/frontend/backend/plugin/test/config code.
+Role: QA/performance tester only. Do not modify code.
 
 Baseline:
-- A227R3 PO acceptance GREEN;
-- A228 restart/recovery GREEN;
-- checkpoint: `checkpoint/v4-release-recovery-green-a228`;
-- functional behavior and source contracts are frozen.
+- A229 latency checkpoint = `checkpoint/v4-latency-baseline-green-a229` @ `f1141aad`;
+- owner changes are limited to plugin/task-api/frontend scheduling/observability;
+- planner-turn reduction R4 is NOT part of this assignment.
 
-This assignment is **measurement first**. Do not optimize code. Return a stage-by-stage latency report and the first proven bottleneck(s).
-
-## P0 — integrity / warm baseline
+## P0 — integrity
 
 1. Pull current branch; record START_HEAD and clean worktree.
-2. Verify checkpoint exists.
-3. Run full V4 regression and frontend build.
-4. Start/confirm all services on START_HEAD.
-5. Let services reach steady state before measuring; record process PIDs, CPU/memory if available, and source health.
-6. Record whether each sample is cold, reconnect, or warm steady-state.
+2. Verify latency baseline checkpoint exists.
+3. Verify stable Agent Core/robust/reliable/LLM files are unchanged vs A229 baseline.
+4. Run:
+   - focused new regression tests;
+   - full V4 blast-radius;
+   - task-api focused tests;
+   - frontend tsc + vite build.
+5. Any correctness/build regression => RED STOP.
 
-Any correctness/source regression => RED STOP.
+## P1 — R1 sprint single-read proof
 
-## P1 — representative query matrix
-
-Measure at least 10 warm runs per scenario, sequentially unless a concurrency phase explicitly says otherwise:
-
-A. Single-capability text+person:
-`Задачи Семавина по рискам`
-
-B. Multi-step sprint+status:
+Scenario:
 `Задачи в работе в сентябрьском спринте по DMS`
 
-C. Sprint list:
-`Спринты в DMS`
+Run 10 warm sequential samples with fresh oracle.
 
-D. Attachment/person/status:
-`Открытые задачи Калачанова с вложениями в пространстве WMB`
+Require:
+- exact 11-key source parity on every valid run;
+- exactly ONE `sprints/DMS-SPRNT-3/tasks?complete=true...` source collection read per request;
+- zero duplicate sprint-corpus reads;
+- zero local fallback / tenant-wide scan.
 
-E. One exact task lookup/summary using a real known task key.
+Compare to A229 baseline:
+- baseline B p50 = 39.3s;
+- baseline duplicate cost ≈ 1.4s/request.
 
-For every run record:
-- total wall-clock;
-- status and exact factual parity;
-- planner decision count / LLM call count;
-- capability call count;
-- source call count;
-- terminal capability;
-- trace id.
+Target:
+- duplication = 0/10;
+- B p50 <= 38.0s unless LLM variance statistically dominates; if wall target misses but source duplicate is eliminated, report both facts separately rather than hiding the variance.
 
-Compute P50, P90/P95, min, max per scenario.
+## P2 — R2 assignee+space source pushdown
 
-## P2 — stage decomposition
+Use the same WMB/Kalachanov source scope from A229 scenario D.
 
-For representative runs A-E, derive or instrument from existing logs/traces without code changes:
+First independently inspect Task API/MCP request arguments.
 
-- request/API overhead;
-- planner/LLM time per turn;
-- capability handler time;
-- Task API time;
-- MCP-SWTR / REAL AS21 time;
-- deterministic validation/normalization;
-- synthesis time;
-- total unaccounted overhead.
+Require:
+- TQL contains BOTH source predicates: `assigned_to = <canonical id>` AND `space = "WMB"`;
+- client-side space validation still applies;
+- factual result remains exact and grounded;
+- no status/source semantics weakened.
 
-If logs cannot expose an exact stage, mark it UNKNOWN rather than guessing.
+Measure direct route 10 times and end-to-end D 10 times.
 
-Goal: identify where the top 80% of latency sits.
+Baseline:
+- direct source route p50 34.5s / max 46.9s;
+- D wall p50 61.7s / p90 165.3s.
 
-## P3 — duplicate/redundant work audit
+Targets:
+- direct route p50 <= 10s, preferred <= 5s;
+- D wall p50 <= 45s;
+- exact parity 10/10.
 
-For each scenario determine:
-- repeated identical planner calls;
-- repeated resolver calls for the same entity inside one request;
-- duplicate Task API/MCP reads;
-- unnecessary source rereads after a source-backed observation already exists;
-- UI-generated duplicate query fan-out.
+If source still spends ~30s despite proven narrower TQL, classify it source/provider-bound; do not suggest local factual caching.
 
-Classify each duplicate as:
-- required by correctness;
-- retry/recovery;
-- avoidable technical duplication;
-- unknown.
+## P3 — R3 UI bounded fan-out
 
-No code changes.
+For Overview, Sprint, Releases, Team, Quality:
+- use fresh session/load;
+- record all /api/v1/query start/end times;
+- verify at most **2** snapshot Agent POSTs are simultaneously in flight;
+- eventual snapshot count/contents must match the pre-fix page contract;
+- no snapshot silently skipped;
+- Tasks explicit submit remains one request;
+- SPA navigation back must preserve the existing zero-auto-POST snapshot behavior.
 
-## P4 — cold vs warm / reconnect penalty
+Compare to A229 baseline: 4–5 concurrent POSTs/page within <=1ms.
 
-Using the A228 restart procedures, measure:
-- first factual request after Agent restart;
-- first factual request after task-api restart;
-- first factual request after MCP reconnect;
-- second and third identical request after each recovery.
+Target: max active snapshot trajectories <=2 on every route.
 
-Compare warm vs cold/reconnect delta and identify initialization/connection costs separately from normal query cost.
+## P4 — R5 capability stage logging
 
-Do not count service boot time as request latency; report boot readiness separately.
+For scenarios A-E:
+- confirm each executed governed capability emits one structured `V4 capability completed` log with capability_id, duration_ms and outcome;
+- no secret/user payload dumping is introduced;
+- correlate capability timings with LLM/source/total timing.
 
-## P5 — UI snapshot fan-out
+Recompute stage decomposition.
+Target: unexplained residual <=15% of wall for representative median runs where logs are complete. If not achievable from current events, state exactly which stage remains unobservable.
 
-On each UI route, especially Sprint/Release/Team/Quality:
-- count automatic POSTs on first submitted context;
-- measure concurrency and completion spread;
-- identify whether requests contend on the same LLM/source bottleneck;
-- verify revisits use snapshot semantics correctly;
-- flag obviously redundant calls that return overlapping source facts.
+## P5 — focused before/after matrix
 
-Do not propose merging metrics unless their source/skill contracts genuinely allow it.
+Run 5 valid warm samples each for A-E from A229:
+A text+person;
+B sprint+status;
+C sprint list;
+D open+attachments WMB;
+E exact task.
 
-## P6 — source-plane timing
+Report before -> after:
+- p50/p90;
+- LLM calls;
+- capability calls;
+- source calls;
+- exact parity.
 
-For source-backed operations used above:
-- independently measure direct Task API route latency;
-- where feasible, measure MCP-SWTR call latency beneath Task API;
-- distinguish server processing from planner latency;
-- capture pagination/page counts and result sizes.
+Do NOT attribute provider outage samples to optimization results; re-run them after endpoint recovery as A229 did.
 
-This phase must remain bounded and must not introduce tenant-wide scans.
+## P6 — correctness/source guard
 
-## P7 — correctness guard
-
-Across all latency tests:
-- exact source parity preserved;
+Across the whole assignment require:
+- exact source parity;
 - 0 false zero;
 - 0 local factual fallback;
 - 0 unauthorized mutations;
 - 0 tenant-wide scans;
-- 0 source-result truncation hidden as success.
+- 0 hidden truncation;
+- no cross-request factual cache.
 
-Any performance measurement that violates correctness is invalid and RED.
+## P7 — decision on R4
 
-## P8 — bottleneck verdict
-
-Produce a ranked **bottleneck list by measured time contribution**, not subjective guess.
-
-For each bottleneck include:
-- scenario(s);
-- median/p95 impact;
-- evidence;
-- whether it is Agent/LLM, plugin/runtime, Task API, MCP/AS21, frontend concurrency, or environment;
-- safest optimization candidate;
-- expected risk to correctness;
-- whether owner code change is actually warranted.
-
-Also identify "do not optimize" areas where latency is source/provider-bound and local optimization would risk architecture quality.
+Based only on measured A229R1 results, answer:
+- Is ordinary latency now acceptable enough to avoid touching planner-turn behavior?
+- If not, quantify the remaining removable Agent-side LLM call-count cost.
+- Do not implement R4.
+- If recommending R4, define the smallest generic planner-turn reduction and the exact A205R/A227 regression matrix it would require.
 
 ## Verdict
 
 Exactly one:
-- `AGENT_CORE_V4_LATENCY_BASELINE_GREEN_A229`
-- `AGENT_CORE_V4_LATENCY_BASELINE_RED_A229`
+- `AGENT_CORE_V4_LATENCY_GREEN_A229R1`
+- `AGENT_CORE_V4_LATENCY_RED_A229R1`
 
-GREEN means the latency baseline/bottleneck diagnosis is trustworthy and correctness stayed GREEN. It does **not** mean latency is already acceptable.
+GREEN requires correctness GREEN plus verified implementation of R1/R2/R3/R5. Missing an aspirational wall-clock target due solely to measured provider variance is not automatically RED if the targeted technical duplication/contention is proven removed; report it explicitly.
 
 If GREEN:
-- do not create performance fixes yourself;
-- recommend a prioritized owner remediation list for A229R;
-- include clear before-values and target-values.
+- recommend whether to proceed to A229R2 (planner-turn reduction) or skip R4 and continue release hardening/security;
+- do not modify code.
 
 If RED:
 - preserve first failing evidence and STOP.
-
-Do not modify code.
