@@ -1,129 +1,165 @@
 # GigaCode — Current Action
 
-## ACTIVE: Assignment A228 — Release Hardening: Restart / Recovery
+## ACTIVE: Assignment A229 — Release Hardening: Latency Baseline & Bottleneck Analysis
 
-Role: QA/adversarial tester only. Do not modify production/frontend/backend/plugin/test/config code.
+Role: QA/performance tester only. Do not modify production/frontend/backend/plugin/test/config code.
 
 Baseline:
-- A227R3 = GREEN;
-- checkpoint = `checkpoint/v4-po-acceptance-green-a227r3`;
-- functional behavior is frozen;
-- stable Core must remain unchanged.
+- A227R3 PO acceptance GREEN;
+- A228 restart/recovery GREEN;
+- checkpoint: `checkpoint/v4-release-recovery-green-a228`;
+- functional behavior and source contracts are frozen.
 
-## P0 — preflight / baseline integrity
+This assignment is **measurement first**. Do not optimize code. Return a stage-by-stage latency report and the first proven bottleneck(s).
 
-1. Pull current `feat/core8-real-query-hardening-v2`; record START_HEAD.
-2. Verify tracked worktree clean.
-3. Verify checkpoint branch exists and points to the certified A227R3 state.
-4. Run:
-   - frontend `tsc --noEmit`;
-   - frontend `vite build`;
-   - full V4 blast-radius tests.
-5. Record active service PIDs/ports and liveness before restart tests.
+## P0 — integrity / warm baseline
 
-Any unexplained failure => RED STOP.
+1. Pull current branch; record START_HEAD and clean worktree.
+2. Verify checkpoint exists.
+3. Run full V4 regression and frontend build.
+4. Start/confirm all services on START_HEAD.
+5. Let services reach steady state before measuring; record process PIDs, CPU/memory if available, and source health.
+6. Record whether each sample is cold, reconnect, or warm steady-state.
 
-## P1 — Agent-only restart
+Any correctness/source regression => RED STOP.
 
-With task-api + MCP + frontend left running:
-1. stop Agent process only;
-2. prove UI/query path reports a typed temporary failure or unavailable state — never stale factual success as a fresh response;
-3. restart Agent from current START_HEAD with the production V4 env;
-4. verify liveness;
-5. run smoke:
-   - `Задачи Семавина по рискам`;
-   - `Задачи в работе в сентябрьском спринте по DMS`;
-   - `Спринты в DMS`;
-6. compare factual result to fresh REAL AS21 oracle;
-7. prove no warm in-memory state is required.
+## P1 — representative query matrix
 
-## P2 — Task API restart
+Measure at least 10 warm runs per scenario, sequentially unless a concurrency phase explicitly says otherwise:
 
-Leave Agent/MCP/frontend available:
-1. stop task-api only;
-2. issue one factual query while unavailable;
-3. require typed SOURCE_UNAVAILABLE/ERROR behavior — no local DB/cache fallback and no false zero;
-4. restart task-api;
-5. verify Agent reconnects without restart if supported; otherwise document the required recovery boundary;
-6. rerun factual smoke and exact source parity.
+A. Single-capability text+person:
+`Задачи Семавина по рискам`
 
-## P3 — MCP-SWTR restart / reconnect
+B. Multi-step sprint+status:
+`Задачи в работе в сентябрьском спринте по DMS`
 
-1. stop MCP-SWTR while Agent + task-api remain alive;
-2. run one bounded factual query;
-3. require source failure to fail closed, with 0 local factual fallback;
-4. restart MCP-SWTR;
-5. verify task-api reconnect/recovery;
-6. rerun exact factual query and compare to fresh oracle.
+C. Sprint list:
+`Спринты в DMS`
 
-## P4 — Frontend restart
+D. Attachment/person/status:
+`Открытые задачи Калачанова с вложениями в пространстве WMB`
 
-1. stop/restart Vite/frontend only;
-2. open a fresh browser session;
-3. verify all six routes load;
-4. verify no factual result is fabricated from frontend-local cache;
-5. local user-created tasks may persist only according to their documented localStorage contract;
-6. run one Tasks query and one Sprint page refresh.
+E. One exact task lookup/summary using a real known task key.
 
-## P5 — Full cold-stack restart
+For every run record:
+- total wall-clock;
+- status and exact factual parity;
+- planner decision count / LLM call count;
+- capability call count;
+- source call count;
+- terminal capability;
+- trace id.
 
-Stop all four components:
-- Agent;
-- task-api;
-- MCP-SWTR;
-- frontend.
+Compute P50, P90/P95, min, max per scenario.
 
-Then start from cold state in dependency order and record time-to-ready for each.
+## P2 — stage decomposition
 
-Require:
-- no manual data repair;
-- no persisted runtime-session dependency;
-- no stale process/port conflict;
-- first factual queries after cold start match fresh source oracle;
-- no hidden warm cache required;
-- no unauthorized writes.
+For representative runs A-E, derive or instrument from existing logs/traces without code changes:
 
-## P6 — snapshot/recovery behavior
+- request/API overhead;
+- planner/LLM time per turn;
+- capability handler time;
+- Task API time;
+- MCP-SWTR / REAL AS21 time;
+- deterministic validation/normalization;
+- synthesis time;
+- total unaccounted overhead.
 
-Browser:
-1. obtain a valid source-backed Tasks result and Sprint snapshot;
-2. stop Agent or task-api;
-3. press Refresh;
-4. stale previously labelled snapshot may remain visible, but UI must clearly show refresh failure/stale state;
-5. must not relabel stale data as freshly updated;
-6. restore backend;
-7. Refresh again and require a new trace + fresh timestamp + source parity.
+If logs cannot expose an exact stage, mark it UNKNOWN rather than guessing.
 
-## P7 — session isolation across restart
+Goal: identify where the top 80% of latency sits.
 
-1. create session A with resolved entity context;
-2. restart Agent;
-3. create fresh session B;
-4. prove B does not inherit A transient context;
-5. if A continuation is intentionally unsupported across restart, require explicit reset/clarification rather than silent reuse;
-6. no cross-session factual leakage.
+## P3 — duplicate/redundant work audit
 
-## P8 — final restart/recovery source audit
+For each scenario determine:
+- repeated identical planner calls;
+- repeated resolver calls for the same entity inside one request;
+- duplicate Task API/MCP reads;
+- unnecessary source rereads after a source-backed observation already exists;
+- UI-generated duplicate query fan-out.
 
-Across all phases require:
-- 0 local-store factual fallback;
-- 0 unauthorized AS21 mutations;
+Classify each duplicate as:
+- required by correctness;
+- retry/recovery;
+- avoidable technical duplication;
+- unknown.
+
+No code changes.
+
+## P4 — cold vs warm / reconnect penalty
+
+Using the A228 restart procedures, measure:
+- first factual request after Agent restart;
+- first factual request after task-api restart;
+- first factual request after MCP reconnect;
+- second and third identical request after each recovery.
+
+Compare warm vs cold/reconnect delta and identify initialization/connection costs separately from normal query cost.
+
+Do not count service boot time as request latency; report boot readiness separately.
+
+## P5 — UI snapshot fan-out
+
+On each UI route, especially Sprint/Release/Team/Quality:
+- count automatic POSTs on first submitted context;
+- measure concurrency and completion spread;
+- identify whether requests contend on the same LLM/source bottleneck;
+- verify revisits use snapshot semantics correctly;
+- flag obviously redundant calls that return overlapping source facts.
+
+Do not propose merging metrics unless their source/skill contracts genuinely allow it.
+
+## P6 — source-plane timing
+
+For source-backed operations used above:
+- independently measure direct Task API route latency;
+- where feasible, measure MCP-SWTR call latency beneath Task API;
+- distinguish server processing from planner latency;
+- capture pagination/page counts and result sizes.
+
+This phase must remain bounded and must not introduce tenant-wide scans.
+
+## P7 — correctness guard
+
+Across all latency tests:
+- exact source parity preserved;
+- 0 false zero;
+- 0 local factual fallback;
+- 0 unauthorized mutations;
 - 0 tenant-wide scans;
-- 0 secret leakage in logs/UI;
-- no process started from a commit other than START_HEAD;
-- no skipped RED hidden by retry/restart.
+- 0 source-result truncation hidden as success.
+
+Any performance measurement that violates correctness is invalid and RED.
+
+## P8 — bottleneck verdict
+
+Produce a ranked **bottleneck list by measured time contribution**, not subjective guess.
+
+For each bottleneck include:
+- scenario(s);
+- median/p95 impact;
+- evidence;
+- whether it is Agent/LLM, plugin/runtime, Task API, MCP/AS21, frontend concurrency, or environment;
+- safest optimization candidate;
+- expected risk to correctness;
+- whether owner code change is actually warranted.
+
+Also identify "do not optimize" areas where latency is source/provider-bound and local optimization would risk architecture quality.
 
 ## Verdict
 
 Exactly one:
-- `AGENT_CORE_V4_RELEASE_HARDENING_GREEN_A228`
-- `AGENT_CORE_V4_RELEASE_HARDENING_RED_A228`
+- `AGENT_CORE_V4_LATENCY_BASELINE_GREEN_A229`
+- `AGENT_CORE_V4_LATENCY_BASELINE_RED_A229`
+
+GREEN means the latency baseline/bottleneck diagnosis is trustworthy and correctness stayed GREEN. It does **not** mean latency is already acceptable.
 
 If GREEN:
-- recommend checkpoint `checkpoint/v4-release-recovery-green-a228`;
-- next owner phase = latency hardening;
-- do not start Learning Reviewer 2.0.
+- do not create performance fixes yourself;
+- recommend a prioritized owner remediation list for A229R;
+- include clear before-values and target-values.
 
 If RED:
 - preserve first failing evidence and STOP.
-- Do not modify code.
+
+Do not modify code.
