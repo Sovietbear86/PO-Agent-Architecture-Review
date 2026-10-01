@@ -1496,3 +1496,46 @@ Not changed:
 - R4 planner-turn count reduction.
 
 A229R1 must prove both correctness and measurable before/after improvement before any R4 work is considered.
+
+
+### Manual PO findings before A229R1 — conversational continuation + created-period task search
+
+A229R1 latency re-gate is paused until two newly discovered functional gaps are re-certified.
+
+#### F1 — elliptical dialogue continuation
+
+Observed:
+- after a completed task-search response, the agent itself offered to help reformulate the request;
+- the next user turn `Помоги` was interpreted as a fresh standalone `agent.help` ping;
+- source-validated entity context was preserved correctly, but the previous conversational intent/offer was not available to the planner.
+
+Owner remediation:
+- introduced a generic one-turn `dialogue_context` control-plane field on `HarnessRequest`;
+- API retains only the immediately previous COMPLETED user query + agent answer + skill id, session-bounded and TTL-bounded;
+- planner receives this separately from `session_context`;
+- planner guidance may use it only for explicitly referential/elliptical follow-ups;
+- dialogue_context is NOT passed into literal grounding, does NOT satisfy completion contracts, and is never source evidence;
+- no person/space/query-specific continuation router was added.
+
+This is a narrow Harness control-plane change, not a business routing change.
+
+#### F2 — task creation-period filter
+
+Observed:
+- `Покажи задачи Калачанова в пространстве STS созданные за последние 2 дня` returned the full assignee/space collection and admitted the date filter was not applied;
+- an explicit date-range retry then failed closed because no governed capability could express creation time.
+
+Owner remediation:
+- added extra live-registry helper skill/capability `task.search_created` (canonical 54 remains unchanged);
+- arguments: raw `created_period` + optional person reference + optional approved space;
+- supported generic periods: `последние N дней` / `last N days` and inclusive two-date ranges in DD.MM.YYYY or YYYY-MM-DD form;
+- natural person is resolved source-backed inside the capability;
+- collection is bounded by person/space before period filtering;
+- filtering uses only source-backed `created_at`;
+- if any row in the bounded corpus lacks authoritative creation time, capability fails SOURCE_UNAVAILABLE rather than fabricating an exact period result;
+- task payload now surfaces source creation timestamp for transparent evidence;
+- no unproven date/status TQL syntax was added.
+
+Regression coverage added for relative period, explicit period, exact filtering, fail-closed timestamp provenance, and planner dialogue-context transport.
+
+Next assignment: A229F1 functional pre-gate. Only after GREEN resume A229R1 latency measurements from the new HEAD.
