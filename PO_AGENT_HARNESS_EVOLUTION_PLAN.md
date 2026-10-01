@@ -1387,3 +1387,43 @@ Owner remediation remains plugin/declarative only:
 - regression proves the text+person skill is single-capability and that its handler resolves the natural person internally before issuing the bounded source query.
 
 Next gate: A227R3 first requires P3-B 5/5 on the direct single-capability trajectory. If GREEN, resume P4-P7. P3-A/C/D are already certified GREEN unless a relevant code change invalidates them.
+
+
+### A227R3 — PO acceptance GREEN / checkpoint
+
+Final verdict: `AGENT_CORE_V4_PO_ACCEPTANCE_GREEN_A227R3`.
+
+Certified:
+- P3-B person+phrase single-capability path = 5/5 GREEN;
+- retained P3-A/C/D = GREEN;
+- P4 task cards/persistence + single Sprint Predictability widget = GREEN;
+- P5 Quality/Aging refresh isolation = GREEN;
+- P6 Aging exact live parity = GREEN;
+- P7 retained UI/source audit = GREEN;
+- zero local factual reads;
+- zero unauthorized mutations;
+- zero tenant-wide scans;
+- stable Agent Core remains unchanged from A227 baseline.
+
+Checkpoint created:
+`checkpoint/v4-po-acceptance-green-a227r3`
+
+Functional scope is now frozen unless a new release-hardening defect proves a correctness regression.
+
+### Next phase — A228 Release Hardening: Restart / Recovery
+
+Goal: prove the certified V4 product remains correct across process restarts, cold starts and partial component recovery without relying on warm memory/cache/session state.
+
+Scope:
+- agent restart;
+- task-api restart;
+- MCP-SWTR restart/reconnect;
+- frontend/Vite restart;
+- full cold-stack restart;
+- stale snapshot and refresh behavior after backend restart;
+- session isolation after restart;
+- source-unavailable behavior during dependency outage;
+- recovery after dependency restoration;
+- no fallback to local factual truth during outage.
+
+A228 is operability/recovery only. Do not alter functional routing, skills, planner or source contracts unless a reproducible restart/recovery defect requires an owner fix.
