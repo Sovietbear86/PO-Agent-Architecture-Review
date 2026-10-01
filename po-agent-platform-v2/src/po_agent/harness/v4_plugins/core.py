@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Any
 
 from ..agent_core_v4 import CapabilitySpecV4, SkillSpecV4, V4CapabilityUnavailable, V4NeedsClarification
+from ..production_entity_grounding_v2 import APPROVED_PRODUCT_SPACES
 from ..agent_core_v4_completion import CompletionRequirement
 from ..contracts import CapabilityResult, Evidence
 from ..v4_plugin_registry import CapabilityBindingV4, UIContractV4, V4SkillPlugin
@@ -16,20 +17,103 @@ from po_agent.domain.models import TaskStatus, normalize_task_status
 from ._task_live_handlers import build_task_lookup
 
 def build_task_search(runtime: Any):
-    """Plugin-owned adapter for canonical task-status literals.
+    """Plugin-owned task-search adapter with two bounded guarantees.
 
-    The stable Agent Core task search remains untouched. At the plugin binding
-    seam, normalize only a domain-recognized IN_PROGRESS status to the canonical
-    TaskStatus value. This makes equivalent localized literals (for example the
-    Russian "в работе") converge on the same governed source predicate without
-    introducing phrase/entity routing into Agent Core.
+    1. Localized IN_PROGRESS literals are normalized at the plugin seam.
+    2. Sprint-only searches read the authoritative sprint corpus exactly once.
+
+    The second rule removes an avoidable duplicate in the stable Core handler
+    without editing Agent Core itself. All other argument combinations delegate
+    unchanged to the certified Core implementation.
     """
     async def execute(args: dict[str, str]) -> CapabilityResult:
         forwarded = dict(args)
         raw_status = str(forwarded.get("status") or "").strip()
         if raw_status and normalize_task_status(raw_status) == TaskStatus.IN_PROGRESS:
             forwarded["status"] = TaskStatus.IN_PROGRESS.value
-        return await runtime._task_search(forwarded)
+
+        assignee = str(forwarded.get("assignee") or "").strip()
+        sprint_id = str(forwarded.get("sprint_id") or "").strip().upper()
+        space = str(forwarded.get("space") or "").strip().upper()
+        if not sprint_id or assignee:
+            return await runtime._task_search(forwarded)
+
+        if space and space not in APPROVED_PRODUCT_SPACES:
+            raise V4NeedsClarification(f"Пространство «{space}» не подтверждено.")
+
+        status = runtime._safe_status(forwarded.get("status") or "")
+        unassigned = str(forwarded.get("unassigned") or "").strip().casefold() in {
+            "1", "true", "yes", "y",
+        }
+
+        tasks = list(await runtime.adapter.get_sprint_tasks(sprint_id, space or None))
+
+        if space:
+            tasks = [
+                task for task in tasks
+                if str(getattr(task, "project_space", "") or "").casefold() == space.casefold()
+            ]
+
+        if unassigned:
+            tasks = [
+                task for task in tasks
+                if not any(
+                    str(value or "").strip()
+                    for value in (
+                        getattr(task, "assignee", None),
+                        getattr(task, "assignee_login", None),
+                        getattr(task, "assignee_id", None),
+                    )
+                )
+            ]
+
+        if status == "not_completed":
+            tasks = [task for task in tasks if task.is_open]
+        elif status == "completed":
+            tasks = [task for task in tasks if task.is_completed]
+        elif status == "blocked":
+            tasks = [task for task in tasks if task.is_blocked]
+        elif status:
+            requested = status.casefold().strip()
+            tasks = [
+                task for task in tasks
+                if requested in str(getattr(task, "status_raw", "") or "").casefold()
+                or requested in str(getattr(task, "status_type", "") or "").casefold()
+                or requested in task.status.value.casefold()
+                or requested in task.status_category.value.casefold()
+            ]
+
+        filters = {
+            key: value
+            for key, value in {
+                "space": space,
+                "sprint_id": sprint_id,
+                "status": status,
+                "unassigned": unassigned or None,
+            }.items()
+            if value
+        }
+        rows = [runtime._task_to_dict(task) for task in tasks]
+        return CapabilityResult(
+            answer=f"Найдено задач: {len(rows)}.",
+            data={
+                "count": len(rows),
+                "filters": filters,
+                "tasks": rows,
+                "task_keys": [row["key"] for row in rows],
+                "source": "REAL_AS21",
+            },
+            evidence=[
+                Evidence(
+                    type="task",
+                    source="as21",
+                    entity_id=row["key"],
+                    label=row["title"],
+                    value=row["status"],
+                )
+                for row in rows
+            ],
+        )
 
     return execute
 
