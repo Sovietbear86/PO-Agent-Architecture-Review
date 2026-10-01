@@ -1461,3 +1461,38 @@ Primary questions:
 - whether bounded metadata caching can reduce technical overhead without caching factual business truth.
 
 No optimization is allowed to introduce local factual caches, phrase routes, fake metrics, reduced source parity, skipped constraints, or broader source scans.
+
+
+### A229 — Latency baseline GREEN
+
+Verdict: `AGENT_CORE_V4_LATENCY_BASELINE_GREEN_A229`.
+
+Baseline checkpoint:
+`checkpoint/v4-latency-baseline-green-a229` @ `f1141aade7bffcd8cfd376174544d3f1172da08c`
+
+Measured dominant bottlenecks:
+1. sequential LLM planner round-trips (48–81% of wall; 3–6 calls/request);
+2. assignee+space task retrieval path (WMB case ~34.5s median source route);
+3. UI snapshot fan-out (4–5 concurrent complete Agent trajectories/page);
+4. duplicate sprint full-collection read inside one sprint-only task.search (~1.4s avoidable/request);
+5. 4–9s residual currently under-instrumented.
+
+A229R1 owner wave deliberately addresses only low-risk items R1/R2/R3/R5. Planner-turn reduction R4 is deferred until the low-risk wave is measured.
+
+### A229R1 — low-risk latency remediation
+
+Implemented:
+- **R1 plugin single-read sprint path:** the existing plugin-owned `task.search` wrapper handles sprint-only searches directly and reads `get_sprint_tasks` once, preserving the same status/unassigned/space post-filters and response contract. Stable Agent Core is not edited.
+- **R2 source-scope pushdown:** Task API `assignee-tasks` now pushes an explicitly requested approved `space` into the existing TQL predicate together with `assigned_to`. Client-side space validation remains defense-in-depth. No unproven workflow/status TQL syntax was invented.
+- **R3 bounded UI fan-out:** snapshot queries use a module-level max concurrency of 2. Query bodies and snapshot semantics are unchanged; only scheduling is bounded.
+- **R5 capability timing:** plugin registry wraps every governed capability with structured duration/outcome logging. This is observability-only and does not alter arguments/results.
+- regression coverage added for source-scoped assignee TQL and one-read sprint task search.
+
+Not changed:
+- Agent Core/planner/robust repair;
+- LLM provider/model;
+- source authority and exact parity contracts;
+- cross-request factual caching (still forbidden);
+- R4 planner-turn count reduction.
+
+A229R1 must prove both correctness and measurable before/after improvement before any R4 work is considered.
