@@ -26,8 +26,7 @@ def test_plugin_task_search_normalizes_russian_in_progress_without_core_change()
     result = asyncio.run(
         build_task_search(runtime)(
             {
-                "space": "DMS",
-                "sprint_id": "DMS-SPRNT-3",
+                "assignee": "Semavin.M.M",
                 "status": "В работе",
             }
         )
@@ -36,8 +35,7 @@ def test_plugin_task_search_normalizes_russian_in_progress_without_core_change()
     assert result.data["count"] == 11
     assert runtime.calls == [
         {
-            "space": "DMS",
-            "sprint_id": "DMS-SPRNT-3",
+            "assignee": "Semavin.M.M",
             "status": TaskStatus.IN_PROGRESS.value,
         }
     ]
@@ -48,8 +46,7 @@ def test_plugin_task_search_preserves_unknown_source_status_literal() -> None:
     asyncio.run(
         build_task_search(runtime)(
             {
-                "space": "DMS",
-                "sprint_id": "DMS-SPRNT-3",
+                "assignee": "Semavin.M.M",
                 "status": "Custom Workflow State",
             }
         )
