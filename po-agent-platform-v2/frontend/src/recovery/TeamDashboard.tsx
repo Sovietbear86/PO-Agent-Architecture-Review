@@ -5,6 +5,12 @@ import { ResultStatePanel } from '../components/ResultStatePanel'
 import { classifyResult, getCapabilityData, stateAllowsBusinessData } from './resultState'
 import { SnapshotRefresh, useSessionState, useSnapshotHarness } from './pageSnapshot'
 
+const PRODUCT_LABELS = String(import.meta.env.VITE_PRODUCT_LABELS || 'PRD1,PRD2')
+  .split(',')
+  .map((value: string) => value.trim())
+  .filter(Boolean)
+const DEFAULT_SPACE = PRODUCT_LABELS[0] || 'PRD1'
+
 type WorkspaceContext = { openAgent(): void }
 type Row = Record<string, unknown>
 
@@ -18,7 +24,7 @@ function HarnessMeta({ result }: { result: HarnessQueryResponse | null }) {
 
 export function TeamDashboard() {
   const { openAgent } = useOutletContext<WorkspaceContext>()
-  const [space, setSpace] = useSessionState('team.space', 'DMS')
+  const [space, setSpace] = useSessionState('team.space', DEFAULT_SPACE)
   const [refreshNonce, setRefreshNonce] = useState(0)
 
   const workloadQ = useSnapshotHarness('team:' + space, `Покажи нагрузку команды ${space}`, refreshNonce)
@@ -57,7 +63,7 @@ export function TeamDashboard() {
     </div>
 
     <div className="panel entity-toolbar">
-      <div><span>Пространство</span><select value={space} onChange={e => setSpace(e.target.value)}><option value="DMS">DMS</option><option value="OLP">OLP</option><option value="WMB">WMB</option><option value="CRPV">CRPV</option><option value="STS">STS</option></select></div>
+      <div><span>Пространство</span><select value={space} onChange={e => setSpace(e.target.value)}>{PRODUCT_LABELS.map(product => <option key={product} value={product}>{product}</option>)}</select></div>
       <div className="form-note">Capacity пересчитывается автоматически. Базовая рабочая неделя: 40 ч/чел.; доступность и период нормализуются owner policy.</div>
     </div>
 
