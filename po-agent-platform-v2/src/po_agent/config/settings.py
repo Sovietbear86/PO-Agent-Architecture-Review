@@ -51,6 +51,10 @@ class Settings(BaseSettings):
         default=None,
         validation_alias=AliasChoices("TEAM_CONFIG_PATH", "PO_AGENT_TEAM_CONFIG_PATH"),
     )
+    products_config_path: Optional[str] = Field(
+        default=None,
+        validation_alias=AliasChoices("PRODUCTS_CONFIG_PATH", "PO_AGENT_PRODUCTS_CONFIG_PATH"),
+    )
     agent_core_v3_enabled: bool = Field(
         default=False,
         description="Enable the explicitly certified Agent Core v3 pilot routing seam",
@@ -61,13 +65,13 @@ class Settings(BaseSettings):
         description="Enable additive Agent Core v4 skill-native POC endpoint/runtime",
         validation_alias=AliasChoices("AGENT_CORE_V4_ENABLED", "PO_AGENT_AGENT_CORE_V4_ENABLED"),
     )
-    swtr_base_url: str = Field(default="https://portal.works.prod.sbt/swtr")
+    swtr_base_url: str = Field(default="")
     swtr_token: Optional[str] = Field(default=None)
 
     semantic_llm_enabled: bool = Field(default=True)
-    llm_api_base_url: str = Field(default="https://api.ai.sbt/openai/v1")
+    llm_api_base_url: str = Field(default="http://127.0.0.1:11434/v1")
     llm_api_key: Optional[str] = Field(default=None)
-    llm_model_name: str = Field(default="Qwen/Qwen3-Coder-Next")
+    llm_model_name: str = Field(default="qwen3-coder")
     llm_tls_verify: bool = Field(default=True)
 
     database_url: str = Field(default="sqlite:///data/app.db")
