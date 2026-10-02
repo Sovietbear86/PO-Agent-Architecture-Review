@@ -38,9 +38,6 @@ export const statusColors: Record<string, string> = {
 
 // Space colors for badges
 export const spaceColors: Record<string, string> = {
-  'WMB': '#3498db',
-  'OLP': '#2ecc71',
-  'DMS': '#9b59b6',
-  'CRPV': '#f39c12',
-  'STS': '#e74c3c',
+  'PRD1': '#3498db',
+  'PRD2': '#2ecc71',
 }
