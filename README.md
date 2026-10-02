@@ -8,7 +8,7 @@ This distribution is intentionally separated from the product-development reposi
 - no employee knowledge files;
 - no real team roster;
 - no tokens, API keys or workstation paths;
-- no product-specific OLP/DataMarts configuration;
+- no development-team product configuration;
 - no Git history from the development repository in the final community repo.
 
 ## Configure your deployment
