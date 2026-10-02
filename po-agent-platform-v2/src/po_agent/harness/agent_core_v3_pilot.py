@@ -22,7 +22,7 @@ from .agent_core_v3_registry import build_h1_task_registry
 from .contracts import Evidence, HarnessRequest, HarnessResponse, ResponseStatus
 from .dialogue_runtime import SemanticGrounder, SemanticInterpreter, _semantic_capability_contract
 
-_APPROVED_SPACES = frozenset({"WMB", "STS", "OLP", "DMS", "CRPV"})
+from .production_entity_grounding_v2 import APPROVED_PRODUCT_SPACES as _APPROVED_SPACES
 _TASK_KEY_RE = re.compile(r"\b[A-ZА-Я][A-ZА-Я0-9_]{1,15}-\d+(?![-A-ZА-Я0-9_])\b", re.I)
 _H1B_COLLECTION_MAX_RESULTS = 10000
 
@@ -38,7 +38,7 @@ class AgentCoreV3PilotSelector:
             return True
         if not any(marker in lower for marker in ("задач", "task")):
             return False
-        return any(marker in lower for marker in ("гаранин", "калачан", "assignee", "исполнител"))
+        return any(marker in lower for marker in ("assignee", "исполнител", "участник"))
 
 
 class AgentCoreV3PilotProcessor:
