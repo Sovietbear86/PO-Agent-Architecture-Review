@@ -125,7 +125,7 @@ Rules:
 7. team_members, known_tasks, known_sprints, known_releases and known_statuses are source-backed candidates. Use them only when the match is unambiguous.
 8. Learned semantics are configuration facts supplied by the Harness; do not extend them by analogy.
 9. For multi-filter task searches use the canonical task_search intent and put each filter in slots. The Harness executes all filters deterministically.
-10. When the user explicitly supplies a task key such as OLP-3134 or DMS-341, copy that exact source identifier into slots.task_key. Do not rewrite, infer, or generate task keys. For task lookup/details use the canonical task_lookup intent; for assignee/team matching preserve the same task_key in slots and choose the matching canonical team intent from allowed_intents.
+10. When the user explicitly supplies a task key such as PRD1-3134 or PRD2-341, copy that exact source identifier into slots.task_key. Do not rewrite, infer, or generate task keys. For task lookup/details use the canonical task_lookup intent; for assignee/team matching preserve the same task_key in slots and choose the matching canonical team intent from allowed_intents.
 11. Only if the user explicitly asks to remember a reusable definition (for example 'always treat open tasks as all unresolved'), set intent_hint=learn_semantic and slots learn_term, learn_meaning, optionally learn_scope. Prefer canonical learn_meaning values such as not_completed or a comma-separated list of explicit statuses.
 """
 
