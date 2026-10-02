@@ -27,7 +27,7 @@ export function AgentHistory() {
         setTraces([
           {
             id: 'trace-001',
-            query: 'Show tasks from sprint WMB-SPRNT-4',
+            query: 'Show tasks from sprint PRD1-SPRNT-4',
             response: 'Found 12 tasks in the sprint',
             confidence: 0.95,
             memory_used: false,
