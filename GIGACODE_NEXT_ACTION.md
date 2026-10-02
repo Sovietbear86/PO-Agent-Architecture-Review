@@ -1,97 +1,31 @@
 # GigaCode — Current Action
 
-## ACTIVE: Assignment A229F1R2 — Created-period functional pre-gate re-run
+## NO ACTIVE ASSIGNMENT — V4 stabilized
 
-Role: QA/adversarial tester only. Do not modify code.
+The current application state is frozen at:
 
-Owner fix is intentionally minimal:
-- added missing `CapabilitySpecV4("task.search_created", ...)`;
-- refreshed one stale status-normalization fixture;
-- no Core/Harness/API session changes.
+`checkpoint/v4-stable-product-a229f1r2@9d71a7957035dd71ca0c48a02b1f73b4b5312c4f`
 
-## P0 — registry/integrity
+Latest certified functional gate:
+`AGENT_CORE_V4_CREATED_PERIOD_GREEN_A229F1R2`
 
-1. Pull current branch; record START_HEAD and clean worktree.
-2. Prove these files remain byte-identical to `c41b00c972e3710bd45d59744196e3c0d63ec327`:
-   - `src/po_agent/harness/contracts.py`
-   - `src/po_agent/harness/agent_core_v4.py`
-   - `src/po_agent/harness/agent_core_v4_robust.py`
-   - `src/po_agent/api/v1/__init__.py`
-3. Instantiate/discover the production V4 plugin registry and prove:
-   - `task.search_created` exists in CAPABILITIES;
-   - binding mismatch = none;
-   - agent runtime initializes successfully.
-4. Run:
-   - focused created-period tests;
-   - status-normalization tests;
-   - task catalog/plugin registry tests;
-   - full V4 blast-radius;
-   - frontend tsc/build;
-   - focused Task API tests.
-5. Run a live smoke `Спринты в DMS` and require normal V4 execution, not runtime_init_error.
+GigaCode remains QA/adversarial tester only. Do not modify production code.
 
-Any RED => preserve evidence and STOP.
+## Next assignment when owner explicitly resumes work
 
-## P1 — explicit created-period search
+Preferred order:
 
-Query:
-`Покажи задачи Калачанова в пространстве STS созданные за период с 29.09.2026 по 01.10.2026`
+1. **A229R1 verification only** — re-gate already implemented low-risk latency changes; no new optimization code.
+2. **A230 security/read-only + rollback rehearsal**.
+3. **A231 final V4 DoD / release-candidate audit**.
 
-Build a fresh independent REAL AS21 oracle from the bounded canonical Kalachanov+STS corpus using authoritative source created_at.
+Only after a release-candidate checkpoint should new functional evolution resume.
 
-Run 5 times.
+First post-RC candidate improvement:
+- generic complex task search using typed plugin constraints (creator/author, status, phrase/text-field, period, space/sprint, etc.);
+- the current example `Покажи открытые задачи созданные Гальцовым со словом "дефект" в описании` is a regression scenario, not a phrase-specific route.
 
-Require:
-- planner selects `task.search_created`;
-- created_period is raw user wording;
-- source-backed person resolution;
-- STS preserved;
-- exact task-key/count parity 5/5;
-- all returned rows fall inside the inclusive date interval;
-- created_at exposed in result/evidence;
-- 0 local factual fallback;
-- 0 tenant-wide scans.
+Hard rule:
+- no Agent Core/planner/runtime/session changes unless owner first proves a release-blocking defect that cannot be solved through plugin/UI/task-api/metadata seams.
 
-## P2 — relative period search
-
-Query:
-`Покажи задачи Калачанова в пространстве STS созданные за последние 2 дня`
-
-Immediately before each batch, record Europe/Moscow current time and build the oracle using:
-- start = 00:00 MSK of previous calendar day;
-- end = execution time.
-
-Because STS is active, document oracle drift protocol and re-probe if the source changes during the 5-run matrix.
-
-Require exact source parity 5/5 after accounting only for documented source drift.
-
-## P3 — fail-closed provenance
-
-Using test fixtures only, prove that missing authoritative created_at provenance produces typed fail-closed/source-unavailable behavior.
-
-No production/source mutation.
-
-## P4 — architecture audit
-
-Require:
-- canonical 54 unchanged;
-- `task.search_created` is extra plugin-owned capability;
-- zero dialogue-context/Core changes;
-- zero phrase/name/space hardcode;
-- zero local factual date cache;
-- no planner-invented dates;
-- no unbounded scan.
-
-## Verdict
-
-Exactly one:
-- `AGENT_CORE_V4_CREATED_PERIOD_GREEN_A229F1R2`
-- `AGENT_CORE_V4_CREATED_PERIOD_RED_A229F1R2`
-
-If GREEN:
-- resume A229R1 latency re-gate on this certified functional HEAD.
-
-If RED:
-- preserve first failing evidence and STOP.
-
-Do not modify code.
+Wait for explicit owner instruction before running another assignment.
