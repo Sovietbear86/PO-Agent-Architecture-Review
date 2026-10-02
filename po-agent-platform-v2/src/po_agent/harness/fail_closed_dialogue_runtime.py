@@ -23,7 +23,7 @@ class FailClosedIntentPreservingDialogueHarnessRuntime(IntentPreservingDialogueH
         """Never reinterpret the suffix of an explicit sprint id as a task key.
 
         The base dialogue runtime deliberately enriches explicit task keys from
-        raw user text. A token such as ``DMS-SPRNT-1`` previously also matched
+        raw user text. A token such as ``PRD1-SPRNT-1`` previously also matched
         the generic task-key regex as ``SPRNT-1``. That corrupted a valid sprint
         query into a task lookup. Explicit sprint identifiers are source IDs of
         a different entity type and therefore take precedence.
