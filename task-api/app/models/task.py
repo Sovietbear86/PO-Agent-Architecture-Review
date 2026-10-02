@@ -44,7 +44,7 @@ class Task:
         updated_at: datetime | None = None,
         id: UUID | None = None,
         source: str | None = None,  # 'swtr' for SberWorks Task Tracker
-        source_id: str | None = None,  # External task ID (e.g., WMB-29890)
+        source_id: str | None = None,  # External task ID (e.g., PRD1-29890)
         source_data: dict | None = None,  # Raw data from external source
     ):
         self.id = id or uuid4()
@@ -57,7 +57,7 @@ class Task:
         self.created_at = created_at or datetime.utcnow()
         self.updated_at = updated_at or datetime.utcnow()
         self.source = source  # Source identifier (e.g., 'swtr')
-        self.source_id = source_id  # External ID (e.g., 'WMB-29890')
+        self.source_id = source_id  # External ID (e.g., 'PRD1-29890')
         self.source_data = source_data or {}  # Raw data from external source
     
     def update(self, title: str | None = None, description: str | None = None,
