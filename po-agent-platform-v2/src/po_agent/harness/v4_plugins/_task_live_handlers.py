@@ -492,7 +492,7 @@ def build_task_search_attachments(runtime: Any):
                 if _matches_requested_status(runtime, task, raw_status)
             ]
 
-        # A196 D2: 2k+ WMB tasks caused a 300s N+1 timeout. Until the source
+        # A196 D2: a large product space previously caused an N+1 timeout. Until the source
         # offers a batch attachment search, fail closed before fan-out instead of
         # pretending a partial scan is complete.
         max_fanout = 250
