@@ -12,14 +12,16 @@ def get_real_team_members() -> list[dict]:
     Returns:
         List of team member dictionaries
     """
-    # Look for config in multiple possible locations relative to CWD
+    configured = os.getenv("TEAM_CONFIG_PATH")
+    # Explicit deployment config wins; repository-relative paths are fallbacks.
     possible_paths = [
+        Path(configured).expanduser() if configured else None,
         Path(os.getcwd()) / "task-api" / "config" / "team_members.yaml",
         Path(os.getcwd()).parent / "task-api" / "config" / "team_members.yaml",
     ]
 
     for config_path in possible_paths:
-        if config_path.exists():
+        if config_path is not None and config_path.exists():
             with open(config_path, "r") as f:
                 data = yaml.safe_load(f)
             return data.get("members", [])
