@@ -307,11 +307,11 @@ not literal trigger phrases."""
             return False
         # A valid login typically:
         # - Is short (less than 30 characters)
-        # - Contains a dot (e.g., "Garanin.R.V") or is a short email-like string
+        # - Contains a dot (e.g., "Ivanov.I.I") or is a short email-like string
         # - Doesn't contain common prose words
         if len(compact) > 30:
             return False
-        # Contains dot (e.g., "Garanin.R.V") - common login pattern
+        # Contains dot (e.g., "Ivanov.I.I") - common login pattern
         if "." in compact:
             return True
         # Contains uppercase letters (e.g., "IvanovIV") - common in Russian logins
