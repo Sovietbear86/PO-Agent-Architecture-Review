@@ -99,7 +99,7 @@ async def _team_task_summary(runtime: Any) -> dict[str, dict[str, Any]]:
     """Aggregate tasks assigned to configured team members, grouped by space.
 
     This matches the product intent of the Overview block: show the team's work,
-    not every task ever created in very large spaces such as CRPV/STS.
+    not every task ever created in very large product spaces.
 
     Reads are bounded by assignee identity via the already-certified live AS21
     assignee route. No tenant-wide or whole-space corpus scan is performed.
