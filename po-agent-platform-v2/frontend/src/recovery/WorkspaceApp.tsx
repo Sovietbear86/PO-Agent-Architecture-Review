@@ -22,6 +22,13 @@ const nav = [
   ['/quality', 'Качество', '◎'],
 ] as const
 
+const APP_BRAND = import.meta.env.VITE_APP_BRAND || 'PO Agent'
+const CONTEXT_LABEL = import.meta.env.VITE_CONTEXT_LABEL || 'Product Workspace'
+const PRODUCT_LABELS = String(import.meta.env.VITE_PRODUCT_LABELS || 'PRODUCT_A,PRODUCT_B')
+  .split(',')
+  .map((value: string) => value.trim())
+  .filter(Boolean)
+
 const SESSION_KEY = 'po-agent-runtime-session-id'
 
 function createSessionId(): string {
@@ -263,9 +270,9 @@ export function WorkspaceApp() {
     <div className="workspace">
       <aside className="sidebar">
         <div className="brand-block">
-          <div className="works-logo">Platform V</div>
+          <div className="works-logo">{APP_BRAND}</div>
           <div className="brand-title">PO Space</div>
-          <div className="brand-subtitle">DB Tribe</div>
+          <div className="brand-subtitle">{CONTEXT_LABEL}</div>
         </div>
         <nav>
           {nav.map(([to, label, icon]) => (
@@ -280,8 +287,8 @@ export function WorkspaceApp() {
       </aside>
       <main className="main-area">
         <header className="topbar">
-          <div><strong>Пространство владельца продукта</strong><span>Platform V · DB</span></div>
-          <div className="topbar-actions"><button>OLAP</button><button>DataMarts</button></div>
+          <div><strong>Пространство владельца продукта</strong><span>{APP_BRAND} · {CONTEXT_LABEL}</span></div>
+          <div className="topbar-actions">{PRODUCT_LABELS.map(label => <button key={label}>{label}</button>)}</div>
         </header>
         <Outlet context={{ openAgent: () => setAgentOpen(true) }} />
       </main>
