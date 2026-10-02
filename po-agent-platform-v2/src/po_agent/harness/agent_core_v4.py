@@ -1116,7 +1116,7 @@ class AgentCoreV4Runtime:
         Grammar-only signal — a plural sprint form, or the sprint noun next to
         a collection marker ("несколько", "все", "список", "all", "list", ...).
         No entity/phrase routing: singular forms ("текущий спринт", "в спринте
-        DMS-SPRNT-2") do not match.
+        PRD1-SPRNT-2") do not match.
         """
         tokens = [token.casefold() for token in re.findall(r"[a-zа-яё']+", str(query or ""))]
         has_sprint_noun = any(token.startswith("спринт") or token.startswith("sprint") for token in tokens)
