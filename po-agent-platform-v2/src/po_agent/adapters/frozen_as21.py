@@ -104,7 +104,7 @@ class FrozenAS21Adapter(AS21Adapter):
         """Deterministic bounded search over the frozen corpus.
 
         This is intentionally not a Jira/JQL implementation.  Exact task-key
-        queries (``WMB-1`` or ``key = WMB-1``) are supported, as are simple
+        queries (``PRD1-1`` or ``key = PRD1-1``) are supported, as are simple
         case-insensitive text queries over key/title/description.  Complex JQL
         syntax fails closed rather than falling back to a live source.
         """
