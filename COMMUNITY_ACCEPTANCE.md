@@ -10,7 +10,7 @@ Run this gate before copying the staging snapshot into a new repository.
 - [ ] No `knowledge/employees` directory.
 - [ ] No QA reports, screenshots or REAL AS21 payload dumps.
 - [ ] No real employee roster/e-mails.
-- [ ] No WMB/DMS/OLP/CRPV/STS product defaults or development-team names.
+- [ ] No development-repository product defaults or team-member names.
 - [ ] No workstation-specific absolute paths.
 
 ## B. Configurability
@@ -59,7 +59,7 @@ Require:
 
 - [ ] build GREEN;
 - [ ] configurable brand/context/product chips visible;
-- [ ] no Platform V / OLAP / DataMarts defaults;
+- [ ] no development-product branding/defaults;
 - [ ] Tasks page submits raw text to Agent API;
 - [ ] six workspaces render without old product assumptions.
 
