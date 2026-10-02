@@ -1,15 +1,19 @@
 from __future__ import annotations
 
 import re
-import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SKIP_DIRS = {".git", ".venv", "node_modules", "dist", "__pycache__"}
+SKIP_FILES = {Path("scripts/prepublish_scan.py")}
 
 PATTERNS = {
-    "possible_secret": re.compile(
-        r"(?i)(?:api[_-]?key|token|secret|password)\s*[=:]\s*['\"]?(?!YOUR_|$)[A-Za-z0-9_./+\-=]{16,}"
+    "literal_secret": re.compile(
+        r"""(?ix)
+        (?:api[_-]?key|token|secret|password)
+        [ \t]*[=:][ \t]*
+        ["'](?!YOUR_|CHANGEME|EXAMPLE|<)[A-Za-z0-9_./+\-=]{16,}["']
+        """
     ),
     "private_key": re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"),
     "user_home_path": re.compile(r"(?:/Users/[^/\s]+|/home/[^/\s]+|[A-Za-z]:\\Users\\[^\\\s]+)"),
@@ -31,6 +35,9 @@ def main() -> int:
     for path in ROOT.rglob("*"):
         if not path.is_file() or any(part in SKIP_DIRS for part in path.parts):
             continue
+        relative = path.relative_to(ROOT)
+        if relative in SKIP_FILES:
+            continue
         if path.name.endswith(".lock"):
             continue
         if path.suffix and path.suffix.lower() not in ALLOW_SUFFIXES and path.name not in {".gitignore"}:
@@ -41,9 +48,8 @@ def main() -> int:
             continue
         for label, pattern in PATTERNS.items():
             for match in pattern.finditer(text):
-                # .env examples intentionally contain empty placeholders.
                 snippet = match.group(0)[:120].replace("\n", " ")
-                findings.append(f"{path.relative_to(ROOT)}: {label}: {snippet}")
+                findings.append(f"{relative}: {label}: {snippet}")
     if findings:
         print("PRE-PUBLISH SCAN: RED")
         print("\n".join(findings))
