@@ -1,10 +1,11 @@
 """Main entry point for FastAPI application."""
+import os
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.routers import tasks, jira, swtr_sync, swtr_read, swtr_assignee, swtr_entities, swtr_query
+from app.routers import swtr_read, swtr_assignee, swtr_entities, swtr_query
 from app.exceptions.handlers import (
     validation_exception_handler,
     value_error_handler,
@@ -13,8 +14,8 @@ from app.exceptions.handlers import (
 
 app = FastAPI(
     title="Task Tracker API",
-    description="REST API for managing tasks (local + Jira)",
-    version="1.0.0",
+    description="Read-only REAL AS21/SWTR facade for PO Agent",
+    version="community-1.0",
     docs_url="/docs",
     redoc_url="/redoc",
     redirect_slashes=False,
@@ -23,7 +24,7 @@ app = FastAPI(
 # CORS middleware to allow React SPA (localhost:5173) to call the API
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173"],
+    allow_origins=[os.getenv("FRONTEND_ORIGIN", "http://localhost:5175")],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -66,9 +67,7 @@ async def health_check():
     return {"status": "healthy"}
 
 
-app.include_router(tasks.router)
-app.include_router(jira.router)
-app.include_router(swtr_sync.router)
+# Community build intentionally exposes only the read-only AS21 facade.
 app.include_router(swtr_read.router)
 app.include_router(swtr_assignee.router)
 app.include_router(swtr_entities.router)
