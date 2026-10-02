@@ -180,10 +180,10 @@ class POAgentMCP:
         # For now: return placeholder response
         tasks = [
             {
-                "id": "WMB-123",
+                "id": "PRD1-123",
                 "title": "Sample task",
                 "status": "todo",
-                "assignee": "Kalachanov.V.V",
+                "assignee": "Ivanov.I.I",
             }
         ]
 
@@ -203,7 +203,7 @@ class POAgentMCP:
                 Evidence(
                     type="task",
                     source_type="swtr",
-                    source_id="WMB-123",
+                    source_id="PRD1-123",
                     fact="sample task found",
                     value=True,
                 )
@@ -289,7 +289,7 @@ class POAgentMCP:
                 "total_capacity": 120,
                 "current_workload": 85,
                 "overload_members": [],
-                "underload_members": ["Kalachanov.V.V"],
+                "underload_members": ["Ivanov.I.I"],
                 "competency_match": 0.75,
                 "average_velocity": 22,
                 "throughput": 10,
