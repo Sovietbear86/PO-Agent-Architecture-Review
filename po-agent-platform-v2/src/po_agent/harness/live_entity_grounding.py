@@ -1,24 +1,54 @@
 """Live-source grounding extensions for production AS21 mode."""
 from __future__ import annotations
 
+import os
 import re
+from pathlib import Path
 from typing import Any
+
+import yaml
 
 from .dialogue_runtime import ClarificationNeed, SemanticFrame
 from .entity_grounding import GroundedEntityResolver
 
 
+def configured_product_aliases() -> dict[str, str]:
+    """Load product aliases from deployment-owned products.yaml."""
+    configured = os.getenv("PRODUCTS_CONFIG_PATH")
+    candidates = [
+        Path(configured).expanduser() if configured else None,
+        Path(os.getcwd()) / "task-api" / "config" / "products.yaml",
+        Path(os.getcwd()).parent / "task-api" / "config" / "products.yaml",
+    ]
+    for path in candidates:
+        if path is None or not path.exists():
+            continue
+        with path.open("r", encoding="utf-8") as stream:
+            data = yaml.safe_load(stream) or {}
+        products = data.get("products") if isinstance(data, dict) else None
+        if not isinstance(products, dict):
+            continue
+        aliases: dict[str, str] = {}
+        for code, payload in products.items():
+            canonical = str(code).strip().upper()
+            if not canonical:
+                continue
+            aliases[canonical.casefold()] = canonical
+            if isinstance(payload, dict):
+                display = payload.get("display_name")
+                if isinstance(display, str) and display.strip():
+                    aliases[display.strip().casefold()] = canonical
+                for alias in payload.get("aliases") or []:
+                    if isinstance(alias, str) and alias.strip():
+                        aliases[alias.strip().casefold()] = canonical
+        return aliases
+    return {}
+
+
 class LiveGroundedEntityResolver(GroundedEntityResolver):
     """Resolve production entities from real Task API/SWTR source facts."""
 
-    _PRODUCT_ALIASES = {
-        "olp": "OLP",
-        "olap": "OLP",
-        "olap analytics": "OLP",
-        "dms": "DMS",
-        "datamarts": "DMS",
-        "data marts": "DMS",
-    }
+    _PRODUCT_ALIASES = configured_product_aliases()
     _CURRENT_MARKERS = ("current", "active", "текущ", "актуальн", "активн")
     _EXPLICIT_RELEASE_RE = re.compile(
         r"(?:релиз(?:а|е|у|ом)?|release)\s+([A-Za-z0-9][A-Za-z0-9_.-]{2,79})",
@@ -164,7 +194,7 @@ class LiveGroundedEntityResolver(GroundedEntityResolver):
             slots["product"] = product
 
         # A semantic model may propose a concrete sprint_id for a relative
-        # phrase such as "текущий спринт DMS". Treat that value as a proposal,
+        # phrase such as "текущий спринт PRD1". Treat that value as a proposal,
         # not as a user-supplied explicit identifier. The authoritative value
         # must come from the live current-sprint source below.
         proposed_sprint = str(slots.get("sprint_id") or "").strip()
