@@ -9,7 +9,7 @@ USAGE:
 
     QA Fault Configuration (via environment):
     - PO_AGENT_QA_FAULT_INJECTION=1
-    - PO_AGENT_QA_FAULT_TASK=DMS-271 (task to inject fault for)
+    - PO_AGENT_QA_FAULT_TASK=PRD1-271 (task to inject fault for)
     - PO_AGENT_QA_FAULT_STATUS=Unknown (status to inject)
     - PO_AGENT_QA_FAULT_SCOPE=task-lookup (skill/query scope)
 
