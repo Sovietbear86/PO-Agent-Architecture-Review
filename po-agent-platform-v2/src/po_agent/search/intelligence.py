@@ -73,7 +73,7 @@ class TaskIntelligenceSearch:
         task_key: str,
         fuzzy: bool = False,
     ) -> list[Task]:
-        """Search tasks by task key (e.g., WMB-123).
+        """Search tasks by task key (e.g., PRD1-123).
 
         Args:
             tasks: List of tasks to search
