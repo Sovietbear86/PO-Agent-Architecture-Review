@@ -1,10 +1,11 @@
 # PO Agent — Authoritative Evolution Plan
 
-**Status:** ACTIVE / Hermes-style architecture cutover approved  
+**Status:** STABILIZED V4 / controlled evolution  
 **Current branch:** `feat/core8-real-query-hardening-v2`  
-**Last reviewed:** 2026-09-26  
-**Current baseline:** V4 Batch 4 is GREEN after A217D. Production robust runtime is restored; release identity vs analytics routing is certified, portfolio overview is source-exact, time-accounting/member analytics are GREEN, and release analytics remain intentionally SOURCE_CONDITIONAL where REAL AS21 lacks release→task linkage.
-**Architecture decision:** stop broad point-fixing of legacy orchestration; preserve proven REAL AS21/source components and replace the upper Harness orchestration incrementally with a Hermes-inspired Agent Core.  
+**Last reviewed:** 2026-10-02  
+**Current stable checkpoint:** `checkpoint/v4-stable-product-a229f1r2@9d71a7957035dd71ca0c48a02b1f73b4b5312c4f`  
+**Current baseline:** PO acceptance A227R3 GREEN; restart/recovery A228 GREEN; latency baseline A229 GREEN; created-period search A229F1R2 GREEN; full V4 blast 238/238; canonical 54 remains certified; live registry = 69 skills / 71 capabilities / 13 plugins. PO assessment: approximately 90% of the V4 application DoD is complete.
+**Architecture decision:** the V4 Harness/Core is now a stable platform. Further product capabilities should be added through plugins/capabilities/UI/task-api seams. Agent Core/planner/runtime orchestration changes require a proven release-blocking defect and explicit owner approval.  
 **Reference observations:** Hermes Agent is the architectural target pattern; PVM Guru is a behavioral/reference implementation only, not a codebase to copy.  
 **Frontend status:** UI is part of acceptance truth; Harness-only GREEN is insufficient.  
 **Purpose:** evolve PO Agent into a source-grounded, session-safe, contract-driven, tool-using, self-improving agent without throwing away the proven AS21 integration work.
@@ -555,69 +556,106 @@ Explicit target after functional GREEN: ordinary factual single-step requests mu
 
 ## 10. Ordered roadmap — authoritative stage order
 
-Assignment numbers have already split substantially during H1 defect discovery; **stage order, not historical assignment number, is authoritative**.
+Assignment numbers are historical evidence; **the current stage status below is authoritative**.
 
-| Stage | Work | Exit condition |
+| Stage | Current state | Remaining exit work |
 |---|---|---|
-| **H1A–H1B** | Agent Core v3, sessions, immutable turn contract, typed CALL/FINAL loop, grounding, observations, postconditions | Current closure gate: Assignment 175; task pilot/routing/browser cases must be A/B/C GREEN |
-| **H2** | Capability Registry v1 + governed tool contract | Pilot capabilities use explicit source/oracle/constraint/postcondition/read-only contracts; arbitrary endpoint/code execution excluded |
-| **H3A** | Progressive skill disclosure | Compact capability index; selected skill contracts loaded lazily; no full 54-skill prompt dump |
-| **H3B** | Agentic composition + executor consolidation | Dynamic plan->act->observe trajectories, including person+sprint benchmark; task first, then sprint/team/release |
-| **H4A** | Learning Reviewer implementation | Isolated reviewer + source recheck + autonomous mismatch proof |
-| **H4B** | Learning governance | skill/policy candidate validation, versioning, persistence, rollback; no entity-fact learning |
-| **H5** | Family-by-family strangler migration | Legacy routing retired only per certified family; no surname-dependent route splits |
-| **H6** | Full **54-skill** no-skip A/B/C catalog certification | 54/54 terminally classified across applicable approved spaces/team identities; every source-supported case GREEN |
-| **H7A** | Full UI inventory/data-lineage matrix | 100% screens/widgets/actions mapped to Agent Core trajectory/source |
-| **H7B** | UI REAL-data/state/interaction certification + remediation | Zero unexplained empty/wrong widgets; complete matrix GREEN |
-| **H8** | Full browser E2E, session/feedback/restart/failure, security/performance/release hardening | Release candidate |
-| **Final** | Release readiness | `RELEASE_READY=YES` |
+| **H1 — Agent Core/session/typed loop** | **GREEN / FROZEN** | No further Core work unless a proven release blocker cannot be solved externally |
+| **H2 — Capability Registry** | **GREEN** | Keep registry invariants and dummy-extension behavior on every new plugin |
+| **H3 — Progressive skills + composition** | **GREEN for certified scope** | Complex compound requests remain an improvement track, not a release blocker |
+| **H4 — Learning Reviewer 2.0** | **DEFERRED / NON-BLOCKING FOR V4** | Resume only after final V4 hardening/release candidate; no runtime self-modification |
+| **H5 — Family strangler migration** | **GREEN** | New capabilities use plugin-only extension surface |
+| **H6 — Full 54-skill certification** | **GREEN 54/54** | Preserve no-skip regression matrix |
+| **H7 — UI data wiring/acceptance** | **GREEN for PO acceptance** | Only bounded polish/source-conditional improvements |
+| **H8 — Release hardening** | **~PARTIAL GREEN** | A228 restart/recovery GREEN; A229 latency baseline GREEN; low-risk latency re-gate, security/read-only audit and rollback rehearsal remain |
+| **Final** | **NOT YET RELEASE_READY** | Final DoD audit + release-candidate checkpoint |
 
-Stages cannot be skipped. A proven defect may create additional focused assignments, but it does not change the architectural destination.
+The old requirement that H4 precede H5/H6 is superseded. Learning Reviewer is valuable, but it is no longer a V4 release blocker because the product has already reached source-exact catalog/UI acceptance without it.
 
 ---
 
 ## 11. Immediate next action
 
-**Finish H1B closure via Assignment 175.**
+**Current operating mode: STABILIZE, then evolve cautiously.**
 
-If 175 is GREEN:
-1. freeze H1B task behavior except P0 shared-source regressions;
-2. move immediately to H2/H3 progressive capability/skill selection;
-3. add the PVM Guru behavioral benchmark `Открытые задачи <человека> в спринте <SPRINT>` and variants as an H3 agentic-composition acceptance scenario;
-4. eliminate entity-dependent legacy/v3 selector behavior through family-level registry/progressive routing;
-5. do not add new surname/phrase-specific patches to H1B.
+No active production change should start automatically after A229F1R2. The current application state is frozen at:
 
-GigaCode remains QA-only throughout.
+`checkpoint/v4-stable-product-a229f1r2@9d71a7957035dd71ca0c48a02b1f73b4b5312c4f`
+
+Recommended next sequence when work resumes:
+
+1. **A229R1 verification only — no new code first.** Re-gate the already implemented low-risk latency changes (single sprint read, assignee+space source pushdown, UI concurrency<=2, capability timing). Decide from measurements whether more performance work is justified.
+2. **A230 security/read-only + rollback rehearsal.** Reconfirm secrets, permissions, zero writes, zero local factual fallback, dependency failure behavior, and prove rollback to the stable checkpoint and forward recovery.
+3. **A231 final V4 DoD audit / release candidate.** Re-run a compact representative A/B/C matrix, browser smoke, restart smoke, full test battery, source audit and produce RELEASE_READY decision.
+4. **Post-RC controlled enhancement track.** Only after the release-candidate checkpoint should new functional improvements restart.
+
+The first post-RC functional priority is **generic complex task search**, motivated by requests such as:
+`Покажи открытые задачи, созданные <человеком>, со словом "дефект" в описании`.
+
+This must be implemented generically through typed plugin constraints (for example creator/author, status, phrase/text field, period, space), not by phrase-specific routing and not by Core changes.
+
+Conversational continuity such as `Помоги` / `а за неделю?` remains non-blocking tech debt. The prior Core-level dialogue-context experiment was reverted and must not be reintroduced casually.
 
 ---
 
 ## 12. Current gate values
 
 ```text
-SOURCE_DATA_PLANE = FOCUSED_GREEN_REAL_AS21
-LEGACY_HARNESS_PRODUCT_ACCEPTANCE = NOT_RELEASE_TRUTH
-ARCHITECTURE_CUTOVER_DECISION = APPROVED
-NEW_AGENT_CORE_V3 = H1B_FINAL_CERTIFICATION
-SESSION_ISOLATION = FOCUSED_GREEN
-IMMUTABLE_CONSTRAINT_CONTRACT = IMPLEMENTED_AND_UNDER_CONTINUOUS_CERTIFICATION
-TYPED_AGENT_LOOP = IMPLEMENTED
-POSTCONDITION_VALIDATION = IMPLEMENTED
-SOURCE_BACKED_IDENTITY_GROUNDING = IMPLEMENTED
-CAPABILITY_REGISTRY = PARTIAL_FOUNDATION / H2_NEXT
-PROGRESSIVE_SKILLS = H3_NEXT
-AGENTIC_MULTI_STEP_COMPOSITION = H1B_PILOTED / H3_GENERALIZATION_REQUIRED
-LEARNING_REVIEWER = H4_PLANNED
-STRANGLER_MIGRATION = H5_PLANNED
-FULL_54_SKILL_ABC_RECERTIFICATION = H6_MANDATORY
-UI_DATA_WIRING_ACCEPTANCE = H7_MANDATORY_RELEASE_GATE
-PVM_GURU_REFERENCE_LESSONS = LOCKED_IN_PLAN
+ACTIVE_BRANCH = feat/core8-real-query-hardening-v2
+STABLE_PRODUCT_CHECKPOINT = checkpoint/v4-stable-product-a229f1r2@9d71a7957035dd71ca0c48a02b1f73b4b5312c4f
+PO_ACCEPTANCE = GREEN_A227R3
+RESTART_RECOVERY = GREEN_A228
+LATENCY_BASELINE = GREEN_A229
+CREATED_PERIOD_SEARCH = GREEN_A229F1R2
+FULL_V4_TESTS = 238_OF_238_GREEN_AT_A229F1R2
+CANONICAL_SKILLS = 54_OF_54_CERTIFIED
+LIVE_REGISTRY = 69_SKILLS_71_CAPABILITIES_13_PLUGINS
+PLUGIN_EXTENSIBILITY = GREEN
+UI_ACCEPTANCE = GREEN
+REAL_AS21 = AUTHORITATIVE
+LOCAL_FACTUAL_FALLBACK = FORBIDDEN
+TENANT_WIDE_SCANS = FORBIDDEN
+UNAUTHORIZED_WRITES = ZERO_REQUIRED
+AGENT_CORE_POLICY = FROZEN_UNLESS_PROVEN_RELEASE_BLOCKER
+COMPLEX_QUERY_RELIABILITY = POST_RC_IMPROVEMENT_TRACK
+DIALOGUE_CONTINUATION = NON_BLOCKING_TECH_DEBT
+LEARNING_REVIEWER_2_0 = DEFERRED_UNTIL_POST_HARDENING
+PO_DOD_ESTIMATE = APPROX_90_PERCENT_COMPLETE
 RELEASE_READY = NO
-CURRENT_NEXT_ACTION = ASSIGNMENT_175_THEN_H2_H3
+CURRENT_NEXT_ACTION = PAUSE_OR_A229R1_VERIFICATION_THEN_A230_A231
 ```
 
 ---
 
 ## 13. Definition of Done
+
+### Current DoD assessment — 2026-10-02
+
+PO assessment: **~90% complete**.
+
+Already proven GREEN:
+- authoritative REAL AS21 factual path and fail-closed semantics;
+- 54/54 canonical skill certification;
+- plugin extensibility and plugin-owned additions;
+- PO browser/UI acceptance;
+- task/sprint/team/release/portfolio representative source parity;
+- restart/recovery and session isolation;
+- zero-local-fallback / zero-unauthorized-mutation / zero-tenant-wide-scan acceptance gates;
+- source-backed created-period search;
+- stable rollback checkpoints and full V4 regression coverage.
+
+Still needed before `RELEASE_READY=YES`:
+- A229R1 measured verification of already-written low-risk latency changes;
+- final security/read-only/secrets audit;
+- explicit rollback rehearsal from current release candidate and forward restore;
+- final compact DoD/browser/source regression;
+- owner release-readiness sign-off.
+
+Not required for V4 release:
+- Learning Reviewer 2.0;
+- perfect conversational ellipsis/context continuation;
+- universal arbitrary compound-query coverage;
+- removal of source limitations where REAL AS21 itself lacks authoritative data.
 
 Release-ready requires:
 - REAL AS21/source contracts fail closed and remain read-only;
@@ -1573,3 +1611,94 @@ Owner correction:
 - dialogue-context experiment remains fully reverted.
 
 Next: A229F1R2 reruns from P0 and, if registry/full V4 are GREEN, proceeds with explicit and relative created-period live parity.
+
+
+---
+
+## 16. V4 stabilization milestone — 2026-10-02
+
+This section supersedes stale historical scheduling/next-action statements elsewhere in this file.
+
+### 16.1 Stable product point
+
+`checkpoint/v4-stable-product-a229f1r2@9d71a7957035dd71ca0c48a02b1f73b4b5312c4f`
+
+This checkpoint includes:
+- A227R3 PO acceptance GREEN;
+- A228 restart/recovery GREEN;
+- A229 latency baseline;
+- low-risk latency owner changes R1/R2/R3/R5;
+- plugin-only `task.search_created`;
+- A229F1R2 exact live certification;
+- dialogue-context experiment fully reverted;
+- stable Agent Core/Harness protected from feature churn.
+
+### 16.2 Change policy from this point
+
+Every future change is classified before implementation:
+
+**Class A — safe/default**
+- new plugin skill/capability;
+- plugin handler extension;
+- UI rendering/state fix;
+- Task API bounded source query optimization using already-proven source predicates;
+- tests/observability/documentation.
+
+**Class B — cautious**
+- generic capability-composition contract changes;
+- LLM selection/procedure metadata changes;
+- source query pagination/concurrency changes;
+- transport/backoff behavior.
+
+Requires focused regression + representative live A/B/C.
+
+**Class C — exceptional**
+- Agent Core;
+- robust planner protocol;
+- runtime orchestration;
+- session semantics;
+- literal grounding rules;
+- completion engine.
+
+Class C is allowed only when:
+1. a reproducible release-blocking defect is proven;
+2. plugin/UI/task-api/metadata seams cannot solve it correctly;
+3. owner explicitly approves Core change;
+4. rollback checkpoint is created first;
+5. full V4 blast + representative live regression is mandatory afterward.
+
+### 16.3 Post-RC improvement backlog
+
+Priority order:
+
+1. **Complex task search v2 — HIGH VALUE, controlled.**
+   Generic typed predicates for combinations such as creator/author + assignee + status + phrase + text-field + created-period + space/sprint. Prefer one governed compound-search capability or composable plugin capabilities; never surname/phrase routers. The current failure example `открытые задачи созданные Гальцовым со словом "дефект" в описании` becomes a regression case, not a special implementation branch.
+
+2. **LLM resilience / rate-limit discipline — MEDIUM.**
+   A229F1R2 observed HTTP 429 under dense QA traffic. First use pacing/backoff at transport/config seam; avoid planner architecture changes unless normal interactive use is affected.
+
+3. **Latency follow-through — MEDIUM.**
+   Verify R1/R2/R3/R5. Consider planner-turn reduction only if measurements prove substantial remaining removable Agent-side time and only with the full A205/A227 regression matrix.
+
+4. **Conversational continuation — MEDIUM/LOW.**
+   Keep as tech debt. Revisit only with an architecture that preserves factual authority and does not destabilize Core.
+
+5. **Competency reasoning v2 — LOW/MEDIUM.**
+   Improve task-description/history/space-type matching after release candidate, preserving source-backed signals and no employee-scoring semantics.
+
+6. **Source-conditional metrics — EXTERNAL DEPENDENCY.**
+   Sprint predictability and release forecast remain honest `SOURCE_UNAVAILABLE/CONDITIONAL` where AS21 lacks committed baseline or release membership/history. Do not fabricate local substitutes.
+
+7. **Learning Reviewer 2.0 — POST-V4 / OPTIONAL NEXT MAJOR STAGE.**
+   Start only after release hardening and final DoD audit. It must remain isolated, evidence-driven, versioned and rollback-safe.
+
+### 16.4 Definition of safe progress
+
+From this checkpoint onward, "progress" means:
+- no regression to already-certified behavior;
+- no Core churn for convenience;
+- every new capability has explicit contract/handler/UI/QA lineage;
+- fresh Oracle for factual changes;
+- exact key parity outranks prose/counts;
+- a RED stops the wave;
+- each meaningful GREEN wave gets a new checkpoint.
