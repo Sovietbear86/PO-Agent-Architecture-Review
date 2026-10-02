@@ -275,13 +275,13 @@ export function TasksPage() {
         <input
           value={search}
           onChange={e => setSearch(e.target.value)}
-          placeholder="Например: Открытые задачи Калачанова с вложениями в пространстве WMB"
+          placeholder="Например: Открытые задачи Иванова с вложениями в пространстве PRD"
           aria-label="Текстовый поиск"
         />
         <button type="submit">Найти</button>
         <button type="button" onClick={() => { setEditingLocalTask(null); setDrawerOpen(true) }}>+ Локальная задача</button>
       </div>
-      <div className="search-examples">Можно писать естественным языком: «Задачи Семавина по рискам», «Задачи в работе в сентябрьском спринте по DMS», «Спринты в DMS».</div>
+      <div className="search-examples">Можно писать естественным языком: «Задачи Иванова по рискам», «Задачи в работе в текущем спринте по PRD», «Спринты в PRD».</div>
       <HarnessMeta result={result} />
     </form>
     {localTasks.length > 0 && <div className="panel local-panel">
@@ -338,8 +338,8 @@ export function TasksPage() {
 }
 
 export function SprintPage() {
-  const [sprintId, setSprintId] = useSessionState('sprint.input', 'WMB-SPRNT-1')
-  const [submitted, setSubmitted] = useSessionState('sprint.submitted', 'WMB-SPRNT-1')
+  const [sprintId, setSprintId] = useSessionState('sprint.input', import.meta.env.VITE_DEFAULT_SPRINT_ID || 'PRD-SPRNT-1')
+  const [submitted, setSubmitted] = useSessionState('sprint.submitted', import.meta.env.VITE_DEFAULT_SPRINT_ID || 'PRD-SPRNT-1')
   const [refreshNonce, setRefreshNonce] = useState(0)
   const healthQ = useSnapshotHarness('sprint:' + submitted, `Покажи состояние ${submitted}`, refreshNonce)
   const velocityQ = useSnapshotHarness('sprint:' + submitted, `Покажи velocity ${submitted}`, refreshNonce)
@@ -395,8 +395,8 @@ export function SprintPage() {
 }
 
 export function ReleasesPage() {
-  const [releaseId, setReleaseId] = useSessionState('release.input', 'WMB-2024-Q3')
-  const [submitted, setSubmitted] = useSessionState('release.submitted', 'WMB-2024-Q3')
+  const [releaseId, setReleaseId] = useSessionState('release.input', import.meta.env.VITE_DEFAULT_RELEASE_ID || 'PRD-RELEASE-1')
+  const [submitted, setSubmitted] = useSessionState('release.submitted', import.meta.env.VITE_DEFAULT_RELEASE_ID || 'PRD-RELEASE-1')
   const [refreshNonce, setRefreshNonce] = useState(0)
   const scopeQ = useSnapshotHarness('release:' + submitted, `Покажи scope ${submitted}`, refreshNonce)
   const progressQ = useSnapshotHarness('release:' + submitted, `Покажи прогресс ${submitted}`, refreshNonce)
@@ -462,6 +462,6 @@ export function TeamPage() {
 }
 
 export function QualityPage() {
-  const result = useHarness('Оцени постановку WMB-102')
+  const result = useHarness('Оцени постановку PRD-102')
   return <section className="page"><PageHeader title="Качество" subtitle="Качество постановки задач и evidence-based проверки" /><div className="panel"><div className="panel-title"><strong>Task Quality</strong><span className="green-badge">DETERMINISTIC</span></div><pre className="json-box">{result ? JSON.stringify(result.data, null, 2) : 'Загрузка…'}</pre></div></section>
 }
