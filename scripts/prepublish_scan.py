@@ -14,6 +14,10 @@ PATTERNS = {
     "private_key": re.compile(r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----"),
     "user_home_path": re.compile(r"(?:/Users/[^/\s]+|/home/[^/\s]+|[A-Za-z]:\\Users\\[^\\\s]+)"),
     "corp_email_example": re.compile(r"(?i)\b[A-Za-z0-9._%+-]+@sbertech\.ru\b"),
+    "legacy_product_code": re.compile(r"\b(?:WMB|DMS|OLP|CRPV|STS)\b"),
+    "development_person": re.compile(
+        r"(?i)\b(?:Kalachanov|Garanin|Semavin|Galtsov|Калачанов|Гаранин|Семавин|Гальцов)\b"
+    ),
 }
 
 ALLOW_SUFFIXES = {
