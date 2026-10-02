@@ -175,7 +175,7 @@ export function AssistantView() {
                   value={query}
                   onChange={(event) => setQuery(event.target.value)}
                   onKeyDown={(event) => event.key === 'Enter' && handleQuery()}
-                  placeholder="Например: Задачи Калачанова в WMB"
+                  placeholder="Например: Задачи Иванова в PRD1"
                   style={{ flex: 1, border: '1px solid #d9dee8', borderRadius: 9, padding: '12px 14px', fontSize: 14, outline: 'none' }}
                 />
                 <button onClick={() => handleQuery()} disabled={loading || !query.trim()} style={{ border: 0, borderRadius: 9, padding: '0 20px', background: colors.accentPrimary, color: '#fff', fontWeight: 600, cursor: loading ? 'wait' : 'pointer', opacity: loading || !query.trim() ? .55 : 1 }}>
