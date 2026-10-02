@@ -14,8 +14,8 @@ Options generation:
 - LLM-generated - NOT USED (to prevent hallucination)
 
 Example questions:
-- "По какому продукту показать velocity — OLP или DataMarts?"
-- "Какой спринт интересует — DMS-SPRNT-1 или OLP-SPRNT-3?"
+- "По какому продукту показать velocity — PRD1 или PRD2?"
+- "Какой спринт интересует — PRD1-SPRNT-1 или PRD2-SPRNT-3?"
 """
 
 from typing import Optional, List, Dict, Any
@@ -191,17 +191,10 @@ class ClarificationEngine:
             ]
 
         # Default options based on field
-        defaults = {
-            "product": [
-                ClarificationOption(label="WMB", value="WMB"),
-                ClarificationOption(label="OLP", value="OLP"),
-            ],
-            "sprint_id": [
-                ClarificationOption(label="DMS-SPRNT-1", value="DMS-SPRNT-1"),
-                ClarificationOption(label="OLP-SPRNT-1", value="OLP-SPRNT-1"),
-            ],
-        }
-        return defaults.get(field, [])
+        # Community build has no product-specific fallback values.
+        # Runtime callers should pass source/config-backed available_products /
+        # available_sprints. Empty options are safer than invented product ids.
+        return []
 
     def process_answer(
         self,
