@@ -1,0 +1,12 @@
+products:
+  PRD1:
+    display_name: "Product One"
+    aliases: ["PRD1", "Product One"]
+    s21_projects: []
+    s21_components: []
+
+  PRD2:
+    display_name: "Product Two"
+    aliases: ["PRD2", "Product Two"]
+    s21_projects: []
+    s21_components: []
