@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Portable wrapper for launching the local MCP-SWTR server over stdio.
-# Environment variables always win; local .env and ~/.config/swtr/api_key are
-# fallback sources so Task API and direct MCP reads use the same credentials.
+# Community build: credentials come only from environment or an explicit MCP .env.
+# No workstation-specific secret files are consulted.
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -38,20 +38,14 @@ if [[ -z "${TOKEN:-}" && -n "${SWTR_TOKEN:-}" ]]; then
   TOKEN="${SWTR_TOKEN}"
 fi
 
-# Historical local installations keep the current SWTR token here. Using it as
-# a fallback restores the same credential source used by the last known working
-# stdio setup without requiring developers to export secrets manually.
-if [[ -z "${TOKEN:-}" && -f "${HOME}/.config/swtr/api_key" ]]; then
-  TOKEN="$(tr -d '\r\n' < "${HOME}/.config/swtr/api_key")"
-fi
-
 if [[ -z "${TOKEN:-}" ]]; then
-  echo "MCP-SWTR TOKEN is not configured (TOKEN, SWTR_TOKEN, .env or ~/.config/swtr/api_key)" >&2
+  echo "MCP-SWTR TOKEN is not configured (TOKEN, SWTR_TOKEN or explicit MCP .env)" >&2
   exit 3
 fi
 
 if [[ -z "${BASE_URL:-}" ]]; then
-  BASE_URL="https://portal.works.prod.sbt/swtr"
+  echo "MCP-SWTR BASE_URL is not configured (BASE_URL or SWTR_MCP_BASE_URL)" >&2
+  exit 4
 fi
 
 export TOKEN
