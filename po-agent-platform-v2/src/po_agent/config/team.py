@@ -27,7 +27,7 @@ class TeamMember(BaseModel):
 class SprintConfig(BaseModel):
     """Represents a sprint configuration."""
 
-    id: str = Field(..., description="Sprint ID (e.g., WMB-SPRNT-4)")
+    id: str = Field(..., description="Sprint ID (e.g., PRD1-SPRNT-4)")
     name: str = Field(..., description="Sprint name")
     start_date: str = Field(..., description="Start date (YYYY-MM-DD)")
     end_date: str = Field(..., description="End date (YYYY-MM-DD)")
