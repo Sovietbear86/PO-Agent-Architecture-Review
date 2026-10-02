@@ -25,7 +25,7 @@ _CHALLENGE_RE = re.compile(
 )
 _EXPLICIT_CORRECTION_RE = re.compile(
     r"(?:я\s+имел(?:а)?\s+в\s+виду|под\s+.+?\s+я\s+имел|точно\s+есть|"
-    r"существует|есть\s+такая|DMS-SPRNT-\d+|OLP-SPRNT-\d+|WMB-SPRNT-\d+|последн(?:ий|его)\s+заверш)",
+    r"существует|есть\s+такая|\b[A-Z][A-Z0-9_-]*-SPRNT-\d+\b|последн(?:ий|его)\s+заверш)",
     re.I,
 )
 _NEGATIVE_WARNING_RE = re.compile(
