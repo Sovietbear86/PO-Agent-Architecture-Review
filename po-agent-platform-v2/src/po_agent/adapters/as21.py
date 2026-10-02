@@ -22,7 +22,7 @@ class AS21Adapter(ABC):
         """Get a single task by its key.
 
         Args:
-            task_key: Task identifier (e.g., WMB-123)
+            task_key: Task identifier (e.g., PRD1-123)
 
         Returns:
             Task if found, None otherwise
