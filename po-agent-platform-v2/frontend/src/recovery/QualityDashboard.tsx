@@ -5,6 +5,13 @@ import { ResultStatePanel } from '../components/ResultStatePanel'
 import { classifyResult, getCapabilityData, stateAllowsBusinessData } from './resultState'
 import { SnapshotRefresh, useSessionState, useSnapshotHarness } from './pageSnapshot'
 
+const PRODUCT_LABELS = String(import.meta.env.VITE_PRODUCT_LABELS || 'PRD1,PRD2')
+  .split(',')
+  .map((value: string) => value.trim())
+  .filter(Boolean)
+const DEFAULT_SPACE = PRODUCT_LABELS[0] || 'PRD1'
+const DEFAULT_TASK_KEY = `${DEFAULT_SPACE}-101`
+
 type WorkspaceContext = { openAgent(): void }
 type Row = Record<string, unknown>
 
@@ -18,12 +25,12 @@ function Metric({ label, value, hint }: { label: string; value: string | number;
 
 export function QualityDashboard() {
   const { openAgent } = useOutletContext<WorkspaceContext>()
-  const [taskKey, setTaskKey] = useSessionState('quality.taskKey', 'WMB-102')
-  const [submitted, setSubmitted] = useSessionState('quality.submitted', 'WMB-102')
+  const [taskKey, setTaskKey] = useSessionState('quality.taskKey', DEFAULT_TASK_KEY)
+  const [submitted, setSubmitted] = useSessionState('quality.submitted', DEFAULT_TASK_KEY)
   const [agingDays, setAgingDays] = useSessionState('quality.agingDays', '7')
   const [agingSubmitted, setAgingSubmitted] = useSessionState('quality.agingSubmitted', '7')
-  const [agingSpace, setAgingSpace] = useSessionState('quality.agingSpace', 'WMB')
-  const [agingSpaceSubmitted, setAgingSpaceSubmitted] = useSessionState('quality.agingSpaceSubmitted', 'WMB')
+  const [agingSpace, setAgingSpace] = useSessionState('quality.agingSpace', DEFAULT_SPACE)
+  const [agingSpaceSubmitted, setAgingSpaceSubmitted] = useSessionState('quality.agingSpaceSubmitted', DEFAULT_SPACE)
   const [taskRefreshNonce, setTaskRefreshNonce] = useState(0)
   const [agingRefreshNonce, setAgingRefreshNonce] = useState(0)
 
@@ -92,7 +99,7 @@ export function QualityDashboard() {
     <div className="page-heading"><div><h1>Качество</h1><p>Качество постановки, критерии приёмки, пробелы и team-scoped aging</p></div><div className="page-heading-actions"><SnapshotRefresh updatedAt={[qualityQ.updatedAt, missingQ.updatedAt, acceptanceQ.updatedAt]} refreshing={qualityQ.refreshing || missingQ.refreshing || acceptanceQ.refreshing} refreshError={qualityQ.refreshError || missingQ.refreshError || acceptanceQ.refreshError} onRefresh={() => setTaskRefreshNonce(value => value + 1)} /><button className="primary-button" onClick={openAgent}>Спросить PO Agent</button></div></div>
 
     <form className="panel entity-toolbar" onSubmit={submitTask}>
-      <div><span>Задача</span><input value={taskKey} onChange={e => setTaskKey(e.target.value)} placeholder="WMB-102" /></div>
+      <div><span>Задача</span><input value={taskKey} onChange={e => setTaskKey(e.target.value)} placeholder={DEFAULT_TASK_KEY} /></div>
       <button type="submit">Проверить</button>
     </form>
 
@@ -130,7 +137,7 @@ export function QualityDashboard() {
     <div className="panel aging-panel">
       <div className="panel-title"><strong>Aging queue</strong><span>{stateAllowsBusinessData(agingState) ? (gd.count ?? '—') : '—'}</span></div>
       <form className="aging-toolbar" onSubmit={submitAging}>
-        <label>Пространство <select value={agingSpace} onChange={e => setAgingSpace(e.target.value)}><option value="WMB">WMB</option><option value="DMS">DMS</option><option value="OLP">OLP</option><option value="CRPV">CRPV</option><option value="STS">STS</option></select></label>
+        <label>Пространство <select value={agingSpace} onChange={e => setAgingSpace(e.target.value)}>{PRODUCT_LABELS.map(product => <option key={product} value={product}>{product}</option>)}</select></label>
         <label>Старше <input value={agingDays} onChange={e => setAgingDays(e.target.value)} inputMode="numeric" /> дней</label>
         <button type="submit">Обновить</button>
       </form>
