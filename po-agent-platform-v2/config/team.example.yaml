@@ -1,0 +1,29 @@
+team:
+  name: "Example Product Team"
+  description: "Replace with your team description"
+  domain: "prd1"
+
+sprints:
+  current:
+    id: "PRD1-SPRNT-1"
+    name: "Sprint 1"
+    start_date: "2026-10-01"
+    end_date: "2026-10-14"
+    goal: "Example sprint"
+
+members:
+  - login: "Ivanov.I.I"
+    name: "Иванов Иван Иванович"
+    role: "Developer"
+    capacity_hours: 40
+    skills: [Python, FastAPI]
+    team_affiliation: "backend"
+
+capacity:
+  weekly_hours: 40
+  sprint_capacity_hours: 80
+
+settings:
+  velocity_history_sprints: 6
+  max_tasks_per_member: 8
+  min_tasks_per_member: 2
