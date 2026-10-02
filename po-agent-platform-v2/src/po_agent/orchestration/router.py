@@ -250,7 +250,7 @@ class DeterministicIntentRouter:
         """
         entities = []
 
-        # Sprint pattern: DMS-SPRNT-1, "текущий спринт", "нынешний спринт", etc.
+        # Sprint pattern: PRD1-SPRNT-1, "текущий спринт", "нынешний спринт", etc.
         # Priority order: exact matches first
         sprint_patterns = [
             r"текущий\s*спринт",
@@ -278,7 +278,7 @@ class DeterministicIntentRouter:
                 value=sprint_id_match.group(0),
             ))
 
-        # Release pattern: DMS-2024-Q3, REL-*, etc.
+        # Release pattern: PRD1-RELEASE-1, REL-*, etc.
         release_pattern = r"(?:REL[-\w]+|2024-Q\d)"
         release_match = re.search(release_pattern, query_lower, re.IGNORECASE)
         if release_match:
@@ -287,7 +287,7 @@ class DeterministicIntentRouter:
                 value=release_match.group(0),
             ))
 
-        # Task key pattern: WMB-123
+        # Task key pattern: PRD1-123
         task_key_pattern = r"[A-Z]+-\d+"
         task_keys = re.findall(task_key_pattern, query_lower)
         for task_key in task_keys[:2]:  # Limit to first 2
@@ -296,15 +296,11 @@ class DeterministicIntentRouter:
                 value=task_key,
             ))
 
-        # Member pattern (common Russian surnames + team members from config)
-        # Surnames: Kalachanov, Garanin, Agataeva, Alekseev, Galtsov, Dolgovskoy, 
-        # Kondratchikova, Kryukov, Makoshina, Moiseev, Semavin, Goncharov, Reshetnik,
-        # Kuznetsov, Bezrukov, Shaldunov
+        # Generic member patterns. Canonical identity resolution belongs to the
+        # configured/source-backed team directory, not to surname hardcodes.
         member_patterns = [
-            r"(?:Иванов|Петров|Сидоров|Смирнов|Кузнецов|Попов|Васильев|Михайлов|"
-            r"Калачанов|Гаранин|Агатаева|Алексеев|Гальцов|Долговской|Кондратчикова|"
-            r"Крюков|Макошина|Моисеев|Семавин|Гончаров|Решетник|Кузнецов|Безруков|Шалдунов)",
-            r"[А-Я][а-я]+\.[А-Я]\.\s*[А-Я][а-я]+",  # Initials format
+            r"(?:задач[аиуы]?|у|для)\s+([А-ЯЁ][а-яё]{2,}|[A-Z][a-z]{2,})",
+            r"[A-Za-zА-Яа-яЁё]+\.[A-ZА-Я]\.?(?:[A-ZА-Я]\.)?",
         ]
 
         for pattern in member_patterns:
