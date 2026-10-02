@@ -1,0 +1,25 @@
+schema_version: 3
+members:
+  - id: Ivanov.I.I
+    login: Ivanov.I.I
+    full_name: Иванов Иван Иванович
+    products: [PRD1]
+    team_role: Developer
+    professional_profile: Backend developer
+    competencies: [Python, FastAPI, PostgreSQL]
+
+  - id: Petrova.A.A
+    login: Petrova.A.A
+    full_name: Петрова Анна Андреевна
+    products: [PRD1, PRD2]
+    team_role: Analyst
+    professional_profile: Product and system analyst
+    competencies: [Аналитика, SQL, Документация]
+
+  - id: Sidorov.P.P
+    login: Sidorov.P.P
+    full_name: Сидоров Пётр Павлович
+    products: [PRD2]
+    team_role: QA Engineer
+    professional_profile: Test engineer
+    competencies: [Тестирование, Python, Нагрузочное тестирование]
