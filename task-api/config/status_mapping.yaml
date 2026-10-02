@@ -1,215 +1,64 @@
-# Сопоставление кодов статусов SWTR с локальными статусами AS21
-# Источник: workflow_statuses.yaml
-
-# Ключ: код статуса из SWTR (из атрибута workflow_status.value.code)
-# Значение: локальный статус (todo, in_progress, done) и имя для отображения
+# Generic status normalization for the community distribution.
+# Prefer source statusType/status text. Add deployment-specific codes only in
+# your private configuration if your AS21 workflow requires them.
 
 status_mapping:
-  # Closed statuses
-  closed:
-    local_status: done
-    display_name: "Закрыт"
-    category: completed
-  CLSD_YLquKLRWNLxhnnC:
-    local_status: done
-    display_name: "Closed"
-    category: completed
-
-  # Resolved statuses
-  resolved:
-    local_status: done
-    display_name: "Решен"
-    category: completed
-  RSLVD_iDxZrfBaaZfOTL:
-    local_status: done
-    display_name: "Resolved"
-    category: completed
-
-  # In progress statuses
-  "in_progress":
-    local_status: in_progress
-    display_name: "В работе"
-    category: active_work
-  started:
-    local_status: in_progress
-    display_name: "Запущено"
-    category: active_work
-  NPRGRS_isFIvnhYcKLkj:
-    local_status: in_progress
-    display_name: "In progress"
-    category: active_work
-  NRVW_flliPvtmmflZJSi:
-    local_status: in_progress
-    display_name: "In review"
-    category: review
-  Q_ymlStTGiWDtKMqTySr:
-    local_status: in_progress
-    display_name: "QA"
-    category: testing
-
-  # Waiting / Blocked statuses
-  "Need info":
-    local_status: todo
-    display_name: "Требуется информация"
-    category: waiting
-  NDNF_hrFjrvcMrJRqBUB:
-    local_status: todo
-    display_name: "Need info"
-    category: waiting
-  ZRGSTR_JEPgizwlJWGww:
-    local_status: todo
-    display_name: "Зарегистрирован"
-    category: backlog
-
-  # Open statuses
-  PN_wZbmKlgyPwHIFYZAN:
+  open:
     local_status: todo
     display_name: "Open"
     category: backlog
 
-  # Ready for review
-  RDFR_asxQMlBcBZiouip:
+  in_progress:
+    local_status: in_progress
+    display_name: "In progress"
+    category: active_work
+
+  "In progress":
+    local_status: in_progress
+    display_name: "In progress"
+    category: active_work
+
+  "Need info":
+    local_status: todo
+    display_name: "Need info"
+    category: waiting
+
+  "Ready for review":
     local_status: todo
     display_name: "Ready for review"
     category: review_queue
 
-  # Ready for QA
-  RDFR_NiewJYNruxzlMLq:
+  "In review":
+    local_status: in_progress
+    display_name: "In review"
+    category: review
+
+  "Ready for QA":
     local_status: todo
     display_name: "Ready for QA"
     category: qa_queue
 
-  # QA
-  qa:
+  QA:
     local_status: in_progress
-    display_name: "Тестирование"
+    display_name: "QA"
     category: testing
 
-  # Cancelled
-  CNCLLD_sGZCjxXGNmqTu:
-    local_status: todo
+  Resolved:
+    local_status: done
+    display_name: "Resolved"
+    category: completed_pending
+
+  Closed:
+    local_status: done
+    display_name: "Closed"
+    category: completed
+
+  Cancelled:
+    local_status: done
     display_name: "Cancelled"
     category: cancelled
 
-  # Reopened
-  REOPENED:
-    local_status: in_progress
-    display_name: "Переоткрыта"
-    category: active_work
-
-  # CRPV statuses
-  backlog:
-    local_status: todo
-    display_name: "Черновик"
-    category: backlog
-  planning:
-    local_status: todo
-    display_name: "Планирование"
-    category: planning
-  need_discovery:
-    local_status: todo
-    display_name: "Требует анализа"
-    category: waiting
-  на_экспресс_оценке:
-    local_status: todo
-    display_name: "На экспресс-оценке"
-    category: waiting
-  экспресс_оценка_получена:
-    local_status: todo
-    display_name: "Экспресс-оценка получена"
-    category: waiting
-  ready_to_development:
-    local_status: todo
-    display_name: "Готов к разработке"
-    category: backlog
-  BKLG_dUlfEypttblkBvP:
-    local_status: todo
-    display_name: "Backlog"
-    category: backlog
-  DN_mufbufuXXMHvbHPJb:
-    local_status: in_progress
-    display_name: "В работе"
-    category: active_work
-  DRFT_YlusjLBMlyDdMla:
-    local_status: todo
-    display_name: "Черновик"
-    category: backlog
-  RDFR_aNQSySeLUupRZzl:
-    local_status: todo
-    display_name: "Ready for review"
-    category: review_queue
-  GTV_PthReTdXOmlkpGGG:
-    local_status: done
-    display_name: "Готово"
-    category: completed
-  D_rSxCgSKxYYvjyujbJe:
-    local_status: todo
-    display_name: "Неизвестный статус"
-    category: unknown
-
-# Fallback для неизвестных статусов
 fallback_mapping:
-  # Статусы с statusType: "done" -> done
   done: done
-  # Статусы с statusType: "in_progress" -> in_progress  
   in_progress: in_progress
-  # STS statuses
-  PN_xySDTWtJOhUePFpLX:
-    local_status: todo
-    display_name: "Open (STS)"
-    category: backlog
-  PRBLMN_ZghEqKJlAzmUx:
-    local_status: in_progress
-    display_name: "In progress (STS)"
-    category: active_work
-  CNCLLD_KdSyKcQZDXagZ:
-    local_status: done
-    display_name: "Cancelled (STS)"
-    category: cancelled
-  TKRT_ADBwyXrZkGomsLb:
-    local_status: todo
-    display_name: "Unknown (STS)"
-    category: unknown
-  NPRVLN_IWabzIZKVLakQ:
-    local_status: todo
-    display_name: "Review queue (STS)"
-    category: review_queue
-  VCHRD_StSeYYuJOJETLf:
-    local_status: in_progress
-    display_name: "Testing (STS)"
-    category: testing
-  NLZPR_KeDzRVcVYfbBmA:
-    local_status: todo
-    display_name: "Ready for review (STS)"
-    category: review_queue
-  NPRGRS_pCjkadCKRetgB:
-    local_status: in_progress
-    display_name: "In progress (STS)"
-    category: active_work
-  CLSD_fcbOheeIXkmKDVj:
-    local_status: done
-    display_name: "Closed (STS)"
-    category: completed
-  PSD_sGDubPwIYfGTnzvQ:
-    local_status: todo
-    display_name: "Waiting (STS)"
-    category: waiting
-  CNCLD_zpsREmvRWcXUOz:
-    local_status: todo
-    display_name: "Cancelled (STS)"
-    category: cancelled
-  DLD_wQiPNntFtlPQStJG:
-    local_status: todo
-    display_name: "On hold (STS)"
-    category: waiting
-  PBLSHD_ANnEKtHCvosJu:
-    local_status: done
-    display_name: "Published (STS)"
-    category: completed
-  DN_mufbufuXXMHvbHPJb:
-    local_status: in_progress
-    display_name: "В работе"
-    category: active_work
-
-  # Остальные -> todo
   other: todo
