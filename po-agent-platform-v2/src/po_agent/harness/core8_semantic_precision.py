@@ -10,6 +10,7 @@ import re
 from typing import Any
 
 from .dialogue_runtime import ClarificationNeed, SemanticFrame, SemanticInterpreter
+from .production_entity_grounding_v2 import APPROVED_PRODUCT_SPACES
 
 
 class Core8SemanticPrecisionInterpreter:
@@ -20,13 +21,13 @@ class Core8SemanticPrecisionInterpreter:
     _HEALTH = ("здоров", "готовност", "health", "readiness")
     _VELOCITY = ("velocity", "велосит", "скорост", "производительност")
     _SPRINT_ID_RE = re.compile(r"\b[A-ZА-Я][A-ZА-Я0-9_]{1,15}-SPRNT-\d+\b", re.I)
-    # Do not match the SPRNT-1 suffix inside DMS-SPRNT-1 as a task key.
+    # Do not match the SPRNT-1 suffix inside PRD1-SPRNT-1 as a task key.
     _TASK_ID_RE = re.compile(r"(?<!-)\b[A-ZА-Я][A-ZА-Я0-9_]{1,15}-\d+(?![-A-ZА-Я0-9_])\b", re.I)
     _TASK_WORD_RE = re.compile(r"\b(?:задач(?:а|и|у|е|ей|ам|ами|ах)?|task|tasks)\b", re.I)
     # Natural Russian ownership/assignee wording is common in PO queries:
-    # "задачи Гаранина", "задачи Родиона Гаранина", "что у Гаранина в работе".
+    # "задачи Иванова", "задачи Ивана Иванова", "что у Иванова в работе".
     # Preserve the raw human mention for source-backed entity grounding instead
-    # of requiring artificial wording such as "исполнитель Гаранин".
+    # of requiring artificial wording such as "исполнитель Иванов".
     _TASK_PERSON_RE = re.compile(
         r"\bзадач(?:а|и|у|е|ей|ам|ами|ах)?\s+"
         r"([А-ЯЁ][а-яё-]+(?:\s+[А-ЯЁ][а-яё-]+){0,2})\b"
@@ -34,10 +35,7 @@ class Core8SemanticPrecisionInterpreter:
     _OWNERSHIP_PERSON_RE = re.compile(
         r"\bу\s+([А-ЯЁ][а-яё-]+(?:\s+[А-ЯЁ][а-яё-]+){0,2})\b"
     )
-    _PRODUCT_MARKERS = {
-        "OLP": (r"\bolp\b", r"\bolap\b", r"\bolap analytics\b"),
-        "DMS": (r"\bdms\b", r"\bdatamarts\b", r"\bdata marts\b"),
-    }
+    _PRODUCT_MARKERS: dict[str, tuple[str, ...]] = {}
 
     def __init__(self, delegate: SemanticInterpreter) -> None:
         self.delegate = delegate
@@ -50,9 +48,11 @@ class Core8SemanticPrecisionInterpreter:
     def _products(cls, query: str) -> tuple[str, ...]:
         low = query.casefold()
         found: list[str] = []
-        for product, patterns in cls._PRODUCT_MARKERS.items():
-            if any(re.search(pattern, low, re.I) for pattern in patterns):
-                found.append(product)
+        # Community mode treats configured product codes as deployment data.
+        # Match only explicit configured codes here; aliases are resolved later
+        # by the source/config grounding layer.
+        tokens = {token.upper() for token in re.findall(r"\b[A-Za-zА-Яа-я0-9_-]+\b", query)}
+        found.extend(sorted(tokens & set(APPROVED_PRODUCT_SPACES)))
         return tuple(found)
 
     @classmethod
@@ -87,9 +87,11 @@ class Core8SemanticPrecisionInterpreter:
     def _explicit_product_scope(cls, query: str) -> bool:
         low = query.casefold()
         # Product is an independent task filter only when wording explicitly
-        # frames it as product/space scope. A token such as "OLP 4" may merely
-        # be sprint shorthand and must not add a second hidden filter.
-        return bool(re.search(r"\b(?:по|продукт(?:е|а|у)?|пространств(?:е|а|у|о)?)\s+(?:olap|olp|dms|datamarts|data\s+marts)\b", low, re.I))
+        # frames it as product/space scope. Product codes themselves come from
+        # deployment configuration, not from this semantic wrapper.
+        if not cls._products(query):
+            return False
+        return bool(re.search(r"\b(?:по|продукт(?:е|а|у)?|пространств(?:е|а|у|о)?)\b", low, re.I))
 
     async def interpret(self, query: str, *, context: dict[str, Any] | None = None) -> SemanticFrame:
         frame = await self.delegate.interpret(query, context=context)
@@ -120,7 +122,7 @@ class Core8SemanticPrecisionInterpreter:
             intent = "sprint_current"
 
         # Explicit source sprint IDs are atomic identifiers. The provider may
-        # incorrectly shorten DMS-SPRNT-1 to SPRNT-1 or even classify it as a
+        # incorrectly shorten PRD1-SPRNT-1 to SPRNT-1 or even classify it as a
         # task key. Preserve the exact raw identifier here; the grounder still
         # validates it against source-backed evidence before execution.
         explicit_sprints = self._explicit_sprint_ids(query)
