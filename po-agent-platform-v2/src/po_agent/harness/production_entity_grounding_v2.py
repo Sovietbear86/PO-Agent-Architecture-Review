@@ -6,8 +6,12 @@ if grounding cannot prove it, execution must stop for clarification.
 """
 from __future__ import annotations
 
+import os
 import re
+from pathlib import Path
 from typing import Any
+
+import yaml
 
 from po_agent.domain.models import TaskStatus
 
@@ -15,7 +19,30 @@ from .dialogue_runtime import ClarificationNeed, SemanticFrame
 from .live_entity_grounding import LiveGroundedEntityResolver
 
 
-APPROVED_PRODUCT_SPACES = frozenset({"WMB", "STS", "OLP", "DMS", "CRPV"})
+def _configured_product_spaces() -> set[str]:
+    """Load product/space codes from products.yaml.
+
+    Community distribution treats product spaces as deployment configuration,
+    never as an Agent Core constant. A restart is required after config changes.
+    """
+    configured = os.getenv("PRODUCTS_CONFIG_PATH")
+    candidates = [
+        Path(configured).expanduser() if configured else None,
+        Path(os.getcwd()) / "task-api" / "config" / "products.yaml",
+        Path(os.getcwd()).parent / "task-api" / "config" / "products.yaml",
+    ]
+    for path in candidates:
+        if path is None or not path.exists():
+            continue
+        with path.open("r", encoding="utf-8") as stream:
+            data = yaml.safe_load(stream) or {}
+        products = data.get("products") if isinstance(data, dict) else None
+        if isinstance(products, dict):
+            return {str(code).strip().upper() for code in products if str(code).strip()}
+    return set()
+
+
+APPROVED_PRODUCT_SPACES = frozenset(_configured_product_spaces())
 
 
 def _tokens(value: str) -> tuple[str, ...]:
