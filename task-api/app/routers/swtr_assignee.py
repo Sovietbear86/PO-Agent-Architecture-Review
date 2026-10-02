@@ -8,8 +8,12 @@ production adapter.
 """
 from __future__ import annotations
 
+import os
 import re
+from pathlib import Path
 from typing import Any
+
+import yaml
 
 from fastapi import APIRouter, HTTPException, Query
 
@@ -26,7 +30,26 @@ from app.routers.swtr_read import (
 )
 
 router = APIRouter(prefix="/api/v1/swtr-read", tags=["swtr-read"])
-_ALLOWED_SPACES = frozenset({"WMB", "STS", "OLP", "DMS", "CRPV"})
+
+
+def _configured_spaces() -> frozenset[str]:
+    configured = os.getenv("PRODUCTS_CONFIG_PATH")
+    candidates = [
+        Path(configured).expanduser() if configured else None,
+        Path(__file__).resolve().parents[2] / "config" / "products.yaml",
+    ]
+    for path in candidates:
+        if path is None or not path.exists():
+            continue
+        with path.open("r", encoding="utf-8") as stream:
+            data = yaml.safe_load(stream) or {}
+        products = data.get("products") if isinstance(data, dict) else None
+        if isinstance(products, dict):
+            return frozenset(str(code).strip().upper() for code in products if str(code).strip())
+    return frozenset()
+
+
+_ALLOWED_SPACES = _configured_spaces()
 
 
 def _raw_attribute_entries(row: dict[str, Any]) -> list[tuple[str, Any]]:
