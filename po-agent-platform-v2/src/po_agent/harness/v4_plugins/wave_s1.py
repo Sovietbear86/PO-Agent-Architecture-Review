@@ -303,7 +303,7 @@ def build_release_search(runtime: Any):
 
         if space is None:
             raise V4NeedsClarification(
-                "Укажите продуктовое пространство релиза (например, WMB, OLP или DMS)."
+                "Укажите продуктовое пространство релиза (например, PRD1 или PRD2)."
             )
 
         require_single = str(args.get("require_single") or "").strip().casefold() in {
@@ -403,7 +403,7 @@ SKILLS = (
         (
             "If the user supplied a sprint id, validate it with sprint.resolve.",
             "If the user supplied a month/period, resolve it with space.resolve + sprint.search.",
-            "If the user supplied only a product/space (for example 'scope sprint DMS') or explicitly asks for the current sprint, use space.resolve + sprint.current.",
+            "If the user supplied only a product/space (for example 'scope sprint PRD1') or explicitly asks for the current sprint, use space.resolve + sprint.current.",
             "Then call sprint.scope with the resolved sprint_id; identity-only observations must not terminate the metric request.",
         ),
         ("space.resolve", "sprint.resolve", "sprint.search", "sprint.current", "sprint.scope"),
@@ -450,7 +450,7 @@ SKILLS = (
             "For a direct single-release identity request such as 'релиз <name> в <space>', release.search itself is the terminal deliverable: after the source-backed identity observation use READY and do not invent scope/health/progress/risk analysis.",
             "When another explicitly requested analytical skill needs exactly one release, use require_single=true so ambiguity becomes typed clarification, then continue to that requested analytical skill.",
             "After resolving a release for an explicitly requested analytical goal, continue only to that analytical skill; release.search alone is identity/directory output, not a reason to add extra analysis.",
-            "Never treat a product space such as DMS as a release id.",
+            "Never treat a product space such as PRD1 as a release id.",
         ),
         ("space.resolve", "release.search"),
         completion=(CompletionRequirement("release.search", data_keys=("releases", "count")),),
