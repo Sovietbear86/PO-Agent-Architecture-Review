@@ -1,111 +1,106 @@
 # GigaCode — Current Action
 
-## ACTIVE: Assignment A229F2R — created-period + status re-gate
+## ACTIVE: Assignment A229F2R2 — created-period + status re-gate
 
-Role: QA/adversarial tester only. Do not modify production/plugin/frontend/backend/test code.
+Role: QA/adversarial tester only. Do not modify code.
 
-Owner change is intentionally plugin-only:
-- `task.search_created` now accepts optional `status`;
-- existing generic typed status matcher is reused;
-- Core/planner/runtime/session files must remain unchanged.
+Previous A229F2R RED was test-only:
+- invalid `TaskStatus.DONE` in the new test fixture;
+- no production/plugin/Core defect was proven;
+- owner changed only the test to use real terminal enum values.
 
-## P0 — integrity
+## P0 — integrity / retained test gate
 
 1. Pull current `feat/core8-real-query-hardening-v2`; record START_HEAD and clean worktree.
-2. Prove stable Core/Harness/API session files are byte-identical to stable checkpoint `checkpoint/v4-stable-product-a229f1r2@9d71a795...`:
-   - `src/po_agent/harness/contracts.py`
-   - `src/po_agent/harness/agent_core_v4.py`
-   - `src/po_agent/harness/agent_core_v4_robust.py`
-   - `src/po_agent/api/v1/__init__.py`
-3. Run focused created-period tests including new status cases.
+2. Prove stable Core/Harness/API session files are byte-identical to `checkpoint/v4-stable-product-a229f1r2@9d71a795...`.
+3. Run focused created-period tests, including:
+   - explicit period;
+   - relative period;
+   - open + period;
+   - in-progress + period;
+   - missing created_at provenance fail-closed.
 4. Run plugin registry/catalog tests and full V4 blast-radius.
-5. Any unexplained regression => RED STOP.
+5. Any production/plugin/Core failure => RED STOP.
+6. A failure caused only by a new test fixture must still be reported, not auto-fixed.
 
-## P1 — manual PO case: OPEN + created period
+## P1 — OPEN + created period
 
 Query:
 `Открытые задачи Калачанова в пространстве STS созданные за последние 5 дней`
 
-Immediately build an independent REAL AS21 oracle over the bounded canonical Kalachanov+STS corpus:
-- authoritative source created_at;
+Build a fresh independent REAL AS21 oracle over canonical Kalachanov+STS:
+- authoritative created_at;
 - window = 00:00 Europe/Moscow of current_day-4 through execution time;
-- task.is_open / canonical not-completed semantics.
+- canonical not-completed/open semantics.
 
 Run 5 times.
 
-Require all 5:
-- planner selects `task.search_created` as the terminal task-collection capability;
-- arguments preserve raw `created_period="последние 5 дней"`, person, space=STS, and explicit open/not-completed status;
-- no separate `task.search_status` terminal hop is needed;
-- exact task-key/count parity vs oracle;
-- every returned task is inside the created window AND open/not-completed;
-- 0 false zero;
-- 0 local factual fallback;
-- 0 tenant-wide scans.
+Require:
+- terminal capability = `task.search_created`;
+- raw created_period preserved;
+- person + STS + explicit open/not-completed status preserved;
+- no separate terminal `task.search_status`;
+- exact task-key/count parity 5/5;
+- every result satisfies BOTH period and open constraints;
+- 0 false zero / local factual fallback / tenant-wide scan.
 
 ## P2 — IN_PROGRESS + created period
 
 Query:
 `Задачи Калачанова в работе в пространстве STS созданные за последние 5 дней`
 
-Build fresh independent oracle with canonical IN_PROGRESS semantics.
+Fresh independent canonical IN_PROGRESS oracle.
 
 Run 3 times.
 
 Require:
-- single `task.search_created` capability with status preserved;
+- one `task.search_created` capability carrying status;
 - exact key parity;
-- no status loss and no broadening to all open tasks.
+- no broadening to all open tasks.
 
-## P3 — recency wording must not invent workflow status
+## P3 — recency wording without invented workflow state
 
 Query:
 `Новые задачи Калачанова в STS за последние 5 дней`
 
-Interpretation under the skill contract:
-- "за последние 5 дней" is the explicit creation-period constraint;
-- do NOT fabricate workflow status=New unless the planner has an explicit user-requested workflow-state signal.
+Require:
+- creation-period semantics are preserved;
+- no workflow status=New is invented solely from `новые`;
+- terminal capability = `task.search_created` OR typed clarification if genuinely ambiguous;
+- malformed/fail-closed trajectory due to artificial status composition is RED;
+- if completed, exact parity with created-period-only oracle.
 
 Run 3 times.
 
-Require:
-- terminal `task.search_created`;
-- period/person/space preserved;
-- no invented workflow status solely from the adjective `новые`;
-- exact parity with created-period-only oracle for the same window.
+## P4 — retained A229F1R2
 
-If the planner legitimately requests clarification rather than inventing a status, document it; a fabricated status or malformed trajectory is RED.
+One live run each:
+- explicit range;
+- plain relative period;
+plus fixture control for missing authoritative created_at.
 
-## P4 — retained created-period certification
+Require retained semantics.
 
-One run each:
-- explicit period `с 29.09.2026 по 01.10.2026`;
-- relative plain period `созданные за последние 2 дня`;
-- missing authoritative created_at fixture -> fail closed.
-
-Require retained A229F1R2 semantics.
-
-## P5 — architecture/source audit
+## P5 — architecture audit
 
 Require:
 - canonical 54 unchanged;
-- `task.search_created` remains plugin-owned extra capability;
-- 0 Core/planner/session modifications;
-- no surname/STS/5-days special implementation branch;
-- no phrase-specific router;
-- no local date/status factual cache;
-- source scan remains bounded by person and/or space.
+- plugin-only extension;
+- 0 Core/planner/runtime/session changes;
+- no surname/STS/5-day special route;
+- no phrase router;
+- bounded source read;
+- existing generic status matcher is used.
 
 ## Verdict
 
 Exactly one:
-- `AGENT_CORE_V4_CREATED_PERIOD_STATUS_GREEN_A229F2R`
-- `AGENT_CORE_V4_CREATED_PERIOD_STATUS_RED_A229F2R`
+- `AGENT_CORE_V4_CREATED_PERIOD_STATUS_GREEN_A229F2R2`
+- `AGENT_CORE_V4_CREATED_PERIOD_STATUS_RED_A229F2R2`
 
 If GREEN:
-- recommend checkpoint `checkpoint/v4-created-period-status-green-a229f2r`;
-- owner may then sync the certified plugin change to `PO-Agent-Architecture-Public`;
-- return to the stabilized release-hardening roadmap.
+- recommend checkpoint `checkpoint/v4-created-period-status-green-a229f2r2`;
+- owner may sync this certified plugin change to the public/community repo.
 
 If RED:
 - preserve first failing boundary and STOP.
