@@ -25,7 +25,7 @@ def _task(
     status: TaskStatus = TaskStatus.OPEN,
 ) -> Task:
     is_progress = status == TaskStatus.IN_PROGRESS
-    is_completed = status in {TaskStatus.CLOSED, TaskStatus.DONE}
+    is_completed = status in {TaskStatus.CLOSED, TaskStatus.CANCELLED, TaskStatus.RESOLVED}
     return Task(
         key=key,
         id=key,
