@@ -189,7 +189,8 @@ SKILLS = (
         (
             "Call task.search_created when the user constrains tasks by creation time/date.",
             "Pass created_period as the raw user wording exactly; do not invent ISO dates in the planner.",
-            "Preserve any grounded person reference, product space, and requested task status. For a created-period + status request, call this single capability with both created_period and status; do not split the request across task.search_created and task.search_status.",
+            "Preserve any grounded person reference, product space, and explicitly requested task status. For a created-period + status request, call this single capability with both created_period and status; do not split the request across task.search_created and task.search_status.",
+            "When recency is already expressed through created_period (for example 'новые задачи ... за последние N дней' / 'new tasks from the last N days'), do not invent a workflow status such as New unless the user explicitly requests a workflow/task state.",
             "The capability owns date parsing and typed status filtering; it filters only source-backed created_at and missing source timestamps fail closed rather than becoming false exclusions.",
         ),
         ("task.search_created",),
