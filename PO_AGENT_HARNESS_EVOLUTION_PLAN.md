@@ -1735,3 +1735,21 @@ Regression coverage now includes:
 - retained fail-closed timestamp provenance.
 
 Next gate: A229F2R. Public/community distribution must not receive this change until the private/product re-gate is GREEN.
+
+
+### A229F2R RED closure — test-only enum typo
+
+A229F2R stopped at P0 before any live parity phases.
+
+Root cause:
+- the new test helper referenced non-existent `TaskStatus.DONE`;
+- canonical TaskStatus has `RESOLVED`, `CLOSED`, `CANCELLED` terminal values;
+- this caused an AttributeError in the test fixture before the created-period+status logic executed;
+- Core integrity remained GREEN/byte-identical;
+- production/plugin code was not implicated.
+
+Owner correction:
+- test-only change: terminal fixture classification now uses `CLOSED/CANCELLED/RESOLVED`;
+- no production/plugin/Core/runtime/session changes.
+
+Next: A229F2R2 re-runs from P0, then proceeds to the original live P1-P5 matrix if P0 is GREEN.
