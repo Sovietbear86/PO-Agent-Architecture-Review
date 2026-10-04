@@ -1806,3 +1806,36 @@ Checkpoint:
 The certified plugin delta has been synchronized into the public/community repository. Public CI must remain GREEN before this sync is considered released.
 
 Return to stabilized release-hardening roadmap; no further functional expansion is active by default.
+
+
+### Public/community sync after A229F2R3 — GREEN
+
+The certified A229F2R3 plugin delta was synchronized to:
+`Sovietbear86/PO-Agent-Architecture-Public`
+
+Public Community CI is GREEN on the sync HEAD:
+- sanitization GREEN;
+- backend GREEN;
+- frontend build GREEN.
+
+The public repository now includes the certified created-period + status behavior, including the fixed semantic in-progress capability, with no Agent Core changes.
+
+### Resume A229R1 — latency verification only
+
+A229R1 is resumed from the current certified functional HEAD after A229F2R3.
+
+Important:
+- this phase is measurement/verification only;
+- no new production optimization is authorized;
+- low-risk remediation R1/R2/R3/R5 was already implemented before the functional pre-gates;
+- the purpose is to prove whether those changes materially reduced avoidable latency without regressing correctness/source authority.
+
+Already implemented changes under verification:
+- R1: sprint-only task.search reads the sprint corpus once;
+- R2: assignee + explicit space is pushed down into the Task API source query;
+- R3: UI snapshot fan-out is bounded to max 2 concurrent Agent trajectories;
+- R5: governed capability duration/outcome logging is available.
+
+R4 planner-turn reduction remains deferred. It must not be implemented during A229R1. If the measured result still shows unacceptable latency, A229R1 may only recommend a separate owner-controlled next step with quantified benefit/risk.
+
+Next active assignment: A229R1.
