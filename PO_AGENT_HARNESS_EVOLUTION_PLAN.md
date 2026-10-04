@@ -1784,3 +1784,25 @@ Regression coverage:
 - retained open/in-progress handler filtering tests remain.
 
 Next gate: A229F2R3. Focus P2 first; if GREEN, recheck P1/P3/P4 and architecture audit.
+
+
+### A229F2R3 GREEN — created-period + status certified
+
+Final result:
+- `AGENT_CORE_V4_CREATED_PERIOD_STATUS_GREEN_A229F2R3`;
+- P0 registry/integrity GREEN;
+- P1 blocking IN_PROGRESS + created-period = GREEN 5/5 through `task.search_created_in_progress`;
+- P2 OPEN + created-period retained GREEN 3/3;
+- P3 recency-only `Новые задачи ... за последние 5 дней` GREEN 5/5 without invented workflow status;
+- P4 retained explicit/relative period and missing-created_at fail-closed controls GREEN;
+- P5 architecture audit GREEN;
+- full V4 blast = 242/242;
+- canonical 54 unchanged;
+- Agent Core/Harness/API session files unchanged.
+
+Checkpoint:
+`checkpoint/v4-created-period-status-green-a229f2r3@aa78e52c9e311eb6e7f0357001afe5bc4843068a`
+
+The certified plugin delta has been synchronized into the public/community repository. Public CI must remain GREEN before this sync is considered released.
+
+Return to stabilized release-hardening roadmap; no further functional expansion is active by default.
