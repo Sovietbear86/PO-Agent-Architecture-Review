@@ -129,6 +129,7 @@ CAPABILITIES = (
             "created_period": "required raw user period wording, e.g. 'последние 2 дня' or 'с 29.09.2026 по 01.10.2026'",
             "reference": "optional natural person reference resolved source-backed inside the capability",
             "space": "optional grounded product space",
+            "status": "optional requested task status/open-completed-in-progress semantic state preserved from the user request",
         },
     ),
     CapabilitySpecV4(
@@ -188,8 +189,8 @@ SKILLS = (
         (
             "Call task.search_created when the user constrains tasks by creation time/date.",
             "Pass created_period as the raw user wording exactly; do not invent ISO dates in the planner.",
-            "Preserve any grounded person reference and/or product space.",
-            "The capability owns date parsing and filters only source-backed created_at; missing source timestamps fail closed rather than becoming false exclusions.",
+            "Preserve any grounded person reference, product space, and requested task status. For a created-period + status request, call this single capability with both created_period and status; do not split the request across task.search_created and task.search_status.",
+            "The capability owns date parsing and typed status filtering; it filters only source-backed created_at and missing source timestamps fail closed rather than becoming false exclusions.",
         ),
         ("task.search_created",),
         completion=(CompletionRequirement("task.search_created", data_keys=("count", "created_from", "created_to")),),
