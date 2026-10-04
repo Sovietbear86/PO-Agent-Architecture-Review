@@ -1702,3 +1702,36 @@ From this checkpoint onward, "progress" means:
 - exact key parity outranks prose/counts;
 - a RED stops the wave;
 - each meaningful GREEN wave gets a new checkpoint.
+
+
+### A229F2 — created-period + status composition (manual PO finding)
+
+Manual PO testing after the A229F1R2 created-period certification found a new composition boundary:
+
+- `Открытые задачи Калачанова в пространстве STS созданные за последние 5 дней` failed closed;
+- `Новые задачи Калачанова в STS за последние 5 дней` also failed closed.
+
+A229F1R2 itself remains valid: plain created-period search was certified 5/5 explicit + 5/5 relative with exact REAL AS21 parity. The new defect is the combination of creation period with task-state semantics.
+
+Root cause:
+- `task.search_created` accepted `created_period + reference + space`, but not `status`;
+- `task.search_status` separately accepted `status + reference + space`;
+- the planner therefore had to compose two task capabilities for a single bounded collection request, re-entering the known multi-constraint reliability boundary.
+
+Owner remediation is plugin-only:
+- added optional typed `status` to `task.search_created`;
+- the capability performs one bounded REAL AS21 read by person/space, validates source-backed `created_at`, applies the date predicate, then applies the existing generic typed status matcher;
+- status semantics reuse `_matches_requested_status` already certified by attachment/status flows;
+- explicit open/in-progress/completed constraints are preserved in one capability;
+- recency wording such as `новые задачи ... за последние N дней` is treated as creation-period semantics unless the user explicitly names a workflow/task state; no status=New is invented from recency wording;
+- no Agent Core/planner/runtime/session changes;
+- no surname/space/date hardcode;
+- no phrase-specific router.
+
+Regression coverage now includes:
+- created-period + open/not-completed;
+- created-period + in-progress;
+- retained explicit and relative created-period behavior;
+- retained fail-closed timestamp provenance.
+
+Next gate: A229F2R. Public/community distribution must not receive this change until the private/product re-gate is GREEN.
