@@ -325,10 +325,19 @@ def build_task_search_created(runtime: Any):
             task for task in tasks
             if start <= _source_created_at(task) <= end
         ]
+
+        raw_status = str(args.get("status") or "").strip()
+        if raw_status:
+            matches = [
+                task for task in matches
+                if _matches_requested_status(runtime, task, raw_status)
+            ]
+
         rows = [_task_dict(task) for task in matches]
+        status_suffix = f" со статусом «{raw_status}»" if raw_status else ""
         return CapabilityResult(
             answer=(
-                f"Найдено задач, созданных за период «{raw_period}»: {len(rows)}."
+                f"Найдено задач, созданных за период «{raw_period}»{status_suffix}: {len(rows)}."
             ),
             data={
                 "count": len(rows),
@@ -337,6 +346,7 @@ def build_task_search_created(runtime: Any):
                 "reference": reference,
                 "source_assignee": source_assignee,
                 "space": space,
+                "status": raw_status or None,
                 "created_period": raw_period,
                 "created_from": start.isoformat(),
                 "created_to": end.isoformat(),
