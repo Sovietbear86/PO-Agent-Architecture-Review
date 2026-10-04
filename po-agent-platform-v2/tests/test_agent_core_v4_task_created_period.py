@@ -17,15 +17,35 @@ from po_agent.harness.v4_plugins._task_live_handlers import (
 MOSCOW = ZoneInfo("Europe/Moscow")
 
 
-def _task(key: str, created_at: datetime, *, source_created: bool = True) -> Task:
+def _task(
+    key: str,
+    created_at: datetime,
+    *,
+    source_created: bool = True,
+    status: TaskStatus = TaskStatus.OPEN,
+) -> Task:
+    is_progress = status == TaskStatus.IN_PROGRESS
+    is_completed = status in {TaskStatus.CLOSED, TaskStatus.DONE}
     return Task(
         key=key,
         id=key,
         title=key,
-        status=TaskStatus.OPEN,
-        status_category=StatusCategory.BACKLOG,
-        status_raw="Open",
-        status_type="new",
+        status=status,
+        status_category=(
+            StatusCategory.COMPLETED if is_completed
+            else StatusCategory.ACTIVE_WORK if is_progress
+            else StatusCategory.BACKLOG
+        ),
+        status_raw=(
+            "In progress" if is_progress
+            else "Closed" if is_completed
+            else "Open"
+        ),
+        status_type=(
+            "progress" if is_progress
+            else "done" if is_completed
+            else "new"
+        ),
         assignee="Калачанов Виктор Вячеславович",
         assignee_id="Kalachanov.V.V",
         assignee_login="kalachanov.v.v",
@@ -89,11 +109,27 @@ class Runtime:
     @staticmethod
     def _map(row):
         created = datetime.fromisoformat(row["created_at"])
+        raw_status = str(row.get("status") or "").casefold()
+        status = (
+            TaskStatus.IN_PROGRESS if "progress" in raw_status
+            else TaskStatus.CLOSED if "closed" in raw_status
+            else TaskStatus.OPEN
+        )
         return _task(
             row["source_id"],
             created,
             source_created=bool(row["source_data"].get("_canonical_created_at_from_source")),
+            status=status,
         )
+
+    @staticmethod
+    def _safe_status(raw: str) -> str:
+        value = str(raw or "").strip().casefold()
+        if value in {"open", "active", "открытые", "незавершенные", "незавершённые"}:
+            return "not_completed"
+        if value in {"completed", "done", "closed", "закрытые", "завершенные", "завершённые"}:
+            return "completed"
+        return str(raw or "").strip()
 
 
 def test_created_period_parses_explicit_inclusive_dates() -> None:
@@ -157,3 +193,49 @@ def test_created_period_search_fails_closed_if_created_at_is_not_source_backed()
                 }
             )
         )
+
+
+def test_created_period_search_preserves_open_status_constraint() -> None:
+    runtime = Runtime([
+        _task("STS-1", datetime(2026, 10, 1, 10, 0, tzinfo=MOSCOW), status=TaskStatus.OPEN),
+        _task("STS-2", datetime(2026, 10, 1, 11, 0, tzinfo=MOSCOW), status=TaskStatus.IN_PROGRESS),
+        _task("STS-3", datetime(2026, 10, 1, 12, 0, tzinfo=MOSCOW), status=TaskStatus.CLOSED),
+        _task("STS-4", datetime(2026, 9, 28, 10, 0, tzinfo=MOSCOW), status=TaskStatus.OPEN),
+    ])
+
+    result = asyncio.run(
+        build_task_search_created(runtime)(
+            {
+                "reference": "Калачанов",
+                "space": "STS",
+                "created_period": "с 29.09.2026 по 01.10.2026",
+                "status": "открытые",
+            }
+        )
+    )
+
+    assert result.data["task_keys"] == ["STS-1", "STS-2"]
+    assert result.data["count"] == 2
+    assert result.data["status"] == "открытые"
+    assert all(task["status"] != TaskStatus.CLOSED.value for task in result.data["tasks"])
+
+
+def test_created_period_search_preserves_in_progress_status_constraint() -> None:
+    runtime = Runtime([
+        _task("STS-1", datetime(2026, 10, 1, 10, 0, tzinfo=MOSCOW), status=TaskStatus.OPEN),
+        _task("STS-2", datetime(2026, 10, 1, 11, 0, tzinfo=MOSCOW), status=TaskStatus.IN_PROGRESS),
+    ])
+
+    result = asyncio.run(
+        build_task_search_created(runtime)(
+            {
+                "reference": "Калачанов",
+                "space": "STS",
+                "created_period": "с 29.09.2026 по 01.10.2026",
+                "status": "В работе",
+            }
+        )
+    )
+
+    assert result.data["task_keys"] == ["STS-2"]
+    assert result.data["count"] == 1
