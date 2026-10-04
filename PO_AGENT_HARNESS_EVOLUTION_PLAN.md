@@ -1753,3 +1753,34 @@ Owner correction:
 - no production/plugin/Core/runtime/session changes.
 
 Next: A229F2R2 re-runs from P0, then proceeds to the original live P1-P5 matrix if P0 is GREEN.
+
+
+### A229F2R2 RED closure — fixed semantic capability, no Core change
+
+A229F2R2 proved:
+- P1 OPEN + created_period = GREEN 5/5 exact (108/108);
+- CLOSED + created_period diagnostic = correct REAL_EMPTY;
+- plugin status filtering is correct;
+- retained A229F1R2 explicit/relative period behavior remains GREEN;
+- first blocking RED is only P2: explicit IN_PROGRESS + created_period fails in planner bounded repair before the capability is called;
+- P3 recency-only wording showed planner nondeterminism (1/3 completed exactly, 2/3 bounded-repair failure).
+
+Owner decision:
+- do NOT modify Agent Core / robust planner / repair protocol;
+- use existing plugin fixed-argument extension seam, already proven by attachment subtype capabilities.
+
+Owner remediation:
+- added extra non-canonical capability + skill `task.search_created_in_progress`;
+- it reuses `build_task_search_created`;
+- plugin binding fixes `status="in_progress"` authoritatively, so the planner supplies only `created_period + reference + space`;
+- conflicting planner status cannot override the fixed semantic argument;
+- existing generic status matcher remains the implementation;
+- canonical 54 unchanged;
+- simplified recency guidance: recency is a creation-time constraint and must not invent a workflow state.
+
+Regression coverage:
+- binding exists with fixed `in_progress`;
+- plugin seam overrides a deliberately conflicting planner status;
+- retained open/in-progress handler filtering tests remain.
+
+Next gate: A229F2R3. Focus P2 first; if GREEN, recheck P1/P3/P4 and architecture audit.
