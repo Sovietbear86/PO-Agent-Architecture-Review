@@ -8,10 +8,12 @@ import pytest
 
 from po_agent.adapters.task_api import AS21SourceUnavailable
 from po_agent.domain.models import StatusCategory, Task, TaskStatus
+from po_agent.harness.v4_plugin_registry import V4PluginRegistry
 from po_agent.harness.v4_plugins._task_live_handlers import (
     _parse_human_created_period,
     build_task_search_created,
 )
+from po_agent.harness.v4_plugins.task_catalog import BINDINGS
 
 
 MOSCOW = ZoneInfo("Europe/Moscow")
@@ -239,3 +241,39 @@ def test_created_period_search_preserves_in_progress_status_constraint() -> None
 
     assert result.data["task_keys"] == ["STS-2"]
     assert result.data["count"] == 1
+
+
+def test_created_in_progress_binding_fixes_status_at_plugin_seam() -> None:
+    binding = next(
+        item for item in BINDINGS
+        if item.capability_id == "task.search_created_in_progress"
+    )
+    assert dict(binding.fixed_arguments) == {"status": "in_progress"}
+
+
+def test_created_in_progress_fixed_binding_overrides_planner_status() -> None:
+    runtime = Runtime([
+        _task("STS-1", datetime(2026, 10, 1, 10, 0, tzinfo=MOSCOW), status=TaskStatus.OPEN),
+        _task("STS-2", datetime(2026, 10, 1, 11, 0, tzinfo=MOSCOW), status=TaskStatus.IN_PROGRESS),
+        _task("STS-3", datetime(2026, 10, 1, 12, 0, tzinfo=MOSCOW), status=TaskStatus.CLOSED),
+    ])
+
+    handler = V4PluginRegistry._apply_fixed_arguments(
+        build_task_search_created(runtime),
+        {"status": "in_progress"},
+    )
+    result = asyncio.run(
+        handler(
+            {
+                "reference": "Калачанов",
+                "space": "STS",
+                "created_period": "с 29.09.2026 по 01.10.2026",
+                # Deliberately conflicting planner value: plugin contract wins.
+                "status": "completed",
+            }
+        )
+    )
+
+    assert result.data["task_keys"] == ["STS-2"]
+    assert result.data["count"] == 1
+    assert result.data["status"] == "in_progress"
