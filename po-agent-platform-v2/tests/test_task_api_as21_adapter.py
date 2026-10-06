@@ -329,3 +329,57 @@ async def test_as21_serialized_rich_text_description_is_normalized_without_destr
 
     assert rich.description == "Первая строка\nВторая строка"
     assert plain.description == "Обычное текстовое описание"
+
+
+@pytest.mark.asyncio
+async def test_task_type_maps_from_source_suit():
+    payload = real_shaped_payload()
+    payload["task_type_code"] = "story"
+    payload["task_type_name"] = "Story"
+    payload["source_data"]["swtr_suit"] = {"code": "story", "name": "Story"}
+
+    async def handler(request):
+        return httpx.Response(200, json=[payload])
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="http://task-api")
+    task = (await TaskApiAS21Adapter(client=client).search_tasks("key = WMB-30000"))[0]
+    await client.aclose()
+
+    assert task.task_type_code == "story"
+    assert task.task_type_name == "Story"
+    assert task.source_data["swtr_suit"]["code"] == "story"
+
+
+@pytest.mark.asyncio
+async def test_get_task_relations_maps_read_only_relation_contract():
+    payload = {
+        "task_code": "DMS-100",
+        "source": "REAL_AS21",
+        "schema_proven": True,
+        "task_type_code": "story",
+        "task_type_name": "Story",
+        "parent_key": "DMS-10",
+        "parent_candidates": ["DMS-10"],
+        "parent_ambiguous": False,
+        "epic_key": "DMS-1",
+        "epic_candidates": ["DMS-1"],
+        "epic_ambiguous": False,
+        "related_keys": ["DMS-101", "DMS-102"],
+        "relations": [{"key": "DMS-101", "relation": "related", "source_field": "links"}],
+        "source_fields_seen": ["attribute:parent", "attribute:epic_link", "unit:links"],
+    }
+
+    async def handler(request):
+        assert request.url.path == "/api/v1/swtr-read/tasks/DMS-100/relations"
+        return httpx.Response(200, json=payload)
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="http://task-api")
+    adapter = TaskApiAS21Adapter(client=client)
+    result = await adapter.get_task_relations("dms-100")
+    await client.aclose()
+
+    assert result["schema_proven"] is True
+    assert result["parent_key"] == "DMS-10"
+    assert result["epic_key"] == "DMS-1"
+    assert result["related_keys"] == ["DMS-101", "DMS-102"]
+    assert result["task_type_code"] == "story"
