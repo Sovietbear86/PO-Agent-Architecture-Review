@@ -1839,3 +1839,25 @@ Already implemented changes under verification:
 R4 planner-turn reduction remains deferred. It must not be implemented during A229R1. If the measured result still shows unacceptable latency, A229R1 may only recommend a separate owner-controlled next step with quantified benefit/risk.
 
 Next active assignment: A229R1.
+
+
+### A229U1 — Task details drawer usability remediation
+
+Manual PO review found three frontend-only defects in the Tasks detail drawer:
+
+1. task description could show `Описание отсутствует` because the drawer reused the lightweight search-collection row instead of source-backed exact task details;
+2. `Резюме / Качество / Что не хватает / История` rendered the model answer as plain text and exposed raw JSON/internal V4 payloads;
+3. tab changes gave no visible indication that a fresh Agent request was in progress, while the previous result could remain visible.
+
+Owner remediation is UI-only:
+- opening a task now performs a source-backed exact Agent lookup for that task key and enriches title/status/assignee/priority/sprint/release/description from the exact task observation;
+- search-row values remain a temporary fallback only until exact detail lookup completes;
+- exact-detail loading is explicitly visible in the description area;
+- task-intelligence calls now use a request-state hook that clears stale tab data immediately and exposes loading/error state;
+- markdown-like Agent answers use the existing `RichAnswer` renderer;
+- raw JSON output is removed from the drawer;
+- business data is rendered via generic readable key/value tables, object tables and lists; internal `_agent_core_v4`, trajectory and source_data payloads are hidden;
+- tab requests show spinner + animated progress line + `Обновляю данные…`;
+- no Agent Core, planner, plugin, Task API or source contract changes.
+
+A229R1 latency verification is paused because the frontend HEAD changed after its assignment was issued. Resume latency only after A229U1 GREEN on the new HEAD.
