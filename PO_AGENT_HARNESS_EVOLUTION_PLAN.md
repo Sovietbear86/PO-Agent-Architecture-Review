@@ -1944,3 +1944,83 @@ Checkpoint:
 `checkpoint/v4-task-details-richtext-green-a229u2r@be5131c83b7fd666c79af0e69e1b5cefd0961e62`
 
 Certified A229U1+A229U2 production/UI deltas have been synchronized to `PO-Agent-Architecture-Public`; final Community CI result on the sync HEAD must remain GREEN.
+
+
+## A229S1 — Task semantics + hierarchy plugin wave
+
+PO requested two additional capabilities before resuming latency verification. The architectural constraint is strict: Agent Core V4 remains frozen; both capabilities must be delivered through plugin skills/read-only source adapters.
+
+### Skill 1 — task.type_analysis
+
+Goal:
+- analyze the distribution of REAL AS21 task types;
+- filter by one source-defined type (Story, Bug, Defect, Task, Epic or any other type exposed by the source);
+- compose type with already certified constraints rather than creating a separate phrase router.
+
+Source model:
+- REAL `read_unit` already proves the top-level `suit {code,name}` field;
+- historical SWTR integration also preserved this as `swtr_suit`;
+- canonical Task now exposes `task_type_code/task_type_name`, while raw suit remains in source_data.
+
+Supported composition in one plugin capability:
+- task_type;
+- person/reference;
+- space;
+- status/open/completed/in-progress;
+- sprint_id;
+- created_period;
+- phrase/text.
+
+Rules:
+- if task_type is omitted, return source-backed type distribution;
+- if task_type is supplied, filter only on source type code/name;
+- missing source type in an exact filtered corpus fails closed;
+- no hardcoded product/person/type inventory;
+- common Story/Bug/Defect aliases are only vocabulary normalization; unknown source-defined types pass through generically.
+
+### Skill 2 — task.hierarchy
+
+Goal:
+- inspect a task's parent chain and one-hop linked/related tasks;
+- identify a source-proven epic/root where possible;
+- group a bounded task collection by epics;
+- compose grouping with person/space/status/sprint/date/text/type constraints.
+
+Source architecture:
+- new read-only route `/api/v1/swtr-read/tasks/{task}/relations` performs exactly one REAL `read_unit`;
+- it extracts relation-bearing task keys only from source fields/attributes whose semantic field names indicate parent/epic/link/relation/dependency/block/hierarchy;
+- ambiguous parent/epic facts fail closed;
+- raw source remains authoritative; no relation is invented.
+
+Hierarchy depth:
+- the product currently has NO certified source evidence that AS21 maximum hierarchy depth is 10;
+- production code therefore does NOT encode 10 as a business rule;
+- traversal follows source parent links until root/cycle;
+- safety traversal cap = 20 only as an operational guard;
+- A229S1 QA must inspect the live source/tool contract for an authoritative maximum. If no explicit contract exists, record `MAX_HIERARCHY_DEPTH_UNPROVEN`.
+
+Broad grouping:
+- relation resolution currently uses bounded point reads;
+- max fan-out is 200 tasks;
+- larger collections fail SOURCE_UNAVAILABLE and require narrowing by person/sprint/status/type;
+- no tenant-wide relation scan.
+
+### A229S1 architectural invariants
+
+- canonical 54 unchanged;
+- Agent Core/planner/runtime/session unchanged;
+- no phrase-specific router;
+- no surname/product/task hardcode;
+- no fake type counts or fake epic grouping;
+- type authority = REAL AS21 `unit.suit`;
+- hierarchy authority = REAL AS21 `read_unit` relation-bearing fields;
+- relation schema uncertainty fails closed;
+- public/community sync blocked until GREEN.
+
+### Gate ordering
+
+1. A229S1 source-contract discovery + functional re-gate.
+2. If GREEN: checkpoint + sync the certified plugin/adapter delta to public/community.
+3. Resume A229R1 latency verification on the new certified HEAD.
+4. Then A230 security/read-only + rollback rehearsal.
+5. Then A231 final V4 DoD / RC audit.
