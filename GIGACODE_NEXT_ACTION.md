@@ -1,104 +1,118 @@
 # GigaCode — Current Action
 
-## ACTIVE: Assignment A229U2 — AS21 rich-text description re-gate
+## ACTIVE: Assignment A229U2R — hardened production rich-text re-gate
 
 Role: QA/browser tester only. Do not modify code.
 
-Context:
-- A229U1R was GREEN for source-backed description/loading/intelligence rendering.
-- Manual PO review found that REAL AS21 may return description as a rich-text document tree / serialized JSON document.
-- Owner fixed only the AS21 adapter normalization boundary.
-- Agent Core/planner/plugins remain unchanged.
-- Public/community sync remains blocked until this gate is GREEN.
+Previous A229U2 RED:
+- base adapter normalization was correct;
+- production exact lookup bypassed it through `HardenedProductionTaskApiAS21Adapter._map_raw_unit`;
+- raw rich-text JSON leaked into canonical `Task.description`;
+- raw description provenance was absent from hardened `source_data`.
 
-## P0 — integrity/build/tests
+Owner fix:
+- hardened mapper now reuses `_rich_text_to_plain`;
+- raw source description is preserved in `source_data["description"]`;
+- direct production-class regression added;
+- no Core/planner/plugin/frontend changes.
+
+## P0 — integrity/tests
 
 1. Pull current `feat/core8-real-query-hardening-v2`; record START_HEAD and clean worktree.
-2. Prove owner production delta after A229U1R is limited to:
-   - `src/po_agent/adapters/task_api.py`;
-   - adapter regression tests;
+2. Prove production delta after prior A229U2 RED is limited to:
+   - `src/po_agent/adapters/hardened_production_task_api.py`;
+   - new hardened-adapter regression;
    - docs/assignment.
-3. Prove 0 Agent Core/planner/plugin/frontend layout changes.
+3. Prove 0 Agent Core/planner/plugin/frontend changes.
 4. Run:
-   - focused `test_task_api_as21_adapter.py`;
-   - full V4 blast-radius (retain 242/242 or newer exact total if only new adapter tests add count);
-   - frontend `npm run build`.
+   - `tests/test_hardened_production_task_rich_text.py`;
+   - focused `tests/test_task_api_as21_adapter.py`;
+   - full V4 blast-radius;
+   - frontend build.
 5. Any regression => RED STOP.
 
-## P1 — REAL AS21 description normalization
+## P1 — blocking production point-read case
 
-Use a REAL task whose description is stored in the structured rich-text format; DMS-333 from PO evidence is preferred if still available.
+Use live DMS-333 if still available.
 
-Obtain an independent raw exact AS21/Task API observation first.
+Before Agent query:
+- fetch independent raw exact Task API observation;
+- confirm source description is structured/serialized rich text.
 
-Require:
-- raw source payload really contains a rich-text document structure or serialized JSON structure;
-- canonical exact task lookup returns readable `Task.description`, not the JSON/document tree;
-- raw structure is still present in source/evidence data for audit;
-- no source content is fabricated;
-- paragraphs remain separated;
-- human-visible text is preserved;
-- links remain understandable/clickable in meaning (at minimum label + URL when distinct).
-
-## P2 — task drawer
-
-Open the same task in Tasks UI.
+Then:
+`Покажи задачу DMS-333`
 
 Require:
-- upper `Описание` block contains readable text, not `{"type":"doc"...}`;
-- no `content/attrs/marks/textAlign` structural keys are visible;
-- empty description still renders `Описание отсутствует`;
-- plain-text source descriptions remain unchanged;
-- description loading state from A229U1R is retained.
+- status COMPLETED;
+- canonical `task.description` is human-readable;
+- no visible serialized JSON/doc tree;
+- raw original source description is still present in source_data/evidence path for audit;
+- normalized content matches the human-visible text/link semantics of the raw source;
+- no fabrication or dropped link meaning.
+
+Run at least 3 times. All 3 must be stable.
+
+## P2 — drawer rendering
+
+Open DMS-333 from Tasks UI.
+
+Require:
+- upper Description block shows readable source text;
+- no `type/doc/content/attrs/marks/textAlign` keys visible;
+- source link meaning remains visible;
+- A229U1R loading indicator retained;
+- exact task lookup cardinality remains one per drawer open.
 
 ## P3 — Task Intelligence propagation
 
-For the same rich-text task test:
+Test:
 - Резюме;
 - Качество;
 - Что не хватает.
 
 Require:
-- generated business answer is based on normalized readable description;
-- structured data fields such as `goal`, `what_to_do`, `description` do not contain serialized rich-text JSON;
-- no raw `type=doc/content/attrs/marks` tree is displayed in readable tables;
-- links/text referenced in the source remain represented correctly;
-- internal `_agent_core_v4` / source_data remain hidden as certified in A229U1R.
+- business answer is based on normalized description;
+- structured fields such as description/goal/what_to_do do not expose raw rich-text JSON;
+- no raw document tree appears in tables;
+- internal source_data remains hidden from user UI;
+- links/content remain semantically represented.
 
 ## P4 — normalization controls
 
-Test three controlled source shapes:
-1. normal plain text;
+Run controlled checks through the hardened production mapper:
+1. plain text;
 2. rich-text object;
-3. serialized rich-text JSON string.
+3. serialized rich-text JSON string;
+4. malformed JSON-looking plain text;
+5. long description.
 
 Require:
-- plain text byte/content semantics retained (no unwanted rewriting/truncation);
-- object and serialized forms normalize to equivalent human-readable text;
-- long descriptions remain untruncated;
-- malformed JSON-looking plain text fails soft and is preserved as text, not dropped;
-- unknown structural nodes do not leak full Python/JSON object representation into canonical description.
+- plain/long text preserved without truncation;
+- object and serialized forms normalize equivalently;
+- malformed text fails soft and stays visible;
+- raw source description preserved in source_data;
+- unknown structural nodes never stringify the full raw object into canonical description.
 
 ## P5 — architecture/source audit
 
 Require:
-- canonical raw AS21 payload preserved in source_data;
-- normalization is deterministic adapter logic only;
-- 0 Core/planner/plugin changes;
-- no LLM used to parse description;
-- no product/task-specific special case;
+- deterministic adapter-only normalization;
+- 0 LLM parsing of description;
+- 0 Core/planner/plugin/frontend delta;
+- 0 product/task-specific branch;
+- raw source provenance preserved;
 - no mutation/local fallback/tenant scan introduced.
 
 ## Verdict
 
 Exactly one:
-- `AGENT_CORE_V4_RICH_TEXT_DESCRIPTION_GREEN_A229U2`
-- `AGENT_CORE_V4_RICH_TEXT_DESCRIPTION_RED_A229U2`
+- `AGENT_CORE_V4_RICH_TEXT_DESCRIPTION_GREEN_A229U2R`
+- `AGENT_CORE_V4_RICH_TEXT_DESCRIPTION_RED_A229U2R`
 
 If GREEN:
-- recommend checkpoint `checkpoint/v4-task-details-richtext-green-a229u2`;
-- owner may then sync A229U1+A229U2 certified UI/adapter delta to public/community repo;
-- resume A229R1 latency verification on this certified HEAD.
+- recommend checkpoint `checkpoint/v4-task-details-richtext-green-a229u2r`;
+- owner may sync certified A229U1+A229U2 delta to public/community repo;
+- resume A229R1 latency verification on the new certified HEAD.
 
 If RED:
 - preserve first failing boundary and STOP.
