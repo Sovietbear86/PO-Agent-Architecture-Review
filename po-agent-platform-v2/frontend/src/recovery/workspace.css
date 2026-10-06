@@ -376,3 +376,86 @@ body.task-drawer-active .agent-launcher{display:none!important}
 .local-panel-tools{display:flex;align-items:center;gap:10px}
 .local-panel-tools select{min-width:130px}
 .search-idle{padding:18px 4px}
+
+
+/* Task details intelligence UX */
+.description-loading{color:var(--po-muted)}
+.inline-loading{display:flex;align-items:center;gap:9px}
+.loading-spinner{
+  display:inline-block;
+  width:14px;
+  height:14px;
+  flex:0 0 auto;
+  border:2px solid rgba(126,226,255,.22);
+  border-top-color:var(--po-cyan);
+  border-radius:50%;
+  animation:po-spin .75s linear infinite
+}
+@keyframes po-spin{to{transform:rotate(360deg)}}
+
+.intelligence-box{min-height:150px}
+.intelligence-loading{
+  position:relative;
+  overflow:hidden
+}
+.intelligence-loading::before{
+  content:"";
+  position:absolute;
+  left:0;
+  right:0;
+  top:0;
+  height:2px;
+  background:linear-gradient(90deg,transparent,var(--po-cyan),transparent);
+  animation:po-loading-line 1.15s ease-in-out infinite
+}
+@keyframes po-loading-line{
+  0%{transform:translateX(-70%)}
+  100%{transform:translateX(70%)}
+}
+.intelligence-loading-state{
+  min-height:104px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  gap:12px;
+  color:var(--po-muted)
+}
+.intelligence-loading-state .loading-spinner{width:20px;height:20px}
+.intelligence-loading-state>div{display:flex;flex-direction:column;gap:3px}
+.intelligence-loading-state strong{color:#eafaff;font-size:13px}
+.intelligence-loading-state span{font-size:11px;color:var(--po-muted)}
+
+.intelligence-structured{display:grid;gap:12px;margin-top:12px}
+.intelligence-section{
+  display:grid;
+  gap:7px;
+  padding-top:10px;
+  border-top:1px solid rgba(126,226,255,.08)
+}
+.intelligence-section>strong{
+  color:#8debf9;
+  font-size:11px;
+  text-transform:none
+}
+.intelligence-table-wrap{margin:0;max-height:300px;overflow:auto}
+.intelligence-table{width:100%;border-collapse:collapse}
+.intelligence-table th{
+  width:auto;
+  max-width:220px;
+  text-align:left;
+  vertical-align:top;
+  font-weight:700
+}
+.intelligence-table tbody th{
+  width:34%;
+  background:rgba(13,55,83,.42)!important;
+  color:#aeeaf5!important
+}
+.intelligence-table td{
+  vertical-align:top;
+  white-space:normal;
+  overflow-wrap:anywhere
+}
+.intelligence-box .rich-answer{margin-top:8px}
+.intelligence-box .answer-paragraph{margin:6px 0}
+.intelligence-box .answer-list{margin:7px 0 7px 18px;padding:0}
