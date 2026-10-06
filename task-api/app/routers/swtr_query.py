@@ -74,6 +74,7 @@ async def _fetch_space_rows(
                         "attributes": [
                             "code",
                             "summary",
+                            "suit",
                             "description",
                             "assigned_to",
                             "space",
