@@ -1907,3 +1907,23 @@ Owner remediation:
 - no phrase/task/product hardcode.
 
 A229U1R checkpoint/public sync is not finalized until A229U2 manual/browser re-gate is GREEN.
+
+
+### A229U2 RED closure — hardened production point-read path
+
+A229U2 stopped at P1 on a deterministic production-path gap.
+
+Confirmed root cause:
+- base `TaskApiAS21Adapter._map` correctly normalized rich-text descriptions;
+- live `task.lookup` uses `HardenedProductionTaskApiAS21Adapter.get_task -> _map_raw_unit`;
+- `_map_raw_unit` still copied `unit.description` verbatim and therefore leaked serialized rich-text JSON into canonical `Task.description`;
+- the hardened mapper also failed to retain raw description provenance in `Task.source_data`.
+
+Owner remediation:
+- imported/reused the existing deterministic `_rich_text_to_plain` helper in the hardened production mapper;
+- `Task.description` is now normalized on the exact production point-read path;
+- the unmodified raw source description is preserved as `source_data["description"]`;
+- no Core/planner/plugin/frontend changes;
+- added direct production-class regression against `HardenedProductionTaskApiAS21Adapter._map_raw_unit` covering serialized rich text and plain text.
+
+Next gate: A229U2R. Start at P0 integrity, then re-run live P1 on DMS-333 before browser phases.
