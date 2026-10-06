@@ -728,6 +728,16 @@ def build_task_hierarchy(runtime: Any):
             )
 
         tasks, scope = await _bounded_composable_tasks(runtime, args)
+        requested_type = str(args.get("task_type") or "").strip() or None
+        if requested_type:
+            missing_type = [task.key for task in tasks if not any(_task_type_pair(task))]
+            if missing_type:
+                raise AS21SourceUnavailable(
+                    "REAL AS21 task type is missing for part of the hierarchy scope; "
+                    f"cannot compose an exact type constraint ({len(missing_type)} rows missing suit/type)"
+                )
+            tasks = [task for task in tasks if _task_type_matches(task, requested_type)]
+            scope["task_type"] = requested_type
         if not tasks:
             return CapabilityResult(
                 answer="В выбранном source-backed scope задач нет.",
