@@ -112,6 +112,14 @@ Class chain: `HardenedProductionTaskApiAS21Adapter(ProductionTaskApiAS21Adapter(
 - `/private/tmp/qa229u2_v4blast_736.out` — full-suite result (baseline 73645ce worktree)
 - `/private/tmp/qa229u2_v4focused.out` — V4-focused blast (new HEAD)
 
+## Re-verification (post-report, same code HEAD `9f9145d`; no owner fix committed)
+
+Independent second run on the live stack:
+- `Покажи задачу DMS-333` → `COMPLETED`, `task.description` = raw rich-text JSON again (`/private/tmp/qa229u2_p1_rerun.json`) — leak deterministic, not a one-off.
+- Unit-level: `_rich_text_to_plain(raw)` = clean URL; `HardenedProductionTaskApiAS21Adapter._map_raw_unit(real_unit).description == raw` (byte-equal, unnormalized); hardened `source_data` has no description attribute.
+
+Verdict unchanged: `AGENT_CORE_V4_RICH_TEXT_DESCRIPTION_RED_A229U2`, first failing boundary P1. Owner fix (section above) still required before re-gate.
+
 ## Services
 
 agent 127.0.0.1:8004 (PID 86716 @ `9f9145d`), task-api 127.0.0.1:8241 (PID 88845, reused), MCP-SWTR 127.0.0.1:3000 (PID 88405, reused), vite 127.0.0.1:5175 (PID 89616, reused; frontend unchanged).
