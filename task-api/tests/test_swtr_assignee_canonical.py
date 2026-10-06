@@ -29,6 +29,7 @@ def _nested_row() -> dict:
             "code": "STS-547220",
             "summary": "Уязвимость в Platform V",
             "space": {"code": "STS", "name": "Sbt to Sbt"},
+            "suit": {"code": "defect", "name": "Defect"},
         },
         "attributes": [
             {
@@ -102,6 +103,13 @@ class TestCanonicalRow:
         assert flat["workflow_status"]["name"] == "PROBLEM ANALYSIS"
         assert flat["assigned_to"]["externalId"] == "Kalachanov.V.V"
         assert canonical["source_data"]["swtr_space"] == "STS"
+
+    def test_nested_row_preserves_task_type_from_suit(self):
+        canonical = _canonical_row(_nested_row())
+        assert canonical is not None
+        assert canonical["task_type_code"] == "defect"
+        assert canonical["task_type_name"] == "Defect"
+        assert canonical["source_data"]["swtr_suit"] == {"code": "defect", "name": "Defect"}
 
     def test_flat_row_contract(self):
         canonical = _canonical_row(_flat_row())
