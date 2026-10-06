@@ -257,3 +257,75 @@ async def test_get_task_history_preserves_source_labels_unknown_to_generic_enum(
     assert transitions[0].to_status == TaskStatus.UNKNOWN
     assert transitions[0].display_from_status == "Escalated"
     assert transitions[0].display_to_status == "На исправлении"
+
+
+@pytest.mark.asyncio
+async def test_as21_rich_text_description_is_normalized_to_readable_text():
+    rich_description = {
+        "type": "doc",
+        "content": [
+            {
+                "type": "paragraph",
+                "content": [
+                    {"type": "text", "text": "Подготовить описание ABAC с Apache Ranger."},
+                ],
+            },
+            {
+                "type": "paragraph",
+                "content": [
+                    {"type": "text", "text": "Документация: "},
+                    {
+                        "type": "text",
+                        "text": "wiki-страница",
+                        "marks": [
+                            {
+                                "type": "link",
+                                "attrs": {"href": "https://example.invalid/wiki/123"},
+                            }
+                        ],
+                    },
+                ],
+            },
+        ],
+    }
+    payload = real_shaped_payload()
+    payload["description"] = rich_description
+
+    async def handler(request):
+        return httpx.Response(200, json=[payload])
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="http://task-api")
+    tasks = await TaskApiAS21Adapter(client=client).search_tasks("key = WMB-30000")
+    await client.aclose()
+
+    assert len(tasks) == 1
+    assert tasks[0].description == (
+        "Подготовить описание ABAC с Apache Ranger.\n"
+        "Документация: wiki-страница (https://example.invalid/wiki/123)"
+    )
+    assert "{\"type\":\"doc\"" not in tasks[0].description
+
+
+@pytest.mark.asyncio
+async def test_as21_serialized_rich_text_description_is_normalized_without_destroying_plain_text():
+    serialized = (
+        '{"type":"doc","content":['
+        '{"type":"paragraph","content":[{"type":"text","text":"Первая строка"}]},'
+        '{"type":"paragraph","content":[{"type":"text","text":"Вторая строка"}]}'
+        ']}'
+    )
+    rich_payload = real_shaped_payload()
+    rich_payload["description"] = serialized
+    plain_payload = task_payload("WMB-301", description="Обычное текстовое описание")
+
+    async def handler(request):
+        return httpx.Response(200, json=[rich_payload, plain_payload])
+
+    client = httpx.AsyncClient(transport=httpx.MockTransport(handler), base_url="http://task-api")
+    adapter = TaskApiAS21Adapter(client=client)
+    rich = (await adapter.search_tasks("key = WMB-30000"))[0]
+    plain = (await adapter.search_tasks("key = WMB-301"))[0]
+    await client.aclose()
+
+    assert rich.description == "Первая строка\nВторая строка"
+    assert plain.description == "Обычное текстовое описание"
