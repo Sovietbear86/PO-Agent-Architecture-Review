@@ -1,229 +1,104 @@
 # GigaCode — Current Action
 
-## ACTIVE: Assignment A229R1 — Low-risk latency verification
+## ACTIVE: Assignment A229U1 — Task details drawer UI re-gate
 
-Role: QA/performance tester only. Do not modify production/plugin/frontend/backend/test/config code.
+Role: QA/browser tester only. Do not modify code.
 
-Current certified functional baseline:
+A229R1 latency verification is temporarily PAUSED because owner made a frontend-only usability correction after the latency assignment was issued.
 
-`checkpoint/v4-created-period-status-green-a229f2r3@aa78e52c9e311eb6e7f0357001afe5bc4843068a`
+Scope is exactly the Tasks detail drawer.
 
-A229 latency baseline:
-
-`checkpoint/v4-latency-baseline-green-a229@f1141aade7bffcd8cfd376174544d3f1172da08c`
-
-This assignment verifies already-implemented low-risk latency changes only.
-
-Do NOT implement:
-- planner-turn reduction;
-- caching of factual business data;
-- Core/planner/runtime changes;
-- source weakening;
-- query-specific shortcuts.
-
-## P0 — integrity / correctness guard
+## P0 — integrity/build
 
 1. Pull current `feat/core8-real-query-hardening-v2`; record START_HEAD and clean worktree.
-2. Prove stable Core/Harness/API session files are byte-identical to the latest certified stable baseline.
-3. Run focused latency-remediation regressions:
-   - sprint single-read;
-   - assignee+space source pushdown;
-   - UI snapshot concurrency;
-   - capability timing instrumentation.
-4. Run full V4 blast-radius.
-5. Require retained functional correctness including A229F2R3 created-period/status tests.
-6. Any correctness regression => RED STOP.
+2. Prove Agent Core/planner/plugin/Task API production files are unchanged by A229U1.
+3. Run frontend TypeScript/build.
+4. Run focused retained frontend tests if present.
+5. Run full V4 blast-radius to prove no backend regression.
 
-## P1 — R1 sprint single-read verification
+Any build/backend regression => RED STOP.
 
-Scenario:
-`Задачи в работе в сентябрьском спринте по DMS`
+## P1 — source-backed description
 
-Build a fresh independent REAL AS21 oracle first.
+Use a REAL AS21 task known to have a non-empty description, preferably the manual PO example DMS-330 if still available.
 
-Run 10 warm sequential valid samples.
+Steps:
+1. Find/open the task from the Tasks search result collection.
+2. Observe initial drawer state.
+3. Capture network calls and Agent trace.
 
 Require:
-- exact source parity every valid run;
-- one and only one complete sprint-corpus source read per request;
-- no duplicate `get_sprint_tasks` / equivalent full sprint collection read;
-- no local fallback;
-- no tenant-wide scan.
+- drawer issues one exact source-backed task lookup for the selected task key;
+- while it is pending, description area visibly says `Загружаю описание из AS21…`;
+- after completion, description matches the authoritative exact task read;
+- `Описание отсутствует` may appear only when the exact source-backed task really has no description;
+- switching intelligence tabs does not re-run the exact task lookup unnecessarily;
+- no frontend direct AS21/MCP request.
 
-Measure:
-- end-to-end wall;
-- capability duration;
-- source-read duration;
-- LLM/planner call count.
+## P2 — readable intelligence rendering
 
-Compare against A229 baseline:
-- B p50 ≈ 39.3s;
-- duplicate sprint read cost ≈ 1.4s/request.
-
-Report before → after:
-- p50;
-- p90;
-- source calls/request;
-- planner calls/request.
-
-## P2 — R2 assignee + space source pushdown
-
-Use a live person+space query equivalent to the A229 WMB/Kalachanov case, but keep the exact same person/space through all 10 samples.
-
-Before timing:
-- independently inspect the Task API/MCP request and prove the source predicate contains BOTH canonical assignee AND explicit space.
+For the same task, test all four tabs:
+- Резюме;
+- Качество;
+- Что не хватает;
+- История.
 
 Require:
-- client-side validation remains;
-- result is exact and source-backed;
-- no broad whole-assignee/whole-tenant scan.
+- Agent answer markdown/bold/list/table formatting is rendered readably, not shown with raw `**` syntax;
+- raw JSON blocks are absent;
+- `_agent_core_v4`, trajectory, source_data and other internal payload fields are not displayed;
+- structured scalar data appears as readable key/value rows;
+- arrays of records render as tables where applicable;
+- scalar arrays render as lists;
+- long data remains scrollable and does not overflow the drawer.
 
-Run:
-- direct bounded source route 10 times;
-- end-to-end Agent query 10 times.
+## P3 — loading feedback / stale-data guard
 
-A229 baseline:
-- direct source route p50 ≈ 34.5s, max ≈ 46.9s;
-- end-to-end D p50 ≈ 61.7s, p90 ≈ 165.3s.
-
-Primary success criterion:
-- source query is demonstrably narrower and exact.
-
-Performance target:
-- direct source route p50 <= 10s, preferred <= 5s;
-- end-to-end p50 <= 45s.
-
-If the source remains slow despite proven pushdown, classify the remaining time as source/provider bound. Do not recommend factual caching.
-
-## P3 — R3 UI bounded snapshot fan-out
-
-For each page that performs snapshot loading:
-- Overview;
-- Sprint;
-- Releases;
-- Team;
-- Quality;
-
-record all `/api/v1/query` start/end timestamps on a fresh page/session load.
+For each tab transition:
+1. click another tab;
+2. capture UI immediately before response;
+3. capture final UI.
 
 Require:
-- max simultaneously in-flight snapshot Agent POSTs <= 2;
-- all expected snapshots eventually complete or surface typed source failure;
-- no snapshot silently skipped;
-- Tasks explicit submit remains one request;
-- navigation back does not create unintended auto-POSTs beyond the existing certified snapshot contract.
+- active tab changes immediately;
+- previous tab's result is cleared immediately and is NOT shown as if it belongs to the new tab;
+- visible spinner/progress line appears;
+- text `Обновляю данные…` is visible while request is pending;
+- intelligence container has loading/busy state;
+- successful response replaces loader with the new tab content;
+- failed request shows explicit error and never reuses stale previous content.
 
-A229 baseline:
-- 4–5 concurrent full Agent trajectories were launched almost simultaneously.
+Run at least 8 transitions across the four tabs, including back-and-forth transitions.
 
-Report:
-- max concurrency per page;
-- total page snapshot completion time;
-- any queueing effect.
-
-## P4 — R5 stage timing observability
-
-For representative scenarios A–E from A229, confirm executed governed capabilities emit structured timing with:
-- capability_id;
-- duration_ms;
-- outcome.
-
-Also record:
-- total wall;
-- LLM/planner time/call count where observable;
-- Task API/MCP/source duration where observable.
+## P4 — request cardinality
 
 Require:
-- no secrets or factual payload dumps in timing logs;
-- instrumentation does not alter capability results.
+- opening a task: exactly one exact task lookup + one initial Summary intelligence request;
+- each tab switch: exactly one intelligence request for the selected tab;
+- no duplicate POST from React/state effects;
+- closing/reopening may issue fresh source reads, which is acceptable;
+- no background polling introduced.
 
-Recompute stage decomposition and state which share is:
-- LLM/planner;
-- governed capability excluding source;
-- Task API/MCP/source;
-- unexplained residual.
+## P5 — retained Tasks UX
 
-Target:
-- unexplained residual <= 15% for representative median runs when complete logs are available.
-If not achieved, identify the missing timing boundary precisely.
-
-## P5 — before/after representative latency matrix
-
-Run 5 valid warm samples each for:
-
-A. person + text;
-B. sprint + status;
-C. sprint list;
-D. open + attachments + person + space;
-E. exact task lookup;
-F. created-period + open;
-G. created-period + in-progress.
-
-For each scenario report:
-- p50/p90;
-- LLM/planner calls;
-- capability calls;
-- source calls;
-- exact source parity.
-
-Use fresh independent Oracle for factual scenarios.
-
-Provider outage / 429 / transient connectivity runs:
-- fail closed;
-- are documented separately;
-- are not counted as optimization measurements;
-- are re-run after recovery.
-
-## P6 — correctness/source audit
-
-Across A229R1 require:
-- exact source parity for every factual completed run;
-- 0 false zero;
-- 0 local factual fallback;
-- 0 unauthorized mutations;
-- 0 tenant-wide scans;
-- 0 hidden truncation;
-- 0 cross-request factual cache;
-- 0 Agent Core changes.
-
-## P7 — decision gate
-
-Answer these questions from evidence only:
-
-1. Did R1 remove duplicate sprint reads?
-2. Did R2 narrow the source query and materially improve direct-route latency?
-3. Did R3 reduce simultaneous full Agent trajectories to <=2 without losing snapshots?
-4. Does R5 explain enough wall time to identify the real remaining bottleneck?
-5. Is ordinary interactive latency now acceptable enough to avoid planner changes?
-
-Do NOT implement R4.
-
-If latency is still unacceptable, quantify:
-- current planner calls/request;
-- planner/LLM share of wall;
-- removable expected time if calls were reduced by exactly one;
-- which certified A205/A227/A229F2 trajectories would need re-gating.
-
-Then recommend either:
-- `SKIP_R4_PROCEED_A230`, or
-- `CONSIDER_A229R2_PLANNER_TURN_REDUCTION`.
+Require:
+- natural-language Tasks search still works;
+- task cards still open;
+- local task CRUD unaffected;
+- drawer closes correctly;
+- Agent launcher remains hidden while task drawer is open;
+- dark/glass design remains consistent and responsive.
 
 ## Verdict
 
 Exactly one:
-- `AGENT_CORE_V4_LATENCY_GREEN_A229R1`
-- `AGENT_CORE_V4_LATENCY_RED_A229R1`
-
-GREEN requires:
-- P0 correctness GREEN;
-- R1/R2/R3/R5 implementation verified;
-- source/correctness guards GREEN.
-
-Missing an aspirational wall-clock target due solely to independently measured provider/source variance is not automatically RED if the intended technical optimization is proven and correctness remains exact. Report the variance explicitly.
+- `AGENT_CORE_V4_TASK_DETAILS_UI_GREEN_A229U1`
+- `AGENT_CORE_V4_TASK_DETAILS_UI_RED_A229U1`
 
 If GREEN:
-- provide the P7 recommendation;
-- do not modify code.
+- recommend checkpoint `checkpoint/v4-task-details-ui-green-a229u1`;
+- owner may sync the UI-only delta to public/community repo;
+- resume A229R1 latency verification on the new certified HEAD.
 
 If RED:
 - preserve first failing boundary and STOP.
