@@ -1882,3 +1882,28 @@ Owner correction:
 - browser P1-P5 still need to run because they were never started.
 
 Next gate: A229U1R.
+
+
+### A229U2 — AS21 rich-text description normalization
+
+A229U1R was technically GREEN for the assigned UI contract, but manual PO sign-off reopened the task-details drawer after a REAL AS21 task exposed a source-shape problem:
+
+- exact task lookup returned `description` as a serialized/structured rich-text document (`type=doc/content/paragraph/text/marks/link`);
+- the drawer therefore rendered the raw document structure instead of human-readable text;
+- the same raw structure leaked into Task Intelligence fields such as goal/what_to_do because canonical `Task.description` still contained the serialized source representation.
+
+This is not a Core/planner/UI-layout defect. It is a source-normalization boundary defect.
+
+Owner remediation:
+- added generic AS21 rich-text -> plain-text normalization in `TaskApiAS21Adapter`;
+- accepts plain strings unchanged;
+- accepts both dict/list rich-text payloads and serialized JSON document strings;
+- preserves paragraphs/newlines;
+- preserves link meaning as `label (URL)` when label differs from URL;
+- does not stringify unknown structural objects into user-facing text;
+- raw source payload remains untouched in `Task.source_data` for evidence/audit;
+- canonical `Task.description` becomes readable text, so both the task drawer and Task Intelligence consume the same normalized canonical fact;
+- no Agent Core/planner/plugin contract changes;
+- no phrase/task/product hardcode.
+
+A229U1R checkpoint/public sync is not finalized until A229U2 manual/browser re-gate is GREEN.
