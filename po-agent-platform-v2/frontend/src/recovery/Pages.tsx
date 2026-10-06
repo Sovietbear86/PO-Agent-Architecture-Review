@@ -140,7 +140,7 @@ function intelligenceLabel(key: string) {
     field: 'Поле',
     comment: 'Комментарий',
   }
-  return labels[key] ?? key.replaceAll('_', ' ')
+  return labels[key] ?? key.split('_').join(' ')
 }
 
 function intelligenceScalar(value: unknown): string {
