@@ -85,7 +85,9 @@ class Task(BaseModel):
     assignee:Optional[str]=None; assignee_id:Optional[str]=None; assignee_login:Optional[str]=None
     created_at:datetime; updated_at:datetime; due_date:Optional[datetime]=None; resolved_at:Optional[datetime]=None; closed_at:Optional[datetime]=None
     priority:Optional[TaskPriority]=None; estimate_hours:Optional[float]=None; time_spent_hours:Optional[float]=None
-    project_space:Optional[str]=None; sprint_id:Optional[str]=None; release_id:Optional[str]=None; parent_key:Optional[str]=None; depends_on:list[str]=[]
+    project_space:Optional[str]=None; sprint_id:Optional[str]=None; release_id:Optional[str]=None
+    task_type_code:Optional[str]=None; task_type_name:Optional[str]=None
+    parent_key:Optional[str]=None; epic_key:Optional[str]=None; related_keys:list[str]=[]; depends_on:list[str]=[]
     labels:list[str]=[]; components:list[str]=[]; attachments:list[Attachment]=[]
     source:str="swtr"; source_url:Optional[str]=None; source_data:dict[str,Any]=Field(default_factory=dict,repr=False)
     @property
