@@ -1927,3 +1927,20 @@ Owner remediation:
 - added direct production-class regression against `HardenedProductionTaskApiAS21Adapter._map_raw_unit` covering serialized rich text and plain text.
 
 Next gate: A229U2R. Start at P0 integrity, then re-run live P1 on DMS-333 before browser phases.
+
+
+### A229U2R GREEN — task details rich-text path certified
+
+Final verdict:
+- `AGENT_CORE_V4_RICH_TEXT_DESCRIPTION_GREEN_A229U2R`;
+- hardened production exact lookup normalizes AS21 rich-text description deterministically;
+- raw source description remains preserved in source_data for provenance;
+- drawer shows readable description;
+- Task Intelligence receives normalized text, not rich-text JSON;
+- normalization controls passed for plain/object/serialized/malformed/long forms;
+- 0 Core/planner/plugin/frontend regression from the adapter fix.
+
+Checkpoint:
+`checkpoint/v4-task-details-richtext-green-a229u2r@be5131c83b7fd666c79af0e69e1b5cefd0961e62`
+
+Certified A229U1+A229U2 production/UI deltas have been synchronized to `PO-Agent-Architecture-Public`; final Community CI result on the sync HEAD must remain GREEN.
