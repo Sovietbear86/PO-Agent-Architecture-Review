@@ -81,6 +81,19 @@ def _status_identifier(value: Any) -> str:
     return ""
 
 
+def _type_identity(value: Any) -> tuple[str | None, str | None]:
+    if isinstance(value, str):
+        text = value.strip()
+        return (text or None, text or None)
+    if not isinstance(value, dict):
+        return None, None
+    code = value.get("code") or value.get("id") or value.get("value")
+    name = value.get("name") or value.get("title") or value.get("label")
+    code_text = str(code).strip() if isinstance(code, (str, int)) and str(code).strip() else None
+    name_text = str(name).strip() if isinstance(name, (str, int)) and str(name).strip() else None
+    return code_text, name_text
+
+
 def _row_value(row: dict[str, Any], attrs: dict[str, Any], *names: str) -> Any:
     for name in names:
         if name in row and row.get(name) is not None:
@@ -119,6 +132,11 @@ def _canonical_row(row: dict[str, Any]) -> dict[str, Any] | None:
         status_value = _row_value(row, attrs, "workflow_status", "status")
     status = _status_identifier(status_value)
 
+    suit_value = _row_value(unit, attrs, "suit")
+    if suit_value is None:
+        suit_value = _row_value(row, attrs, "suit")
+    task_type_code, task_type_name = _type_identity(suit_value)
+
     created_at = _row_value(unit, attrs, "created_at", "createdAt")
     if created_at is None:
         created_at = _row_value(row, attrs, "created_at", "createdAt")
@@ -146,9 +164,12 @@ def _canonical_row(row: dict[str, Any]) -> dict[str, Any] | None:
         "created_at": created_at,
         "updated_at": updated_at,
         "deadline": deadline,
+        "task_type_code": task_type_code,
+        "task_type_name": task_type_name,
         "source": "swtr",
         "source_data": {
             "swtr_space": space,
+            "swtr_suit": suit_value,
             "workflow_status": status,
             "swtr_attributes": swtr_attributes,
             "live_assignee_route": True,
@@ -305,6 +326,7 @@ async def get_assignee_tasks(
                 "attributes": [
                     "code",
                     "summary",
+                    "suit",
                     "assigned_to",
                     "space",
                     "workflow_status",
