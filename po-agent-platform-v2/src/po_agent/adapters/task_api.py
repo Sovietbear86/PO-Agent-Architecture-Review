@@ -8,6 +8,7 @@ clauses fail closed; they are never sent as ignored parameters.
 from __future__ import annotations
 
 import asyncio
+import json
 from datetime import datetime, timezone
 import re
 from pathlib import Path
@@ -94,6 +95,101 @@ def _user_identity(value: Any) -> tuple[str | None, str | None, str | None]:
     parts = [value.get("lastName"), value.get("firstName"), value.get("middleName")]
     display = " ".join(p.strip() for p in parts if isinstance(p, str) and p.strip()) or None
     return display, external_id, login
+
+
+def _rich_text_to_plain(value: Any) -> str | None:
+    """Normalize AS21 rich-text/ProseMirror-like description payloads to text.
+
+    REAL AS21 may return description either as plain text or as a serialized
+    document tree (type=doc/content/paragraph/text/marks).  Canonical Task
+    consumers need readable text, while the raw source structure remains
+    preserved untouched in Task.source_data for audit/evidence.
+    """
+    if value is None:
+        return None
+
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return None
+        if text[0] not in "[{":
+            return value
+        try:
+            parsed = json.loads(text)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return value
+        if not isinstance(parsed, (dict, list)):
+            return value
+        rendered = _rich_text_to_plain(parsed)
+        return rendered if rendered else value
+
+    if isinstance(value, (int, float, bool)):
+        return str(value)
+
+    if isinstance(value, list):
+        parts = [_rich_text_to_plain(item) for item in value]
+        return "\n".join(part for part in parts if part).strip() or None
+
+    if not isinstance(value, dict):
+        return str(value)
+
+    node_type = str(value.get("type") or "").strip()
+    if node_type == "hardBreak":
+        return "\n"
+
+    if node_type == "text":
+        text = str(value.get("text") or "")
+        if not text:
+            return None
+        href: str | None = None
+        marks = value.get("marks")
+        if isinstance(marks, list):
+            for mark in marks:
+                if not isinstance(mark, dict) or mark.get("type") != "link":
+                    continue
+                attrs = mark.get("attrs")
+                candidate = attrs.get("href") if isinstance(attrs, dict) else None
+                if isinstance(candidate, str) and candidate.strip():
+                    href = candidate.strip()
+                    break
+        if href and href != text:
+            return f"{text} ({href})"
+        return text
+
+    attrs = value.get("attrs")
+    if isinstance(attrs, dict):
+        for key in ("text", "displayName", "label", "shortName"):
+            candidate = attrs.get(key)
+            if isinstance(candidate, str) and candidate.strip() and not value.get("content"):
+                return candidate.strip()
+
+    content = value.get("content")
+    if not isinstance(content, list):
+        # Unknown structural node: fail soft to common scalar display fields,
+        # never stringify the whole dict into user-facing canonical text.
+        for key in ("text", "name", "label", "value"):
+            candidate = value.get(key)
+            if isinstance(candidate, (str, int, float)) and str(candidate).strip():
+                return str(candidate).strip()
+        return None
+
+    child_parts = [_rich_text_to_plain(item) for item in content]
+    child_parts = [part for part in child_parts if part]
+    if not child_parts:
+        return None
+
+    if node_type in {"paragraph", "heading", "blockquote", "codeBlock", "listItem"}:
+        return "".join(child_parts).strip()
+    if node_type in {"bulletList", "orderedList"}:
+        prefix = "- " if node_type == "bulletList" else ""
+        lines: list[str] = []
+        for index, part in enumerate(child_parts, start=1):
+            marker = prefix or f"{index}. "
+            lines.append(marker + part)
+        return "\n".join(lines)
+    if node_type in {"doc", "table", "tableRow", "panel"}:
+        return "\n".join(child_parts).strip()
+    return "".join(child_parts).strip()
 
 
 def _string_list(value: Any) -> list[str]:
@@ -465,7 +561,7 @@ class TaskApiAS21Adapter(AS21Adapter):
             key=source_id,
             id=source_id,
             title=title,
-            description=data.get("description"),
+            description=_rich_text_to_plain(data.get("description")),
             status=status,
             status_raw=str(status_raw) or None,
             status_type=status_type,
