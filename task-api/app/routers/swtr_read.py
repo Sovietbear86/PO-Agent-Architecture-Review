@@ -165,6 +165,131 @@ def _source_task_code(item: dict[str, Any]) -> str | None:
     return None
 
 
+
+def _unwrap_task_unit(payload: Any) -> dict[str, Any] | None:
+    if isinstance(payload, dict):
+        code = payload.get("code")
+        if isinstance(code, str) and _TASK_CODE_RE.fullmatch(code.upper().strip()):
+            return payload
+        for key in ("unit", "task", "data", "content"):
+            if key in payload:
+                found = _unwrap_task_unit(payload.get(key))
+                if found is not None:
+                    return found
+    if isinstance(payload, list):
+        for item in payload:
+            found = _unwrap_task_unit(item)
+            if found is not None:
+                return found
+    return None
+
+
+def _task_codes_from_value(value: Any) -> list[str]:
+    found: list[str] = []
+
+    def visit(item: Any) -> None:
+        if isinstance(item, str):
+            text = item.upper().strip()
+            if _TASK_CODE_RE.fullmatch(text):
+                found.append(text)
+                return
+            for candidate in re.findall(r"\b[A-Z][A-Z0-9]*-\d+\b", item.upper()):
+                if _TASK_CODE_RE.fullmatch(candidate):
+                    found.append(candidate)
+            return
+        if isinstance(item, dict):
+            for child in item.values():
+                visit(child)
+            return
+        if isinstance(item, list):
+            for child in item:
+                visit(child)
+
+    visit(value)
+    return list(dict.fromkeys(found))
+
+
+def _normalized_relation_field(value: str) -> str:
+    return re.sub(r"[^a-z0-9а-яё]+", "_", value.casefold()).strip("_")
+
+
+def _relation_kind(field: str) -> str | None:
+    normalized = _normalized_relation_field(field)
+    if "epic" in normalized or "эпик" in normalized:
+        return "epic"
+    if "parent" in normalized or "родител" in normalized:
+        return "parent"
+    if any(token in normalized for token in (
+        "relation", "related", "link", "depend", "block", "hierarch",
+        "связ", "завис", "блок", "иерарх",
+    )):
+        return "related"
+    return None
+
+
+def _task_relation_facts(unit: dict[str, Any]) -> dict[str, Any]:
+    current = str(unit.get("code") or "").upper().strip()
+    parent_candidates: list[str] = []
+    epic_candidates: list[str] = []
+    related_keys: list[str] = []
+    source_fields_seen: list[str] = []
+    relation_rows: list[dict[str, Any]] = []
+
+    def absorb(field: str, value: Any, *, origin: str) -> None:
+        kind = _relation_kind(field)
+        if kind is None:
+            return
+        source_fields_seen.append(f"{origin}:{field}")
+        keys = [code for code in _task_codes_from_value(value) if code != current]
+        target = parent_candidates if kind == "parent" else epic_candidates if kind == "epic" else related_keys
+        for code in keys:
+            if code not in target:
+                target.append(code)
+            relation_rows.append({
+                "key": code,
+                "relation": kind,
+                "source_field": field,
+                "origin": origin,
+            })
+
+    for field, value in unit.items():
+        if field == "attributes":
+            continue
+        absorb(str(field), value, origin="unit")
+
+    raw_attrs = unit.get("attributes")
+    if isinstance(raw_attrs, list):
+        for item in raw_attrs:
+            if not isinstance(item, dict):
+                continue
+            field = item.get("code")
+            if not isinstance(field, str):
+                descriptor = item.get("attribute")
+                field = descriptor.get("code") if isinstance(descriptor, dict) else None
+            if isinstance(field, str):
+                absorb(field, item.get("value"), origin="attribute")
+
+    parent_candidates = list(dict.fromkeys(parent_candidates))
+    epic_candidates = list(dict.fromkeys(epic_candidates))
+    related_keys = list(dict.fromkeys(
+        code for code in related_keys
+        if code not in parent_candidates and code not in epic_candidates
+    ))
+    source_fields_seen = list(dict.fromkeys(source_fields_seen))
+
+    return {
+        "schema_proven": bool(source_fields_seen),
+        "parent_key": parent_candidates[0] if len(parent_candidates) == 1 else None,
+        "parent_candidates": parent_candidates,
+        "parent_ambiguous": len(parent_candidates) > 1,
+        "epic_key": epic_candidates[0] if len(epic_candidates) == 1 else None,
+        "epic_candidates": epic_candidates,
+        "epic_ambiguous": len(epic_candidates) > 1,
+        "related_keys": related_keys,
+        "relations": relation_rows,
+        "source_fields_seen": source_fields_seen,
+    }
+
 def _raw_attribute_entries(item: dict[str, Any]) -> list[tuple[str, Any]]:
     """Attribute ``(code, value)`` pairs from a source row.
 
@@ -585,6 +710,53 @@ def _normalize_worklog_entry(row: dict[str, Any]) -> dict[str, Any]:
         "duration_hours": _duration_hours(time_value),
         "duration": time_value.get("duration") if isinstance(time_value, dict) else None,
         "raw_millis": time_value.get("time") if isinstance(time_value, dict) else None,
+    }
+
+
+@router.get("/tasks/{task_code}/relations")
+async def get_task_relations(task_code: str):
+    """Return deterministic parent/epic/linked-task facts from one REAL AS21 unit.
+
+    The facade does not assume a fixed AS21 hierarchy depth and does not invent
+    empty relations when the source schema is not observable. Field discovery is
+    schema-tolerant: relation-bearing top-level fields and attributes are
+    recognized by semantic field names, while task identities must still match
+    the canonical task-key shape.
+    """
+    normalized = task_code.upper().strip()
+    if not _TASK_CODE_RE.fullmatch(normalized):
+        raise HTTPException(status_code=400, detail="Invalid SWTR task code")
+
+    client = SWTRMCPClient()
+    try:
+        content = await client.call_tool("read_unit", {"code": normalized})
+    except (SWTRMCPUnavailable, SWTRMCPProtocolError) as exc:
+        raise _transport_http_error(exc) from exc
+
+    payload = _parse_tool_content(content)
+    unit = _unwrap_task_unit(payload)
+    if unit is None:
+        raise HTTPException(status_code=502, detail="SWTR read_unit returned no canonical task unit")
+
+    suit = unit.get("suit")
+    type_code = None
+    type_name = None
+    if isinstance(suit, dict):
+        raw_code = suit.get("code") or suit.get("id")
+        raw_name = suit.get("name") or suit.get("title")
+        type_code = str(raw_code).strip() if raw_code not in (None, "") else None
+        type_name = str(raw_name).strip() if raw_name not in (None, "") else None
+    elif isinstance(suit, str) and suit.strip():
+        type_code = suit.strip()
+        type_name = suit.strip()
+
+    facts = _task_relation_facts(unit)
+    return {
+        "task_code": normalized,
+        "source": "REAL_AS21",
+        "task_type_code": type_code,
+        "task_type_name": type_name,
+        **facts,
     }
 
 
