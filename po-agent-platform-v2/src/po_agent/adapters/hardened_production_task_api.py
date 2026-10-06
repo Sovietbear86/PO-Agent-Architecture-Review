@@ -27,6 +27,7 @@ from .task_api import (
     _identifier,
     _parse_datetime,
     _parse_query,
+    _rich_text_to_plain,
     _status_from_type,
     _string_list,
     _task_matches,
@@ -180,7 +181,15 @@ class HardenedProductionTaskApiAS21Adapter(ProductionTaskApiAS21Adapter):
         if not code:
             return None
         attrs_list = unit.get("attributes") if isinstance(unit.get("attributes"), list) else []
-        source_data = {"swtr_code": code, "swtr_space": _space_code(unit.get("space")) or (space.upper() if space else None), "workflow_status": workflow_status if workflow_status is not None else unit.get("workflow_status"), "swtr_attributes": attrs_list, "sprint_id": sprint_id}
+        raw_description = unit.get("description")
+        source_data = {
+            "swtr_code": code,
+            "swtr_space": _space_code(unit.get("space")) or (space.upper() if space else None),
+            "workflow_status": workflow_status if workflow_status is not None else unit.get("workflow_status"),
+            "swtr_attributes": attrs_list,
+            "sprint_id": sprint_id,
+            "description": raw_description,
+        }
         attrs = _attributes(source_data)
         status_value = source_data.get("workflow_status") or attrs.get("workflow_status") or unit.get("workflow_status") or ""
         status_raw = (status_value.get("name") or status_value.get("code") or "") if isinstance(status_value, dict) else str(status_value or "")
@@ -211,7 +220,7 @@ class HardenedProductionTaskApiAS21Adapter(ProductionTaskApiAS21Adapter):
         release_id = _identifier(attrs.get("fix_version_s"))
         labels = _string_list(attrs.get("label") if attrs.get("label") is not None else unit.get("label"))
         components = _string_list(attrs.get("sber_component") if attrs.get("sber_component") is not None else unit.get("sber_component"))
-        task = Task(key=code, id=code, title=title, description=unit.get("description") if isinstance(unit.get("description"), str) else None, status=status, status_raw=status_raw or None, status_type=None if fault_metadata else status_type, status_category=get_status_category(status), created_at=created, updated_at=updated, assignee=display, assignee_id=external_id, assignee_login=login, project_space=source_data["swtr_space"], sprint_id=grounded_sprint, release_id=release_id, labels=labels, components=components, source="swtr", source_data=source_data)
+        task = Task(key=code, id=code, title=title, description=_rich_text_to_plain(raw_description), status=status, status_raw=status_raw or None, status_type=None if fault_metadata else status_type, status_category=get_status_category(status), created_at=created, updated_at=updated, assignee=display, assignee_id=external_id, assignee_login=login, project_space=source_data["swtr_space"], sprint_id=grounded_sprint, release_id=release_id, labels=labels, components=components, source="swtr", source_data=source_data)
         if fault_metadata:
             task.source_data["_qa_fault"] = fault_metadata
         return task
