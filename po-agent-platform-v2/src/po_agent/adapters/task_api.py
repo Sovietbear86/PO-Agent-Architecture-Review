@@ -192,6 +192,19 @@ def _rich_text_to_plain(value: Any) -> str | None:
     return "".join(child_parts).strip()
 
 
+def _task_type_identity(value: Any) -> tuple[str | None, str | None]:
+    if isinstance(value, str):
+        text = value.strip()
+        return (text or None, text or None)
+    if not isinstance(value, dict):
+        return None, None
+    code = value.get("code") or value.get("id") or value.get("value")
+    name = value.get("name") or value.get("title") or value.get("label")
+    code_text = str(code).strip() if isinstance(code, (str, int)) and str(code).strip() else None
+    name_text = str(name).strip() if isinstance(name, (str, int)) and str(name).strip() else None
+    return code_text, name_text
+
+
 def _string_list(value: Any) -> list[str]:
     """Extract stable display strings from common SWTR scalar/list/object shapes."""
     result: list[str] = []
@@ -557,6 +570,23 @@ class TaskApiAS21Adapter(AS21Adapter):
             if attrs.get("sber_component") is not None
             else source_data.get("sber_component")
         )
+        suit_value = (
+            data.get("suit")
+            if data.get("suit") is not None
+            else source_data.get("swtr_suit")
+        )
+        task_type_code = (
+            str(data.get("task_type_code")).strip()
+            if data.get("task_type_code") not in (None, "")
+            else None
+        )
+        task_type_name = (
+            str(data.get("task_type_name")).strip()
+            if data.get("task_type_name") not in (None, "")
+            else None
+        )
+        if not task_type_code and not task_type_name:
+            task_type_code, task_type_name = _task_type_identity(suit_value)
         task = Task(
             key=source_id,
             id=source_id,
@@ -575,6 +605,8 @@ class TaskApiAS21Adapter(AS21Adapter):
             project_space=project_space,
             sprint_id=sprint_id,
             release_id=release_id,
+            task_type_code=task_type_code,
+            task_type_name=task_type_name,
             labels=labels,
             components=components,
             source=data.get("source", "swtr") or "swtr",
