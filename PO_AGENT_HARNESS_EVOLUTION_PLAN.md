@@ -1861,3 +1861,24 @@ Owner remediation is UI-only:
 - no Agent Core, planner, plugin, Task API or source contract changes.
 
 A229R1 latency verification is paused because the frontend HEAD changed after its assignment was issued. Resume latency only after A229U1 GREEN on the new HEAD.
+
+
+### A229U1 RED closure — ES2020 build-only fix
+
+A229U1 stopped at P0.3 before browser phases.
+
+Root cause:
+- UI helper used `String.replaceAll`;
+- frontend tsconfig is intentionally pinned to ES2020;
+- `npm run build` failed at TypeScript compile with TS2550;
+- Vite bundle itself was healthy;
+- backend blast remained GREEN 242/242;
+- no Core/planner/plugin/Task API changes were involved.
+
+Owner correction:
+- replaced `key.replaceAll('_', ' ')` with ES2020-safe `key.split('_').join(' ')`;
+- no tsconfig/lib target change;
+- no functional semantics change;
+- browser P1-P5 still need to run because they were never started.
+
+Next gate: A229U1R.
