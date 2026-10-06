@@ -94,3 +94,20 @@ This composition is preferred to launching MCP subprocesses inside Harness. task
 `GATE_A = YELLOW`  
 `READY_FOR_LEARNING_LOOP = NO`  
 `NEXT = AS21-A3-ATTACHMENT-WIRING-RETEST-005`
+
+
+## A229S1 source extensions — pending live certification
+
+### Task type
+- Proven payload family: top-level `unit.suit {code,name}` from REAL MCP-SWTR `read_unit`.
+- Canonical mapping: `Task.task_type_code/task_type_name`.
+- Raw provenance: `source_data.swtr_suit`.
+- Current implementation: source-ready, live diversity/oracle certification pending A229S1.
+- Do not assume the source type inventory is limited to Story/Bug/Defect/Task/Epic.
+
+### Parent / linked / epic hierarchy
+- Canonical Task already had `parent_key`, but previous production adapters did not populate a certified hierarchy source.
+- New read-only relation facade inspects one REAL `read_unit` payload and exposes source-observed parent/epic/related task keys.
+- Exact AS21 relation field codes remain LIVE_DISCOVERY_PENDING.
+- Empty hierarchy must not be asserted when no relation field contract is observable.
+- Maximum AS21 hierarchy depth: `UNPROVEN`. The reported hypothesis of 10 levels must be independently confirmed from authoritative source metadata/schema before it becomes a product fact.
