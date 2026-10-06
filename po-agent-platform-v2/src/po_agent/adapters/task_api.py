@@ -684,6 +684,77 @@ class TaskApiAS21Adapter(AS21Adapter):
         query = f"release = {release_id}" if not space else f"project = {space} AND release = {release_id}"
         return await self.search_tasks(query, max_results=self._scan_limit)
 
+    async def get_task_relations(self, task_key: str) -> dict[str, Any]:
+        normalized = task_key.upper().strip()
+        if not re.fullmatch(r"[A-Z]+-\d+", normalized):
+            raise AS21SourceError(f"Invalid task key: {task_key}")
+        try:
+            response = await self._get_resilient(
+                f"/api/v1/swtr-read/tasks/{normalized}/relations"
+            )
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 404:
+                raise AS21SourceError(f"Task {task_key} not found in SWTR relations") from exc
+            if exc.response.status_code in (502, 503, 504):
+                raise AS21SourceUnavailable(
+                    f"Task relation endpoint unavailable: HTTP {exc.response.status_code}"
+                ) from exc
+            raise AS21SourceError(
+                f"Task relation request failed: HTTP {exc.response.status_code}"
+            ) from exc
+        except httpx.HTTPError as exc:
+            raise AS21SourceUnavailable(
+                f"Task relation request failed: {type(exc).__name__}"
+            ) from exc
+
+        try:
+            payload = response.json()
+        except ValueError as exc:
+            raise AS21SourceError("Task relation endpoint returned invalid JSON") from exc
+        if not isinstance(payload, dict):
+            raise AS21SourceError("Task relation response must be a JSON object")
+
+        def keys(name: str) -> list[str]:
+            value = payload.get(name)
+            if not isinstance(value, list):
+                return []
+            return [
+                str(item).upper().strip()
+                for item in value
+                if isinstance(item, str) and re.fullmatch(r"[A-Z]+-\d+", item.upper().strip())
+            ]
+
+        parent_key = payload.get("parent_key")
+        epic_key = payload.get("epic_key")
+        return {
+            "task_code": normalized,
+            "source": payload.get("source") or "REAL_AS21",
+            "schema_proven": bool(payload.get("schema_proven")),
+            "task_type_code": payload.get("task_type_code"),
+            "task_type_name": payload.get("task_type_name"),
+            "parent_key": (
+                str(parent_key).upper().strip()
+                if isinstance(parent_key, str) and re.fullmatch(r"[A-Z]+-\d+", parent_key.upper().strip())
+                else None
+            ),
+            "parent_candidates": keys("parent_candidates"),
+            "parent_ambiguous": bool(payload.get("parent_ambiguous")),
+            "epic_key": (
+                str(epic_key).upper().strip()
+                if isinstance(epic_key, str) and re.fullmatch(r"[A-Z]+-\d+", epic_key.upper().strip())
+                else None
+            ),
+            "epic_candidates": keys("epic_candidates"),
+            "epic_ambiguous": bool(payload.get("epic_ambiguous")),
+            "related_keys": keys("related_keys"),
+            "relations": payload.get("relations") if isinstance(payload.get("relations"), list) else [],
+            "source_fields_seen": (
+                [str(item) for item in payload.get("source_fields_seen", []) if isinstance(item, str)]
+                if isinstance(payload.get("source_fields_seen"), list)
+                else []
+            ),
+        }
+
     async def get_task_history(self, task_key: str) -> list[StatusTransition]:
         normalized = task_key.upper().strip()
         if not re.fullmatch(r"[A-Z]+-\d+", normalized):
