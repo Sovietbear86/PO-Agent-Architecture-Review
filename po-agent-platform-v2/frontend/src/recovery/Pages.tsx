@@ -36,6 +36,44 @@ function useHarness(query: string, enabled = true) {
   return result
 }
 
+function useHarnessRequest(query: string, enabled = true) {
+  const [result, setResult] = useState<HarnessQueryResponse | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState(false)
+
+  useEffect(() => {
+    if (!enabled || !query.trim()) {
+      setResult(null)
+      setLoading(false)
+      setError(false)
+      return
+    }
+
+    let alive = true
+    setResult(null)
+    setLoading(true)
+    setError(false)
+
+    agent.query({ query })
+      .then(response => {
+        if (!alive) return
+        setResult(response)
+        setLoading(false)
+      })
+      .catch(() => {
+        if (!alive) return
+        setResult(null)
+        setLoading(false)
+        setError(true)
+      })
+
+    return () => { alive = false }
+  }, [query, enabled])
+
+  return { result, loading, error }
+}
+
+
 function MetricCard({ label, value, hint }: { label: string; value: string | number; hint?: string }) {
   return <div className="metric-card"><span>{label}</span><strong>{value}</strong>{hint && <small>{hint}</small>}</div>
 }
@@ -67,6 +105,116 @@ function TaskCard({ task, onOpen }: { task: TaskRow; onOpen(task: TaskRow): void
     <strong>{String(task.title ?? '')}</strong>
     <div className="task-card-meta"><span>{String(task.assignee ?? 'Не назначен')}</span><span>{String(task.priority ?? '—')}</span></div>
   </button>
+}
+
+const INTELLIGENCE_HIDDEN_KEYS = new Set([
+  '_agent_core_v4',
+  'trajectory',
+  'source_data',
+  'raw',
+  'raw_data',
+])
+
+function intelligenceLabel(key: string) {
+  const labels: Record<string, string> = {
+    task_key: 'Задача',
+    title: 'Название',
+    description: 'Описание',
+    status: 'Статус',
+    assignee: 'Исполнитель',
+    priority: 'Приоритет',
+    score: 'Оценка',
+    quality_score: 'Оценка качества',
+    issues: 'Замечания',
+    warnings: 'Предупреждения',
+    recommendations: 'Рекомендации',
+    missing: 'Что не хватает',
+    history: 'История',
+    created_at: 'Создано',
+    updated_at: 'Обновлено',
+    deadline: 'Дедлайн',
+    author: 'Автор',
+    from: 'Было',
+    to: 'Стало',
+    date: 'Дата',
+    field: 'Поле',
+    comment: 'Комментарий',
+  }
+  return labels[key] ?? key.replaceAll('_', ' ')
+}
+
+function intelligenceScalar(value: unknown): string {
+  if (value === null || value === undefined || value === '') return '—'
+  if (typeof value === 'boolean') return value ? 'Да' : 'Нет'
+  return String(value)
+}
+
+function intelligenceEntries(value: Record<string, unknown>) {
+  return Object.entries(value).filter(([key]) =>
+    !INTELLIGENCE_HIDDEN_KEYS.has(key) &&
+    !key.startsWith('_')
+  )
+}
+
+function IntelligenceStructuredData({ data }: { data: Record<string, unknown> }) {
+  const entries = intelligenceEntries(data)
+  if (!entries.length) return null
+
+  const scalarRows = entries.filter(([, value]) =>
+    value === null || value === undefined || ['string', 'number', 'boolean'].includes(typeof value)
+  )
+  const complexRows = entries.filter(([, value]) =>
+    !(value === null || value === undefined || ['string', 'number', 'boolean'].includes(typeof value))
+  )
+
+  return <div className="intelligence-structured">
+    {scalarRows.length > 0 && <div className="answer-table-wrap intelligence-table-wrap">
+      <table className="answer-table intelligence-table">
+        <tbody>
+          {scalarRows.map(([key, value]) => <tr key={key}>
+            <th>{intelligenceLabel(key)}</th>
+            <td>{intelligenceScalar(value)}</td>
+          </tr>)}
+        </tbody>
+      </table>
+    </div>}
+
+    {complexRows.map(([key, value]) => {
+      if (Array.isArray(value)) {
+        if (!value.length) return null
+        const objectRows = value.filter(item => item && typeof item === 'object' && !Array.isArray(item)) as Array<Record<string, unknown>>
+        if (objectRows.length === value.length) {
+          const columns = Array.from(new Set(objectRows.flatMap(row => intelligenceEntries(row).map(([column]) => column)))).slice(0, 8)
+          return <div className="intelligence-section" key={key}>
+            <strong>{intelligenceLabel(key)}</strong>
+            <div className="answer-table-wrap intelligence-table-wrap">
+              <table className="answer-table intelligence-table">
+                <thead><tr>{columns.map(column => <th key={column}>{intelligenceLabel(column)}</th>)}</tr></thead>
+                <tbody>{objectRows.slice(0, 30).map((row, index) => <tr key={index}>
+                  {columns.map(column => <td key={column}>{intelligenceScalar(row[column])}</td>)}
+                </tr>)}</tbody>
+              </table>
+            </div>
+            {objectRows.length > 30 && <div className="muted">Показано 30 из {objectRows.length} строк.</div>}
+          </div>
+        }
+
+        return <div className="intelligence-section" key={key}>
+          <strong>{intelligenceLabel(key)}</strong>
+          <ul className="answer-list">{value.slice(0, 30).map((item, index) => <li key={index}>{intelligenceScalar(item)}</li>)}</ul>
+        </div>
+      }
+
+      if (value && typeof value === 'object') {
+        return <div className="intelligence-section" key={key}>
+          <strong>{intelligenceLabel(key)}</strong>
+          <IntelligenceStructuredData data={value as Record<string, unknown>} />
+        </div>
+      }
+
+      return null
+    })}
+  </div>
 }
 
 function LocalTaskDrawer({
@@ -168,7 +316,17 @@ function intelligenceQuery(key: string, mode: IntelligenceMode) {
 function TaskDetailsDrawer({ task, onClose }: { task: TaskRow | null; onClose(): void }) {
   const [mode, setMode] = useState<IntelligenceMode>('summary')
   const key = String(task?.key ?? '')
-  const result = useHarness(key ? intelligenceQuery(key, mode) : '', Boolean(key))
+  const detailQ = useHarnessRequest(key ? `Покажи задачу ${key}` : '', Boolean(key))
+  const intelligenceQ = useHarnessRequest(key ? intelligenceQuery(key, mode) : '', Boolean(key))
+  const result = intelligenceQ.result
+  const exactTaskData = getCapabilityData(detailQ.result)
+  const exactTask = (
+    exactTaskData.task && typeof exactTaskData.task === 'object' && !Array.isArray(exactTaskData.task)
+      ? exactTaskData.task
+      : null
+  ) as TaskRow | null
+  const displayTask = exactTask ?? task
+  const intelligenceData = getCapabilityData(result)
   useEffect(() => { setMode('summary') }, [key])
   useEffect(() => {
     document.body.classList.toggle('task-drawer-active', Boolean(task))
@@ -179,20 +337,30 @@ function TaskDetailsDrawer({ task, onClose }: { task: TaskRow | null; onClose():
     <aside className={`task-drawer ${task ? 'task-drawer-open' : ''}`} aria-hidden={!task}>
       <div className="agent-header"><div><div className="agent-kicker">TASK DETAILS</div><strong>{key}</strong></div><button className="icon-button" onClick={onClose}>×</button></div>
       {task && <div className="task-details">
-        <h2>{String(task.title ?? '')}</h2>
-        <div className="details-grid"><span>Статус</span><b>{String(task.status ?? '—')}</b><span>Исполнитель</span><b>{String(task.assignee ?? 'Не назначен')}</b><span>Приоритет</span><b>{String(task.priority ?? '—')}</b><span>Спринт</span><b>{String(task.sprint_id ?? '—')}</b><span>Релиз</span><b>{String(task.release_id ?? '—')}</b></div>
-        <div className="description-box">{String(task.description ?? 'Описание отсутствует')}</div>
+        <h2>{String(displayTask?.title ?? task.title ?? '')}</h2>
+        <div className="details-grid"><span>Статус</span><b>{String(displayTask?.status ?? task.status ?? '—')}</b><span>Исполнитель</span><b>{String(displayTask?.assignee ?? task.assignee ?? 'Не назначен')}</b><span>Приоритет</span><b>{String(displayTask?.priority ?? task.priority ?? '—')}</b><span>Спринт</span><b>{String(displayTask?.sprint_id ?? task.sprint_id ?? '—')}</b><span>Релиз</span><b>{String(displayTask?.release_id ?? task.release_id ?? '—')}</b></div>
+        <div className={`description-box ${detailQ.loading ? 'description-loading' : ''}`}>
+          {detailQ.loading
+            ? <span className="inline-loading"><span className="loading-spinner" />Загружаю описание из AS21…</span>
+            : String(displayTask?.description ?? task.description ?? 'Описание отсутствует')}
+        </div>
         <div className="intelligence-tabs">
           <button className={mode === 'summary' ? 'active' : ''} onClick={() => setMode('summary')}>Резюме</button>
           <button className={mode === 'quality' ? 'active' : ''} onClick={() => setMode('quality')}>Качество</button>
           <button className={mode === 'missing' ? 'active' : ''} onClick={() => setMode('missing')}>Что не хватает</button>
           <button className={mode === 'history' ? 'active' : ''} onClick={() => setMode('history')}>История</button>
         </div>
-        <div className="intelligence-box">
+        <div className={`intelligence-box ${intelligenceQ.loading ? 'intelligence-loading' : ''}`} aria-busy={intelligenceQ.loading}>
           <div className="intelligence-title"><strong>Task Intelligence</strong>{result?.skill && <span>{result.skill.id}@{result.skill.version}</span>}</div>
-          <p>{result?.answer ?? 'Загрузка…'}</p>
-          {result?.warnings.length ? <div className="warning">{result.warnings.join(' · ')}</div> : null}
-          {result?.data ? <pre className="json-box compact-json">{JSON.stringify(result.data, null, 2)}</pre> : null}
+          {intelligenceQ.loading
+            ? <div className="intelligence-loading-state"><span className="loading-spinner" /><div><strong>Обновляю данные…</strong><span>PO Agent выполняет запрос для выбранной вкладки</span></div></div>
+            : intelligenceQ.error
+              ? <div className="warning-box">Не удалось обновить данные для этой вкладки.</div>
+              : <>
+                  {result?.answer ? <RichAnswer text={result.answer} /> : <div className="muted">Нет данных для отображения.</div>}
+                  {result?.warnings.length ? <div className="warning">{result.warnings.join(' · ')}</div> : null}
+                  <IntelligenceStructuredData data={intelligenceData} />
+                </>}
         </div>
       </div>}
     </aside>
