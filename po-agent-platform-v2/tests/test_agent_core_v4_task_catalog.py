@@ -15,6 +15,11 @@ A191_CANONICAL_TASK_SKILLS = {
     "task.blockers",        # #19
 }
 
+EXTRA_TASK_SKILLS = {
+    "task.type_analysis",
+    "task.hierarchy",
+}
+
 EXPECTED_WAVE_T_SKILLS = {
     "task.search_text",             # #2
     "task.search_attachments",      # #3
@@ -150,3 +155,26 @@ def test_task_wave_source_conditional_history_skills_are_not_faked():
     by_id = {skill.id: skill for skill in discover_v4_plugins().skills()}
     assert "source history is unavailable" in " ".join(by_id["task.history"].procedure)
     assert "source timestamps" in " ".join(by_id["task.time_in_status"].procedure)
+
+
+def test_task_semantics_hierarchy_skills_are_extra_plugin_skills_not_canonical54_rows():
+    registry = discover_v4_plugins()
+    skill_ids = {skill.id for skill in registry.skills()}
+    assert EXTRA_TASK_SKILLS <= skill_ids
+    assert EXTRA_TASK_SKILLS.isdisjoint(set(CANONICAL_TASK_SKILL_IDS))
+
+    by_id = {skill.id: skill for skill in registry.skills()}
+    assert by_id["task.type_analysis"].capabilities == ("task.type_analysis",)
+    assert by_id["task.hierarchy"].capabilities == ("task.hierarchy",)
+
+    ui = registry.ui_contracts()
+    assert ui["task.type_analysis"].preferred_widget == "task_table"
+    assert ui["task.hierarchy"].preferred_widget == "task_hierarchy"
+
+    catalog = SkillCatalogV4(registry.skills(), registry.capability_specs())
+    type_skill = catalog.load("task.type_analysis")
+    assert "task_type" in type_skill["capabilities"][0]["arguments"]
+    assert "created_period" in type_skill["capabilities"][0]["arguments"]
+    hierarchy = catalog.load("task.hierarchy")
+    assert "mode" in hierarchy["capabilities"][0]["arguments"]
+    assert "10 hierarchy levels" not in " ".join(hierarchy["procedure"])
