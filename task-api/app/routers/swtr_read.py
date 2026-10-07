@@ -1124,6 +1124,7 @@ async def get_sprint_tasks(
     max_pages: int = Query(100, ge=1, le=500),
 ):
     normalized = sprint_id.strip()
+    include_type = include_task_type is True
     if not normalized or len(normalized) > 200:
         raise HTTPException(status_code=400, detail="Invalid sprint id")
     normalized_space = (space.upper().strip() if space else _infer_space_from_sprint(normalized))
@@ -1247,7 +1248,7 @@ async def get_sprint_tasks(
         row.get("created_at") is None
         or row.get("deadline") is None
         or (
-            include_task_type
+            include_type
             and not (row.get("task_type_code") or row.get("task_type_name"))
         )
         for row in canonical_rows
