@@ -121,6 +121,7 @@ async def _live_sprint_rows(runtime: Any, *, sprint_id: str, space: str | None =
 
     params: dict[str, Any] = {
         "complete": True,
+        "include_task_type": True,
         "limit": 100,
         "max_pages": 100,
     }
