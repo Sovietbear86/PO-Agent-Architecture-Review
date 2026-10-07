@@ -249,15 +249,17 @@ SKILLS = (
     ),
     SkillSpecV4(
         "task.type_analysis",
-        "Analyze task types or find tasks of a requested source type while preserving other task constraints.",
+        "Analyze task types or find tasks of a requested source type while preserving other task constraints, including current/latest or explicitly named sprint scope.",
         (
             "Use task.type_analysis whenever the user asks for task-type distribution or mentions a task type such as story, bug, defect, task, epic or another source-defined type.",
+            "When the request constrains by sprint, resolve that sprint before the terminal call: explicit sprint id -> sprint.resolve; month/period -> space.resolve + sprint.search; current/latest sprint wording -> space.resolve + sprint.current.",
+            "Pass the canonical sprint_id from the source-backed sprint observation into task.type_analysis. Do not drop person, space, status or task_type while resolving the sprint.",
             "Pass the user's task_type as a raw source type/code/name when a specific type is requested; omit it for a distribution across all types.",
-            "Preserve every available constraint in the SAME capability call: person reference, space, status, sprint_id, created_period and text phrase. Do not split a type query into separate assignee/status searches and then intersect model-side.",
+            "Preserve every available constraint in the SAME terminal capability call: person reference, space, status, sprint_id, created_period and text phrase. Do not split a type query into separate assignee/status searches and then intersect model-side.",
             "Task type facts come only from REAL AS21 unit.suit. Missing suit/type on an exact filtered corpus fails closed rather than fabricating a type.",
             "Return source type code/name, breakdown counts and exact task keys.",
         ),
-        ("task.type_analysis",),
+        ("space.resolve", "sprint.resolve", "sprint.search", "sprint.current", "task.type_analysis"),
         completion=(CompletionRequirement("task.type_analysis", data_keys=("count", "type_breakdown")),),
     ),
     SkillSpecV4(
