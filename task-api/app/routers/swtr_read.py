@@ -1243,7 +1243,9 @@ async def get_sprint_tasks(
     # key from the bounded sprint-constraint query; never change membership from
     # this enrichment and never fabricate missing timestamps.
     if canonical_rows and any(
-        row.get("created_at") is None or row.get("deadline") is None
+        row.get("created_at") is None
+        or row.get("deadline") is None
+        or not (row.get("task_type_code") or row.get("task_type_name"))
         for row in canonical_rows
     ):
         enrichment_rows, _, _ = await _tql_sprint_tasks(
@@ -1263,9 +1265,15 @@ async def get_sprint_tasks(
                 enriched = enrichment_by_code.get(code)
                 if enriched is None:
                     continue
-                for field in ("created_at", "updated_at", "deadline"):
+                for field in ("created_at", "updated_at", "deadline", "task_type_code", "task_type_name"):
                     if row.get(field) is None and enriched.get(field) is not None:
                         row[field] = enriched[field]
+                row_source = row.get("source_data") if isinstance(row.get("source_data"), dict) else {}
+                enriched_source = enriched.get("source_data") if isinstance(enriched.get("source_data"), dict) else {}
+                if not row_source.get("swtr_suit") and enriched_source.get("swtr_suit") is not None:
+                    row_source = dict(row_source)
+                    row_source["swtr_suit"] = enriched_source["swtr_suit"]
+                    row["source_data"] = row_source
 
     if is_complete:
         # The complete collection was produced by a source operation whose
