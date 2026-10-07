@@ -1120,6 +1120,7 @@ async def get_sprint_tasks(
     page: int = Query(0, ge=0),
     limit: int = Query(100, ge=1, le=1000),
     complete: bool = Query(False),
+    include_task_type: bool = Query(False),
     max_pages: int = Query(100, ge=1, le=500),
 ):
     normalized = sprint_id.strip()
@@ -1245,7 +1246,10 @@ async def get_sprint_tasks(
     if canonical_rows and any(
         row.get("created_at") is None
         or row.get("deadline") is None
-        or not (row.get("task_type_code") or row.get("task_type_name"))
+        or (
+            include_task_type
+            and not (row.get("task_type_code") or row.get("task_type_name"))
+        )
         for row in canonical_rows
     ):
         enrichment_rows, _, _ = await _tql_sprint_tasks(
