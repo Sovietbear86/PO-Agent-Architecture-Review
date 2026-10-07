@@ -557,6 +557,17 @@ def _canonical_sprint_task_row(item: dict[str, Any]) -> dict[str, Any] | None:
     status = _status_identifier(attrs.get("workflow_status", unit.get("workflow_status")))
     sprint_id = _relation_identifier(attrs.get("scrum_board_plugin_sprint"))
     release_id = _relation_identifier(attrs.get("fix_version_s"))
+    suit_value = pick("suit")
+    task_type_code = None
+    task_type_name = None
+    if isinstance(suit_value, dict):
+        raw_code = suit_value.get("code") or suit_value.get("id")
+        raw_name = suit_value.get("name") or suit_value.get("title")
+        task_type_code = str(raw_code).strip() if raw_code not in (None, "") else None
+        task_type_name = str(raw_name).strip() if raw_name not in (None, "") else None
+    elif isinstance(suit_value, str) and suit_value.strip():
+        task_type_code = suit_value.strip()
+        task_type_name = suit_value.strip()
     # Normalize to the flat ``{"code","value"}`` contract that downstream
     # readers (agent ``_attributes``) expect, so workflow semantics such as
     # ``workflow_status.statusType`` survive the canonical row boundary.
@@ -568,9 +579,12 @@ def _canonical_sprint_task_row(item: dict[str, Any]) -> dict[str, Any] | None:
         "source_id": code,
         "title": title,
         "status": status,
+        "task_type_code": task_type_code,
+        "task_type_name": task_type_name,
         "source": "swtr",
         "source_data": {
             "swtr_space": space,
+            "swtr_suit": suit_value,
             "workflow_status": status,
             "swtr_attributes": swtr_attributes,
             "sprint_id": sprint_id,
@@ -612,6 +626,7 @@ async def _tql_sprint_tasks(
                         "attributes": [
                             "code",
                             "summary",
+                            "suit",
                             "space",
                             "workflow_status",
                             "scrum_board_plugin_sprint",
