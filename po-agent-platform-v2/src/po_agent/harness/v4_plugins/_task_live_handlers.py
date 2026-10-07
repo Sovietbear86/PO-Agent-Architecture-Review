@@ -495,17 +495,32 @@ async def _bounded_composable_tasks(
             raise AS21SourceUnavailable(
                 "composable task analysis requires a bounded space, person or sprint"
             )
-        tasks, meta = await _live_query(
-            runtime,
-            phrase=phrase,
-            space=space,
-            assignee=source_assignee,
-        )
-        source_complete = bool(meta.get("source_complete", True))
-        if not source_complete:
-            raise AS21SourceUnavailable(
-                "REAL AS21 returned an incomplete bounded task corpus; exact analysis is unproven"
+        if source_assignee:
+            tasks = await _live_assignee_rows(
+                runtime,
+                assignee=source_assignee,
+                space=space,
             )
+            if phrase:
+                needle = phrase.casefold()
+                tasks = [
+                    task for task in tasks
+                    if needle in task.key.casefold()
+                    or needle in str(task.title or "").casefold()
+                    or needle in str(task.description or "").casefold()
+                ]
+        else:
+            tasks, meta = await _live_query(
+                runtime,
+                phrase=phrase,
+                space=space,
+                assignee=None,
+            )
+            source_complete = bool(meta.get("source_complete", True))
+            if not source_complete:
+                raise AS21SourceUnavailable(
+                    "REAL AS21 returned an incomplete bounded task corpus; exact analysis is unproven"
+                )
 
     raw_status = str(args.get("status") or "").strip()
     if raw_status:
