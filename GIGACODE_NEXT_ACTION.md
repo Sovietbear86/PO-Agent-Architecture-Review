@@ -1,279 +1,188 @@
 # GigaCode — Current Action
 
-## ACTIVE: Assignment A229S1 — Task type + hierarchy plugin gate
+## ACTIVE: Assignment A229S1R1 — Task type + hierarchy owner-fix re-gate
 
 Role: QA/source-forensics/browser tester only. **Do not modify production code.**
 
-Owner added exactly two extra plugin skills before resuming latency work:
+Previous result:
+- A229S1 = RED
+- first failing boundary = P2
+- root cause = relations facade used `read_unit` field-name heuristics while REAL AS21 hierarchy lives in MCP `get_unit_links`.
 
-- `task.type_analysis`
-- `task.hierarchy`
+Owner fix now applied:
+1. `/api/v1/swtr-read/tasks/{key}/relations` uses authoritative MCP `get_unit_links`.
+2. Source-proven link semantics:
+   - `decomposition`: source = structural parent, destination = child;
+   - `realized_in`: source points to epic target; treat as epic relation, NOT structural parent;
+   - other link types = related.
+3. Empty complete `get_unit_links` response is now a proven empty relation set.
+4. task type composition now uses direct bounded `assignee-tasks` for person-scoped analysis instead of the generic task-query path.
+5. Naive "10 hierarchy levels" test fixed; 10 remains UNPROVEN. Safety cap 20 is operational only.
 
-Architectural rule:
-- Agent Core V4 is frozen;
-- canonical 54 must remain unchanged;
-- new behavior is plugin/adapter/read-only Task API only;
-- A229R1 latency verification remains paused until this gate closes.
-
-Certified baseline before this wave:
-
-`checkpoint/v4-task-details-richtext-green-a229u2r@be5131c83b7fd666c79af0e69e1b5cefd0961e62`
+Keep Agent Core V4 frozen and canonical 54 unchanged.
 
 ---
 
-## P0 — integrity / build / focused regressions
+## P0 — integrity / focused regression
 
-1. Pull current `feat/core8-real-query-hardening-v2`; record START_HEAD and clean worktree.
-2. Prove byte identity vs the certified checkpoint for:
-   - `src/po_agent/harness/agent_core_v4.py`
-   - `src/po_agent/harness/agent_core_v4_robust.py`
-   - `src/po_agent/harness/agent_core_v4_reliable.py`
-   - runtime/session orchestration files.
-3. Prove canonical coverage is still exactly **54/54**.
-4. Prove the two new skills are extra live-registry plugin skills, not canonical replacements.
-5. Run focused tests:
+1. Pull latest `feat/core8-real-query-hardening-v2`.
+2. Record START_HEAD and clean worktree.
+3. Prove byte identity vs checkpoint `checkpoint/v4-task-details-richtext-green-a229u2r@be5131c83b7fd666c79af0e69e1b5cefd0961e62` for Core/planner/runtime/session files.
+4. Prove canonical 54/54 unchanged; `task.type_analysis` and `task.hierarchy` remain extra plugin skills.
+5. Run:
    - `test_agent_core_v4_task_catalog.py`
    - `test_agent_core_v4_task_semantics_hierarchy.py`
    - `test_task_api_as21_adapter.py`
    - `task-api/tests/test_swtr_assignee_canonical.py`
    - `task-api/tests/test_swtr_task_relations.py`
-6. Run full V4 blast-radius and frontend build.
-7. Any Core change, registry break, build regression, or retained functional regression => **RED STOP**.
+6. Full V4 blast + frontend build.
+7. First product regression => RED STOP.
 
 ---
 
-## P1 — REAL AS21 task-type source contract
+## P1 — task type re-gate
 
-Purpose: independently prove what AS21 actually uses for task type.
+Re-use the previously discovered REAL AS21 type source:
+- `unit.suit` is authoritative;
+- observed examples include `bug/Дефект`, `epic/Эпик`, `task/Задача`, `task_wmb_v3/Task (Управленческие задачи)`.
 
-### Source discovery
+Run live Agent/Oracle B tests using source-proven examples:
 
-Using direct MCP-SWTR / Task API oracle, inspect a bounded sample from approved product spaces. Start with DMS and one additional space; do not scan the tenant.
-
-For each source unit capture:
-
-- `unit.code`
-- `unit.suit.code`
-- `unit.suit.name`
-- the task type shown in the AS21 card/UI if independently observable.
-
-Required conclusions:
-
-1. Is `unit.suit` the authoritative task-type field?
-2. What distinct type code/name pairs exist in the bounded sample?
-3. Are Story/Bug/Defect present? If some are absent, record that as corpus evidence — do not invent them.
-4. Does `find_units_by_filter` preserve `suit` in the rows used by the new capability?
-
-Record the discovered type inventory **as evidence only**, never as production hardcode.
-
-### Agent tests
-
-Choose source-proven examples dynamically from the discovery.
-
-Run at least 5 times each:
-
-A. type distribution in a bounded scope, e.g.
-`Покажи распределение типов задач <person> в <space>`
-
-B. exact type + person + space:
-`Покажи <SOURCE_TYPE> задачи <person> в <space>`
-
-C. exact type + status:
-`Покажи открытые <SOURCE_TYPE> задачи <person> в <space>`
-
-D. type + another certified constraint, preferably sprint or created period when a non-empty oracle exists.
+A. distribution: `Покажи распределение типов задач <person> в <space>`
+B. type + person + space
+C. type + person + status + space
+D. type + person + another certified constraint where a non-empty oracle exists.
 
 Require:
 - terminal skill/capability = `task.type_analysis`;
-- source type code/name preserved;
-- all user constraints preserved in the SAME capability trajectory;
-- exact task-key/count parity vs independent REAL AS21 oracle;
-- distribution counts exact;
-- no local-store read;
-- no tenant-wide scan;
-- no type guessed from title labels such as `[doc]`;
-- unknown source-defined types work without code changes.
+- exact type code/name and task-key parity;
+- direct person-bounded source path, no broad space scan;
+- all user constraints preserved in one capability;
+- unknown source-defined type remains generic;
+- no title-tag inference.
 
-Any false zero, dropped status/person/space/sprint/period, or title-based fake type => **RED STOP**.
+Any task-query 502 caused by broad scan for a person-scoped request => RED STOP.
 
 ---
 
-## P2 — REAL AS21 hierarchy/relation source discovery
+## P2 — authoritative relations facade re-gate
 
-This phase is mandatory before judging `task.hierarchy`.
+Use the same source-proven controls from A229S1:
 
-### Find real hierarchy samples
+### DMS-253
+Expected direct MCP facts include:
+- incoming `CRPV-90180 -> DMS-253 (decomposition)` => structural parent `CRPV-90180`;
+- outgoing decomposition children including DMS-453, DMS-403, DMS-331, DMS-348, DMS-337, DMS-336, DMS-275, DMS-267, DMS-266, DMS-265, DMS-264;
+- incoming `CRPV-90180 -> DMS-253 (realized_in)` is NOT a structural parent/epic of DMS-253; it is a related realized child from DMS-253's perspective.
 
-Use bounded source discovery only.
+### CRPV-90180
+Expected:
+- `CRPV-90180 -> DMS-253 (decomposition)` => DMS-253 is child/related, not parent;
+- `CRPV-90180 -> DMS-253 (realized_in)` => epic relation `DMS-253`;
+- `CRPV-90180 -> CRPV-154341 (dependend)` => related/dependency.
 
-Inspect raw `read_unit` payloads for tasks likely to have:
-- parent/child relationship;
-- epic relationship;
-- linked/related/dependency relationship.
+### DMS-267
+Expected:
+- `DMS-253 -> DMS-267 (decomposition)` => parent = DMS-253.
 
-Start in a small/medium approved space or bounded sprint. Do not perform a tenant-wide scan.
+Call both:
+- direct MCP `get_unit_links`;
+- `GET /api/v1/swtr-read/tasks/{key}/relations`.
 
-For every relation-bearing sample capture:
+Require exact parity for:
+- parent_key;
+- epic_key;
+- related_keys;
+- relation type + direction;
+- deleted links excluded;
+- `relation_source = mcp:get_unit_links`;
+- empty-control relation endpoint remains `schema_proven=true`, not unknown.
 
-- exact field location: top-level vs attribute;
-- field code/name;
-- raw value shape;
-- parent key;
-- epic key if present;
-- linked/related task keys;
-- task `suit`.
-
-Compare those fields with:
-`GET /api/v1/swtr-read/tasks/{key}/relations`.
-
-Require the facade to preserve exact source keys. If the real relation field exists but the owner parser does not recognize it, classify the exact missing field and **RED STOP**. Do not add code.
-
-### Maximum hierarchy depth — verify, do not assume
-
-The owner has intentionally NOT encoded “10 levels”.
-
-Try to find authoritative evidence for a maximum hierarchy depth from:
-- MCP tool schema/metadata;
-- source validation metadata/error contract;
-- available AS21 source documentation exposed in the environment.
-
-Also traverse several real parent chains and record the **deepest observed** depth.
-
-Report separately:
-
-- `DEEPEST_OBSERVED_DEPTH = N`
-- `AUTHORITATIVE_MAX_DEPTH = N` only if explicitly proven
-- otherwise `MAX_HIERARCHY_DEPTH_UNPROVEN`
-
-A sample chain of depth <=10 is **not** proof that the platform maximum is 10.
-
-Production safety cap 20 must remain classified only as an operational guard.
+No `read_unit` relation-field heuristic may contribute parent/epic/related facts.
 
 ---
 
-## P3 — exact parent / related-task skill
+## P3 — hierarchy skill
 
-Choose at least 3 REAL tasks:
-- one with a parent chain;
-- one with linked/related tasks;
-- one root/no-parent control where the source relation contract is still observable.
-
-Queries should naturally express:
-- `Покажи родительские задачи <KEY>`
-- `Какие задачи связаны с <KEY>?`
-- `Покажи иерархию <KEY>`
-
-Run each 3 times.
+Run each at least 3 times:
+- `Покажи родительские задачи DMS-267`
+- `Какие задачи связаны с DMS-253?`
+- `Покажи иерархию DMS-267`
 
 Require:
 - terminal skill = `task.hierarchy`;
-- mode = `inspect`;
-- exact parent chain order vs direct `read_unit` oracle;
-- exact related keys;
-- exact epic key only when source proves it or an ancestor is source-typed Epic;
-- root correctly identified;
-- no invented empty hierarchy when source relation schema is unobservable;
-- cycle/ambiguity stays fail-closed;
-- no statement that AS21 maximum depth is 10 unless P2 proved it authoritatively.
+- mode = inspect;
+- exact chain DMS-267 -> DMS-253 -> CRPV-90180 when supported by current live links;
+- DMS-253 recognized as Epic from source suit when encountered as ancestor;
+- exact one-hop related keys;
+- no cycles invented from coexistence of `decomposition` and `realized_in`;
+- root correct;
+- max hierarchy remains `UNPROVEN`; deepest observed reported separately.
+
+If current source data changed, build Oracle B from live MCP at test time and compare to that, not to stale counts.
 
 ---
 
-## P4 — group by epics
+## P4 — group by epic
 
-Find a bounded REAL corpus with <=200 tasks and at least one source-proven epic relationship.
-
-Preferred scopes:
-- one sprint;
-- one person + space;
-- one person + status + space.
-
-Build an independent oracle by resolving the source parent/epic relation for every task in that bounded corpus.
+Find a bounded source-backed corpus <=200 tasks with a real epic relationship.
 
 Run:
-
-1. `Сгруппируй задачи <person> в <space> по эпикам`
-2. same scope + status;
-3. same scope + one source-proven task type when available.
+1. group by epic for person + space;
+2. same + status;
+3. same + source task type if available.
 
 Require:
-- terminal skill/capability = `task.hierarchy`, mode=`group_by_epic`;
-- exact membership per epic;
-- exact ungrouped/no-epic set;
-- type/status/person/space constraints preserved;
-- no task duplicated across groups;
-- no task silently dropped;
-- no local fallback;
-- relation reads bounded to the selected corpus;
-- >200 candidate control fails closed and asks for/naturally requires a narrower scope rather than scanning further.
-
-If no bounded corpus with any real epic relation can be found after reasonable approved-space discovery, return **SOURCE_SAMPLE_BLOCKED_A229S1**, with evidence. Do not manufacture a GREEN.
+- terminal capability = `task.hierarchy`, mode=group_by_epic;
+- exact membership per epic vs independently traversed MCP oracle;
+- exact NO_EPIC set;
+- no duplication/drop;
+- person/status/type/space all preserved;
+- relation fan-out <=200;
+- >200 control fails closed.
 
 ---
 
-## P5 — architecture audit
+## P5 — retained architecture/regression
 
 Require all:
-
 - canonical 54 unchanged;
-- exactly two intended extra skills added;
-- 0 Agent Core/planner/runtime/session changes;
-- task type authority = REAL AS21 `unit.suit`;
-- no fixed list limiting valid source types;
-- hierarchy authority = REAL AS21 point reads;
-- 0 phrase-specific routing;
-- 0 person/product/task-key hardcodes;
-- 0 fake relations / fake type metrics;
+- 2 intended extra skills only;
+- 0 Core/planner/runtime/session changes;
+- type source = REAL AS21 `unit.suit`;
+- hierarchy source = REAL AS21 `get_unit_links`;
+- 0 hardcoded person/product/task keys in production;
+- 0 phrase router;
 - no tenant-wide scans;
-- broad hierarchy fan-out capped at 200;
-- hierarchy traversal safety cap 20 is not presented as AS21 business maximum;
-- public/community repo not updated yet.
-
----
-
-## P6 — retained regression
+- safety traversal cap 20 not claimed as AS21 maximum;
+- public/community still not synced.
 
 Re-run protected controls:
-
-- simple assignee search;
+- assignee;
 - assignee + status;
 - created-period + open;
 - created-period + in-progress;
 - sprint task collection;
 - exact task lookup;
-- task drawer description/intelligence smoke.
-
-Require exact retained behavior and no new false zero.
+- task drawer rich description.
 
 ---
 
 ## Verdict
 
-Return exactly one primary verdict:
+Return exactly one:
+- `AGENT_CORE_V4_TASK_SEMANTICS_HIERARCHY_GREEN_A229S1R1`
+- `AGENT_CORE_V4_TASK_SEMANTICS_HIERARCHY_RED_A229S1R1`
+- `SOURCE_SAMPLE_BLOCKED_A229S1R1`
 
-- `AGENT_CORE_V4_TASK_SEMANTICS_HIERARCHY_GREEN_A229S1`
-- `AGENT_CORE_V4_TASK_SEMANTICS_HIERARCHY_RED_A229S1`
-- `SOURCE_SAMPLE_BLOCKED_A229S1`
-
-### GREEN requires
-
-- P0 GREEN;
-- task-type source contract independently proven;
-- type skill composition exact on live source;
-- real relation field contract proven;
-- exact hierarchy skill proven on real parent/linked examples;
-- epic grouping proven on at least one non-trivial real bounded corpus;
-- P5/P6 GREEN.
+GREEN requires P0-P5 all GREEN.
 
 If GREEN:
-- recommend checkpoint `checkpoint/v4-task-semantics-hierarchy-green-a229s1`;
-- owner may sync the certified delta to public/community;
+- recommend checkpoint `checkpoint/v4-task-semantics-hierarchy-green-a229s1r1`;
+- owner may sync certified changes to public/community;
 - then resume A229R1 latency verification.
 
 If RED:
-- preserve the first failing boundary and STOP.
-
-If SOURCE_SAMPLE_BLOCKED:
-- show the bounded searches performed and why no real hierarchy/epic sample was available;
-- do not modify code.
+- preserve first failing boundary and STOP.
 
 **GigaCode is QA only. Do not modify production code.**
