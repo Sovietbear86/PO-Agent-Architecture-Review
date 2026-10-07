@@ -107,6 +107,50 @@ async def _live_assignee_rows(runtime: Any, *, assignee: str, space: str | None 
     return tasks
 
 
+async def _live_sprint_rows(runtime: Any, *, sprint_id: str, space: str | None = None) -> list[Any]:
+    """Read a complete sprint collection from the certified live SWTR facade.
+
+    Production must not fall back to the historical local task store. Test/fake
+    adapters without the resilient HTTP seam may use their explicit
+    get_sprint_tasks implementation so unit tests remain isolated.
+    """
+    adapter = runtime.adapter
+    resilient_get = getattr(adapter, "_get_resilient", None)
+    if resilient_get is None:
+        return list(await adapter.get_sprint_tasks(sprint_id, space))
+
+    params: dict[str, Any] = {
+        "complete": True,
+        "limit": 100,
+        "max_pages": 100,
+    }
+    if space:
+        params["space"] = space.upper().strip()
+    response = await resilient_get(
+        f"/api/v1/swtr-read/sprints/{sprint_id}/tasks",
+        params=params,
+    )
+    payload = response.json()
+    if not isinstance(payload, dict):
+        raise RuntimeError("live sprint task route returned malformed payload")
+    if not bool(payload.get("complete")) or not bool(payload.get("membership_proven")):
+        raise AS21SourceUnavailable(
+            f"REAL AS21 sprint membership is incomplete for {sprint_id}; exact composition is unproven"
+        )
+    rows = payload.get("complete_tasks")
+    if not isinstance(rows, list):
+        raise RuntimeError("live sprint task route returned no complete_tasks collection")
+
+    tasks = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        mapped = adapter._map(row)
+        if mapped is not None:
+            tasks.append(mapped)
+    return tasks
+
+
 async def _resolve_assignee_identity(runtime: Any, reference: str, *, space: str | None = None) -> str:
     """Resolve any natural person reference through the generic governed resolver.
 
@@ -479,7 +523,7 @@ async def _bounded_composable_tasks(
 
     source_complete = True
     if sprint_id:
-        tasks = list(await runtime.adapter.get_sprint_tasks(sprint_id, space))
+        tasks = await _live_sprint_rows(runtime, sprint_id=sprint_id, space=space)
         if source_assignee:
             tasks = [task for task in tasks if _task_matches_identity(task, source_assignee)]
         if phrase:
