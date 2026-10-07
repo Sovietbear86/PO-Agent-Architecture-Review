@@ -60,7 +60,7 @@ class Runtime:
         return Result()
 
     async def _get_resilient(self, path, *, params):
-        assert path == "/api/v1/swtr-read/task-query"
+        assert path.endswith(("task-query", "assignee-tasks"))
 
         class Response:
             def __init__(self, tasks):
