@@ -193,10 +193,91 @@ class TestCanonicalRow:
     def test_no_code_returns_none(self):
         assert _canonical_sprint_task_row({"unit": {"summary": "no code"}}) is None
 
+    def test_nested_row_preserves_source_task_type(self):
+        raw = _nested_row("DMS-401", ws=_ws("In progress", "progress"))
+        raw["unit"]["suit"] = {"code": "bug", "name": "Дефект"}
+        row = _canonical_sprint_task_row(raw)
+        assert row is not None
+        assert row["task_type_code"] == "bug"
+        assert row["task_type_name"] == "Дефект"
+        assert row["source_data"]["swtr_suit"] == {"code": "bug", "name": "Дефект"}
+
+    def test_flat_row_preserves_source_task_type(self):
+        raw = _flat_row("DMS-402", ws=_ws("In progress", "progress"))
+        raw["suit"] = {"code": "task", "name": "Задача"}
+        row = _canonical_sprint_task_row(raw)
+        assert row is not None
+        assert row["task_type_code"] == "task"
+        assert row["task_type_name"] == "Задача"
+
 
 # ---------------------------------------------------------------------------
 # Endpoint collection behavior
 # ---------------------------------------------------------------------------
+
+
+@pytest.mark.asyncio
+async def test_sprint_type_enrichment_is_opt_in_and_source_backed(monkeypatch):
+    primary = _nested_row("DMS-431", ws=_ws("QA", "progress"), sprint="DMS-SPRNT-9")
+    primary["unit"]["created_at"] = "2026-10-01T10:00:00Z"
+    primary["unit"]["deadline"] = "2026-10-20T10:00:00Z"
+
+    enriched = _flat_row("DMS-431", ws=_ws("QA", "progress"), sprint="DMS-SPRNT-9")
+    enriched["created_at"] = "2026-10-01T10:00:00Z"
+    enriched["deadline"] = "2026-10-20T10:00:00Z"
+    enriched["suit"] = {"code": "bug", "name": "Дефект"}
+
+    client = ScriptedClient(
+        sprint=lambda page: _page([primary], has_next=False),
+        tql_pages=[_page([enriched], has_next=False)],
+    )
+    _install(monkeypatch, client)
+
+    result = await swtr_read.get_sprint_tasks(
+        sprint_id="DMS-SPRNT-9",
+        space="DMS",
+        page=0,
+        limit=100,
+        complete=True,
+        include_task_type=True,
+        max_pages=10,
+    )
+
+    assert result["complete"] is True
+    assert client.tql_calls == 1
+    row = result["complete_tasks"][0]
+    assert row["task_type_code"] == "bug"
+    assert row["task_type_name"] == "Дефект"
+    assert row["source_data"]["swtr_suit"] == {"code": "bug", "name": "Дефект"}
+
+
+@pytest.mark.asyncio
+async def test_sprint_type_enrichment_does_not_add_type_read_when_not_requested(monkeypatch):
+    primary = _nested_row("DMS-431", ws=_ws("QA", "progress"), sprint="DMS-SPRNT-9")
+    primary["unit"]["created_at"] = "2026-10-01T10:00:00Z"
+    primary["unit"]["deadline"] = "2026-10-20T10:00:00Z"
+
+    client = ScriptedClient(
+        sprint=lambda page: _page([primary], has_next=False),
+        tql_pages=[_page([], has_next=False)],
+    )
+    _install(monkeypatch, client)
+
+    result = await swtr_read.get_sprint_tasks(
+        sprint_id="DMS-SPRNT-9",
+        space="DMS",
+        page=0,
+        limit=100,
+        complete=True,
+        include_task_type=False,
+        max_pages=10,
+    )
+
+    assert result["complete"] is True
+    assert client.tql_calls == 0
+    row = result["complete_tasks"][0]
+    assert row["task_type_code"] is None
+    assert row["task_type_name"] is None
 
 
 @pytest.mark.asyncio
