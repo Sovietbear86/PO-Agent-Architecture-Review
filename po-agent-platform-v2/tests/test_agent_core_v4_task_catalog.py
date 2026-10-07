@@ -177,4 +177,6 @@ def test_task_semantics_hierarchy_skills_are_extra_plugin_skills_not_canonical54
     assert "created_period" in type_skill["capabilities"][0]["arguments"]
     hierarchy = catalog.load("task.hierarchy")
     assert "mode" in hierarchy["capabilities"][0]["arguments"]
-    assert "10 hierarchy levels" not in " ".join(hierarchy["procedure"])
+    hierarchy_text = " ".join(hierarchy["procedure"])
+    assert "Never assume that AS21 has exactly 10 hierarchy levels" in hierarchy_text
+    assert "maximum depth is 10" not in hierarchy_text
