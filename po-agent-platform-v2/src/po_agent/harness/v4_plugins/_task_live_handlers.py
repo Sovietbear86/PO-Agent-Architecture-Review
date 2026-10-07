@@ -87,6 +87,26 @@ async def _live_rows(runtime: Any, *, phrase: str | None = None, space: str | No
     return tasks
 
 
+async def _live_assignee_rows(runtime: Any, *, assignee: str, space: str | None = None) -> list[Any]:
+    adapter = runtime.adapter
+    params: dict[str, Any] = {"assignee": assignee, "limit": 100, "max_pages": 100}
+    if space:
+        params["space"] = space.upper().strip()
+    response = await adapter._get_resilient("/api/v1/swtr-read/assignee-tasks", params=params)
+    payload = response.json()
+    rows = payload.get("tasks") if isinstance(payload, dict) else None
+    if not isinstance(rows, list):
+        raise RuntimeError("live assignee-tasks returned malformed payload")
+    tasks = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        mapped = adapter._map(row)
+        if mapped is not None:
+            tasks.append(mapped)
+    return tasks
+
+
 async def _resolve_assignee_identity(runtime: Any, reference: str, *, space: str | None = None) -> str:
     """Resolve any natural person reference through the generic governed resolver.
 
