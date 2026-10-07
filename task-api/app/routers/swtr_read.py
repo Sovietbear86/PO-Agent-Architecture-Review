@@ -420,13 +420,15 @@ async def _get_unit_links_complete(
     has_next = True
 
     while has_next and page < max_pages:
-        # A229S1 direct MCP discovery proved this request DTO against the live
-        # get_unit_links tool. Keep it exact rather than inventing aliases.
+        # A229S1R A/B source-forensics proved the live GetUnitLinksRequest
+        # contract is flat. Keep this DTO exact: nested unitId/page shapes are
+        # rejected by FastMCP before the request reaches AS21.
         arguments = {
             "request": {
-                "type": [],
-                "unitId": task_code,
-                "page": {"page": {"page": page, "size": page_size}},
+                "unit_code": task_code,
+                "link_types": [],
+                "page": page,
+                "size": page_size,
             }
         }
         content = await client.call_tool("get_unit_links", arguments)
