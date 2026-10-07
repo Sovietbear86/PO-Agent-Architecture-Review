@@ -21,15 +21,12 @@ function Metric({ label, value, hint }: { label: string; value: unknown; hint?: 
 export function OverviewDashboard() {
   const { openAgent } = useOutletContext<WorkspaceContext>()
   const [refreshNonce, setRefreshNonce] = useState(0)
-  const overviewQ = useSnapshotHarness('overview', 'Дай обзор и риски', refreshNonce)
   const attentionQ = useSnapshotHarness('overview', 'Покажи очередь внимания', refreshNonce)
   const briefQ = useSnapshotHarness('overview', 'Сделай daily brief', refreshNonce)
   const statusQ = useSnapshotHarness('overview', 'Сделай status report', refreshNonce)
-  const overview = overviewQ.result
   const attention = attentionQ.result
   const brief = briefQ.result
   const status = statusQ.result
-  const od = getCapabilityData(overview) as Record<string, unknown>
   const ad = getCapabilityData(attention) as { count?: number; queue?: QueueRow[]; scoring_version?: string }
   const bd = getCapabilityData(brief) as {
     active?: number
@@ -41,6 +38,9 @@ export function OverviewDashboard() {
     spaces?: Array<{ space?: string; sprint_id?: string; state?: string; task_count?: number | null }>
   }
   const sd = getCapabilityData(status) as {
+    active?: number
+    completed?: number
+    blocked?: number
     completion_percent?: number
     by_product?: Record<string, { total?: number; completed?: number; blocked?: number }>
     by_space_tasks?: Record<string, { state?: string; total?: number | null; active?: number | null; completed?: number | null; blocked?: number | null; breakdown_state?: string }>
@@ -52,12 +52,12 @@ export function OverviewDashboard() {
   const statusState = classifyResult(status)
 
   return <section className="page page-overview">
-    <div className="page-heading"><div><h1>Обзор</h1><p>Единая точка внимания PO: портфель, риски, brief и задачи по пространствам</p></div><div className="page-heading-actions"><SnapshotRefresh updatedAt={[overviewQ.updatedAt, attentionQ.updatedAt, briefQ.updatedAt, statusQ.updatedAt]} refreshing={overviewQ.refreshing || attentionQ.refreshing || briefQ.refreshing || statusQ.refreshing} refreshError={overviewQ.refreshError || attentionQ.refreshError || briefQ.refreshError || statusQ.refreshError} onRefresh={() => setRefreshNonce(value => value + 1)} /><button className="primary-button" onClick={openAgent}>Спросить PO Agent</button></div></div>
+    <div className="page-heading"><div><h1>Обзор</h1><p>Единая точка внимания PO: портфель, риски, brief и задачи по пространствам</p></div><div className="page-heading-actions"><SnapshotRefresh updatedAt={[attentionQ.updatedAt, briefQ.updatedAt, statusQ.updatedAt]} refreshing={attentionQ.refreshing || briefQ.refreshing || statusQ.refreshing} refreshError={attentionQ.refreshError || briefQ.refreshError || statusQ.refreshError} onRefresh={() => setRefreshNonce(value => value + 1)} /><button className="primary-button" onClick={openAgent}>Спросить PO Agent</button></div></div>
     <div className="metric-grid">
-      <Metric label="Активно" value={stateAllowsBusinessData(classifyResult(overview)) ? (od.active ?? '—') : '—'} />
-      <Metric label="Завершено" value={stateAllowsBusinessData(classifyResult(overview)) ? (od.completed ?? '—') : '—'} />
-      <Metric label="Заблокировано" value={od.blocked} hint="требуют внимания" />
-      <Metric label="Готовность портфеля" value={`${String(sd.completion_percent ?? '—')}%`} />
+      <Metric label="Активно" value={stateAllowsBusinessData(statusState) ? (sd.active ?? '—') : '—'} />
+      <Metric label="Завершено" value={stateAllowsBusinessData(statusState) ? (sd.completed ?? '—') : '—'} />
+      <Metric label="Заблокировано" value={stateAllowsBusinessData(statusState) ? (sd.blocked ?? '—') : '—'} hint="требуют внимания" />
+      <Metric label="Готовность портфеля" value={stateAllowsBusinessData(statusState) ? `${String(sd.completion_percent ?? '—')}%` : '—'} />
     </div>
 
     <div className="content-grid">
