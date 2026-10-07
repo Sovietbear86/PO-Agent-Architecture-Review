@@ -290,6 +290,170 @@ def _task_relation_facts(unit: dict[str, Any]) -> dict[str, Any]:
         "source_fields_seen": source_fields_seen,
     }
 
+def _link_endpoint_code(value: Any) -> str | None:
+    if isinstance(value, str):
+        text = value.upper().strip()
+        return text if _TASK_CODE_RE.fullmatch(text) else None
+    if isinstance(value, dict):
+        for key in ("code", "unitCode", "taskCode", "id", "value"):
+            candidate = value.get(key)
+            if isinstance(candidate, str):
+                text = candidate.upper().strip()
+                if _TASK_CODE_RE.fullmatch(text):
+                    return text
+    return None
+
+
+def _link_type_code(value: Any) -> str:
+    if isinstance(value, str):
+        return value.strip().casefold()
+    if isinstance(value, dict):
+        for key in ("code", "name", "value", "id"):
+            candidate = value.get(key)
+            if candidate not in (None, ""):
+                return str(candidate).strip().casefold()
+    return ""
+
+
+def _task_link_facts(task_code: str, rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """Normalize authoritative MCP get_unit_links rows for one task.
+
+    Source semantics proven by A229S1:
+    - decomposition: source = parent, destination = child;
+    - realized_in: source points to an epic/realization target;
+    - every other connected link is exposed as related, never promoted to a
+      structural parent.
+    """
+    current = task_code.upper().strip()
+    parents: list[str] = []
+    epics: list[str] = []
+    related: list[str] = []
+    relations: list[dict[str, Any]] = []
+    link_types_seen: list[str] = []
+
+    for row in rows:
+        if not isinstance(row, dict) or bool(row.get("deleted", False)):
+            continue
+        source = _link_endpoint_code(row.get("source"))
+        destination = _link_endpoint_code(row.get("destination"))
+        link_type = _link_type_code(row.get("type"))
+        if not source or not destination or current not in {source, destination}:
+            continue
+
+        other = destination if source == current else source
+        direction = "outgoing" if source == current else "incoming"
+        if link_type:
+            link_types_seen.append(link_type)
+
+        relation = "related"
+        if link_type == "decomposition":
+            if destination == current:
+                relation = "parent"
+                if source not in parents:
+                    parents.append(source)
+            else:
+                relation = "child"
+                if other not in related:
+                    related.append(other)
+        elif link_type == "realized_in":
+            if source == current:
+                relation = "epic"
+                if destination not in epics:
+                    epics.append(destination)
+            else:
+                relation = "realized_child"
+                if other not in related:
+                    related.append(other)
+        else:
+            if other not in related:
+                related.append(other)
+
+        relations.append({
+            "key": other,
+            "relation": relation,
+            "link_type": link_type or None,
+            "source": source,
+            "destination": destination,
+            "direction": direction,
+            "origin": "mcp:get_unit_links",
+        })
+
+    # Do not duplicate structural parent/epic nodes in the generic related set.
+    related = [
+        key for key in dict.fromkeys(related)
+        if key not in set(parents) and key not in set(epics)
+    ]
+    parents = list(dict.fromkeys(parents))
+    epics = list(dict.fromkeys(epics))
+    link_types_seen = list(dict.fromkeys(link_types_seen))
+
+    return {
+        # The get_unit_links endpoint itself is the authoritative relation
+        # contract, so an empty complete response is a proven empty relation set.
+        "schema_proven": True,
+        "parent_key": parents[0] if len(parents) == 1 else None,
+        "parent_candidates": parents,
+        "parent_ambiguous": len(parents) > 1,
+        "epic_key": epics[0] if len(epics) == 1 else None,
+        "epic_candidates": epics,
+        "epic_ambiguous": len(epics) > 1,
+        "related_keys": related,
+        "relations": relations,
+        "source_fields_seen": [
+            "mcp:get_unit_links",
+            *[f"link_type:{item}" for item in link_types_seen],
+        ],
+    }
+
+
+async def _get_unit_links_complete(
+    client: SWTRMCPClient,
+    task_code: str,
+    *,
+    page_size: int = 100,
+    max_pages: int = 20,
+) -> list[dict[str, Any]]:
+    """Read the complete bounded relation set using the live-proven MCP contract."""
+    rows: list[dict[str, Any]] = []
+    seen: set[tuple[str, str, str]] = set()
+    page = 0
+    has_next = True
+
+    while has_next and page < max_pages:
+        # A229S1 direct MCP discovery proved this request DTO against the live
+        # get_unit_links tool. Keep it exact rather than inventing aliases.
+        arguments = {
+            "request": {
+                "type": [],
+                "unitId": task_code,
+                "page": {"page": {"page": page, "size": page_size}},
+            }
+        }
+        content = await client.call_tool("get_unit_links", arguments)
+        payload = _parse_tool_content(content)
+        page_rows = _page_content(payload)
+        for row in page_rows:
+            source = _link_endpoint_code(row.get("source"))
+            destination = _link_endpoint_code(row.get("destination"))
+            link_type = _link_type_code(row.get("type"))
+            if not source or not destination:
+                continue
+            marker = (source, destination, link_type)
+            if marker in seen:
+                continue
+            seen.add(marker)
+            rows.append(row)
+        has_next = _page_meta(payload)["has_next"]
+        page += 1
+
+    if has_next:
+        raise HTTPException(
+            status_code=502,
+            detail=f"SWTR get_unit_links pagination exceeded max_pages for {task_code}",
+        )
+    return rows
+
+
 def _raw_attribute_entries(item: dict[str, Any]) -> list[tuple[str, Any]]:
     """Attribute ``(code, value)`` pairs from a source row.
 
@@ -715,13 +879,11 @@ def _normalize_worklog_entry(row: dict[str, Any]) -> dict[str, Any]:
 
 @router.get("/tasks/{task_code}/relations")
 async def get_task_relations(task_code: str):
-    """Return deterministic parent/epic/linked-task facts from one REAL AS21 unit.
+    """Return authoritative parent/epic/linked-task facts from REAL AS21.
 
-    The facade does not assume a fixed AS21 hierarchy depth and does not invent
-    empty relations when the source schema is not observable. Field discovery is
-    schema-tolerant: relation-bearing top-level fields and attributes are
-    recognized by semantic field names, while task identities must still match
-    the canonical task-key shape.
+    Relations are NOT stored in read_unit attributes in the certified source
+    contract. The authoritative source is MCP get_unit_links. read_unit is used
+    only for the task's own type (suit), never as a relation fallback.
     """
     normalized = task_code.upper().strip()
     if not _TASK_CODE_RE.fullmatch(normalized):
@@ -729,11 +891,12 @@ async def get_task_relations(task_code: str):
 
     client = SWTRMCPClient()
     try:
-        content = await client.call_tool("read_unit", {"code": normalized})
+        unit_content = await client.call_tool("read_unit", {"code": normalized})
+        link_rows = await _get_unit_links_complete(client, normalized)
     except (SWTRMCPUnavailable, SWTRMCPProtocolError) as exc:
         raise _transport_http_error(exc) from exc
 
-    payload = _parse_tool_content(content)
+    payload = _parse_tool_content(unit_content)
     unit = _unwrap_task_unit(payload)
     if unit is None:
         raise HTTPException(status_code=502, detail="SWTR read_unit returned no canonical task unit")
@@ -750,10 +913,11 @@ async def get_task_relations(task_code: str):
         type_code = suit.strip()
         type_name = suit.strip()
 
-    facts = _task_relation_facts(unit)
+    facts = _task_link_facts(normalized, link_rows)
     return {
         "task_code": normalized,
         "source": "REAL_AS21",
+        "relation_source": "mcp:get_unit_links",
         "task_type_code": type_code,
         "task_type_name": type_name,
         **facts,
