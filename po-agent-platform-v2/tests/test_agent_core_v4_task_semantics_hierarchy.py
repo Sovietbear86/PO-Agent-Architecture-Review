@@ -60,36 +60,60 @@ class Runtime:
         return Result()
 
     async def _get_resilient(self, path, *, params):
-        assert path.endswith(("task-query", "assignee-tasks"))
-
         class Response:
-            def __init__(self, tasks):
-                self.tasks = tasks
+            def __init__(self, payload):
+                self.payload = payload
 
             def json(self):
-                return {
-                    "tasks": [
-                        {
-                            "source_id": task.key,
-                            "title": task.title,
-                            "description": task.description,
-                            "status": task.status_raw,
-                            "task_type_code": task.task_type_code,
-                            "task_type_name": task.task_type_name,
-                            "source": "REAL_AS21",
-                            "source_data": task.source_data,
-                        }
-                        for task in self.tasks
-                    ],
-                    "source_complete": True,
-                    "completed_spaces": ["DMS"],
-                    "incomplete_spaces": [],
-                }
+                return self.payload
 
+        rows = [
+            {
+                "source_id": task.key,
+                "title": task.title,
+                "description": task.description,
+                "status": task.status_raw,
+                "task_type_code": task.task_type_code,
+                "task_type_name": task.task_type_name,
+                "source": "REAL_AS21",
+                "source_data": task.source_data,
+            }
+            for task in self.tasks
+        ]
+
+        if "/sprints/" in path and path.endswith("/tasks"):
+            assert params.get("complete") is True
+            assert params.get("include_task_type") is True
+            return Response({
+                "complete": True,
+                "membership_proven": True,
+                "complete_tasks": rows,
+                "source_path": "test_live_sprint",
+            })
+
+        assert path.endswith(("task-query", "assignee-tasks"))
         tasks = self.tasks
         if params.get("assignee"):
             tasks = [task for task in tasks if task.assignee_id == params["assignee"]]
-        return Response(tasks)
+        rows = [
+            {
+                "source_id": task.key,
+                "title": task.title,
+                "description": task.description,
+                "status": task.status_raw,
+                "task_type_code": task.task_type_code,
+                "task_type_name": task.task_type_name,
+                "source": "REAL_AS21",
+                "source_data": task.source_data,
+            }
+            for task in tasks
+        ]
+        return Response({
+            "tasks": rows,
+            "source_complete": True,
+            "completed_spaces": ["DMS"],
+            "incomplete_spaces": [],
+        })
 
     @staticmethod
     def _map(row):
@@ -135,6 +159,28 @@ def test_task_type_analysis_composes_person_space_status_and_type():
     assert result.data["count"] == 1
     assert result.data["scope_count"] == 2
     assert any(row["code"] == "defect" and row["count"] == 1 for row in result.data["type_breakdown"])
+
+
+def test_task_type_analysis_composes_person_sprint_status_and_type():
+    runtime = Runtime([
+        _task("DMS-431", task_type_code="bug", task_type_name="Дефект"),
+        _task("DMS-432", task_type_code="task", task_type_name="Задача"),
+        _task("DMS-433", task_type_code="bug", task_type_name="Дефект", status=TaskStatus.CLOSED),
+    ])
+
+    result = asyncio.run(build_task_type_analysis(runtime)({
+        "reference": "Иванов",
+        "space": "DMS",
+        "sprint_id": "DMS-SPRNT-9",
+        "status": "open",
+        "task_type": "defect",
+    }))
+
+    assert result.data["task_keys"] == ["DMS-431"]
+    assert result.data["count"] == 1
+    assert result.data["scope_count"] == 2
+    assert result.data["sprint_id"] == "DMS-SPRNT-9"
+    assert result.data["source"] == "REAL_AS21"
 
 
 def test_task_type_analysis_without_type_returns_distribution():
