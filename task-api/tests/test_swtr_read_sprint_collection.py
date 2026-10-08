@@ -72,11 +72,25 @@ def _content(payload: dict) -> list[dict]:
 
 
 def _sprint_rows(codes) -> list[dict]:
-    return [_nested_row(c, ws=_ws("In progress", "progress")) for c in codes]
+    rows = []
+    for code in codes:
+        row = _nested_row(code, ws=_ws("In progress", "progress"))
+        # These pagination fixtures are not testing timestamp enrichment. Keep
+        # source timestamps present so TQL call counts measure pagination only.
+        row["unit"]["created_at"] = "2026-01-01T00:00:00Z"
+        row["unit"]["deadline"] = "2026-12-31T00:00:00Z"
+        rows.append(row)
+    return rows
 
 
 def _tql_rows(codes) -> list[dict]:
-    return [_flat_row(c, ws=_ws("In progress", "progress")) for c in codes]
+    rows = []
+    for code in codes:
+        row = _flat_row(code, ws=_ws("In progress", "progress"))
+        row["created_at"] = "2026-01-01T00:00:00Z"
+        row["deadline"] = "2026-12-31T00:00:00Z"
+        rows.append(row)
+    return rows
 
 
 # ---------------------------------------------------------------------------
