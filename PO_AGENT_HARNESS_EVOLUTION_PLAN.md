@@ -2,9 +2,9 @@
 
 **Status:** STABILIZED V4 / controlled evolution  
 **Current branch:** `feat/core8-real-query-hardening-v2`  
-**Last reviewed:** 2026-10-02  
-**Current stable checkpoint:** `checkpoint/v4-stable-product-a229f1r2@9d71a7957035dd71ca0c48a02b1f73b4b5312c4f`  
-**Current baseline:** PO acceptance A227R3 GREEN; restart/recovery A228 GREEN; latency baseline A229 GREEN; created-period search A229F1R2 GREEN; full V4 blast 238/238; canonical 54 remains certified; live registry = 69 skills / 71 capabilities / 13 plugins. PO assessment: approximately 90% of the V4 application DoD is complete.
+**Last reviewed:** 2026-10-08  
+**Current stable checkpoint:** `checkpoint/v4-task-semantics-hierarchy-green-a229s1r4@afb6fa1d9b6e5d13a5d743f0d45afef94d1821a1`  
+**Current baseline:** PO acceptance A227R3 GREEN; restart/recovery A228 GREEN; latency baseline A229 GREEN; created-period/status, rich task details, task-type analysis and hierarchy are certified through A229S1R4R; full V4 blast 248/248 and focused Task API SWTR 57/57; canonical 54 remains certified; live registry = 72 unique skills. PO assessment remains approximately 90% complete pending A229R1/A230/A231 release-hardening gates.
 **Architecture decision:** the V4 Harness/Core is now a stable platform. Further product capabilities should be added through plugins/capabilities/UI/task-api seams. Agent Core/planner/runtime orchestration changes require a proven release-blocking defect and explicit owner approval.  
 **Reference observations:** Hermes Agent is the architectural target pattern; PVM Guru is a behavioral/reference implementation only, not a codebase to copy.  
 **Frontend status:** UI is part of acceptance truth; Harness-only GREEN is insufficient.  
@@ -580,7 +580,7 @@ The old requirement that H4 precede H5/H6 is superseded. Learning Reviewer is va
 
 No active production change should start automatically after A229F1R2. The current application state is frozen at:
 
-`checkpoint/v4-stable-product-a229f1r2@9d71a7957035dd71ca0c48a02b1f73b4b5312c4f`
+`checkpoint/v4-task-semantics-hierarchy-green-a229s1r4@afb6fa1d9b6e5d13a5d743f0d45afef94d1821a1`
 
 Recommended next sequence when work resumes:
 
@@ -602,14 +602,14 @@ Conversational continuity such as `Помоги` / `а за неделю?` remai
 
 ```text
 ACTIVE_BRANCH = feat/core8-real-query-hardening-v2
-STABLE_PRODUCT_CHECKPOINT = checkpoint/v4-stable-product-a229f1r2@9d71a7957035dd71ca0c48a02b1f73b4b5312c4f
+STABLE_PRODUCT_CHECKPOINT = checkpoint/v4-task-semantics-hierarchy-green-a229s1r4@afb6fa1d9b6e5d13a5d743f0d45afef94d1821a1
 PO_ACCEPTANCE = GREEN_A227R3
 RESTART_RECOVERY = GREEN_A228
 LATENCY_BASELINE = GREEN_A229
 CREATED_PERIOD_SEARCH = GREEN_A229F1R2
-FULL_V4_TESTS = 238_OF_238_GREEN_AT_A229F1R2
+FULL_V4_TESTS = 248_OF_248_GREEN_AT_A229S1R4R
 CANONICAL_SKILLS = 54_OF_54_CERTIFIED
-LIVE_REGISTRY = 69_SKILLS_71_CAPABILITIES_13_PLUGINS
+LIVE_REGISTRY = 72_UNIQUE_SKILLS_CERTIFIED_AT_A229S1R4R
 PLUGIN_EXTENSIBILITY = GREEN
 UI_ACCEPTANCE = GREEN
 REAL_AS21 = AUTHORITATIVE
