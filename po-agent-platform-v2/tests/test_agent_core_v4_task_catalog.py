@@ -179,8 +179,13 @@ def test_task_semantics_hierarchy_skills_are_extra_plugin_skills_not_canonical54
 
     catalog = SkillCatalogV4(registry.skills(), registry.capability_specs())
     type_skill = catalog.load("task.type_analysis")
-    assert "task_type" in type_skill["capabilities"][0]["arguments"]
-    assert "created_period" in type_skill["capabilities"][0]["arguments"]
+    type_terminal = next(
+        capability
+        for capability in type_skill["capabilities"]
+        if capability["id"] == "task.type_analysis"
+    )
+    assert "task_type" in type_terminal["arguments"]
+    assert "created_period" in type_terminal["arguments"]
     hierarchy = catalog.load("task.hierarchy")
     assert "mode" in hierarchy["capabilities"][0]["arguments"]
     hierarchy_text = " ".join(hierarchy["procedure"])
