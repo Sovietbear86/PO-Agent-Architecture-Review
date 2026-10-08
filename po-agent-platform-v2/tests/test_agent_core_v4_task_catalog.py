@@ -164,7 +164,13 @@ def test_task_semantics_hierarchy_skills_are_extra_plugin_skills_not_canonical54
     assert EXTRA_TASK_SKILLS.isdisjoint(set(CANONICAL_TASK_SKILL_IDS))
 
     by_id = {skill.id: skill for skill in registry.skills()}
-    assert by_id["task.type_analysis"].capabilities == ("task.type_analysis",)
+    assert by_id["task.type_analysis"].capabilities == (
+        "space.resolve",
+        "sprint.resolve",
+        "sprint.search",
+        "sprint.current",
+        "task.type_analysis",
+    )
     assert by_id["task.hierarchy"].capabilities == ("task.hierarchy",)
 
     ui = registry.ui_contracts()
