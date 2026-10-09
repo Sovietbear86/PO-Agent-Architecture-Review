@@ -317,6 +317,7 @@ def _parse_human_created_period(raw: str, *, now: datetime | None = None) -> tup
 
     Supported forms are generic calendar expressions, not task/entity phrases:
     - "последние N дней" / "last N days";
+    - "за N дней", "за день", "сегодня";
     - explicit inclusive ranges containing two DD.MM.YYYY or YYYY-MM-DD dates.
     """
     text = str(raw or "").strip()
@@ -324,7 +325,23 @@ def _parse_human_created_period(raw: str, *, now: datetime | None = None) -> tup
         raise ValueError("created_period is required")
 
     current = now.astimezone(_MOSCOW_TZ) if now is not None else datetime.now(_MOSCOW_TZ)
-    relative = re.search(r"(?:последн(?:ие|их)\s+|last\s+)(\d{1,3})\s*(?:дн(?:я|ей)?|days?)", text, flags=re.I)
+    normalized = text.casefold().strip()
+
+    if re.fullmatch(r"(?:за\s+)?день|сегодня|today", normalized, flags=re.I):
+        start = datetime.combine(current.date(), dt_time.min, tzinfo=_MOSCOW_TZ)
+        return start, current, "last_1_calendar_days"
+
+    relative = re.search(
+        r"(?:последн(?:ие|их)\s+|last\s+)(\d{1,3})\s*(?:день|дня|дней|дн(?:я|ей)?|days?)",
+        text,
+        flags=re.I,
+    )
+    if relative is None:
+        relative = re.search(
+            r"\bза\s+(\d{1,3})\s*(?:день|дня|дней|дн(?:я|ей)?)\b",
+            text,
+            flags=re.I,
+        )
     if relative:
         days = int(relative.group(1))
         if days < 1 or days > 366:
@@ -350,8 +367,9 @@ def _parse_human_created_period(raw: str, *, now: datetime | None = None) -> tup
         return start, end, "explicit_inclusive_dates"
 
     raise ValueError(
-        "created_period must contain 'последние N дней'/'last N days' "
-        "or two explicit dates (DD.MM.YYYY or YYYY-MM-DD)"
+        "created_period must contain 'последние N дней'/'last N days', "
+        "'за N дней'/'за день'/'сегодня', or two explicit dates "
+        "(DD.MM.YYYY or YYYY-MM-DD)"
     )
 
 
