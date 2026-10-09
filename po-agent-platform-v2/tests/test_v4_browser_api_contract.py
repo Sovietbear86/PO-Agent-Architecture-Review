@@ -298,6 +298,128 @@ async def test_provider_failure_is_not_misreported_as_user_clarification(monkeyp
     assert response["warnings"] == ["v4_runtime_failure"]
 
 
+def test_completed_task_period_drop_is_promoted_to_clarification():
+    import po_agent.api.v1 as api_v1
+
+    response = {
+        "status": "COMPLETED",
+        "answer": "Найдена 1 задача.",
+        "warnings": [],
+        "evidence": [{"id": "should-be-hidden"}],
+        "data": {
+            "_agent_core_v4": {
+                "loaded_skills": ["task.type_analysis"],
+                "trajectory": [
+                    {
+                        "decision": "call",
+                        "capability_id": "task.type_analysis",
+                        "arguments": {
+                            "reference": "Семавин",
+                            "space": "DMS",
+                            "status": "open",
+                            "task_type": "defect",
+                        },
+                    }
+                ],
+            },
+            "results": [
+                {
+                    "capability_id": "task.type_analysis",
+                    "arguments": {
+                        "reference": "Семавин",
+                        "space": "DMS",
+                        "status": "open",
+                        "task_type": "defect",
+                    },
+                    "data": {"count": 1},
+                }
+            ],
+        },
+    }
+
+    guarded = api_v1._guard_completed_constraint_coverage(
+        response,
+        "Открытые задачи Семавина с типом дефект в DMS за период",
+    )
+
+    assert guarded["status"] == "NEEDS_CLARIFICATION"
+    assert guarded["answer"] is None
+    assert "Уточните период" in guarded["question"]
+    assert guarded["warnings"] == ["v4_constraint_coverage_clarification"]
+    assert guarded["evidence"] == []
+    assert "results" not in guarded["data"]
+    assert guarded["data"]["_agent_core_v4"]["constraint_coverage_failure"] == {
+        "constraint": "created_period",
+        "reason": "requested_but_not_applied",
+    }
+
+
+def test_completed_task_period_guard_allows_applied_created_period():
+    import po_agent.api.v1 as api_v1
+
+    response = {
+        "status": "COMPLETED",
+        "answer": "Найдено 0 задач.",
+        "warnings": [],
+        "evidence": [],
+        "data": {
+            "_agent_core_v4": {"loaded_skills": ["task.type_analysis"]},
+            "results": [
+                {
+                    "capability_id": "task.type_analysis",
+                    "arguments": {
+                        "reference": "Семавин",
+                        "space": "DMS",
+                        "status": "open",
+                        "task_type": "defect",
+                        "created_period": "с 30.09.2026 по сегодня",
+                    },
+                    "data": {"count": 0},
+                }
+            ],
+        },
+    }
+
+    guarded = api_v1._guard_completed_constraint_coverage(
+        response,
+        "Открытые задачи Семавина с типом дефект в DMS с 30.09.2026",
+    )
+    assert guarded["status"] == "COMPLETED"
+    assert guarded["answer"] == "Найдено 0 задач."
+
+
+def test_completed_non_period_task_query_is_not_affected_by_period_guard():
+    import po_agent.api.v1 as api_v1
+
+    response = {
+        "status": "COMPLETED",
+        "answer": "Найдена 1 задача.",
+        "warnings": [],
+        "evidence": [],
+        "data": {
+            "_agent_core_v4": {"loaded_skills": ["task.type_analysis"]},
+            "results": [
+                {
+                    "capability_id": "task.type_analysis",
+                    "arguments": {
+                        "reference": "Семавин",
+                        "space": "DMS",
+                        "status": "open",
+                        "task_type": "defect",
+                    },
+                    "data": {"count": 1},
+                }
+            ],
+        },
+    }
+
+    guarded = api_v1._guard_completed_constraint_coverage(
+        response,
+        "Открытые задачи Семавина с типом дефект в DMS",
+    )
+    assert guarded["status"] == "COMPLETED"
+
+
 @pytest.mark.asyncio
 async def test_health_uses_lightweight_source_probe_not_unscoped_task_search(monkeypatch):
     import po_agent.api.v1 as api_v1
