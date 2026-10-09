@@ -186,6 +186,12 @@ def test_task_semantics_hierarchy_skills_are_extra_plugin_skills_not_canonical54
     )
     assert "task_type" in type_terminal["arguments"]
     assert "created_period" in type_terminal["arguments"]
+    created_skill = catalog.load("task.search_created")
+    created_text = " ".join(created_skill["procedure"])
+    assert "bare task-search period" in created_text
+    assert "за N дней" in created_text
+    assert "another timestamp dimension" in created_text
+
     hierarchy = catalog.load("task.hierarchy")
     assert "mode" in hierarchy["capabilities"][0]["arguments"]
     hierarchy_text = " ".join(hierarchy["procedure"])
