@@ -61,6 +61,11 @@ class Settings(BaseSettings):
         description="Enable additive Agent Core v4 skill-native POC endpoint/runtime",
         validation_alias=AliasChoices("AGENT_CORE_V4_ENABLED", "PO_AGENT_AGENT_CORE_V4_ENABLED"),
     )
+    v4_synthesis_elision_enabled: bool = Field(
+        default=False,
+        description="Elide one final LLM synthesis turn for proven simple V4 task trajectories",
+        validation_alias=AliasChoices("V4_SYNTHESIS_ELISION", "PO_AGENT_V4_SYNTHESIS_ELISION"),
+    )
     swtr_base_url: str = Field(default="https://portal.works.prod.sbt/swtr")
     swtr_token: Optional[str] = Field(default=None)
 
