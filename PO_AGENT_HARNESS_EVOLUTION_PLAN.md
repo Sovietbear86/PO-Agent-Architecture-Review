@@ -2,9 +2,9 @@
 
 **Status:** STABILIZED V4 / controlled evolution  
 **Current branch:** `feat/core8-real-query-hardening-v2`  
-**Last reviewed:** 2026-10-08  
-**Current stable checkpoint:** `checkpoint/v4-task-semantics-hierarchy-green-a229s1r4@afb6fa1d9b6e5d13a5d743f0d45afef94d1821a1`  
-**Current baseline:** PO acceptance A227R3 GREEN; restart/recovery A228 GREEN; latency baseline A229 GREEN; created-period/status, rich task details, task-type analysis and hierarchy are certified through A229S1R4R; full V4 blast 248/248 and focused Task API SWTR 57/57; canonical 54 remains certified; live registry = 72 unique skills. PO assessment remains approximately 90% complete pending A229R1/A230/A231 release-hardening gates.
+**Last reviewed:** 2026-10-09  
+**Current stable checkpoint:** `checkpoint/v4-complex-task-clarification-green-a229f3r@6fb335d6f67344245a5c65e5c1b5b145759e96da`  
+**Current baseline:** PO acceptance A227R3 GREEN; restart/recovery A228 GREEN; low-risk latency verification A229R1 GREEN; created-period/status, task-type analysis, hierarchy, complex task composition and resumable clarification are certified through A229F3R; full V4 blast 258/258 and focused Task API SWTR 57/57; canonical 54 remains certified; live registry = 72 unique skills. PO assessment remains approximately 90% complete pending A229R2/A230/A231 release-hardening gates.
 **Architecture decision:** the V4 Harness/Core is now a stable platform. Further product capabilities should be added through plugins/capabilities/UI/task-api seams. Agent Core/planner/runtime orchestration changes require a proven release-blocking defect and explicit owner approval.  
 **Reference observations:** Hermes Agent is the architectural target pattern; PVM Guru is a behavioral/reference implementation only, not a codebase to copy.  
 **Frontend status:** UI is part of acceptance truth; Harness-only GREEN is insufficient.  
@@ -578,16 +578,16 @@ The old requirement that H4 precede H5/H6 is superseded. Learning Reviewer is va
 
 **Current operating mode: STABILIZE, then evolve cautiously.**
 
-No active production change should start automatically after A229F1R2. The current application state is frozen at:
+The current application state is frozen at:
 
-`checkpoint/v4-task-semantics-hierarchy-green-a229s1r4@afb6fa1d9b6e5d13a5d743f0d45afef94d1821a1`
+`checkpoint/v4-complex-task-clarification-green-a229f3r@6fb335d6f67344245a5c65e5c1b5b145759e96da`
 
-Recommended next sequence when work resumes:
+Recommended next sequence:
 
-1. **A229R1 verification only — no new code first.** Re-gate the already implemented low-risk latency changes (single sprint read, assignee+space source pushdown, UI concurrency<=2, capability timing). Decide from measurements whether more performance work is justified.
+1. **A229R2 planner-turn reduction — evidence/design first.** A229R1 proved the remaining latency is predominantly LLM/planner-bound. First identify one removable planner/model round-trip with no loss of source parity, constraint coverage or clarification safety. Do not change Core until the exact removable turn and re-gate blast radius are proven.
 2. **A230 security/read-only + rollback rehearsal.** Reconfirm secrets, permissions, zero writes, zero local factual fallback, dependency failure behavior, and prove rollback to the stable checkpoint and forward recovery.
 3. **A231 final V4 DoD audit / release candidate.** Re-run a compact representative A/B/C matrix, browser smoke, restart smoke, full test battery, source audit and produce RELEASE_READY decision.
-4. **Post-RC controlled enhancement track.** Only after the release-candidate checkpoint should new functional improvements restart.
+4. **Post-RC controlled enhancement track.** Resume broader functional and V5/deep-orchestration experiments only after the release-candidate checkpoint.
 
 The first post-RC functional priority is **generic complex task search**, motivated by requests such as:
 `Покажи открытые задачи, созданные <человеком>, со словом "дефект" в описании`.
@@ -602,14 +602,14 @@ Conversational continuity such as `Помоги` / `а за неделю?` remai
 
 ```text
 ACTIVE_BRANCH = feat/core8-real-query-hardening-v2
-STABLE_PRODUCT_CHECKPOINT = checkpoint/v4-task-semantics-hierarchy-green-a229s1r4@afb6fa1d9b6e5d13a5d743f0d45afef94d1821a1
+STABLE_PRODUCT_CHECKPOINT = checkpoint/v4-complex-task-clarification-green-a229f3r@6fb335d6f67344245a5c65e5c1b5b145759e96da
 PO_ACCEPTANCE = GREEN_A227R3
 RESTART_RECOVERY = GREEN_A228
 LATENCY_BASELINE = GREEN_A229
 CREATED_PERIOD_SEARCH = GREEN_A229F1R2
-FULL_V4_TESTS = 248_OF_248_GREEN_AT_A229S1R4R
+FULL_V4_TESTS = 258_OF_258_GREEN_AT_A229F3R
 CANONICAL_SKILLS = 54_OF_54_CERTIFIED
-LIVE_REGISTRY = 72_UNIQUE_SKILLS_CERTIFIED_AT_A229S1R4R
+LIVE_REGISTRY = 72_UNIQUE_SKILLS_CERTIFIED_AT_A229F3R
 PLUGIN_EXTENSIBILITY = GREEN
 UI_ACCEPTANCE = GREEN
 REAL_AS21 = AUTHORITATIVE
@@ -617,12 +617,12 @@ LOCAL_FACTUAL_FALLBACK = FORBIDDEN
 TENANT_WIDE_SCANS = FORBIDDEN
 UNAUTHORIZED_WRITES = ZERO_REQUIRED
 AGENT_CORE_POLICY = FROZEN_UNLESS_PROVEN_RELEASE_BLOCKER
-COMPLEX_QUERY_RELIABILITY = POST_RC_IMPROVEMENT_TRACK
-DIALOGUE_CONTINUATION = NON_BLOCKING_TECH_DEBT
+COMPLEX_QUERY_RELIABILITY = GREEN_A229F3R
+DIALOGUE_CONTINUATION = TYPED_CLARIFICATION_GREEN_A229F3R; BROADER_ELLIPSIS_REMAINS_NON_BLOCKING
 LEARNING_REVIEWER_2_0 = DEFERRED_UNTIL_POST_HARDENING
 PO_DOD_ESTIMATE = APPROX_90_PERCENT_COMPLETE
 RELEASE_READY = NO
-CURRENT_NEXT_ACTION = PAUSE_OR_A229R1_VERIFICATION_THEN_A230_A231
+CURRENT_NEXT_ACTION = A229R2_PLANNER_TURN_REDUCTION_DESIGN_THEN_A230_A231
 ```
 
 ---
