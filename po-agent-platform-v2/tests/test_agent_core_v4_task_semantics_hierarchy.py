@@ -19,6 +19,7 @@ def _task(
     task_type_code: str,
     task_type_name: str,
     status: TaskStatus = TaskStatus.OPEN,
+    created_at: datetime | None = None,
 ) -> Task:
     return Task(
         key=key,
@@ -38,13 +39,17 @@ def _task(
         assignee="Иванов Иван",
         assignee_id="Ivanov.I.I",
         assignee_login="ivanov.i.i",
-        created_at=datetime(2026, 10, 1, tzinfo=timezone.utc),
-        updated_at=datetime(2026, 10, 1, tzinfo=timezone.utc),
+        created_at=created_at or datetime(2026, 10, 1, tzinfo=timezone.utc),
+        updated_at=created_at or datetime(2026, 10, 1, tzinfo=timezone.utc),
         project_space="DMS",
         task_type_code=task_type_code,
         task_type_name=task_type_name,
         source="swtr",
-        source_data={"swtr_space": "DMS", "swtr_suit": {"code": task_type_code, "name": task_type_name}},
+        source_data={
+            "swtr_space": "DMS",
+            "swtr_suit": {"code": task_type_code, "name": task_type_name},
+            "_canonical_created_at_from_source": True,
+        },
     )
 
 
@@ -75,6 +80,7 @@ class Runtime:
                 "status": task.status_raw,
                 "task_type_code": task.task_type_code,
                 "task_type_name": task.task_type_name,
+                "created_at": task.created_at.isoformat() if task.created_at else None,
                 "source": "REAL_AS21",
                 "source_data": task.source_data,
             }
@@ -103,6 +109,7 @@ class Runtime:
                 "status": task.status_raw,
                 "task_type_code": task.task_type_code,
                 "task_type_name": task.task_type_name,
+                "created_at": task.created_at.isoformat() if task.created_at else None,
                 "source": "REAL_AS21",
                 "source_data": task.source_data,
             }
@@ -118,11 +125,14 @@ class Runtime:
     @staticmethod
     def _map(row):
         status = TaskStatus.CLOSED if str(row["status"]).casefold() == "closed" else TaskStatus.OPEN
+        created_raw = row.get("created_at")
+        created = datetime.fromisoformat(created_raw) if created_raw else None
         return _task(
             row["source_id"],
             task_type_code=row.get("task_type_code") or "",
             task_type_name=row.get("task_type_name") or "",
             status=status,
+            created_at=created,
         )
 
     @staticmethod
@@ -181,6 +191,51 @@ def test_task_type_analysis_composes_person_sprint_status_and_type():
     assert result.data["scope_count"] == 2
     assert result.data["sprint_id"] == "DMS-SPRNT-9"
     assert result.data["source"] == "REAL_AS21"
+
+
+def test_task_type_analysis_composes_person_space_status_type_and_open_ended_period():
+    runtime = Runtime([
+        _task(
+            "DMS-10",
+            task_type_code="defect",
+            task_type_name="Дефект",
+            created_at=datetime(2026, 10, 1, tzinfo=timezone.utc),
+        ),
+        _task(
+            "DMS-11",
+            task_type_code="defect",
+            task_type_name="Дефект",
+            created_at=datetime(2026, 9, 20, tzinfo=timezone.utc),
+        ),
+        _task(
+            "DMS-12",
+            task_type_code="story",
+            task_type_name="История",
+            created_at=datetime(2026, 10, 2, tzinfo=timezone.utc),
+        ),
+        _task(
+            "DMS-13",
+            task_type_code="defect",
+            task_type_name="Дефект",
+            status=TaskStatus.CLOSED,
+            created_at=datetime(2026, 10, 2, tzinfo=timezone.utc),
+        ),
+    ])
+
+    result = asyncio.run(build_task_type_analysis(runtime)({
+        "reference": "Иванов",
+        "space": "DMS",
+        "status": "open",
+        "task_type": "defect",
+        "created_period": "с 30.09.2026 по сегодняшний день",
+    }))
+
+    assert result.data["task_keys"] == ["DMS-10"]
+    assert result.data["count"] == 1
+    assert result.data["task_type"] == "defect"
+    assert result.data["status"] == "open"
+    assert result.data["period_kind"] == "explicit_start_to_now"
+    assert result.data["created_period"] == "с 30.09.2026 по сегодняшний день"
 
 
 def test_task_type_analysis_without_type_returns_distribution():
