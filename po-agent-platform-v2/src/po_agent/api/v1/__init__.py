@@ -1,6 +1,7 @@
 """API version 1 routes for PO Agent Platform v2."""
 
 import logging
+import re
 import time
 import uuid
 from dataclasses import dataclass
@@ -137,6 +138,92 @@ def _decorate_v4_response(response: dict, bundle: RuntimeBundle) -> dict:
     response["ui"] = contract.compact() if contract is not None else None
     if runtime is not None and hasattr(runtime, "plugin_ids"):
         response["plugin_ids"] = list(runtime.plugin_ids)
+    return response
+
+
+_TASK_PERIOD_INTENT_RE = re.compile(
+    r"(?:\bпериод\b|"
+    r"\bза\s+(?:последн(?:ий|ие|юю|их)\s+)?\d+\s+д(?:ень|ня|ней)\b|"
+    r"\bза\s+день\b|\bсегодня\b|"
+    r"(?:^|\s)(?:с|от|начиная\s+с)\s*\d{2}\.\d{2}\.\d{4}\b|"
+    r"(?:^|\s)(?:с|от|начиная\s+с)\s*\d{4}-\d{2}-\d{2}\b)",
+    flags=re.I,
+)
+
+
+def _query_requests_task_period(query: str) -> bool:
+    """Conservative safety signal for an explicit task-period constraint.
+
+    This does not route the request or choose a capability. It is used only
+    after execution to prevent a COMPLETED task answer when the planner silently
+    omitted a period the user explicitly asked for.
+    """
+    return bool(_TASK_PERIOD_INTENT_RE.search(str(query or "").strip()))
+
+
+def _response_applied_argument(response: dict, argument: str) -> bool:
+    data = response.get("data")
+    if not isinstance(data, dict):
+        return False
+    results = data.get("results")
+    if not isinstance(results, list):
+        return False
+    for item in results:
+        if not isinstance(item, dict):
+            continue
+        capability_id = str(item.get("capability_id") or "")
+        if not capability_id.startswith("task."):
+            continue
+        arguments = item.get("arguments")
+        if isinstance(arguments, dict) and str(arguments.get(argument) or "").strip():
+            return True
+    return False
+
+
+def _guard_completed_constraint_coverage(response: dict, original_query: str) -> dict:
+    """Fail closed when a completed task trajectory dropped an explicit period.
+
+    This is a dialogue/API postcondition guard outside Agent Core. It does not
+    infer the missing value or alter routing; it only converts an unsafe
+    over-broad COMPLETED answer into a resumable clarification.
+    """
+    if response.get("status") != "COMPLETED":
+        return response
+    if not _query_requests_task_period(original_query):
+        return response
+
+    data = response.get("data")
+    results = data.get("results") if isinstance(data, dict) else None
+    task_executed = any(
+        isinstance(item, dict) and str(item.get("capability_id") or "").startswith("task.")
+        for item in (results or [])
+    )
+    if not task_executed or _response_applied_argument(response, "created_period"):
+        return response
+
+    state = data.get("_agent_core_v4") if isinstance(data, dict) else None
+    if not isinstance(state, dict):
+        state = {}
+        if isinstance(data, dict):
+            data["_agent_core_v4"] = state
+
+    response["status"] = "NEEDS_CLARIFICATION"
+    response["answer"] = None
+    response["question"] = (
+        "Вы указали период, но он не был безопасно применён к поиску задач. "
+        "Уточните период создания задач. Например: «за последние 2 дня», "
+        "«с 30.09.2026 по сегодня» или «с 30.09.2026 по 09.10.2026»."
+    )
+    response["options"] = []
+    response["warnings"] = ["v4_constraint_coverage_clarification"]
+    response["evidence"] = []
+    if isinstance(data, dict):
+        data.pop("results", None)
+    state["constraint_coverage_failure"] = {
+        "constraint": "created_period",
+        "reason": "requested_but_not_applied",
+    }
+    state["original_query_preserved"] = bool(str(original_query or "").strip())
     return response
 
 
@@ -452,6 +539,10 @@ async def _run_query(payload: QueryRequest, request: Request, *, force_v4: bool 
             ))
             response = _decorate_v4_response(result.to_dict(), bundle)
             response = _promote_planner_failure_to_clarification(
+                response,
+                effective_query or original_query,
+            )
+            response = _guard_completed_constraint_coverage(
                 response,
                 effective_query or original_query,
             )
