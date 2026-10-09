@@ -351,11 +351,12 @@ def _parse_human_created_period(raw: str, *, now: datetime | None = None) -> tup
         return start, current, f"last_{days}_calendar_days"
 
     date_tokens = re.findall(r"\b(?:\d{2}\.\d{2}\.\d{4}|\d{4}-\d{2}-\d{2})\b", text)
-    if len(date_tokens) == 2:
-        def parse_one(value: str):
-            fmt = "%d.%m.%Y" if "." in value else "%Y-%m-%d"
-            return datetime.strptime(value, fmt).date()
 
+    def parse_one(value: str):
+        fmt = "%d.%m.%Y" if "." in value else "%Y-%m-%d"
+        return datetime.strptime(value, fmt).date()
+
+    if len(date_tokens) == 2:
         start_date = parse_one(date_tokens[0])
         end_date = parse_one(date_tokens[1])
         if end_date < start_date:
@@ -366,9 +367,34 @@ def _parse_human_created_period(raw: str, *, now: datetime | None = None) -> tup
         end = datetime.combine(end_date, dt_time.max, tzinfo=_MOSCOW_TZ)
         return start, end, "explicit_inclusive_dates"
 
+    # One explicit start date means "from this date through now" only when the
+    # user language contains a start marker. This covers natural wording such as
+    # "с 30.09.2026", "за период с 30.09.2026 по сегодняшний день", and even the
+    # harmless typo-like "за с 30.09.2026" without inventing an end date.
+    if len(date_tokens) == 1:
+        start_marker = re.search(
+            r"(?:^|\s)(?:с|от|начиная\s+с)\s*" + re.escape(date_tokens[0]),
+            normalized,
+            flags=re.I,
+        )
+        today_tail = re.search(
+            r"(?:по|до)\s+(?:сегодня|сегодняшн(?:ий|его)\s+день|текущ(?:ий|его)\s+день)",
+            normalized,
+            flags=re.I,
+        )
+        if start_marker or today_tail:
+            start_date = parse_one(date_tokens[0])
+            if start_date > current.date():
+                raise ValueError("created_period start is in the future")
+            if (current.date() - start_date).days > 366:
+                raise ValueError("created_period exceeds 366 days")
+            start = datetime.combine(start_date, dt_time.min, tzinfo=_MOSCOW_TZ)
+            return start, current, "explicit_start_to_now"
+
     raise ValueError(
         "created_period must contain 'последние N дней'/'last N days', "
-        "'за N дней'/'за день'/'сегодня', or two explicit dates "
+        "'за N дней'/'за день'/'сегодня', an explicit start date such as "
+        "'с DD.MM.YYYY по сегодня', or two explicit dates "
         "(DD.MM.YYYY or YYYY-MM-DD)"
     )
 
