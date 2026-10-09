@@ -23,3 +23,18 @@ def test_legacy_as21_settings_keep_working(monkeypatch):
 
     assert settings.as21_mode == "task-api"
     assert settings.task_api_base_url == "http://localhost:8003"
+
+
+def test_v4_synthesis_elision_prefixed_flag_is_supported(monkeypatch):
+    monkeypatch.delenv("V4_SYNTHESIS_ELISION", raising=False)
+    monkeypatch.setenv("PO_AGENT_V4_SYNTHESIS_ELISION", "true")
+
+    settings = Settings(_env_file=None)
+
+    assert settings.v4_synthesis_elision_enabled is True
+
+
+def test_v4_synthesis_elision_defaults_off():
+    settings = Settings(_env_file=None)
+
+    assert settings.v4_synthesis_elision_enabled is False
