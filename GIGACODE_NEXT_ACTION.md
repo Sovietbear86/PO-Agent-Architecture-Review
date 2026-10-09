@@ -1,197 +1,231 @@
 # GigaCode — Current Action
 
-## ACTIVE: Assignment A229R2 — planner-turn reduction design gate
+## ACTIVE: Assignment A229R2I — synthesis-turn elision implementation re-gate
 
-Role: QA/performance/source-forensics only. **Do not modify production code.**
+Role: QA/performance/source-forensics/browser tester only. **Do not modify production code.**
 
-Functional baseline is now frozen at:
+Previous design verdict:
+`AGENT_CORE_V4_PLANNER_TURN_DESIGN_GREEN_A229R2`
 
+Selected target:
+`SYNTHESIS_TURN_ELISION`
+
+Owner implementation is now on current branch.
+
+### Owner delta to verify
+
+1. New `harness/v4_synthesis_elision.py`
+   - `TerminalSynthesisElider` wraps the existing LLM synthesizer.
+   - It elides the final model synthesis only when there is exactly one proven eligible task terminal observation and every other observation is resolver/intermediate-only.
+   - It uses only validated terminal observation data/answer.
+   - It delegates to the original LLM synthesizer for multi-terminal, unknown/non-resolver, or empty-answer trajectories.
+
+2. Runtime factory seam only
+   - no Agent Core/planner/runtime-loop code changed;
+   - factory wraps `v4_runtime.synthesizer` when feature flag is enabled.
+
+3. Feature flag
+   - `PO_AGENT_V4_SYNTHESIS_ELISION`
+   - default = false.
+   - false must preserve previous behavior exactly.
+   - true enables elision for eligible simple task trajectories.
+
+4. Current deliberately narrow eligible terminal set:
+   - task.search
+   - task.search_assignee
+   - task.search_created
+   - task.search_created_in_progress
+   - task.search_status
+   - task.search_sprint
+   - task.search_text
+   - task.search_attachments
+   - task.search_excel
+   - task.search_pdf
+   - task.search_msg
+   - task.type_analysis
+   - task.lookup
+   - task.hierarchy
+
+5. Initial deterministic rendering policy
+   - task-search answers may append exact task keys when <=20;
+   - lookup/type/hierarchy preserve the validated terminal capability answer;
+   - structured response data/evidence remain unchanged.
+
+Functional baseline:
 `checkpoint/v4-complex-task-clarification-green-a229f3r@6fb335d6f67344245a5c65e5c1b5b145759e96da`
 
-A229R1 proved:
-- source/data plane is no longer the dominant bottleneck;
-- assignee+space direct route improved from ~34.5s to ~1.0s;
-- duplicate sprint read removed;
-- UI snapshot fan-out capped at 2;
-- LLM/planner accounts for ~96% of wall on representative runs;
-- planner/model calls are typically 3–8, p50 ~5;
-- removing one model round-trip is expected to save roughly one provider call (~7.5s in normal conditions, much more during slow sessions).
+---
 
-A229F3R additionally proved complex composition + typed clarification GREEN, so any latency change must preserve:
-- immutable constraints;
-- safe clarification;
-- source truth;
-- no silent period drop.
+## P0 — integrity / static regression
 
-This assignment is **forensics/design only**. Do not implement a Core/planner change yet.
+1. Pull current branch, record START_HEAD, require clean tracked worktree.
+2. Prove Core 6/6 byte-identical to checkpoint 6fb335d:
+   - agent_core_v4.py
+   - agent_core_v4_robust.py
+   - agent_core_v4_reliable.py
+   - agent_core_v4_completion.py
+   - v4_plugin_registry.py
+   - llm/real.py
+3. Run focused:
+   - tests/test_v4_synthesis_elision.py
+   - tests/test_runtime_env_aliases.py
+   - tests/test_harness_runtime_factory.py
+   - tests/test_v4_browser_api_contract.py
+   - tests/test_agent_core_v4_task_created_period.py
+   - tests/test_agent_core_v4_task_semantics_hierarchy.py
+4. Run full V4 blast + relevant Task API SWTR suites + frontend build.
+5. Require 0 failed.
+
+Any Core diff or test failure => RED STOP.
 
 ---
 
-## P0 — integrity / baseline
+## P1 — flag OFF baseline control
 
-1. Pull current branch and record START_HEAD.
-2. Prove Core 6/6 byte-identical to checkpoint `6fb335d`.
-3. Full focused sanity:
-   - complex task + period/type/status;
-   - latest sprint + type;
-   - hierarchy;
-   - Overview;
-   - task drawer.
-4. Do not benchmark during provider 429/outage windows.
+Start full stack with:
+`PO_AGENT_V4_SYNTHESIS_ELISION=false`
 
----
+Use fresh sessions.
 
-## P1 — decompose every LLM/model call
-
-For each scenario below run at least 5 valid warm samples and reconstruct **every** model call in order:
+Run at least 3 valid samples each:
 
 A. `Задачи Калачанова в WMB`
-B. `Задачи в работе в сентябрьском спринте по DMS`
-C. exact task lookup `DMS-267`
-D. `Открытые задачи Калачанова в WMB за последние 2 дня`
-E. `Открытые задачи Семавина с типом дефект в DMS с 30.09.2026`
+C. `Покажи задачу DMS-267`
 F. `Покажи иерархию DMS-267`
-G. incomplete complex request that produces typed clarification
-H. clarification continuation from G
 
-Classify each model call as exactly one:
-1. skill selection / load_skill;
-2. entity-resolution planning;
-3. terminal capability planning;
-4. bounded repair;
-5. READY/completion planning;
-6. final response synthesis;
-7. other — explain.
+Require:
+- current factual results exact vs fresh REAL AS21 oracle;
+- current final LLM synthesis still occurs;
+- model-call count remains baseline class:
+  - A ~3
+  - C ~3
+  - F ~3
+  unless bounded-repair/provider artifacts are explicitly shown.
 
-For each call capture:
-- call ordinal;
-- input purpose;
-- output decision;
-- wall/duration;
-- whether removing it could change factual execution;
-- whether a deterministic existing contract already proves the same decision.
-
-Produce a per-scenario call graph.
+This proves rollback behavior.
 
 ---
 
-## P2 — identify the single safest removable turn
+## P2 — flag ON exact call-elision proof
 
-Evaluate these candidate classes independently. Do **not** implement them.
+Restart agent with:
+`PO_AGENT_V4_SYNTHESIS_ELISION=true`
 
-### Candidate S — final synthesis turn
-Question:
-Can a subset of task-collection / exact-lookup responses safely use the already validated terminal capability answer without an extra LLM synthesis call?
+Repeat A/C/F at least 5 valid samples each.
 
-Prove:
-- capability answer already contains the exact count/key/result needed;
-- no multi-observation reasoning is required;
-- no clarification/source/error semantics would be lost;
-- current deterministic fallback output is acceptable and source-grounded.
+Require on every clean no-repair run:
+- A: 3 -> **2** model calls;
+- C: 3 -> **2**;
+- F: 3 -> **2**;
+- the missing call is exactly final synthesis;
+- planner decisions, capability ids, capability arguments, source calls, completion mode, structured data and evidence are identical to flag-OFF control;
+- final user-visible answer remains correct and grounded.
 
-Estimate:
-- scenarios eligible;
-- LLM calls saved/request;
+Measure:
+- p50/p90 wall flag OFF vs ON;
+- exact LLM calls saved;
+- source calls unchanged.
+
+---
+
+## P3 — full A229R2 eligible matrix
+
+With flag ON run at least 5 valid samples each:
+
+A. person+space task collection
+B. sprint+status
+C. exact lookup
+D. open+created-period
+E. type+person+space+status+created-period
+F. hierarchy
+H. clarification continuation from an incomplete-period request
+
+For every COMPLETED eligible run require:
+- exactly one synthesis round-trip absent compared with equivalent baseline trajectory;
+- factual structured result exact vs independent REAL AS21 oracle;
+- no changed capability arguments;
+- no changed source reads;
+- no changed completion contract;
+- no silent constraint drop.
+
+For H specifically:
+- first turn still NEEDS_CLARIFICATION;
+- continuation still resumes original goal;
+- only the COMPLETED continuation may elide synthesis.
+
+---
+
+## P4 — non-eligible delegation safety
+
+Prove `TerminalSynthesisElider` delegates to the wrapped LLM synthesizer for:
+
+1. two terminal task observations in one trajectory;
+2. one task terminal plus another analytical/non-resolver observation;
+3. unknown terminal capability;
+4. eligible terminal with empty answer;
+5. any multi-part query that requires cross-observation synthesis.
+
+Use unit/integration harness evidence. At least one live multi-part query is preferred if a stable source-backed example is available; do not invent a brittle phrase-router-style test just to force it.
+
+Require:
+- wrapped synthesizer called;
+- answer behavior unchanged from flag OFF;
+- no deterministic flattening of multi-part reasoning.
+
+---
+
+## P5 — clarification / error taxonomy retained
+
+With flag ON prove:
+
+- incomplete period -> typed NEEDS_CLARIFICATION;
+- silent-period-drop backstop still blocks unsafe result;
+- option-button clarification retained;
+- provider 429/timeout remains provider failure;
+- REAL AS21 unavailable remains source failure;
+- internal error remains FAILED;
+- no synthesis elision code runs for non-COMPLETED responses.
+
+No infrastructure/code defect may be rendered as successful deterministic prose.
+
+---
+
+## P6 — browser/UI acceptance
+
+With flag ON verify in the real Web UI:
+
+1. A task collection shows correct concise answer + cards/table.
+2. Exact lookup drawer opens normally.
+3. Hierarchy result remains readable.
+4. Type-analysis complex query remains readable and exact.
+5. Overview / task drawer / retained widgets unchanged.
+
+Audit:
+- no unexpected 4xx/5xx;
+- no console errors;
+- no direct frontend source calls;
+- no mutations.
+
+Check that deterministic answer text is not misleading or materially worse than current UX. Cosmetic terseness is acceptable; missing required factual content is not.
+
+---
+
+## P7 — performance decision
+
+Report per scenario:
+- OFF p50/p90;
+- ON p50/p90;
+- model calls OFF -> ON;
 - wall saved;
-- UX/prose trade-off;
-- blast radius.
+- source calls;
+- exact parity.
 
-### Candidate L — load_skill round-trip
-Question:
-Can skill discovery and first governed action be combined without phrase routing or preloading all detailed skills?
+Expected:
+- exactly -1 LLM call on eligible COMPLETED requests;
+- normal-provider wall saving roughly one model call (~7.5s from A229R1), possibly less/more depending on session;
+- no factual/source regression.
 
-Analyze only:
-- what additional planner schema/runtime change would be required;
-- whether progressive disclosure remains intact;
-- whether a model could request `load_skill + first call` safely in one decision;
-- effect on anti-invention and allowed-capability checks.
-
-No implementation.
-
-### Candidate R — resolver-planning round-trip
-Question:
-Where a terminal skill procedure deterministically requires a resolver (person/space/sprint), can one planning turn be removed while keeping the resolver source-backed and generic?
-
-Reject any design that:
-- parses surnames/spaces with hardcoded heuristics;
-- adds phrase routers;
-- skips source validation;
-- invents canonical ids.
-
-### Candidate C — completion/READY turn
-Verify whether runtime completion contracts already eliminate this turn for certified skills. If already eliminated, mark NON-CANDIDATE rather than optimizing it again.
-
----
-
-## P3 — safety matrix for each candidate
-
-For Candidate S/L/R/C score:
-
-- expected LLM calls removed;
-- median wall saving;
-- Core files touched if implemented;
-- plugin/API-only alternative available?;
-- constraint-propagation risk;
-- clarification risk;
-- source-grounding risk;
-- progressive-disclosure risk;
-- regression blast radius;
-- rollback simplicity.
-
-Use:
-LOW / MEDIUM / HIGH risk with evidence.
-
-The preferred candidate must remove **exactly one model round-trip first**. Do not propose multiple simultaneous optimizations.
-
----
-
-## P4 — counterfactual replay
-
-For the preferred candidate, use recorded trajectories from P1 and perform a no-code counterfactual replay.
-
-Show for each A-H:
-- current model-call count;
-- hypothetical count after one-turn reduction;
-- which exact call disappears;
-- why the resulting executed capabilities/arguments would remain identical;
-- scenarios not eligible and therefore unchanged.
-
-The preferred design must keep exact factual trajectory identical for all eligible factual runs.
-
-If this cannot be proven, verdict RED and recommend no Core change.
-
----
-
-## P5 — target selection / implementation boundary
-
-Recommend exactly one implementation target:
-
-- `SYNTHESIS_TURN_ELISION`
-- `LOAD_AND_CALL_FUSION`
-- `RESOLVER_PLANNING_ELISION`
-- `NO_SAFE_ONE_TURN_REDUCTION`
-
-For the selected target specify:
-1. minimal files that would change;
-2. whether Agent Core must change;
-3. exact feature flag / rollback seam;
-4. exact tests to add before implementation;
-5. exact A/B/C re-gate set;
-6. expected median call-count and wall improvement;
-7. explicit non-goals.
-
-Prefer an external/plugin/synthesizer seam over Core if equivalent safety can be achieved.
-
----
-
-## P6 — GVS5H / multi-agent interaction note
-
-Do not implement multi-agent behavior.
-
-Provide one short architecture note:
-- whether the selected latency optimization is compatible with the future V5 manager/worker/verifier sidecar;
-- ensure A229R2 does not make V4 more monolithic or phrase-routed;
-- preserve the governed capability/evidence plane so V5 can reuse it later.
+Also report whether the previously observed redundant second LOAD in B/D is still present. Do **not** fix it in this assignment.
 
 ---
 
@@ -199,19 +233,28 @@ Provide one short architecture note:
 
 Return exactly one:
 
-- `AGENT_CORE_V4_PLANNER_TURN_DESIGN_GREEN_A229R2`
-- `AGENT_CORE_V4_PLANNER_TURN_DESIGN_RED_A229R2`
+- `AGENT_CORE_V4_SYNTHESIS_ELISION_GREEN_A229R2I`
+- `AGENT_CORE_V4_SYNTHESIS_ELISION_RED_A229R2I`
 
-GREEN means:
-- model-call anatomy is measured;
-- one preferred removable turn is proven by counterfactual replay;
-- expected benefit and blast radius are quantified;
-- no code changed.
-
-RED means:
-- no single model turn can be removed safely with current contracts.
+GREEN requires:
+- Core unchanged;
+- all tests green;
+- flag OFF rollback proven;
+- flag ON removes exactly one final model call on eligible trajectories;
+- factual/source parity exact;
+- non-eligible delegation safe;
+- clarification/error taxonomy retained;
+- browser/UI accepted.
 
 Commit report:
-`po-agent-platform-v2/qa_reports/AGENT_CORE_V4_PLANNER_TURN_DESIGN_A229R2.md`
+`po-agent-platform-v2/qa_reports/AGENT_CORE_V4_SYNTHESIS_ELISION_A229R2I.md`
+
+If RED:
+- preserve first failing boundary and STOP;
+- do not modify production code.
+
+If GREEN:
+- owner may flip the feature default only after reviewing measured UX/performance;
+- then proceed to A230/A231 or separately scope redundant-second-LOAD optimization.
 
 **GigaCode is QA only. Do not modify production code.**
