@@ -126,9 +126,9 @@ CAPABILITIES = (
     ),
     CapabilitySpecV4(
         "task.search_created",
-        "Find REAL AS21 tasks created during a bounded relative or explicit calendar period. The raw period wording is parsed inside the plugin capability; missing authoritative created_at provenance fails closed.",
+        "Find REAL AS21 tasks for a bounded relative or explicit calendar period, using creation time as the default task-search time dimension when the user gives a bare period and does not name another timestamp dimension.",
         {
-            "created_period": "required raw user period wording, e.g. 'последние 2 дня' or 'с 29.09.2026 по 01.10.2026'",
+            "created_period": "required raw user period wording, e.g. 'последние 2 дня', 'за 1 день', 'сегодня' or 'с 29.09.2026 по 01.10.2026'",
             "reference": "optional natural person reference resolved source-backed inside the capability",
             "space": "optional grounded product space",
             "status": "optional requested task status/open-completed-in-progress semantic state preserved from the user request",
@@ -224,9 +224,10 @@ SKILLS = (
     ),
     SkillSpecV4(
         "task.search_created",
-        "Find tasks created during a relative or explicit calendar period.",
+        "Find tasks for a relative or explicit calendar period; bare task-search periods such as 'за 1 день', 'за последние 2 дня', 'за день' or 'сегодня' default to source-backed creation time unless another time dimension is explicitly named.",
         (
-            "Call task.search_created when the user constrains tasks by creation time/date.",
+            "Call task.search_created when the user constrains tasks by creation time/date OR gives a bare task-search period such as 'за N дней', 'за последние N дней', 'за день' or 'сегодня' without naming another timestamp dimension.",
+            "For a bare task-search period, use creation time as the default time dimension. If the user explicitly names another dimension such as updated time, deadline or time-in-status, do not reinterpret it as created_period.",
             "Pass created_period as the raw user wording exactly; do not invent ISO dates in the planner.",
             "Preserve any grounded person reference, product space, and explicitly requested task status. For open/completed + created-period, call this single capability with both created_period and status. For explicit in-progress + created-period, prefer the dedicated task.search_created_in_progress skill/capability whose canonical status is fixed by plugin metadata; do not split the request across separate status and created-period capabilities.",
             "Treat recency wording as a creation-time constraint, not as a workflow-state constraint. When created_period already captures recency, do not add any workflow status unless the user explicitly names a task/workflow state.",
