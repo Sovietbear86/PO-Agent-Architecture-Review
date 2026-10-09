@@ -189,6 +189,115 @@ async def test_clarification_continuation_restores_generic_harness_execution_sta
     assert "Ответ пользователя на уточнение: DMS" in resumed.query
 
 
+class _PlannerFailureV4Runtime:
+    plugin_ids = ("builtin.core.a188",)
+
+    def __init__(self, *, provider_failure: bool = False):
+        self.requests = []
+        self.provider_failure = provider_failure
+
+    async def process(self, request):
+        self.requests.append(request)
+        if len(self.requests) > 1:
+            return HarnessResponse(
+                status=ResponseStatus.COMPLETED,
+                trace_id="planner-clarified",
+                session_id=request.session_id or "missing",
+                answer="Уточнение принято.",
+                intent="skill_native_v4",
+                skill_id="task.type_analysis",
+                skill_version="4.0.0-poc",
+                data={"_agent_core_v4": {"semantic_prepass_used": False}},
+            )
+        error = (
+            "planner failed robust bounded repair: ['HTTPStatusError', '429 Too Many Requests']"
+            if self.provider_failure
+            else "planner failed robust bounded repair: ['invalid_primary_decision', 'invalid_recovery_action']"
+        )
+        return HarnessResponse(
+            status=ResponseStatus.FAILED,
+            trace_id="planner-failed",
+            session_id=request.session_id or "missing",
+            answer="Agent Core v4 не смог безопасно завершить траекторию.",
+            intent="skill_native_v4",
+            skill_id="task.type_analysis",
+            skill_version="4.0.0-poc",
+            data={
+                "_agent_core_v4": {
+                    "loaded_skills": ["task.type_analysis"],
+                    "trajectory": [],
+                    "exception_type": "V4ContractError",
+                    "error": error,
+                }
+            },
+            warnings=["v4_runtime_failure"],
+        )
+
+    def ui_contract(self, skill_id):
+        return _UIContract()
+
+
+@pytest.mark.asyncio
+async def test_planner_understanding_failure_becomes_resumable_clarification(monkeypatch):
+    import po_agent.api.v1 as api_v1
+
+    runtime = _PlannerFailureV4Runtime()
+    api_v1.set_runtime(None)
+    monkeypatch.setattr(api_v1, "get_settings", lambda: SimpleNamespace(
+        correlation_id_header="X-Correlation-Id",
+        agent_core_v4_enabled=True,
+    ))
+    monkeypatch.setattr(api_v1, "get_runtime_bundle", lambda: SimpleNamespace(v4_runtime=runtime))
+
+    first = await query_agent(
+        QueryRequest(
+            query="Открытые задачи Семавина с типом дефект в DMS за период с 30.09.2026 по сегодняшний день",
+            session_id="planner-clarify",
+        ),
+        _HeadersRequest(),
+    )
+
+    assert first["status"] == "NEEDS_CLARIFICATION"
+    assert first["clarification_id"]
+    assert "Уточните" in first["question"]
+    assert "Рекомендуемый формат" in first["question"]
+    assert first["warnings"] == ["v4_planner_needs_clarification"]
+
+    second = await query_agent(
+        QueryRequest(
+            query="Период относится к дате создания задач, статус открытые, тип дефект.",
+            session_id="planner-clarify",
+            clarification_id=first["clarification_id"],
+            clarification_option="Период относится к дате создания задач, статус открытые, тип дефект.",
+        ),
+        _HeadersRequest(),
+    )
+    assert second["status"] == "COMPLETED"
+    assert "Исходный запрос пользователя" in runtime.requests[1].query
+    assert "Ответ пользователя на уточнение" in runtime.requests[1].query
+
+
+@pytest.mark.asyncio
+async def test_provider_failure_is_not_misreported_as_user_clarification(monkeypatch):
+    import po_agent.api.v1 as api_v1
+
+    runtime = _PlannerFailureV4Runtime(provider_failure=True)
+    api_v1.set_runtime(None)
+    monkeypatch.setattr(api_v1, "get_settings", lambda: SimpleNamespace(
+        correlation_id_header="X-Correlation-Id",
+        agent_core_v4_enabled=True,
+    ))
+    monkeypatch.setattr(api_v1, "get_runtime_bundle", lambda: SimpleNamespace(v4_runtime=runtime))
+
+    response = await query_agent(
+        QueryRequest(query="сложный запрос", session_id="provider-fail"),
+        _HeadersRequest(),
+    )
+
+    assert response["status"] == "FAILED"
+    assert response["warnings"] == ["v4_runtime_failure"]
+
+
 @pytest.mark.asyncio
 async def test_health_uses_lightweight_source_probe_not_unscoped_task_search(monkeypatch):
     import po_agent.api.v1 as api_v1
