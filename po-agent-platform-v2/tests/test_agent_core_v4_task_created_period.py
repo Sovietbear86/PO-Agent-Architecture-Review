@@ -154,6 +154,26 @@ def test_created_period_parses_last_two_calendar_days() -> None:
     assert kind == "last_2_calendar_days"
 
 
+def test_created_period_parses_explicit_start_to_today() -> None:
+    start, end, kind = _parse_human_created_period(
+        "за период с 30.09.2026 по сегодняшний день",
+        now=datetime(2026, 10, 9, 11, 45, tzinfo=MOSCOW),
+    )
+    assert start == datetime(2026, 9, 30, 0, 0, tzinfo=MOSCOW)
+    assert end == datetime(2026, 10, 9, 11, 45, tzinfo=MOSCOW)
+    assert kind == "explicit_start_to_now"
+
+
+def test_created_period_tolerates_bare_start_date_with_extra_za() -> None:
+    start, end, kind = _parse_human_created_period(
+        "за с 30.09.2026",
+        now=datetime(2026, 10, 9, 11, 45, tzinfo=MOSCOW),
+    )
+    assert start == datetime(2026, 9, 30, 0, 0, tzinfo=MOSCOW)
+    assert end == datetime(2026, 10, 9, 11, 45, tzinfo=MOSCOW)
+    assert kind == "explicit_start_to_now"
+
+
 def test_created_period_parses_bare_one_day_wording_as_today() -> None:
     now = datetime(2026, 10, 9, 11, 44, tzinfo=MOSCOW)
     for wording in ("за 1 день", "за день", "сегодня"):
