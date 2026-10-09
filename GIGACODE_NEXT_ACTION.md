@@ -1,191 +1,197 @@
 # GigaCode — Current Action
 
-## ACTIVE: Assignment A229F3R — complex task clarification re-gate
+## ACTIVE: Assignment A229R2 — planner-turn reduction design gate
 
-Role: QA/source-forensics/browser tester only. **Do not modify production code.**
+Role: QA/performance/source-forensics only. **Do not modify production code.**
 
-Previous verdict:
-`AGENT_CORE_V4_COMPLEX_TASK_CLARIFICATION_RED_A229F3`
+Functional baseline is now frozen at:
 
-Previous first failing boundary:
-P4-A planner silently omitted the user-requested `created_period` and still COMPLETED an over-broad task result in 3/6 runs.
+`checkpoint/v4-complex-task-clarification-green-a229f3r@6fb335d6f67344245a5c65e5c1b5b145759e96da`
 
-Owner fix on current branch is deliberately outside Agent Core:
+A229R1 proved:
+- source/data plane is no longer the dominant bottleneck;
+- assignee+space direct route improved from ~34.5s to ~1.0s;
+- duplicate sprint read removed;
+- UI snapshot fan-out capped at 2;
+- LLM/planner accounts for ~96% of wall on representative runs;
+- planner/model calls are typically 3–8, p50 ~5;
+- removing one model round-trip is expected to save roughly one provider call (~7.5s in normal conditions, much more during slow sessions).
 
-1. **Catalog hardening**
-   - `task.search_created` and `task.type_analysis` explicitly forbid silently dropping a requested period.
-   - If the period is incomplete/ambiguous, planner must preserve raw `created_period` for typed fail-closed parsing or ask clarification.
+A229F3R additionally proved complex composition + typed clarification GREEN, so any latency change must preserve:
+- immutable constraints;
+- safe clarification;
+- source truth;
+- no silent period drop.
 
-2. **API/dialogue postcondition guard**
-   - after a V4 COMPLETED response, only for executed `task.*` factual trajectories:
-   - if the original user query explicitly contains task-period intent;
-   - and no executed task capability actually applied a non-empty `created_period`;
-   - convert the unsafe COMPLETED answer into resumable `NEEDS_CLARIFICATION`.
-   - the guard does **not route**, infer the missing period, query AS21, or alter capability arguments.
-   - invalid over-broad results/evidence are removed from the public clarification payload.
-   - provider/source/internal failure taxonomy remains unchanged.
-
-3. **Tests**
-   - silent period drop -> clarification;
-   - applied created_period -> COMPLETED unchanged;
-   - non-period task query -> COMPLETED unchanged.
-
-Agent Core/planner/runtime orchestration files must remain byte-identical.
+This assignment is **forensics/design only**. Do not implement a Core/planner change yet.
 
 ---
 
-## P0 — pull / integrity / focused tests
+## P0 — integrity / baseline
 
-1. Pull current `feat/core8-real-query-hardening-v2`; record START_HEAD and clean tracked worktree.
-2. Prove Core 6/6 byte-identical vs certified checkpoint:
-   `checkpoint/v4-task-semantics-hierarchy-green-a229s1r4@afb6fa1d9b6e5d13a5d743f0d45afef94d1821a1`
-3. Run focused:
-   - `tests/test_agent_core_v4_task_created_period.py`
-   - `tests/test_agent_core_v4_task_semantics_hierarchy.py`
-   - `tests/test_agent_core_v4_task_catalog.py`
-   - `tests/test_v4_browser_api_contract.py`
-4. Run full V4 blast, relevant Task API SWTR suites, frontend build.
-5. Require 0 failed.
-
-If P0 RED -> STOP.
+1. Pull current branch and record START_HEAD.
+2. Prove Core 6/6 byte-identical to checkpoint `6fb335d`.
+3. Full focused sanity:
+   - complex task + period/type/status;
+   - latest sprint + type;
+   - hierarchy;
+   - Overview;
+   - task drawer.
+4. Do not benchmark during provider 429/outage windows.
 
 ---
 
-## P1 FIRST — exact previous failing boundary
+## P1 — decompose every LLM/model call
 
-Fresh browser/API sessions. Query:
+For each scenario below run at least 5 valid warm samples and reconstruct **every** model call in order:
 
-`Открытые задачи Семавина с типом дефект в DMS за период`
+A. `Задачи Калачанова в WMB`
+B. `Задачи в работе в сентябрьском спринте по DMS`
+C. exact task lookup `DMS-267`
+D. `Открытые задачи Калачанова в WMB за последние 2 дня`
+E. `Открытые задачи Семавина с типом дефект в DMS с 30.09.2026`
+F. `Покажи иерархию DMS-267`
+G. incomplete complex request that produces typed clarification
+H. clarification continuation from G
 
-Run at least 6 valid attempts with cooldown spacing sufficient to avoid provider burst artifacts.
+Classify each model call as exactly one:
+1. skill selection / load_skill;
+2. entity-resolution planning;
+3. terminal capability planning;
+4. bounded repair;
+5. READY/completion planning;
+6. final response synthesis;
+7. other — explain.
 
-Expected invariant on **every** valid run:
-- final public status = `NEEDS_CLARIFICATION`;
-- never public `COMPLETED`;
-- never return DMS-431 or any over-broad task result;
-- question explicitly says the period needs clarification;
-- concrete reformulation examples are visible;
-- `clarification_id` present;
-- evidence/result payload from the unsafe over-broad execution is not exposed as a valid answer.
+For each call capture:
+- call ordinal;
+- input purpose;
+- output decision;
+- wall/duration;
+- whether removing it could change factual execution;
+- whether a deterministic existing contract already proves the same decision.
 
-Accept either safe path:
-A. planner-native clarification before task execution;
-B. API constraint-coverage guard after planner omitted the period.
-
-For path B prove:
-- original query contains period intent;
-- executed task call lacked `created_period`;
-- guard changed only presentation/dialogue state to clarification;
-- it did not invent a period or reroute/re-execute.
-
-Then answer the clarification with:
-`Период создания задач: с 30.09.2026 по сегодняшний день`
-
-Require continuation:
-- original goal preserved;
-- terminal `task.type_analysis`;
-- reference Semavin + DMS + open/not_completed + defect + created_period all present;
-- exact REAL AS21 oracle parity;
-- no need to repeat the full original request.
-
-Any valid run that silently COMPLETES without the requested period => RED STOP.
+Produce a per-scenario call graph.
 
 ---
 
-## P2 — false-positive guard controls
+## P2 — identify the single safest removable turn
 
-Fresh sessions, prove the coverage guard does not break valid queries.
+Evaluate these candidate classes independently. Do **not** implement them.
 
-Run at least twice each:
+### Candidate S — final synthesis turn
+Question:
+Can a subset of task-collection / exact-lookup responses safely use the already validated terminal capability answer without an extra LLM synthesis call?
 
-1. `Открытые задачи Семавина с типом дефект в DMS`
-   - no period requested;
-   - normal COMPLETED exact result;
-   - no clarification from the new guard.
+Prove:
+- capability answer already contains the exact count/key/result needed;
+- no multi-observation reasoning is required;
+- no clarification/source/error semantics would be lost;
+- current deterministic fallback output is acceptable and source-grounded.
 
-2. `Открытые задачи Семавина с типом дефект в DMS с 30.09.2026`
-   - created_period applied;
-   - normal COMPLETED exact result.
+Estimate:
+- scenarios eligible;
+- LLM calls saved/request;
+- wall saved;
+- UX/prose trade-off;
+- blast radius.
 
-3. `Открытые задачи Семавина с типом дефект в DMS за последние 2 дня`
-   - created_period applied;
-   - normal COMPLETED exact result.
+### Candidate L — load_skill round-trip
+Question:
+Can skill discovery and first governed action be combined without phrase routing or preloading all detailed skills?
 
-4. `Открытые задачи Калачанова в WMB за последние 2 дня`
-   - terminal `task.search_created`;
-   - exact REAL_EMPTY if source still says zero.
+Analyze only:
+- what additional planner schema/runtime change would be required;
+- whether progressive disclosure remains intact;
+- whether a model could request `load_skill + first call` safely in one decision;
+- effect on anti-invention and allowed-capability checks.
 
-5. `Задачи Калачанова в STS за 1 день`
-   - terminal `task.search_created`;
-   - exact current oracle.
+No implementation.
 
-Require no false `NEEDS_CLARIFICATION` when period is valid and applied.
+### Candidate R — resolver-planning round-trip
+Question:
+Where a terminal skill procedure deterministically requires a resolver (person/space/sprint), can one planning turn be removed while keeping the resolver source-backed and generic?
 
----
+Reject any design that:
+- parses surnames/spaces with hardcoded heuristics;
+- adds phrase routers;
+- skips source validation;
+- invents canonical ids.
 
-## P3 — full complex-query regression
-
-Re-run the four A229F3 primary cases, 3 valid runs each:
-
-1. `Задачи Калачанова в STS за 1 день`
-2. `Открытые задачи Калачанова в WMB за последние 2 дня`
-3. `Открытые задачи Семавина с типом дефект в DMS с 30.09.2026`
-4. `Открытые задачи Семавина с типом дефект в DMS за период с 30.09.2026 по сегодняшний день`
-
-Build fresh independent REAL AS21 oracle for each.
-
-Require exact key/count parity and all requested constraints preserved.
-
----
-
-## P4 — clarification/error taxonomy
-
-Re-prove:
-
-- planner misunderstanding/incomplete period -> `NEEDS_CLARIFICATION`;
-- provider 429 / HTTPStatusError / timeout/connectivity -> remains FAILED/provider;
-- REAL AS21 unavailable -> remains source failure;
-- internal non-planner exception -> remains FAILED/internal;
-- deterministic option-button clarification + continuation retained;
-- free-text clarification continuation retained.
-
-No infrastructure or source defect may be disguised as user ambiguity.
+### Candidate C — completion/READY turn
+Verify whether runtime completion contracts already eliminate this turn for certified skills. If already eliminated, mark NON-CANDIDATE rather than optimizing it again.
 
 ---
 
-## P5 — architecture / no-router audit
+## P3 — safety matrix for each candidate
 
-Require:
-- Core 6/6 byte-identical;
-- canonical 54 unchanged;
-- no query-specific route;
-- no person/space/date-result hardcodes;
-- period coverage guard is post-execution fail-closed validation only;
-- guard never creates factual values;
-- task facts remain REAL AS21 authoritative;
-- 0 local fallback;
-- 0 mutations;
-- 0 tenant-wide scans.
+For Candidate S/L/R/C score:
 
-Also re-run retained:
-- task type + latest sprint;
-- hierarchy;
-- Overview KPI;
-- task drawer.
+- expected LLM calls removed;
+- median wall saving;
+- Core files touched if implemented;
+- plugin/API-only alternative available?;
+- constraint-propagation risk;
+- clarification risk;
+- source-grounding risk;
+- progressive-disclosure risk;
+- regression blast radius;
+- rollback simplicity.
+
+Use:
+LOW / MEDIUM / HIGH risk with evidence.
+
+The preferred candidate must remove **exactly one model round-trip first**. Do not propose multiple simultaneous optimizations.
 
 ---
 
-## P6 — latency observation only
+## P4 — counterfactual replay
 
-Record for P1/P3:
-- LLM calls;
-- total wall;
-- source duration;
-- whether the guard avoided exposing a wrong answer.
+For the preferred candidate, use recorded trajectories from P1 and perform a no-code counterfactual replay.
 
-Do not optimize planner/Core in this assignment.
+Show for each A-H:
+- current model-call count;
+- hypothetical count after one-turn reduction;
+- which exact call disappears;
+- why the resulting executed capabilities/arguments would remain identical;
+- scenarios not eligible and therefore unchanged.
 
-A229R2 stays paused until this functional gate is GREEN.
+The preferred design must keep exact factual trajectory identical for all eligible factual runs.
+
+If this cannot be proven, verdict RED and recommend no Core change.
+
+---
+
+## P5 — target selection / implementation boundary
+
+Recommend exactly one implementation target:
+
+- `SYNTHESIS_TURN_ELISION`
+- `LOAD_AND_CALL_FUSION`
+- `RESOLVER_PLANNING_ELISION`
+- `NO_SAFE_ONE_TURN_REDUCTION`
+
+For the selected target specify:
+1. minimal files that would change;
+2. whether Agent Core must change;
+3. exact feature flag / rollback seam;
+4. exact tests to add before implementation;
+5. exact A/B/C re-gate set;
+6. expected median call-count and wall improvement;
+7. explicit non-goals.
+
+Prefer an external/plugin/synthesizer seam over Core if equivalent safety can be achieved.
+
+---
+
+## P6 — GVS5H / multi-agent interaction note
+
+Do not implement multi-agent behavior.
+
+Provide one short architecture note:
+- whether the selected latency optimization is compatible with the future V5 manager/worker/verifier sidecar;
+- ensure A229R2 does not make V4 more monolithic or phrase-routed;
+- preserve the governed capability/evidence plane so V5 can reuse it later.
 
 ---
 
@@ -193,27 +199,19 @@ A229R2 stays paused until this functional gate is GREEN.
 
 Return exactly one:
 
-- `AGENT_CORE_V4_COMPLEX_TASK_CLARIFICATION_GREEN_A229F3R`
-- `AGENT_CORE_V4_COMPLEX_TASK_CLARIFICATION_RED_A229F3R`
+- `AGENT_CORE_V4_PLANNER_TURN_DESIGN_GREEN_A229R2`
+- `AGENT_CORE_V4_PLANNER_TURN_DESIGN_RED_A229R2`
 
-GREEN requires:
-- P1: 100% of valid incomplete-period runs clarify, zero silent drops;
-- clarification continuation exact;
-- P2/P3 exact;
-- taxonomy and retained gates GREEN;
-- Core untouched;
-- all tests GREEN.
+GREEN means:
+- model-call anatomy is measured;
+- one preferred removable turn is proven by counterfactual replay;
+- expected benefit and blast radius are quantified;
+- no code changed.
+
+RED means:
+- no single model turn can be removed safely with current contracts.
 
 Commit report:
-`po-agent-platform-v2/qa_reports/AGENT_CORE_V4_COMPLEX_TASK_CLARIFICATION_REGATE_A229F3R.md`
-
-If RED:
-- preserve first failing boundary;
-- STOP;
-- do not modify production code.
-
-If GREEN:
-- recommend small checkpoint on TESTED_HEAD;
-- then resume A229R2 planner-turn reduction.
+`po-agent-platform-v2/qa_reports/AGENT_CORE_V4_PLANNER_TURN_DESIGN_A229R2.md`
 
 **GigaCode is QA only. Do not modify production code.**
