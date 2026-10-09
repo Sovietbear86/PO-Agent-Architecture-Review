@@ -140,6 +140,74 @@ def _decorate_v4_response(response: dict, bundle: RuntimeBundle) -> dict:
     return response
 
 
+def _promote_planner_failure_to_clarification(response: dict, original_query: str) -> dict:
+    """Convert only understanding/planning failures into a typed clarification.
+
+    Source/provider/internal failures remain FAILED. This is an API/dialogue
+    policy seam outside Agent Core and reuses the existing clarification
+    continuation mechanism.
+    """
+    if response.get("status") != "FAILED":
+        return response
+    warnings = [str(item) for item in (response.get("warnings") or [])]
+    if "v4_runtime_failure" not in warnings:
+        return response
+
+    data = response.get("data")
+    state = data.get("_agent_core_v4") if isinstance(data, dict) else None
+    if not isinstance(state, dict):
+        return response
+
+    exception_type = str(state.get("exception_type") or "")
+    error = str(state.get("error") or "")
+    lowered = error.casefold()
+
+    # Never turn provider/network failures into a request for user clarification.
+    provider_markers = (
+        "httpstatuserror", "429", "rate limit", "ratelimit", "timeout",
+        "connecterror", "connectionerror", "readtimeout",
+    )
+    if any(marker in lowered for marker in provider_markers):
+        return response
+
+    period_failure = exception_type == "ValueError" and "created_period" in lowered
+    planner_failure = exception_type == "V4ContractError" and any(
+        marker in lowered
+        for marker in (
+            "planner failed robust bounded repair",
+            "planner step budget exhausted without ready",
+            "planner literal is not grounded",
+            "planner person reference is neither query-derived",
+        )
+    )
+    if not (period_failure or planner_failure):
+        return response
+
+    if period_failure:
+        question = (
+            "Не удалось однозначно понять период в запросе. Уточните период создания задач. "
+            "Например: «за последние 2 дня», «с 30.09.2026 по сегодня» "
+            "или «с 30.09.2026 по 09.10.2026»."
+        )
+    else:
+        question = (
+            "Не удалось однозначно собрать безопасную траекторию для этого сложного запроса. "
+            "Уточните одним сообщением обязательные фильтры: исполнитель, пространство, статус, "
+            "тип задачи, период создания и/или спринт. Рекомендуемый формат: "
+            "«Открытые задачи <исполнитель> типа <тип> в <пространстве>, "
+            "созданные с <дата> по сегодня»."
+        )
+
+    response["status"] = "NEEDS_CLARIFICATION"
+    response["answer"] = None
+    response["question"] = question
+    response["options"] = []
+    response["warnings"] = ["v4_planner_needs_clarification"]
+    state["clarification_promoted_from"] = "v4_runtime_failure"
+    state["original_query_preserved"] = bool(str(original_query or "").strip())
+    return response
+
+
 def _v4_failure_response(session_id: str, exc: Exception) -> dict:
     return {
         "status": "FAILED",
@@ -383,6 +451,10 @@ async def _run_query(payload: QueryRequest, request: Request, *, force_v4: bool 
                 session_context=_session_context_for(session_id),
             ))
             response = _decorate_v4_response(result.to_dict(), bundle)
+            response = _promote_planner_failure_to_clarification(
+                response,
+                effective_query or original_query,
+            )
             response = _remember_completed_session_context(response, session_id)
             response = _remember_clarification(response, session_id, effective_query or original_query)
         else:
