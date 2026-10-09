@@ -154,6 +154,25 @@ def test_created_period_parses_last_two_calendar_days() -> None:
     assert kind == "last_2_calendar_days"
 
 
+def test_created_period_parses_bare_one_day_wording_as_today() -> None:
+    now = datetime(2026, 10, 9, 11, 44, tzinfo=MOSCOW)
+    for wording in ("за 1 день", "за день", "сегодня"):
+        start, end, kind = _parse_human_created_period(wording, now=now)
+        assert start == datetime(2026, 10, 9, 0, 0, tzinfo=MOSCOW)
+        assert end == now
+        assert kind == "last_1_calendar_days"
+
+
+def test_created_period_parses_bare_multi_day_wording() -> None:
+    start, end, kind = _parse_human_created_period(
+        "за 3 дня",
+        now=datetime(2026, 10, 9, 11, 44, tzinfo=MOSCOW),
+    )
+    assert start == datetime(2026, 10, 7, 0, 0, tzinfo=MOSCOW)
+    assert end == datetime(2026, 10, 9, 11, 44, tzinfo=MOSCOW)
+    assert kind == "last_3_calendar_days"
+
+
 def test_created_period_search_filters_only_source_created_timestamps() -> None:
     runtime = Runtime([
         _task("STS-1", datetime(2026, 9, 28, 10, 0, tzinfo=MOSCOW)),
