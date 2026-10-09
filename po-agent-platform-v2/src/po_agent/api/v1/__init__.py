@@ -103,6 +103,7 @@ def get_runtime_bundle() -> RuntimeBundle:
                 learned_semantics_path=settings.learned_semantics_path,
                 agent_core_v3_enabled=settings.agent_core_v3_enabled,
                 agent_core_v4_enabled=settings.agent_core_v4_enabled,
+                v4_synthesis_elision_enabled=settings.v4_synthesis_elision_enabled,
             )
             _runtime = _bundle.runtime
             _runtime_init_error = None
