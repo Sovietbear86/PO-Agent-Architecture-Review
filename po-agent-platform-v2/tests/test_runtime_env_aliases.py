@@ -34,7 +34,10 @@ def test_v4_synthesis_elision_prefixed_flag_is_supported(monkeypatch):
     assert settings.v4_synthesis_elision_enabled is True
 
 
-def test_v4_synthesis_elision_defaults_off():
+def test_v4_synthesis_elision_defaults_off(monkeypatch):
+    monkeypatch.delenv("V4_SYNTHESIS_ELISION", raising=False)
+    monkeypatch.delenv("PO_AGENT_V4_SYNTHESIS_ELISION", raising=False)
+
     settings = Settings(_env_file=None)
 
     assert settings.v4_synthesis_elision_enabled is False
