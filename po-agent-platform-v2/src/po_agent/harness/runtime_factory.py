@@ -30,6 +30,7 @@ from .source_aware_runtime import SourceAwareHarnessRuntime
 from .source_contracts import ReleaseTimelineSource, SourceDependencyBundle, SprintSnapshotSource, YamlTeamCompetencySource
 from .source_readiness import SourceReadinessReport, build_source_readiness
 from .team_matching_wiring import enable_team_matching
+from .v4_synthesis_elision import TerminalSynthesisElider
 RuntimeMode=Literal["fake","task-api","frozen"]
 @dataclass(frozen=True)
 class RuntimeBundle:
@@ -47,7 +48,7 @@ def _planner_client_and_model(semantic_interpreter):
         return semantic_interpreter.client, semantic_interpreter.model
     return None, None
 
-def _build_runtime_with_adapter(adapter:AS21Adapter,*,mode:RuntimeMode,team_config_path=None,sprint_snapshots=None,release_timeline=None,semantic_interpreter=None,learned_semantics_path=None,agent_core_v3_enabled:bool=False,agent_core_v4_enabled:bool=False)->RuntimeBundle:
+def _build_runtime_with_adapter(adapter:AS21Adapter,*,mode:RuntimeMode,team_config_path=None,sprint_snapshots=None,release_timeline=None,semantic_interpreter=None,learned_semantics_path=None,agent_core_v3_enabled:bool=False,agent_core_v4_enabled:bool=False,v4_synthesis_elision_enabled:bool=False)->RuntimeBundle:
     team_path=_resolve_team_config(team_config_path,mode); team_source=YamlTeamCompetencySource(team_path) if team_path is not None else None
     dependencies=SourceDependencyBundle(sprint_snapshots=sprint_snapshots,team_competencies=team_source,release_timeline=release_timeline); readiness=build_source_readiness(adapter,extra_facts=dependencies.facts)
     executable=SourceAwareHarnessRuntime(adapter,source_facts=readiness.available_facts)
@@ -88,15 +89,17 @@ def _build_runtime_with_adapter(adapter:AS21Adapter,*,mode:RuntimeMode,team_conf
             legacy_capabilities=executable.capabilities,
             max_steps=8,
         )
+        if v4_synthesis_elision_enabled:
+            v4_runtime.synthesizer = TerminalSynthesisElider(v4_runtime.synthesizer)
 
     return RuntimeBundle(mode,ObservedHarnessRuntime(dialogue),adapter,readiness,dependencies,semantics,v4_runtime)
 
-def build_runtime_bundle(mode="fake",*,task_api_base_url="http://localhost:8003",task_api_timeout_seconds=30.0,team_config_path=None,sprint_snapshots=None,release_timeline=None,semantic_interpreter=None,learned_semantics_path=None,agent_core_v3_enabled=False,agent_core_v4_enabled=False):
+def build_runtime_bundle(mode="fake",*,task_api_base_url="http://localhost:8003",task_api_timeout_seconds=30.0,team_config_path=None,sprint_snapshots=None,release_timeline=None,semantic_interpreter=None,learned_semantics_path=None,agent_core_v3_enabled=False,agent_core_v4_enabled=False,v4_synthesis_elision_enabled=False):
     normalized=mode.strip().lower()
     if normalized=="fake": adapter=FakeAS21Adapter(); selected="fake"
     elif normalized in {"task-api","task_api","real"}: adapter=EvidenceValidatedProductionTaskApiAS21Adapter(base_url=task_api_base_url,timeout_seconds=task_api_timeout_seconds); selected="task-api"
     else: raise ValueError(f"Unsupported PO_AGENT_AS21_MODE: {mode}")
-    return _build_runtime_with_adapter(adapter,mode=selected,team_config_path=team_config_path,sprint_snapshots=sprint_snapshots,release_timeline=release_timeline,semantic_interpreter=semantic_interpreter,learned_semantics_path=learned_semantics_path,agent_core_v3_enabled=agent_core_v3_enabled,agent_core_v4_enabled=agent_core_v4_enabled)
+    return _build_runtime_with_adapter(adapter,mode=selected,team_config_path=team_config_path,sprint_snapshots=sprint_snapshots,release_timeline=release_timeline,semantic_interpreter=semantic_interpreter,learned_semantics_path=learned_semantics_path,agent_core_v3_enabled=agent_core_v3_enabled,agent_core_v4_enabled=agent_core_v4_enabled,v4_synthesis_elision_enabled=v4_synthesis_elision_enabled)
 
 def build_frozen_runtime_bundle(batch:SWTRShadowBatch,*,team_config_path=None,sprint_snapshots=None,release_timeline=None,semantic_interpreter=None,learned_semantics_path=None,agent_core_v3_enabled=False,agent_core_v4_enabled=False):
     return _build_runtime_with_adapter(FrozenAS21Adapter.from_shadow_batch(batch),mode="frozen",team_config_path=team_config_path,sprint_snapshots=sprint_snapshots,release_timeline=release_timeline,semantic_interpreter=semantic_interpreter,learned_semantics_path=learned_semantics_path,agent_core_v3_enabled=agent_core_v3_enabled,agent_core_v4_enabled=agent_core_v4_enabled)
