@@ -1,27 +1,30 @@
-# GigaCode Next Action
+# GigaCode — Next Action
 
-## A229R2U — Synthesis UX and multi-intent research
+## A229R2UR — multi-intent synthesis safety re-gate
 
-Only QA. No production code modifications.
+QA only. Do not change production code.
 
-Certified baseline: checkpoint/v4-synthesis-elision-green-a229r2i at 36e814511de880f40703fa6b4dcaeb874b18722c.
+Previous verdict: AGENT_CORE_V4_SYNTHESIS_ELISION_UX_RED_A229R2U.
+First boundary: one-terminal multi-intent queries were deterministically synthesized from one observation and silently omitted other requested goals.
 
-Owner changes: v4_synthesis_elision.py now reads task_keys_sample and task_key_count, emitting key lists only when complete. Two regression tests added. Feature flag PO_AGENT_V4_SYNTHESIS_ELISION remains false by default.
+Owner fix outside Core:
+- v4_synthesis_elision.py delegates queries containing coordination/enumeration signals to the original query-aware LLM synthesizer.
+- Single-intent queries still skip exactly one synthesis call when eligible.
+- New focused regression tests cover M1/M3/M4 and ordinary single intent.
+- Flag remains OFF by default.
+- This guard is conservative presentation safety, not a router and NOT a multi-intent execution fix.
 
-P0: Pull current branch, record HEAD, check clean tree and frozen Core. Run focused elision tests, complete V4 suite, relevant Task API source suites, frontend build; require no failures.
+P0: pull HEAD, verify Core 6/6 unchanged, run test_v4_synthesis_elision.py, focused V4 tests, full V4 blast, Task API SWTR, frontend build. Require 0 new failures.
 
-P1: Flag ON real AS21 browser checks: small result set has exact complete key list in prose and cards, result set >20 does not misrepresent truncated sample as full; zero remains zero. Check source oracle, no source-call change, no browser errors.
+P1 FIRST: reproduce M1/M3/M4 on flag ON with at least 3 valid runs each. For one-terminal trajectories verify final synthesis is delegated to the underlying LLM and no longer emits an unqualified one-goal answer. Compare with flag OFF using the same source oracle. Do not count a prose acknowledgment as completion of unexecuted goals. If an intent is not executed, report it OPEN. If LLM still silently drops an unexecuted intent, RED with the exact boundary.
 
-P2: Compare flag OFF/ON for tasks of Kalachanov in WMB, DMS-267 lookup, DMS-267 hierarchy, Semavin DMS open defects since 30.09.2026, DMS September sprint in-progress tasks, incomplete period clarification and continuation. Record correctness, UX, model-call count and p50/p90 wall. The ON state must remove one synthesis call for eligible completed results, never on clarification/failure.
+P2: ensure flag ON still removes exactly one LLM call in simple single-intent A/C/F examples, with exact REAL AS21 parity, cards/keys/drawer, no source-call changes. Test representative single intent with conjunctive filters: conservative delegation is acceptable but measure any elision hit-rate loss.
 
-P3: RESEARCH ONLY — multi-intent limitation. Run 3 valid trials each:
-- Покажи задачу DMS-267 и её иерархию
-- Покажи задачи Калачанова в WMB и задачи Семавина в DMS
-- Сравни незавершённые задачи в DMS и OLP
-- Покажи иерархию DMS-267 и связанные с ней задачи
+P3: prove true 2-terminal multi-intent still delegates; incomplete-period clarification and continuation, source/provider error taxonomy remain correct. Browser network/console clean, 0 local reads, mutations, tenant scans.
 
-For each establish independent REAL AS21 oracle for every subgoal and report discovered skills, executed terminal capabilities, omitted goal if any, completion contract, and first failing boundary. Evaluate plugin/catalog composition, an API goal-coverage clarification guard, and a future V5 deep sidecar. Do not implement or claim multi-intent fixed. Do not introduce phrase routers.
+P4: create a separate multi-intent correctness gap report: where planner omitted a goal, document source oracle for each goal, exact first failing boundary, recommended plugin/completion/API goal-coverage design without Core changes, and whether it can safely clarify. Do not add new routing logic or implement multi-agent here.
 
-P4: Report UX verdict AGENT_CORE_V4_SYNTHESIS_UX_GREEN_A229R2U or AGENT_CORE_V4_SYNTHESIS_UX_RED_A229R2U. Multi-intent findings must be separately marked OPEN if any subgoals remain unfulfilled. Recommend whether flag can be enabled by default; do not flip it.
+P5: report A229R2UR GREEN only if presentation safeguard, normal elision, error taxonomy, and correctness tests pass. Mark multi-intent execution limitation OPEN until independently fixed. Otherwise RED, STOP.
 
-Commit report at po-agent-platform-v2/qa_reports/AGENT_CORE_V4_SYNTHESIS_UX_MULTI_INTENT_A229R2U.md. If RED record first failing boundary and stop. Core, production code, and current flag default remain unchanged.
+Commit QA report at po-agent-platform-v2/qa_reports/AGENT_CORE_V4_SYNTHESIS_MULTI_INTENT_SAFETY_A229R2UR.md.
+Return TESTED_HEAD, REPORT_COMMIT, pass counts and flag recommendation. Do not enable flag by default.
