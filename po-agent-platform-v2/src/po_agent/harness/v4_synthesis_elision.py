@@ -112,7 +112,7 @@ class TerminalSynthesisElider:
     def _potential_multi_intent(query: str) -> bool:
         # Presentation-only safety guard: coordination can imply several goals.
         # False positives merely retain LLM synthesis, never change execution.
-        return bool(re.search(r"(?i)(?:\\s+и\\s+|\\s+and\\s+|[,;])", str(query or "")))
+        return bool(re.search(r"(?i)(?:\s+и\s+|\s+and\s+|[,;])", str(query or "")))
 
     async def synthesize(self, user_query: str, observations: list[V4Observation]) -> str:
         if self._potential_multi_intent(user_query):
