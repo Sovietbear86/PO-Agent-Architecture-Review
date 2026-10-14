@@ -2024,3 +2024,13 @@ Broad grouping:
 3. Resume A229R1 latency verification on the new certified HEAD.
 4. Then A230 security/read-only + rollback rehearsal.
 5. Then A231 final V4 DoD / RC audit.
+
+
+## 2026-10-14 — A229R2UR2 GREEN; A229M1 design gate ACTIVE
+
+- Synthesis-elision safety verified in A229R2UR2 (270/270 V4, 34/34 Task API, Core 6/6 byte-identical). Feature flag `PO_AGENT_V4_SYNTHESIS_ELISION` remains OFF by default.
+- Multi-intent **presentation** safeguard GREEN: coordination-bearing requests delegate synthesis to original query-aware LLM. This does not execute omitted goals.
+- Multi-intent **execution** remains OPEN: planner may execute a single terminal despite 2–3 explicit independent goals; lookup-only observations once produced a false parent-absence inference for DMS-267 (actual source-proven parent DMS-253).
+- Current next gate: **A229M1** typed goal decomposition/coverage/continuation research only; no code implementation, no Core changes, no new functional GREEN claim. Goal is a generic out-of-Core path, not a conjunction-based phrase router.
+- GVS5H/V5 sidecar remains deferred for deep analysis; ordinary multi-intent correctness should first be assessed through governed plugin/API contracts.
+- Order: A229M1 design → narrow owner implementation + independent REAL AS21 re-gate (only if feasible) → A230 security/rollback → A231 RC. No feature-default flip before explicit owner approval.
