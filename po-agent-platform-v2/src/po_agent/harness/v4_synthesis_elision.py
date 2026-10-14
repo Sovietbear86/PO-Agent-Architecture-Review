@@ -7,6 +7,7 @@ the original LLM synthesizer.
 """
 from __future__ import annotations
 
+import re
 from typing import Any
 
 from .agent_core_v4 import V4Observation
@@ -107,7 +108,15 @@ class TerminalSynthesisElider:
                 return f"{answer}\nКлючи: {', '.join(keys)}"
         return answer
 
+    @staticmethod
+    def _potential_multi_intent(query: str) -> bool:
+        # Presentation-only safety guard: coordination can imply several goals.
+        # False positives merely retain LLM synthesis, never change execution.
+        return bool(re.search(r"(?i)(?:\\s+и\\s+|\\s+and\\s+|[,;])", str(query or "")))
+
     async def synthesize(self, user_query: str, observations: list[V4Observation]) -> str:
+        if self._potential_multi_intent(user_query):
+            return await self.underlying.synthesize(user_query, observations)
         terminal = self._eligible_terminal(observations)
         if terminal is not None:
             rendered = self._render(terminal)
