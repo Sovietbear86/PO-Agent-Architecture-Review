@@ -140,3 +140,48 @@ async def test_delegates_when_terminal_answer_is_empty():
 
     assert answer == "LLM synthesis"
     assert underlying.calls == 1
+
+
+@pytest.mark.asyncio
+async def test_elision_renders_complete_compacted_key_sample():
+    underlying = _UnderlyingSynthesizer()
+    elider = TerminalSynthesisElider(underlying)
+    observation = _obs(
+        1,
+        "task.search_assignee",
+        answer="Для исполнителя найдено задач: 2.",
+        data={
+            "count": 2,
+            "task_keys_sample": ["WMB-1", "WMB-2"],
+            "task_key_count": 2,
+            "source": "REAL_AS21",
+        },
+    )
+
+    answer = await elider.synthesize("Задачи в WMB", [observation])
+
+    assert answer == "Для исполнителя найдено задач: 2.\nКлючи: WMB-1, WMB-2"
+    assert underlying.calls == 0
+
+
+@pytest.mark.asyncio
+async def test_elision_does_not_present_truncated_key_sample_as_complete():
+    underlying = _UnderlyingSynthesizer()
+    elider = TerminalSynthesisElider(underlying)
+    observation = _obs(
+        1,
+        "task.search_assignee",
+        answer="Найдено задач: 27.",
+        data={
+            "count": 27,
+            "task_keys_sample": [f"WMB-{i}" for i in range(20)],
+            "task_key_count": 27,
+            "source": "REAL_AS21",
+        },
+    )
+
+    answer = await elider.synthesize("Задачи в WMB", [observation])
+
+    assert answer == "Найдено задач: 27."
+    assert "Ключи:" not in answer
+    assert underlying.calls == 0
