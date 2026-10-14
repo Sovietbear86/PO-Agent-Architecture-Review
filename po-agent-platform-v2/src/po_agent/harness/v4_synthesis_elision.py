@@ -64,19 +64,30 @@ class TerminalSynthesisElider:
 
     @staticmethod
     def _task_keys(data: dict[str, Any]) -> list[str]:
+        """Only return a complete source-backed key set, never a truncated sample."""
         raw = data.get("task_keys")
+        if not isinstance(raw, list):
+            raw = data.get("task_keys_sample")
         if isinstance(raw, list):
-            return [str(item) for item in raw if str(item).strip()]
-        tasks = data.get("tasks")
-        if not isinstance(tasks, list):
-            return []
-        result: list[str] = []
-        for task in tasks:
-            if isinstance(task, dict):
-                key = task.get("key") or task.get("id") or task.get("source_id")
-                if key is not None and str(key).strip():
-                    result.append(str(key))
-        return result
+            keys = [str(item) for item in raw if str(item).strip()]
+        else:
+            tasks = data.get("tasks")
+            if not isinstance(tasks, list):
+                return []
+            keys = []
+            for task in tasks:
+                if isinstance(task, dict):
+                    key = task.get("key") or task.get("id") or task.get("source_id")
+                    if key is not None and str(key).strip():
+                        keys.append(str(key))
+        total = data.get("task_key_count", data.get("count"))
+        if total is not None:
+            try:
+                if int(total) != len(keys):
+                    return []  # Compact sample is incomplete, do not imply a full list.
+            except (TypeError, ValueError):
+                return []
+        return keys
 
     @classmethod
     def _render(cls, observation: V4Observation) -> str | None:
