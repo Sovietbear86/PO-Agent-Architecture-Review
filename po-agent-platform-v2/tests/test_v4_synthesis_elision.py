@@ -185,3 +185,37 @@ async def test_elision_does_not_present_truncated_key_sample_as_complete():
     assert answer == "Найдено задач: 27."
     assert "Ключи:" not in answer
     assert underlying.calls == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("query", [
+    "Задачи Калачанова в WMB и задачи Семавина в DMS",
+    "Задачи Калачанова в WMB и иерархию DMS-267",
+    "DMS-267, иерархию, задачи Калачанова в WMB",
+])
+async def test_single_terminal_multi_intent_uses_query_aware_synthesizer(query):
+    underlying = _UnderlyingSynthesizer()
+    elider = TerminalSynthesisElider(underlying)
+    answer = await elider.synthesize(
+        query,
+        [_obs(
+            1, "task.search_assignee",
+            answer="Найдено задач: 6.",
+            data={"count": 6, "task_keys_sample": ["WMB-1"], "task_key_count": 6},
+        )],
+    )
+    assert answer == "LLM synthesis"
+    assert underlying.calls == 1
+
+
+@pytest.mark.asyncio
+async def test_single_intent_still_skips_llm_synthesis():
+    underlying = _UnderlyingSynthesizer()
+    elider = TerminalSynthesisElider(underlying)
+    answer = await elider.synthesize(
+        "Задачи Калачанова в WMB",
+        [_obs(1, "task.search_assignee", answer="Найдено задач: 1.",
+              data={"count": 1, "task_keys_sample": ["WMB-1"], "task_key_count": 1})],
+    )
+    assert "WMB-1" in answer
+    assert underlying.calls == 0
