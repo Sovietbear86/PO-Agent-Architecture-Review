@@ -1,30 +1,43 @@
-# GigaCode — Next Action
+# GigaCode — Current Action
 
-## A229R2UR — multi-intent synthesis safety re-gate
+## A229R2UR2 — regex hotfix safety re-gate (QA only)
 
-QA only. Do not change production code.
+Previous RED: A229R2UR, P0. Root cause was double-escaped whitespace in a raw regex in `v4_synthesis_elision.py`, making `и` / `and` coordination checks unreachable; punctuation still matched. Owner corrected ONLY the regex escaping. Agent Core and planner are frozen. Feature flag `PO_AGENT_V4_SYNTHESIS_ELISION` remains OFF by default.
 
-Previous verdict: AGENT_CORE_V4_SYNTHESIS_ELISION_UX_RED_A229R2U.
-First boundary: one-terminal multi-intent queries were deterministically synthesized from one observation and silently omitted other requested goals.
+**STOP RULE:** No production/test/config modifications by GigaCode. Do not update Core, planner, skills, API, or factory. If any QA check fails, report exact first boundary and STOP.
 
-Owner fix outside Core:
-- v4_synthesis_elision.py delegates queries containing coordination/enumeration signals to the original query-aware LLM synthesizer.
-- Single-intent queries still skip exactly one synthesis call when eligible.
-- New focused regression tests cover M1/M3/M4 and ordinary single intent.
-- Flag remains OFF by default.
-- This guard is conservative presentation safety, not a router and NOT a multi-intent execution fix.
+### P0 — strict boundary and focused test
+- Pull HEAD, record TESTED_HEAD and verify clean worktree.
+- Verify 6/6 Agent Core files byte-identical to checkpoint `checkpoint/v4-complex-task-clarification-green-a229f3r`.
+- Verify owner hotfix changed only raw regex escaping in the synthesis module versus previous RED state.
+- Run `tests/test_v4_synthesis_elision.py`: **all tests must pass**, including previously failing coordinated-query cases.
+- Confirm regex detects Russian `и`, English `and`, comma/semicolon and does not treat plain single-intent query as compound.
+- Run full V4 suite, relevant Task API suites and frontend build, require zero failures.
 
-P0: pull HEAD, verify Core 6/6 unchanged, run test_v4_synthesis_elision.py, focused V4 tests, full V4 blast, Task API SWTR, frontend build. Require 0 new failures.
+### P1 — reproduce precise previous live failure
+Use REAL AS21 and fresh sessions; test flag ON and OFF.
 
-P1 FIRST: reproduce M1/M3/M4 on flag ON with at least 3 valid runs each. For one-terminal trajectories verify final synthesis is delegated to the underlying LLM and no longer emits an unqualified one-goal answer. Compare with flag OFF using the same source oracle. Do not count a prose acknowledgment as completion of unexecuted goals. If an intent is not executed, report it OPEN. If LLM still silently drops an unexecuted intent, RED with the exact boundary.
+Run each >=3 valid times:
+1. `Покажи задачи Калачанова в WMB и задачи Семавина в DMS`
+2. `Покажи задачи Калачанова в WMB и иерархию DMS-267`
+3. `Покажи задачу DMS-267, её иерархию и задачи Калачанова в WMB`
 
-P2: ensure flag ON still removes exactly one LLM call in simple single-intent A/C/F examples, with exact REAL AS21 parity, cards/keys/drawer, no source-call changes. Test representative single intent with conjunctive filters: conservative delegation is acceptable but measure any elision hit-rate loss.
+For any run with just one executed terminal, flag ON must delegate final synthesis to the original LLM, not silently publish the single terminal's answer as full coverage. The original synthesizer may acknowledge missing goals; **this is not proof that all goals executed**. Validate against independent source oracle for each requested goal.
 
-P3: prove true 2-terminal multi-intent still delegates; incomplete-period clarification and continuation, source/provider error taxonomy remain correct. Browser network/console clean, 0 local reads, mutations, tenant scans.
+### P2 — feature ON retains optimization safely
+- Compare flag OFF/ON for at least 3 simple single-intent exact searches, a lookup, and hierarchy.
+- Prove -1 synthesis LLM call only on eligible simple one-terminal trajectories.
+- Check correct task key lists, UI cards, zero-results, clarification continuation, provider errors, no mutations/local fallback/unscoped source scans.
+- Report elision hit rate and false positives caused by conservative coordination detection. Default stays OFF.
 
-P4: create a separate multi-intent correctness gap report: where planner omitted a goal, document source oracle for each goal, exact first failing boundary, recommended plugin/completion/API goal-coverage design without Core changes, and whether it can safely clarify. Do not add new routing logic or implement multi-agent here.
+### P3 — report
+Verdict:
+- `AGENT_CORE_V4_SYNTHESIS_MULTI_INTENT_SAFETY_GREEN_A229R2UR2` only when P0-P2 all green;
+- otherwise `AGENT_CORE_V4_SYNTHESIS_MULTI_INTENT_SAFETY_RED_A229R2UR2` with first failing boundary and STOP.
 
-P5: report A229R2UR GREEN only if presentation safeguard, normal elision, error taxonomy, and correctness tests pass. Mark multi-intent execution limitation OPEN until independently fixed. Otherwise RED, STOP.
+Keep the separate multi-intent *execution* gap OPEN until all independently requested goals can be completed or explicitly clarified.
 
-Commit QA report at po-agent-platform-v2/qa_reports/AGENT_CORE_V4_SYNTHESIS_MULTI_INTENT_SAFETY_A229R2UR.md.
-Return TESTED_HEAD, REPORT_COMMIT, pass counts and flag recommendation. Do not enable flag by default.
+Commit QA report:
+`po-agent-platform-v2/qa_reports/AGENT_CORE_V4_SYNTHESIS_MULTI_INTENT_SAFETY_A229R2UR2.md`
+
+No checkpoint and no default flag flip before GREEN.
