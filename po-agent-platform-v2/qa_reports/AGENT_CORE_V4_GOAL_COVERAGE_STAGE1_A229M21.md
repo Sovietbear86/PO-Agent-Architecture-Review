@@ -118,3 +118,21 @@ Recognized multi-goal alternates that DO work: «и её родителя» (р�
 - **Core hashes (6/6 byte-identical to `6fb335d`):** 52100ca1 / 3bdb4d09 / 1f7562dc / cf75a6d6 / d82929d1 / 1cc10e12.
 - **Residual OPEN gaps:** comparisons, single-goal coverage, login-identity binding, non-Russian/elliptical syntax, typed extractor before broad enablement (P4 list).
 - **No checkpoint created. No flag flipped. No code modified. No next code task before owner fix review.**
+
+---
+
+## Re-verification — 2026-10-15 (second gate run)
+
+Re-requested gate run. **Owner fix NOT landed**: `git diff 846e571..HEAD` over all code paths (`po-agent-platform-v2/src`, `po-agent-platform-v2/tests`, `task-api`, `mcp-swtr`, `frontend`) is empty — the only delta since the original RED test is this report file (commit `113e729`). HEAD = origin = `113e729`.
+
+Re-run results (identical to the original run):
+
+| Check | Result |
+|---|---|
+| Core 6/6 vs `6fb335d` | byte-identical — hashes 52100ca1 / 3bdb4d09 / 1f7562dc / cf75a6d6 / d82929d1 / 1cc10e12 (unchanged) |
+| `tests/test_v4_goal_coverage.py` | **2 failed / 7 passed** — same two tests, same assertions |
+| Focused suites (browser_api_contract + created_period + synthesis_elision + frontend/team config) | 81 passed |
+| Full V4 blast `test_agent_core_v4*.py` + `test_v4*.py` | **2 failed / 277 passed** — same two failures, 0 new regressions |
+| `goal_coverage.py:128` | still `person_value.casefold().startswith(goal.person.casefold())` — F1 direction bug unchanged |
+
+**Verdict unchanged:** `AGENT_CORE_V4_GOAL_COVERAGE_STAGE1_RED_A229M21` — first failing boundary is still P0 step 3, `tests/test_v4_goal_coverage.py::test_one_terminal_cannot_prove_other_persons_collection` (F1, production matcher direction). Gate cannot pass until the owner fix (bidirectional stem prefix + member.resolve login identity binding + test-id correction) lands. No additional diagnostics re-run (code byte-identical; P1–P4 findings of the original run stand).
