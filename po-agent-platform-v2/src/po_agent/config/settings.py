@@ -71,6 +71,11 @@ class Settings(BaseSettings):
         description="Experimental post-execution multi-goal evidence guard (A229M2.1)",
         validation_alias=AliasChoices("V4_GOAL_COVERAGE_GUARD", "PO_AGENT_V4_GOAL_COVERAGE_GUARD"),
     )
+    v4_goal_continuation_enabled: bool = Field(
+        default=False,
+        description="Experimental compact validated goal continuation state (local QA only)",
+        validation_alias=AliasChoices("V4_GOAL_CONTINUATION", "PO_AGENT_V4_GOAL_CONTINUATION"),
+    )
     swtr_base_url: str = Field(default="https://portal.works.prod.sbt/swtr")
     swtr_token: Optional[str] = Field(default=None)
 
