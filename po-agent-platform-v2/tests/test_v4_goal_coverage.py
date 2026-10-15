@@ -198,7 +198,7 @@ def test_preservation_disabled_and_unproven_source_fail_closed():
 def test_preservation_fails_closed_for_large_or_partial_source_data():
     huge = response(result("task.lookup", {"task_key": "DMS-267"},
                            {"source": "REAL_AS21", "task_key": "DMS-267",
-                            "payload": "x" * 100000}))
+                            "related_keys": [f"DMS-{i}" for i in range(2000)]}))
     guarded = guard_completed_goal_coverage(huge, M2, preserve_state=True)
     assert "continuation_observations" not in guarded["data"]["_agent_core_v4"]
 
@@ -206,3 +206,44 @@ def test_preservation_fails_closed_for_large_or_partial_source_data():
                               {"source": "REAL_AS21", "source_complete": False}))
     guarded = guard_completed_goal_coverage(partial, M2, preserve_state=True)
     assert "continuation_observations" not in guarded["data"]["_agent_core_v4"]
+
+
+def test_realistic_dms_lookup_raw_source_card_is_stripped_and_lookup_retained():
+    # Mirrors the live A229M2.2A failing payload shape: nested source_data
+    # carries SWTR attribute cards. Live capture/oracle remains QA's job.
+    original = response(result("task.lookup", {"task_key": "DMS-267"}, {
+        "source": "REAL_AS21", "task_key": "DMS-267",
+        "task": {
+            "key": "DMS-267", "title": "Задача DMS-267", "status": "В работе",
+            "source_data": {
+                "swtr_attributes": [{"code": f"attr_{i}", "value": "x" * 240}
+                                    for i in range(36)],
+                "owner_private_card": "not for continuation",
+            },
+        },
+    }))
+    guarded = guard_completed_goal_coverage(original, M2, preserve_state=True)
+    assert guarded["status"] == "NEEDS_CLARIFICATION"
+    carried = guarded["data"]["_agent_core_v4"]["continuation_observations"]
+    assert len(carried) == 1
+    assert carried[0]["data"]["source"] == "REAL_AS21"
+    assert carried[0]["data"]["task_key"] == "DMS-267"
+    assert carried[0]["data"]["task"]["key"] == "DMS-267"
+    assert carried[0]["data"]["task"]["status"] == "В работе"
+    assert "source_data" not in str(carried)
+    assert "swtr_attributes" not in str(carried)
+    assert len(__import__("json").dumps(carried, ensure_ascii=False).encode()) < 8192
+    assert "results" not in guarded["data"]
+
+
+def test_unknown_raw_cards_not_carried_even_when_under_8kb():
+    original = response(result("task.lookup", {"task_key": "DMS-267"}, {
+        "source": "REAL_AS21", "task_key": "DMS-267",
+        "source_data": {"swtr_attributes": [{"secret": "NEVER_CARRY"}]},
+        "task": {"key": "DMS-267", "description": "NEVER_CARRY",
+                 "source_data": {"raw": "NEVER_CARRY"}},
+    }))
+    guarded = guard_completed_goal_coverage(original, M2, preserve_state=True)
+    carried = guarded["data"]["_agent_core_v4"]["continuation_observations"]
+    assert "NEVER_CARRY" not in str(carried)
+    assert carried[0]["data"]["task"]["key"] == "DMS-267"
