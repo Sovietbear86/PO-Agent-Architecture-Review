@@ -247,3 +247,63 @@ def test_unknown_raw_cards_not_carried_even_when_under_8kb():
     carried = guarded["data"]["_agent_core_v4"]["continuation_observations"]
     assert "NEVER_CARRY" not in str(carried)
     assert carried[0]["data"]["task"]["key"] == "DMS-267"
+
+
+def test_two_turn_credit_is_private_and_does_not_repeat_lookup():
+    # T1: source-proven lookup, hierarchy not executed.
+    first = response(result("task.lookup", {"task_key": "DMS-267"}, {
+        "source": "REAL_AS21", "task_key": "DMS-267",
+        "task": {"key": "DMS-267", "status": "Resolved",
+                 "source_data": {"swtr_attributes": [{"value": "PRIVATE"}]}},
+    }))
+    guarded = guard_completed_goal_coverage(first, M2, preserve_state=True)
+    assert guarded["status"] == "NEEDS_CLARIFICATION"
+    prior = tuple(guarded["data"]["_agent_core_v4"]["continuation_observations"])
+    assert len(prior) == 1
+    assert "PRIVATE" not in str(prior)
+
+    # T2: Core gets the prior observation for planning, but executes ONLY
+    # the missing task.hierarchy. Guard must credit the prior lookup.
+    second = response(result("task.hierarchy", {"task_key": "DMS-267"}, {
+        "source": "REAL_AS21", "task_key": "DMS-267",
+        "parent_chain": [{"key": "DMS-253", "relation": "parent"}],
+    }))
+    verified = guard_completed_goal_coverage(
+        second, M2, preserve_state=True, trusted_prior_observations=prior,
+    )
+    assert verified["status"] == "COMPLETED"
+    assert len(verified["data"]["results"]) == 1
+    assert verified["data"]["results"][0]["capability_id"] == "task.hierarchy"
+    assert "continuation_observations" not in verified["data"]["_agent_core_v4"]
+
+
+def test_prior_observation_with_unknown_source_cannot_gain_credit():
+    untrusted = ({
+        "step": 1, "capability_id": "task.lookup",
+        "arguments": {"task_key": "DMS-267"},
+        "answer": "invented",
+        "data": {"source": "LOCAL", "task_key": "DMS-267"},
+    },)
+    second = response(result("task.hierarchy", {"task_key": "DMS-267"}, {
+        "source": "REAL_AS21", "task_key": "DMS-267",
+    }))
+    verified = guard_completed_goal_coverage(
+        second, M2, preserve_state=True, trusted_prior_observations=untrusted,
+    )
+    assert verified["status"] == "NEEDS_CLARIFICATION"
+    assert "task_lookup" in verified["question"]
+
+
+def test_second_turn_still_fails_closed_if_hierarchy_not_executed():
+    original = response(result("task.lookup", {"task_key": "DMS-267"}, {
+        "source": "REAL_AS21", "task_key": "DMS-267",
+    }))
+    first = guard_completed_goal_coverage(original, M2, preserve_state=True)
+    prior = tuple(first["data"]["_agent_core_v4"]["continuation_observations"])
+    second = response()
+    verified = guard_completed_goal_coverage(
+        second, M2, preserve_state=True, trusted_prior_observations=prior,
+    )
+    assert verified["status"] == "NEEDS_CLARIFICATION"
+    assert "task_hierarchy" in verified["question"]
+    assert verified["data"]["_agent_core_v4"]["continuation_observations"]
