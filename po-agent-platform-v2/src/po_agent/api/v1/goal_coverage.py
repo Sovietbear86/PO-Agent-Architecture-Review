@@ -194,6 +194,32 @@ def check_goal_coverage(response: dict[str, Any], goals: tuple[RequestGoal, ...]
 _MAX_CARRIED_OBSERVATIONS = 6
 _MAX_CARRIED_STATE_BYTES = 8192
 _PROVENANCE = frozenset({"REAL_AS21"})
+# Explicitly source-grounded canonical fields needed for planning/coverage.
+# In particular, never retain task.source_data or SWTR attribute cards.
+_CANONICAL_FIELDS = frozenset({
+    "source", "source_complete", "capability", "task_key", "key", "id",
+    "title", "status", "status_category", "status_type", "task_type",
+    "task_type_code", "task_type_name", "space", "project_space",
+    "assignee", "assignee_id", "assignee_login", "member_login",
+    "member_id", "login", "count", "task_key_count", "task_keys_sample",
+    "task_keys", "parent_chain", "depth", "root_key", "epic_key",
+    "related_keys", "link_types", "created_at", "updated_at",
+    "member", "task",
+})
+_NESTED_CANONICAL_FIELDS = _CANONICAL_FIELDS - frozenset({"member", "task"})
+
+
+def _canonical_continuation_data(raw: dict[str, Any]) -> dict[str, Any]:
+    """Strict allowlist after planner compaction, omitting ALL raw source cards."""
+    def trim(value: Any, *, nested: bool = False) -> Any:
+        if not isinstance(value, dict):
+            return value
+        allowed = _NESTED_CANONICAL_FIELDS if nested else _CANONICAL_FIELDS
+        return {
+            key: trim(item, nested=True) if isinstance(item, dict) else item
+            for key, item in value.items() if key in allowed
+        }
+    return trim(raw)
 
 
 def _build_internal_continuation(
@@ -236,7 +262,9 @@ def _build_internal_continuation(
         if any(not isinstance(k, str) or not isinstance(v, (str, int, float, bool))
                for k, v in args.items()):
             return []
-        compact = AgentCoreV4Runtime._compact_data(cap, data)
+        compact = _canonical_continuation_data(
+            AgentCoreV4Runtime._compact_data(cap, data)
+        )
         saved.append({
             "step": index + 1,
             "capability_id": cap,
