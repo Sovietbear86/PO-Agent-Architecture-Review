@@ -96,7 +96,7 @@ def test_wrong_task_key_does_not_prove_hierarchy():
         result("task.hierarchy", {"task_key": "DMS-999"}),
     )
     coverage = check_goal_coverage(output, detect_goals(M2))
-    assert coverage.unproven == ("g2",)
+    assert {g.kind for g in coverage.goals if g.goal_id in coverage.unproven} == {"task_hierarchy"}
 
 
 def test_infrastructure_and_existing_clarification_status_are_preserved():
@@ -123,3 +123,33 @@ def test_missing_source_evidence_must_not_count_as_proof():
         result("task.hierarchy", {"task_key": "DMS-267"}, {"source_unavailable": True}),
     )
     assert len(check_goal_coverage(output, detect_goals(M2)).unproven) == 2
+
+
+def test_two_persons_with_inflected_queries_stay_completed():
+    output = response(
+        result("task.search_assignee", {"reference": "Калачанов", "space": "WMB"}),
+        result("task.search_assignee", {"reference": "Семавин", "space": "DMS"}),
+    )
+    coverage = check_goal_coverage(output, detect_goals(M1))
+    assert coverage.unproven == ()
+    assert guard_completed_goal_coverage(output, M1)["status"] == "COMPLETED"
+
+
+def test_resolver_proven_logins_bind_to_original_person_goal():
+    output = response(
+        result("member.resolve", {"reference": "Калачанов"}, {"member_login": "Kalachanov.V.V", "source": "REAL_AS21"}),
+        result("task.search", {"reference": "Kalachanov.V.V", "space": "WMB"}),
+        result("member.resolve", {"reference": "Семавин"}, {"member_login": "Semavin.M.M", "source": "REAL_AS21"}),
+        result("task.search", {"reference": "Semavin.M.M", "space": "DMS"}),
+    )
+    coverage = check_goal_coverage(output, detect_goals(M1))
+    assert coverage.unproven == ()
+    assert guard_completed_goal_coverage(output, M1)["status"] == "COMPLETED"
+
+
+def test_unproven_login_and_similar_names_never_prove_goal():
+    output = response(
+        result("task.search", {"reference": "Kalachanov.V.V", "space": "WMB"}),
+        result("task.search_assignee", {"reference": "Семёнов", "space": "DMS"}),
+    )
+    assert len(check_goal_coverage(output, detect_goals(M1)).unproven) == 2
