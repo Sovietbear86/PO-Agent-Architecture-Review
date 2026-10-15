@@ -212,11 +212,13 @@ _NESTED_CANONICAL_FIELDS = _CANONICAL_FIELDS - frozenset({"member", "task"})
 def _canonical_continuation_data(raw: dict[str, Any]) -> dict[str, Any]:
     """Strict allowlist after planner compaction, omitting ALL raw source cards."""
     def trim(value: Any, *, nested: bool = False) -> Any:
+        if isinstance(value, list):
+            return [trim(item, nested=True) for item in value]
         if not isinstance(value, dict):
             return value
         allowed = _NESTED_CANONICAL_FIELDS if nested else _CANONICAL_FIELDS
         return {
-            key: trim(item, nested=True) if isinstance(item, dict) else item
+            key: trim(item, nested=True)
             for key, item in value.items() if key in allowed
         }
     return trim(raw)
