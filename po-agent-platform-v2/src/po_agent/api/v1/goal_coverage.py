@@ -97,6 +97,53 @@ def _terminal_results(response: dict[str, Any]) -> list[dict[str, Any]]:
     return [r for r in results if isinstance(r, dict)] if isinstance(results, list) else []
 
 
+def _person_stem_matches(source_name: str, requested: str) -> bool:
+    """Match Russian genitive/nominative variants without broad fuzzy matching."""
+    a = str(source_name or "").strip().casefold()
+    b = str(requested or "").strip().casefold()
+    if not a or not b:
+        return False
+    if a == b:
+        return True
+    # Bound to a short inflection suffix; arbitrary short common prefixes
+    # may not certify two independently requested people's tasks.
+    shorter, longer = sorted((a, b), key=len)
+    return len(shorter) >= 6 and len(longer) - len(shorter) <= 2 and longer.startswith(shorter)
+
+
+def _person_identity_matches(
+    terminal_person: str,
+    requested: str,
+    result_rows: list[dict[str, Any]],
+) -> bool:
+    if _person_stem_matches(terminal_person, requested):
+        return True
+
+    # A canonical login may only be matched through a REAL member.resolve
+    # observation from THIS trajectory. Never infer a surname from a login.
+    for row in result_rows:
+        if row.get("capability_id") != "member.resolve":
+            continue
+        args = row.get("arguments")
+        data = row.get("data")
+        if not isinstance(args, dict) or not isinstance(data, dict):
+            continue
+        if data.get("source_unavailable") or data.get("source_complete") is False:
+            continue
+        if not _person_stem_matches(
+            str(args.get("reference") or args.get("person") or ""),
+            requested,
+        ):
+            continue
+        resolved = (
+            data.get("member_login") or data.get("login")
+            or data.get("assignee_id") or data.get("member_id")
+        )
+        if resolved is not None and str(resolved).casefold() == terminal_person.casefold():
+            return True
+    return False
+
+
 def check_goal_coverage(response: dict[str, Any], goals: tuple[RequestGoal, ...]) -> GoalCoverage:
     """Bind each goal to terminal evidence with matching source arguments.
 
@@ -125,7 +172,7 @@ def check_goal_coverage(response: dict[str, Any], goals: tuple[RequestGoal, ...]
                 space_value = str(args.get("space") or "")
                 valid = (
                     cap.startswith("task.search")
-                    and person_value.casefold().startswith(goal.person.casefold())
+                    and _person_identity_matches(person_value, goal.person, result_rows)
                     and space_value.upper() == goal.space.upper()
                 )
             else:
