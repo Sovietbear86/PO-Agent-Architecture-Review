@@ -2044,3 +2044,12 @@ Broad grouping:
 - Stage 1 ONLY detects and rejects unsupported public success (NEEDS_CLARIFICATION), stripping unsupported answer/evidence. Does not execute remaining goals; safe continuation remains A229M2.2.
 - Agent Core 6/6 immutable. No production checkpoint, default flip or public release until independent A229M2.1 gate and subsequent live multi-intent acceptance.
 - A229M2.1 QA is assigned in `GIGACODE_NEXT_ACTION.md`. Required: unit/offline replay + flag-OFF equivalence + flag-ON injected API guard + no regressions + first failing boundary on RED.
+
+
+## 2026-10-15 — A229M2.1R GREEN; A229M2.2F feasibility ACTIVE
+
+- Independent QA A229M2.1R GREEN: 282/282 V4, 27/27 Task API, frontend build green; Core 6/6 byte-identical. REAL AS21 canonical-login/member.resolve shape verified.
+- Typed goal-coverage guard remains OFF by default. This is a bounded protection for detected goals, not certified universal multi-intent execution.
+- A229M2.2F is a design-only feasibility gate: prove whether the existing clarification continuation actually retains validated observations and source lineage, determine minimal secure out-of-Core mechanism for resuming ONLY unfulfilled goals, and compare existing continuation / bounded API orchestration / sidecar.
+- Do not confuse missing user clarity with agent failure: unambiguous omitted work should be resumed or honestly marked incomplete, not framed as the user's ambiguity.
+- Core must remain frozen, no source fallbacks, no feature flags enabled and no production code changes before feasibility report and owner review.
