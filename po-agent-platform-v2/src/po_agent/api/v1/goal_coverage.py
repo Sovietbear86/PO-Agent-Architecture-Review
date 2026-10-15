@@ -6,6 +6,7 @@ Unsupported/ambiguous structures are not declared proven.
 """
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass
 from typing import Any
@@ -188,7 +189,69 @@ def check_goal_coverage(response: dict[str, Any], goals: tuple[RequestGoal, ...]
     return GoalCoverage(goals, tuple(proven), tuple(unproven), evidence)
 
 
-def guard_completed_goal_coverage(response: dict[str, Any], original_query: str) -> dict[str, Any]:
+
+# Carry only compact source-verified observations; never expose these in HTTP.
+_MAX_CARRIED_OBSERVATIONS = 6
+_MAX_CARRIED_STATE_BYTES = 8192
+_PROVENANCE = frozenset({"REAL_AS21"})
+
+
+def _build_internal_continuation(
+    response: dict[str, Any], coverage: GoalCoverage,
+) -> list[dict[str, Any]]:
+    """Supply trusted, compact observations for the existing V4 resume seam.
+
+    Missing or ambiguous provenance => nothing carried. Do not claim
+    continuity from unverified data or pin imagined completion skills.
+    """
+    from po_agent.harness.agent_core_v4 import AgentCoreV4Runtime
+
+    rows = _terminal_results(response)
+    used_indexes = {
+        i for goal_id in coverage.proven for i in coverage.evidence[goal_id]
+    }
+    # Resolver observations can be used as dependencies only when they come
+    # from the same verified source-bound trajectory.
+    candidate_indexes = [
+        i for i, row in enumerate(rows)
+        if i in used_indexes or str(row.get("capability_id") or "") in (
+            "member.resolve", "space.resolve"
+        )
+    ]
+    if len(candidate_indexes) > _MAX_CARRIED_OBSERVATIONS:
+        return []
+
+    saved: list[dict[str, Any]] = []
+    for index in candidate_indexes:
+        row = rows[index]
+        cap = str(row.get("capability_id") or "")
+        args = row.get("arguments")
+        data = row.get("data")
+        if not isinstance(args, dict) or not isinstance(data, dict):
+            return []
+        if data.get("source") not in _PROVENANCE:
+            return []
+        if data.get("source_unavailable") or data.get("source_complete") is False:
+            return []
+        if any(not isinstance(k, str) or not isinstance(v, (str, int, float, bool))
+               for k, v in args.items()):
+            return []
+        compact = AgentCoreV4Runtime._compact_data(cap, data)
+        saved.append({
+            "step": index + 1,
+            "capability_id": cap,
+            "arguments": {k: str(v) for k, v in args.items()},
+            "answer": str(row.get("answer") or "")[:384],
+            "data": compact,
+        })
+    if len(json.dumps(saved, ensure_ascii=False, default=str).encode("utf-8")) > _MAX_CARRIED_STATE_BYTES:
+        return []
+    return saved
+
+
+def guard_completed_goal_coverage(
+    response: dict[str, Any], original_query: str, *, preserve_state: bool = False
+) -> dict[str, Any]:
     """Fail closed for proven multi-goal shapes with missing terminal evidence.
 
     No execution, no model-side factual inference, no answer repairs by phrase.
@@ -216,8 +279,17 @@ def guard_completed_goal_coverage(response: dict[str, Any], original_query: str)
     response["warnings"] = list(response.get("warnings") or []) + ["v4_goal_coverage_incomplete"]
     data = response.get("data")
     if isinstance(data, dict):
-        data.pop("results", None)
         state = data.setdefault("_agent_core_v4", {})
+        if isinstance(state, dict) and preserve_state:
+            carried = _build_internal_continuation(response, coverage)
+            if carried:
+                state["continuation_observations"] = carried
+                # The existing loaded skills are reused. Do not manufacture
+                # missing-goal skill IDs or assert multi-goal completion.
+                state["goal_continuation_pending"] = True
+            else:
+                response["warnings"].append("v4_goal_continuation_state_unavailable")
+        data.pop("results", None)
         if isinstance(state, dict):
             state["goal_coverage"] = {
                 "requested": len(goals), "proven": list(coverage.proven),
