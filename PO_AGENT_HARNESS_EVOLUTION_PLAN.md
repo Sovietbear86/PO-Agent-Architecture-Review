@@ -2034,3 +2034,13 @@ Broad grouping:
 - Current next gate: **A229M1** typed goal decomposition/coverage/continuation research only; no code implementation, no Core changes, no new functional GREEN claim. Goal is a generic out-of-Core path, not a conjunction-based phrase router.
 - GVS5H/V5 sidecar remains deferred for deep analysis; ordinary multi-intent correctness should first be assessed through governed plugin/API contracts.
 - Order: A229M1 design → narrow owner implementation + independent REAL AS21 re-gate (only if feasible) → A230 security/rollback → A231 RC. No feature-default flip before explicit owner approval.
+
+
+## 2026-10-15 — A229M2.1 owner implementation staged (QA pending)
+
+- A229M1 design GREEN; selected out-of-Core Option B typed goal-coverage detector and API postcondition verification.
+- Owner staged additive `api/v1/goal_coverage.py`, feature flag `PO_AGENT_V4_GOAL_COVERAGE_GUARD` (default **false**), API seam and offline matrix regression tests.
+- Scope is intentionally conservative: explicit task lookup + hierarchy/relations and separately anchored person/space task collections. These are **not** complete general natural-language goal extraction; comparison/mixed-language/nested goals remain OPEN.
+- Stage 1 ONLY detects and rejects unsupported public success (NEEDS_CLARIFICATION), stripping unsupported answer/evidence. Does not execute remaining goals; safe continuation remains A229M2.2.
+- Agent Core 6/6 immutable. No production checkpoint, default flip or public release until independent A229M2.1 gate and subsequent live multi-intent acceptance.
+- A229M2.1 QA is assigned in `GIGACODE_NEXT_ACTION.md`. Required: unit/offline replay + flag-OFF equivalence + flag-ON injected API guard + no regressions + first failing boundary on RED.
