@@ -444,6 +444,15 @@ def _remember_clarification(response: dict, session_id: str, original_query: str
         v4_state.pop("continuation_observations", None)
         v4_state.pop("continuation_required_skills", None)
 
+    # Bound retained in-memory session state; expired entries are swept
+    # on insertion rather than only when their exact key is accessed.
+    for key, item in list(_pending_clarifications.items()):
+        if _clarification_expired(item):
+            _pending_clarifications.pop(key, None)
+    if len(_pending_clarifications) >= 100:
+        oldest = min(_pending_clarifications, key=lambda key: _pending_clarifications[key].created_at)
+        _pending_clarifications.pop(oldest, None)
+
     _pending_clarifications[session_id] = PendingClarification(
         clarification_id=clarification_id,
         original_query=original_query,
@@ -552,6 +561,7 @@ async def _run_query(payload: QueryRequest, request: Request, *, force_v4: bool 
                 response = guard_completed_goal_coverage(
                     response,
                     effective_query or original_query,
+                    preserve_state=getattr(settings, "v4_goal_continuation_enabled", False),
                 )
             response = _remember_completed_session_context(response, session_id)
             response = _remember_clarification(response, session_id, effective_query or original_query)
