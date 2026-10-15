@@ -2053,3 +2053,13 @@ Broad grouping:
 - A229M2.2F is a design-only feasibility gate: prove whether the existing clarification continuation actually retains validated observations and source lineage, determine minimal secure out-of-Core mechanism for resuming ONLY unfulfilled goals, and compare existing continuation / bounded API orchestration / sidecar.
 - Do not confuse missing user clarity with agent failure: unambiguous omitted work should be resumed or honestly marked incomplete, not framed as the user's ambiguity.
 - Core must remain frozen, no source fallbacks, no feature flags enabled and no production code changes before feasibility report and owner review.
+
+
+## 2026-10-15 — A229M2.2A state preservation staged; QA pending
+
+- A229M2.2F feasibility GREEN, selected reuse of existing clarification continuation; F-1 proved goal guard stripped source observations before storing pending state.
+- Owner staged strictly additive opt-in `PO_AGENT_V4_GOAL_CONTINUATION` (default false), compact REAL_AS21-proven observations carried internally before public result stripping, plus bounded pending-session eviction, tests and independent QA specification.
+- This is **only state preservation**. Missing-goal execution is still planner best-effort; A229M2.2B API orchestrator remains open for deterministic per-goal attempts. Never call Stage 2.2A implementation multi-intent execution GREEN.
+- Source data safety: compact cap 6 observations / 8192 bytes, explicit REAL_AS21 source marker, source_complete != false, no source_unavailable. Unverifiable evidence must fail closed.
+- **Security release blocker**: no authenticated session ownership; client-chosen session_id and clarification_id are not sufficient for multi-user deployment. No remote/multi-tenant/public enabling of continuation until this is fixed independently. Staleness and full key-set recovery also require policy review.
+- Both `PO_AGENT_V4_GOAL_COVERAGE_GUARD` and `PO_AGENT_V4_GOAL_CONTINUATION` remain OFF by default; Agent Core V4 untouched. QA A229M2.2A assigned. No checkpoint until independent GREEN.
