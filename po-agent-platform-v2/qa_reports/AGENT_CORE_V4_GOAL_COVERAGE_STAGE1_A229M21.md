@@ -1,9 +1,25 @@
-# A229M2.1 — Typed Goal Detection + Postcondition Guard, Stage 1 Gate
+# A229M2.1R — Typed Goal Detection + Postcondition Guard, Stage 1 Gate (RE-GATE)
 
-**Verdict:** `AGENT_CORE_V4_GOAL_COVERAGE_STAGE1_RED_A229M21`
-**First failing boundary:** P0 step 3 — `tests/test_v4_goal_coverage.py::test_one_terminal_cannot_prove_other_persons_collection` (owner's new suite: **2 failed / 7 passed**). Root cause is in production code: `api/v1/goal_coverage.py:128` person-matching direction. Per spec: STOP. No code was modified.
+> **FINAL VERDICT (A229M2.1R): `AGENT_CORE_V4_GOAL_COVERAGE_STAGE1_GREEN_A229M21`**
+> The original A229M2.1 RED (below) was on HEAD `846e571`. The owner landed F1/F2 fixes
+> (`e5c9b58` + `de6497b`); this A229M2.1R re-gate at HEAD `a6f3fd4` re-runs the two former
+> failing tests + full regression gate + offline replay + canonical-login/REAL-AS21 binding.
+> **All gates GREEN.** See the A229M2.1R re-gate section at the bottom for the authoritative
+> result. The RED narrative below is preserved as history (first failing boundary was
+> `goal_coverage.py:128` person-matcher direction + a test id mislabel — both fixed).
 
-- **START_HEAD / TESTED_HEAD:** `846e571cef683ff9c0db5ebccc1bd9bf0d5b7ef2` (branch `feat/core8-real-query-hardening-v2`, in sync with origin)
+- **A229M2.1R TESTED_HEAD:** `a6f3fd4c7c130ba73a05e385c0fef2da109ad8d1` (in sync with origin)
+- **Owner F1/F2 fix commits:** `e5c9b58` fix(api): match inflected person names + resolver-proven canonical logins; `de6497b` test(api): fix goal-id assertion + certify inflections/login binding
+- **Role:** QA only. No production/test/config/Core/UI modifications. No live flag flip.
+
+---
+
+## (History) Original A229M2.1 RED — first failing boundary
+
+**Verdict at the time:** `AGENT_CORE_V4_GOAL_COVERAGE_STAGE1_RED_A229M21`
+**First failing boundary:** P0 step 3 — `tests/test_v4_goal_coverage.py::test_one_terminal_cannot_prove_other_persons_collection` (owner's new suite: **2 failed / 7 passed**). Root cause in production code: `api/v1/goal_coverage.py:128` person-matching direction. Per spec: STOP. No code modified.
+
+- **START_HEAD / TESTED_HEAD (original RED):** `846e571cef683ff9c0db5ebccc1bd9bf0d5b7ef2`
 - **Owner delta over A229M1 (`9a9903b`):** 5 commits — `9f85a6c` goal_coverage module (new, 179 lines), `92cc257` settings flag (default `false`), `0110697` API wiring (+6 lines), `3cbce13` offline matrix tests (new, 125 lines), `641ecf2` anaphoric related-task connector fix; plus docs.
 - **Role:** QA only. No production/test/config/Core/UI modifications. No live flag flip (real stack untouched; P3 done in controlled offline harness).
 - **Date:** 2026-10-14
@@ -136,3 +152,75 @@ Re-run results (identical to the original run):
 | `goal_coverage.py:128` | still `person_value.casefold().startswith(goal.person.casefold())` — F1 direction bug unchanged |
 
 **Verdict unchanged:** `AGENT_CORE_V4_GOAL_COVERAGE_STAGE1_RED_A229M21` — first failing boundary is still P0 step 3, `tests/test_v4_goal_coverage.py::test_one_terminal_cannot_prove_other_persons_collection` (F1, production matcher direction). Gate cannot pass until the owner fix (bidirectional stem prefix + member.resolve login identity binding + test-id correction) lands. No additional diagnostics re-run (code byte-identical; P1–P4 findings of the original run stand).
+
+---
+
+# A229M2.1R — Re-gate after owner F1/F2 fix (authoritative)
+
+**Tested HEAD:** `a6f3fd4c7c130ba73a05e385c0fef2da109ad8d1` (HEAD == origin after `git pull --ff-only`; prior RED `846e571`, re-verification `8ea76c1`).
+**Owner fix commits:** `e5c9b58` (fix(api): inflected person names + resolver-proven canonical logins), `de6497b` (test(api): fix goal-id assertion + certify inflections/login binding).
+
+## 0. Delta audit (8ea76c1..a6f3fd4)
+
+| File | Delta |
+|---|---|
+| `po-agent-platform-v2/src/po_agent/api/v1/goal_coverage.py` | +49 — new `_person_stem_matches` + `_person_identity_matches`, replacing the buggy `person_value.casefold().startswith(goal.person.casefold())` (old line 128) |
+| `po-agent-platform-v2/tests/test_v4_goal_coverage.py` | +32 — F2 assertion fixed to kind-set form; +3 new tests (inflected two-person, resolver-proven login binding, unproven-login/similar-name negatives) |
+| spec doc | +10 |
+| `api/v1/__init__.py`, `settings.py` | **no delta** — guard wiring and default-OFF flag unchanged |
+
+- F1 matchers: stem match = casefold; equal OR (shorter ≥ 6 chars, length diff ≤ 2, longer.startswith(shorter)) — covers genitive/dative inflections («Калачанова»/«Калачанову» ↔ «Калачанов», diff ≤ 1) while rejecting «Калачановича» (diff 3). Identity binding: stem match OR a `member.resolve` row in the same trajectory whose `args.reference` stem-matches the goal person AND whose data is not `source_unavailable`/incomplete AND whose resolved login (`member_login`|`login`|`assignee_id`|`member_id`) casefold-equals the terminal person value. **Never infers a login from spelling.**
+- F2: `test_wrong_task_key_does_not_prove_hierarchy` now asserts `{g.kind for g in goals if goal_id in unproven} == {"task_hierarchy"}` (goal ids sort by (start, kind), not a fixed "g2").
+
+## 1. P0 — former failing tests first + full regression (spec-first rule)
+
+| Check | Result |
+|---|---|
+| The two former failing tests (`test_one_terminal_cannot_prove_other_persons_collection`, `test_wrong_task_key_does_not_prove_hierarchy`) | **2 passed** |
+| `test_v4_goal_coverage.py` + focused suites (browser_api_contract, task_created_period, synthesis_elision, frontend/team config) | **93 passed** |
+| Core 6 files vs frozen checkpoint `6fb335d` | **byte-identical**, diff empty, hashes unchanged (52100ca1 / 3bdb4d09 / 1f7562dc / cf75a6d6 / d82929d1 / 1cc10e12) |
+| Full V4 blast `test_agent_core_v4*.py` + `test_v4*.py` | **282 passed** (was 2F/277P at `8ea76c1`) |
+| task-api SWTR suites | 27 passed |
+| Frontend `npm run build` | exit 0 |
+| No Core/planner/registry/source/task-api delta | confirmed (API-layer only) |
+
+## 2. P0 — live REAL AS21 member.resolve payload shape vs fixture (spec rule)
+
+Spec: if the live nested output differs from the fixture, do NOT claim canonical-login binding verified.
+
+- Real `_member_resolve` (agent_core_v4.py + agent_core_v4_reliable.py) emits **flat** `data`: `{reference, member_login, external_id, source, resolution_scope}` with `member_login = external_id`. Not nested.
+- Live REAL AS21 `/api/v1/swtr-read/assignees/resolve` (task-api 8241): «Калачанов» → `external_id=Kalachanov.V.V`, «Семавин» → `external_id=Semavin.M.M` — flat, `source=REAL_AS21`, route `search_users`. **Matches the fixture shape** → the binding claim is admissible.
+- **Dedicated canonical-login ↔ REAL AS21 verification** (separate from offline replay, per request): live task-query accepts the bound canonical logins — WMB/`Kalachanov.V.V` count=6 (sample WMB-30482…), DMS/`Semavin.M.M` count=173; invented login `Kalachanova.V.V` → HTTP 409 (rejected, no false acceptance). Guard wiring order in `api/v1/__init__.py` (~547–558) confirmed unchanged: `_promote_planner_failure` → period guard → `if settings.v4_goal_coverage_guard_enabled: guard_completed_goal_coverage` → `_remember_completed_session_context` → `_remember_clarification`.
+
+**Canonical-login ↔ REAL AS21 binding: VERIFIED (flat `external_id`, no nested-mismatch).**
+
+## 3. P1 — offline replay (battery `/private/tmp/qa229m21r_p123.py`)
+
+All GREEN.
+
+| Case | Result |
+|---|---|
+| M1 one-terminal (Kalachanova WMB + Semavina DMS) | NEEDS_CLARIFICATION, unproven=[g2] «задачи Семавина в DMS» — exact, no cross-person proof |
+| M2 one-terminal lookup (hierarchy+lookup DMS-267) | NC, unproven=[g1 task_hierarchy] — false-parent claim blocked (F2) |
+| M3 (person + hierarchy), M4 (hierarchy + lookup + person), C5 (lookup + relations) | NC with exactly the unexecuted goal(s) named in the question |
+| **M1 two-persons (two terminals, inflected stems)** | **COMPLETED**, proven=[g1,g2] — former A229M2.1 RED scenario now correct |
+| **M2 two-terminals lookup+hierarchy** | **COMPLETED** |
+| **Login binding with resolver** (terminals use `Kalachanov.V.V`/`Semavin.M.M`; member.resolve rows present) | **COMPLETED** — proven via resolver identity only |
+| Login without resolver in trajectory | NC (unproven both) — login never inferred from spelling |
+| Login + resolver row `source_unavailable` | NC — unavailable resolution never binds |
+| Similar-name terminal «Семёнов» vs goal «Семавина» | not proven — no false binding |
+
+## 4. P2 — false-positive controls + documented false negatives
+
+- FP controls (single-goal: created-period, attachments, sprint defects, status+attachments, hierarchy-only, English, two-keys-no-verb, «Сравни DMS и OLP»): **0 false positives** — guard inert by goal count (0 or 1 goal), unchanged from A229M2.1.
+- Guard active exactly where intended: «Покажи задачу DMS-267 и её родителя» (2 goals), 3-person query (3 goals), «и связанные с ней задачи» (2), «а также её иерархию» (2), stem diff-3 «Калачановича» (2 goals, no proof).
+- Residual **false negatives remain OPEN** (explicitly out of stage-1 scope, unchanged): comparisons («Сравни DMS и OLP» → 0 goals), English queries (0 goals), nested multi-goal syntax, elided second collection («Задачи Калачанова в WMB и Семавина в DMS» → 1 goal), same person two spaces (1 goal).
+
+## 5. P3 — flag semantics (offline harness; no live flag flip)
+
+- `settings.v4_goal_coverage_guard_enabled` default **False** (env `PO_AGENT_V4_GOAL_COVERAGE_GUARD` absent) — production stays OFF until owner flips.
+- Flag ON: guard fires at the correct position (after period guard, before session-context/clarification memory); output is typed NEEDS_CLARIFICATION with `answer=None`, `evidence=[]`, `results` popped, `options=[]`, `clarification_id` set, warning `v4_goal_coverage_incomplete`, `goal_coverage` meta `{requested, proven, unproven}`, pending clarification preserves the **original** query. All-goals-proven terminals still COMPLETED (M1 two-persons, login binding). Status pass-through intact: FAILED→FAILED, NEEDS_CLARIFICATION→NEEDS_CLARIFICATION, PARTIAL→PARTIAL (guard never masks failures).
+
+## 6. Verdict
+
+`AGENT_CORE_V4_GOAL_COVERAGE_STAGE1_GREEN_A229M21` — stage 1 of the typed goal-coverage postcondition guard is certified: both former RED boundaries closed (F1 inflection stem + resolver-proven login identity; F2 assertion), full regression 282P with Core frozen byte-identical to `6fb335d`, canonical-login↔REAL AS21 binding independently verified live (positive + negative probes), flag OFF by default with correct ON-chain semantics. Residual OPEN (not blocking, explicit future scope): unimplemented intent classes (comparisons, English, nested multi-goal, elided collections) and the multi-intent EXECUTION gap (planner single-terminal convergence) upstream of this guard. No checkpoint, no next code task before owner review.
