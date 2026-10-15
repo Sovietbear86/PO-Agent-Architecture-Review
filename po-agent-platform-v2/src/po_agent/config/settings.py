@@ -66,6 +66,11 @@ class Settings(BaseSettings):
         description="Elide one final LLM synthesis turn for proven simple V4 task trajectories",
         validation_alias=AliasChoices("V4_SYNTHESIS_ELISION", "PO_AGENT_V4_SYNTHESIS_ELISION"),
     )
+    v4_goal_coverage_guard_enabled: bool = Field(
+        default=False,
+        description="Experimental post-execution multi-goal evidence guard (A229M2.1)",
+        validation_alias=AliasChoices("V4_GOAL_COVERAGE_GUARD", "PO_AGENT_V4_GOAL_COVERAGE_GUARD"),
+    )
     swtr_base_url: str = Field(default="https://portal.works.prod.sbt/swtr")
     swtr_token: Optional[str] = Field(default=None)
 
