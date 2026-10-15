@@ -1,67 +1,55 @@
 # GigaCode — Current Action
 
-## ACTIVE: A229M2.2A — verified observation state preservation (strict independent QA)
+## ACTIVE: A229M2.2AR — State preservation RED re-gate
 
-**GigaCode QA ONLY. No production/test/config edits. STOP on first RED.**
+**GigaCode is QA ONLY. No production/config/test code edits. STOP at first RED.**
 
-### Baseline and owner delta
+Previous verdict `AGENT_CORE_V4_GOAL_STATE_PRESERVATION_RED_A229M22A`.
+First failure: REAL AS21 DMS-267 `task.lookup` contains a nested raw `task.source_data.swtr_attributes` card; Core `_compact_data` preserved it, yielding ~8343 B > 8192 B continuation cap. M2/M4/C5 carried 0 observations despite source-proven lookup.
 
-- Feasibility: `AGENT_CORE_V4_SAFE_CONTINUATION_FEASIBILITY_GREEN_A229M22F`.
-- Certified Core invariant: 6/6 unchanged vs `checkpoint/v4-complex-task-clarification-green-a229f3r@6fb335d`.
-- Owner staged changes ONLY in `api/v1/goal_coverage.py`, `api/v1/__init__.py`, `config/settings.py`, `tests/test_v4_goal_coverage.py`.
-- New flag `PO_AGENT_V4_GOAL_CONTINUATION=false` (default OFF), used only with existing `PO_AGENT_V4_GOAL_COVERAGE_GUARD=true`.
-- Owner guard preserves bounded compact REAL_AS21-proven observations and their resolver dependencies *before* removing unsafe public `data.results`, and allows the existing `_remember_clarification` / `_prepare_query` to carry them.
-- This is stage **STATE PRESERVATION**, not guaranteed missing-goal execution. No new planner functionality.
-- Do NOT turn either goal flag or `PO_AGENT_V4_SYNTHESIS_ELISION` on by default. Any ON runs are isolated QA sessions only.
-- Security caveat: API currently lacks user authentication and accepts client-provided session_id; do NOT expose this feature via remote/multi-tenant/public deployment. Session ownership remains OPEN and blocks deployment.
+### Owner fix (outside Core)
+- `api/v1/goal_coverage.py` now applies a strict canonical-field allowlist to compact data, recursively for nested dicts/lists, **before** bytes/cap validation.
+- Drops ALL `source_data`, `swtr_attributes`, unbounded descriptions/raw card fields; retains canonical task/key/status/assignee/source, hierarchy, and collection metadata only.
+- No raised size cap; retains 8192 B and six-observation cap, REAL_AS21 provenance validation and fail-closed semantics.
+- Replaced synthetic oversize test with genuinely oversize canonical `related_keys`; added source-card regression and raw-leak test.
+- No Core/planner/registry or UI edits; both goal flags OFF by default. Session authentication remains OPEN deployment blocker.
 
-### P0 — immediate focused gate + full regression
+### P0 — formerly failing boundary FIRST
+1. Pull current branch, record TESTED_HEAD and Core hashes vs certified 6fb335d. Worktree clean apart from any preexisting documented unrelated file.
+2. Run focused `test_v4_goal_coverage.py` and all previously failing tests. **Zero failures**.
+3. Retrieve the **actual REAL AS21 DMS-267 task.lookup observation**, including its nested `source_data.swtr_attributes` card, use production `_build_internal_continuation` to assert:
+   - M2/M4/C5 all retain exactly the source-proven lookup;
+   - no raw card/source_data/swtr_attributes/description persisted;
+   - canonical task key/status/source lineage retained;
+   - serialised state <8192 B;
+   - no hierarchy absence inferred; actual parent DMS-253 remains a missing goal until `task.hierarchy` executes.
+4. Reject artificial-only evidence of success. If real lookup still over cap or empty, RED STOP with exact data/size cause.
 
-1. Pull tested branch, clean worktree; record TESTED_HEAD and diff.
-2. Prove six Core files byte-identical vs stable checkpoint. No planner/registry/task-source diffs.
-3. Run `tests/test_v4_goal_coverage.py`, `tests/test_v4_browser_api_contract.py`, `tests/test_v4_synthesis_elision.py`, `tests/test_runtime_env_aliases.py`, complete V4 blast, Task API SWTR suites, frontend build.
-4. **Zero failures.** If any fails, capture exact first failing boundary and STOP; do not fix.
+### P1 — full regression / OFF controls
+- Full V4 blast, Task API SWTR, frontend build; no failure.
+- Prove Core 6/6 byte-identical, 54 canonical skills unaffected.
+- Both flags OFF = pre-feature public behavior; GOAL guard ON / continuation OFF = A229M2.1R behavior.
+- Synthetic truly >8192 B canonical data or >6 candidate observations fail closed, no state, no fabricated facts.
+- Nested lists and dictionary raw cards cannot leak after recursive stripping.
 
-### P1 — real observation shape / offline replay
+### P2 — ON isolated HTTP/dialogue gate
+- Only isolated QA stack: `PO_AGENT_V4_GOAL_COVERAGE_GUARD=true` and `PO_AGENT_V4_GOAL_CONTINUATION=true`.
+- Actual M1/M2/M4/C5 query cases, compare fresh REAL AS21 oracle for each goal.
+- Verify pending clarification carries source-backed proven observations internally; no `data.results`, `continuation_observations`, raw card or unsupported claims in browser JSON.
+- Continuation via `clarification_id` restores observations in `HarnessRequest` without client-provided observations.
+- No duplicate source reads for proven goals in controlled state-machine replay. Live stochastic planner execution is NOT guaranteed.
+- Provider 429, source outage, partial/failure do not masquerade as completed. 15-min TTL, 100-entry bound, expiry sweep, consumed token, restart fails safe.
+- Record known session impersonation risk: authenticated ownership is still missing; test but do not assert deployment-ready security.
+- No tenant-wide scans, mutations, local fallbacks or forbidden source inference.
 
-For M1 (K WMB + S DMS), M2 (DMS-267 lookup + hierarchy), M4 (lookup/hierarchy/collection) and C5 (lookup + related):
-- Use exact production REAL AS21 observations, not invented fixture shapes.
-- Compare `goal_coverage` before/after; prove only **already executed and independently proven** terminal goals (+ source-backed member.resolve/space.resolve supporting rows) are carried.
-- Prove source markers real, not LOCAL/fake, source_complete not false, no source_unavailable, no cross-goal evidence binding.
-- Verify restored observations are in `V4Observation.planner_view` shape (step, capability_id, arguments, answer, compact data); preserve key source-backed count/IDs to completion frontier.
-- Test case where task collection has 173 tasks and only first 20 keys in compact view: do not claim full key-set available for final rendering. Note re-fetch needs.
-- Test >8KB data or >6 observations: fail closed, do not supply unsafe continuation.
-- Never pass huge descriptions/raw cards to persistent state.
+### P3 — decision / report
+Return EXACTLY:
+- `AGENT_CORE_V4_GOAL_STATE_PRESERVATION_GREEN_A229M22AR` only if P0–P2 pass and session-auth deployment blocker remains openly stated.
+- `AGENT_CORE_V4_GOAL_STATE_PRESERVATION_RED_A229M22AR` otherwise, first boundary + STOP.
 
-### P2 — API integration (flag ON isolated)
+Commit QA report only to:
+`po-agent-platform-v2/qa_reports/AGENT_CORE_V4_GOAL_STATE_PRESERVATION_REGATE_A229M22AR.md`
 
-- With both GOAL_COVERAGE_GUARD and GOAL_CONTINUATION ON, check pending clarification stores observations server-side and `clarification_id` is preserved.
-- User-visible JSON contains **no** `continuation_observations`, `continuation_required_skills`, unverified answer, or stripped raw `data.results`.
-- After replying to clarification, `_prepare_query` passes restored compact observations to `HarnessRequest`; confirm no reinvention or unauthorized writes.
-- With GOAL_CONTINUATION OFF, existing stage 1 behavior byte-equivalent at HTTP contract.
-- With both OFF, normal V4 baseline unchanged.
-- Multi-intent detection remains conservative; simple composed filters NOT split.
-- 0 false COMPLETED / 0 unsupported negative hierarchy claims / 0 source_unavailable-as-zero.
+Provide TESTED_HEAD, REPORT_COMMIT, real lookup pre/post byte sizes, goal evidence/continuation state matrix, counts, Core hashes and OPEN blockers.
 
-### P3 — continuation behavior and security
-
-- Run state-machine replay: prior K WMB proved, missing S DMS; verify no source re-read of K in controlled valid continuation; mark NOT GUARANTEED for stochastic live planner (separate stage 2).
-- Verify successful carried DMS-267 lookup does NOT prove absence of parent; hierarchy is missing until governed `task.hierarchy` executes (oracle parent DMS-253).
-- Confirm bounded 15-min TTL, consumed clarification state, no client observation injection, restart loses state fail-safe, 100-entry global pending bound, expiry sweep.
-- Verify adversarial case with known session_id+clarification_id; since no authenticated owner binding exists, record **SECURITY OPEN / deployment blocker**. Do not label full session isolation green.
-- Verify browser UI behaves correctly on incomplete goal, free-text continuation, failures/429 and normal results.
-
-### P4 — facts, latency, and acceptance
-
-- Report number of resumed goal observations, source reads before/after, remaining goals, LLM calls; report if source timestamps/TTL cannot certify freshness.
-- Clarify this implementation **supplies state only**; no deterministic guarantee that the planner attempts all missing goals. This remains A229M2.2B.
-- List residual risks: external auth/session ownership, lazy cleanup behavior, stale compact results, lexical detector false negatives, no PARTIAL renderer, repeat-read risk.
-
-Return exactly one:
-- `AGENT_CORE_V4_GOAL_STATE_PRESERVATION_GREEN_A229M22A` if P0-P3 functional gates all pass and deployment blocker transparently recorded;
-- `AGENT_CORE_V4_GOAL_STATE_PRESERVATION_RED_A229M22A` otherwise (first boundary + STOP).
-
-GREEN is **not** security certification, **not** general multi-goal execution and **not** permission to enable the flag.
-
-Commit report ONLY: `po-agent-platform-v2/qa_reports/AGENT_CORE_V4_GOAL_STATE_PRESERVATION_A229M22A.md`.
-Return TESTED_HEAD, REPORT_COMMIT, Core hashes, pass counts, continuation evidence retained, and OPEN risks. No checkpoint or default flip.
+No checkpoint, no feature-default flip and no A229M2.2B until owner reviews verdict.
