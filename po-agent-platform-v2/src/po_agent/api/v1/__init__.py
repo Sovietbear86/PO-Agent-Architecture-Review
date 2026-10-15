@@ -15,6 +15,7 @@ from po_agent.config import get_settings
 from po_agent.harness import HarnessRequest, HarnessRuntime
 from po_agent.harness.dialogue_runtime import LLMJsonSemanticInterpreter
 from po_agent.harness.runtime_factory import RuntimeBundle, build_runtime_bundle
+from .goal_coverage import guard_completed_goal_coverage
 from po_agent.llm.real import RealLLMClient
 from po_agent.ops.as21_diagnostics import build_as21_diagnostics
 
@@ -547,6 +548,11 @@ async def _run_query(payload: QueryRequest, request: Request, *, force_v4: bool 
                 response,
                 effective_query or original_query,
             )
+            if getattr(settings, "v4_goal_coverage_guard_enabled", False):
+                response = guard_completed_goal_coverage(
+                    response,
+                    effective_query or original_query,
+                )
             response = _remember_completed_session_context(response, session_id)
             response = _remember_clarification(response, session_id, effective_query or original_query)
         else:
