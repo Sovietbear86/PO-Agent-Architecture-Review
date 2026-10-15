@@ -153,3 +153,56 @@ def test_unproven_login_and_similar_names_never_prove_goal():
         result("task.search_assignee", {"reference": "Семёнов", "space": "DMS"}),
     )
     assert len(check_goal_coverage(output, detect_goals(M1)).unproven) == 2
+
+
+def test_preservation_carries_only_source_backed_proven_goal():
+    from po_agent.api.v1 import _remember_clarification, _pending_clarifications
+    original = response(
+        result("member.resolve", {"reference": "Калачанов"},
+               {"source": "REAL_AS21", "member_login": "Kalachanov.V.V"}),
+        result("task.search", {"reference": "Kalachanov.V.V", "space": "WMB"},
+               {"source": "REAL_AS21", "count": 1, "tasks": [{"key": "WMB-6"}]}),
+    )
+    original["data"]["_agent_core_v4"]["loaded_skills"] = ["task.search"]
+    try:
+        guarded = guard_completed_goal_coverage(original, M1, preserve_state=True)
+        state = guarded["data"]["_agent_core_v4"]
+        assert guarded["status"] == "NEEDS_CLARIFICATION"
+        assert len(state["continuation_observations"]) == 2
+        assert {o["capability_id"] for o in state["continuation_observations"]} == {
+            "member.resolve", "task.search"
+        }
+        assert all(o["data"]["source"] == "REAL_AS21" for o in state["continuation_observations"])
+        assert "results" not in guarded["data"]
+        remembered = _remember_clarification(guarded, "goal-test", M1)
+        pending = _pending_clarifications["goal-test"]
+        assert len(pending.resume_observations) == 2
+        assert not pending.required_completion_skills
+        assert "continuation_observations" not in remembered["data"]["_agent_core_v4"]
+    finally:
+        _pending_clarifications.pop("goal-test", None)
+
+
+def test_preservation_disabled_and_unproven_source_fail_closed():
+    disabled = response(result("task.lookup", {"task_key": "DMS-267"}))
+    guarded = guard_completed_goal_coverage(disabled, M2)
+    assert "continuation_observations" not in guarded["data"]["_agent_core_v4"]
+
+    unproven = response(result("task.lookup", {"task_key": "DMS-267"},
+                                {"source": "LOCAL", "task_key": "DMS-267"}))
+    guarded = guard_completed_goal_coverage(unproven, M2, preserve_state=True)
+    assert "continuation_observations" not in guarded["data"]["_agent_core_v4"]
+    assert "v4_goal_continuation_state_unavailable" in guarded["warnings"]
+
+
+def test_preservation_fails_closed_for_large_or_partial_source_data():
+    huge = response(result("task.lookup", {"task_key": "DMS-267"},
+                           {"source": "REAL_AS21", "task_key": "DMS-267",
+                            "payload": "x" * 100000}))
+    guarded = guard_completed_goal_coverage(huge, M2, preserve_state=True)
+    assert "continuation_observations" not in guarded["data"]["_agent_core_v4"]
+
+    partial = response(result("task.lookup", {"task_key": "DMS-267"},
+                              {"source": "REAL_AS21", "source_complete": False}))
+    guarded = guard_completed_goal_coverage(partial, M2, preserve_state=True)
+    assert "continuation_observations" not in guarded["data"]["_agent_core_v4"]
