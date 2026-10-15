@@ -1,6 +1,6 @@
 # GigaCode — Current Action
 
-## ACTIVE: A229M2.1 — typed goal detection + postcondition guard (OFF-by-default gate)
+## ACTIVE: A229M2.1R — re-gate after owner F1/F2 fix (OFF-by-default)
 
 Role: independent QA / architecture forensics only. **Do not modify production, test, settings, Core, or UI code.**
 This is the *first bounded implementation gate*, NOT multi-intent functional certification.
@@ -13,6 +13,14 @@ This is the *first bounded implementation gate*, NOT multi-intent functional cer
 - Settings default `false`; synthesis-elision flag default also unchanged (OFF).
 - New offline matrix tests in `test_v4_goal_coverage.py`.
 - This implementation intentionally DOES NOT execute missing goals, does not use Core, and does NOT certify all free-text multi-intent patterns. A229M2.2 will own continuation.
+
+### Previous RED and owner corrections (2026-10-15)
+Previous A229M2.1 RED: 2 failing tests from owner's new suite; full blast 2F/277P.
+- F1: matching `Калачанова` against normalized `Калачанов` was directionally wrong. Owner replaced with a narrow inflection-suffix match and resolver-proven canonical login binding; no inference of login by spelling.
+- F2: test assumed hierarchy goal was g2 although stable sorting assigned it g1; test now asserts failed goal KIND.
+- Added tests for both completed person goals, source-backed member.resolve/login binding, and rejection of unproven logins/similar names.
+
+**P0 FIRST:** run the exact former failing tests + full `test_v4_goal_coverage.py`; require 0 failed. If any RED, STOP and report first failing boundary. Check live REAL AS21 member.resolve payload shape versus fixture: if nested output differs, do not claim canonical login binding verified. Then continue full original P0–P5 gate.
 
 ### P0 — safety / invariant / static tests FIRST
 1. Pull branch, record START_HEAD, verify clean tracked worktree.
