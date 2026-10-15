@@ -279,8 +279,52 @@ def _build_internal_continuation(
     return saved
 
 
+def _credit_prior_observations(
+    response: dict[str, Any], prior_observations: tuple[dict[str, Any], ...],
+) -> dict[str, Any]:
+    """Private evidence view; never alter the public result rows.
+
+    The caller must supply observations restored from the server-side
+    PendingClarification record, never user request content. Validate their
+    compact source lineage, shape and bounds again before crediting them.
+    """
+    if not prior_observations or len(prior_observations) > _MAX_CARRIED_OBSERVATIONS:
+        return response
+    prior: list[dict[str, Any]] = []
+    for observation in prior_observations:
+        if not isinstance(observation, dict):
+            return response
+        cap = observation.get("capability_id")
+        args = observation.get("arguments")
+        data = observation.get("data")
+        if not isinstance(cap, str) or not isinstance(args, dict) or not isinstance(data, dict):
+            return response
+        if data.get("source") not in _PROVENANCE or data.get("source_unavailable") or data.get("source_complete") is False:
+            return response
+        if _canonical_continuation_data(data) != data:
+            return response
+        if any(not isinstance(k, str) or not isinstance(v, str) for k, v in args.items()):
+            return response
+        prior.append({
+            "capability_id": cap, "arguments": dict(args),
+            "data": dict(data), "answer": str(observation.get("answer") or "")[:384],
+        })
+    if len(json.dumps(prior, ensure_ascii=False, default=str).encode("utf-8")) > _MAX_CARRIED_STATE_BYTES:
+        return response
+    data = response.get("data")
+    if not isinstance(data, dict):
+        return response
+    # Distinct private envelope: previous proven observations receive credit
+    # without being injected into public data.results or UI evidence.
+    return {
+        **response,
+        "data": {**data, "results": prior + _terminal_results(response)},
+    }
+
+
 def guard_completed_goal_coverage(
-    response: dict[str, Any], original_query: str, *, preserve_state: bool = False
+    response: dict[str, Any], original_query: str, *, preserve_state: bool = False,
+    trusted_prior_observations: tuple[dict[str, Any], ...] = (),
 ) -> dict[str, Any]:
     """Fail closed for proven multi-goal shapes with missing terminal evidence.
 
@@ -293,7 +337,8 @@ def guard_completed_goal_coverage(
     goals = detect_goals(original_query)
     if len(goals) < 2:
         return response
-    coverage = check_goal_coverage(response, goals)
+    coverage_view = _credit_prior_observations(response, trusted_prior_observations) if preserve_state else response
+    coverage = check_goal_coverage(coverage_view, goals)
     if not coverage.unproven:
         return response
     unresolved = [g for g in goals if g.goal_id in coverage.unproven]
@@ -311,7 +356,7 @@ def guard_completed_goal_coverage(
     if isinstance(data, dict):
         state = data.setdefault("_agent_core_v4", {})
         if isinstance(state, dict) and preserve_state:
-            carried = _build_internal_continuation(response, coverage)
+            carried = _build_internal_continuation(coverage_view, coverage)
             if carried:
                 state["continuation_observations"] = carried
                 # The existing loaded skills are reused. Do not manufacture
