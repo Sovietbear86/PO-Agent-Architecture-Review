@@ -562,6 +562,7 @@ async def _run_query(payload: QueryRequest, request: Request, *, force_v4: bool 
                     response,
                     effective_query or original_query,
                     preserve_state=getattr(settings, "v4_goal_continuation_enabled", False),
+                    trusted_prior_observations=continuation.observations,
                 )
             response = _remember_completed_session_context(response, session_id)
             response = _remember_clarification(response, session_id, effective_query or original_query)
