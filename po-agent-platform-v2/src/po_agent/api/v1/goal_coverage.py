@@ -16,7 +16,7 @@ _COLLECTION = re.compile(
     r"(?P<person>[А-ЯЁ][а-яё-]+)\s+в\s+(?P<space>[A-Z][A-Z0-9_-]{1,12})\b"
 )
 _HIERARCHY = re.compile(r"(?i)\bиерархи[юияей]|\bродител(?:ь|я|ей|ьск)")
-_RELATIONS = re.compile(r"(?i)\bсвязанн(?:ые|ых|ыми|ой|ая|ые)\s+задач")
+_RELATIONS = re.compile(r"(?i)\bсвязанн(?:ые|ых|ыми|ой|ая)\s+(?:(?:с\s+(?:ней|ним|ними)\s+))?задач")
 _LOOKUP = re.compile(r"(?i)\b(?:покажи|найди|открой)\s+задач[уаи]\s*")
 _COMPARE = re.compile(r"(?i)\bсравн(?:и|ить|ение|ите)\b")
 
