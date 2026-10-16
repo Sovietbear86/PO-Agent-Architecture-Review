@@ -2063,3 +2063,12 @@ Broad grouping:
 - Source data safety: compact cap 6 observations / 8192 bytes, explicit REAL_AS21 source marker, source_complete != false, no source_unavailable. Unverifiable evidence must fail closed.
 - **Security release blocker**: no authenticated session ownership; client-chosen session_id and clarification_id are not sufficient for multi-user deployment. No remote/multi-tenant/public enabling of continuation until this is fixed independently. Staleness and full key-set recovery also require policy review.
 - Both `PO_AGENT_V4_GOAL_COVERAGE_GUARD` and `PO_AGENT_V4_GOAL_CONTINUATION` remain OFF by default; Agent Core V4 untouched. QA A229M2.2A assigned. No checkpoint until independent GREEN.
+
+
+## 2026-10-16 — A229M2.2AR2 GREEN; A229M2.2B-D design active
+
+- Independent QA `AGENT_CORE_V4_GOAL_STATE_PRESERVATION_GREEN_A229M22AR2`: Core 6/6 byte-identical, V4 290/290, Task API 16/16, 3/3 REAL AS21 DMS-267 lookup→hierarchy continuations; prior goal credited without duplicate source reads, response covers both goals, internal prior evidence not represented as new `data.results`.
+- Current functionality is **safe preservation/continuation**, not assured automatic execution of all independent requested goals. Multi-intent execution stays OPEN; 3-goal M4 can still stop with an unexecuted person collection.
+- **Next: A229M2.2B-D (design/QA only)**. Evaluate bounded existing-V4 per-goal execution vs governed plugin orchestrator vs governed sidecar. Define immutable goal frontier, termination budgets, factual evidence validation, source/error taxonomy, privacy/session ownership and reversible OFF-default flag. No Core modifications.
+- Session authentication/ownership is an independent **deployment blocker**: do not enable for untrusted remote or multi-user clients until owner binding is proven. Preserve all goal-related feature flags OFF by default.
+- Order: A229M2.2B-D design → owner implementation only if safe seam proven → independent REAL AS21 multi-goal regression → security/rollback A230 → release candidate A231. No new checkpoint merely because a design gate passes.
