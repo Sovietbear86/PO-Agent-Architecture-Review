@@ -178,7 +178,7 @@ async def run_bounded_missing_goals(
             ]
         else:
             current["status"] = "COMPLETED"
-            current["answer"] = "\\n\\n".join(goal_texts)
+            current["answer"] = "\n\n".join(goal_texts)
     else:
         current["status"] = "PARTIAL"
         current["answer"] = "Часть целей выполнена; оставшиеся не удалось подтвердить."
