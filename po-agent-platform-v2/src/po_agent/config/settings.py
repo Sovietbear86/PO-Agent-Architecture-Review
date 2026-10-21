@@ -76,6 +76,11 @@ class Settings(BaseSettings):
         description="Experimental compact validated goal continuation state (local QA only)",
         validation_alias=AliasChoices("V4_GOAL_CONTINUATION", "PO_AGENT_V4_GOAL_CONTINUATION"),
     )
+    v4_missing_goal_execution_enabled: bool = Field(
+        default=False,
+        description="Experimental bounded governed execution for verified missing goals; local QA only",
+        validation_alias=AliasChoices("V4_MISSING_GOAL_EXECUTION", "PO_AGENT_V4_MISSING_GOAL_EXECUTION"),
+    )
     swtr_base_url: str = Field(default="https://portal.works.prod.sbt/swtr")
     swtr_token: Optional[str] = Field(default=None)
 
