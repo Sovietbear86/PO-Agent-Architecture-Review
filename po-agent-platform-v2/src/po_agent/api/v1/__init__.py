@@ -16,6 +16,7 @@ from po_agent.harness import HarnessRequest, HarnessRuntime
 from po_agent.harness.dialogue_runtime import LLMJsonSemanticInterpreter
 from po_agent.harness.runtime_factory import RuntimeBundle, build_runtime_bundle
 from .goal_coverage import guard_completed_goal_coverage
+from .missing_goal_execution import run_bounded_missing_goals
 from po_agent.llm.real import RealLLMClient
 from po_agent.ops.as21_diagnostics import build_as21_diagnostics
 
@@ -557,6 +558,26 @@ async def _run_query(payload: QueryRequest, request: Request, *, force_v4: bool 
                 response,
                 effective_query or original_query,
             )
+            # Experimental bounded API orchestration. Only trusted loopback QA;
+            # session principal/auth ownership is a separate release blocker.
+            if (
+                getattr(settings, "v4_goal_coverage_guard_enabled", False)
+                and getattr(settings, "v4_goal_continuation_enabled", False)
+                and getattr(settings, "v4_missing_goal_execution_enabled", False)
+                and response.get("status") == "COMPLETED"
+                and request.client is not None
+                and request.client.host in ("127.0.0.1", "::1")
+            ):
+                executed = await run_bounded_missing_goals(
+                    bundle.v4_runtime,
+                    response,
+                    effective_query or original_query,
+                    session_id,
+                    prior=continuation.observations,
+                    loaded_skills=continuation.loaded_skills,
+                    session_context=_session_context_for(session_id),
+                )
+                response = executed.response
             if getattr(settings, "v4_goal_coverage_guard_enabled", False):
                 response = guard_completed_goal_coverage(
                     response,
