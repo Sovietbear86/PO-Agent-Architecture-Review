@@ -2,7 +2,7 @@
 
 **Status:** STABILIZED V4 / controlled evolution  
 **Current branch:** `feat/core8-real-query-hardening-v2`  
-**Last reviewed:** 2026-10-09  
+**Last reviewed:** 2026-10-21  
 **Current stable checkpoint:** `checkpoint/v4-complex-task-clarification-green-a229f3r@6fb335d6f67344245a5c65e5c1b5b145759e96da`  
 **Current baseline:** PO acceptance A227R3 GREEN; restart/recovery A228 GREEN; low-risk latency verification A229R1 GREEN; created-period/status, task-type analysis, hierarchy, complex task composition and resumable clarification are certified through A229F3R; full V4 blast 258/258 and focused Task API SWTR 57/57; canonical 54 remains certified; live registry = 72 unique skills. PO assessment remains approximately 90% complete pending A229R2/A230/A231 release-hardening gates.
 **Architecture decision:** the V4 Harness/Core is now a stable platform. Further product capabilities should be added through plugins/capabilities/UI/task-api seams. Agent Core/planner/runtime orchestration changes require a proven release-blocking defect and explicit owner approval.  
@@ -2082,3 +2082,30 @@ Broad grouping:
 - **REGRESSION IS MANDATORY**, not optional: at every code-fix HEAD, first focused owner tests; then complete V4 suite, Task API SWTR suites, frontend build, retained complex-query/clarification/hierarchy/Overview/browser acceptance; then independent REAL AS21 A/B/C oracle and OFF/ON parity. Any RED => STOP and owner fix; re-run EVERYTHING on new HEAD. No checkpoint/flag default flip/public deployment until every stage GREEN.
 - GigaCode remains independent QA, never owns production fixes. TESTED_HEAD and suite counts mandatory in report; green from older commits is not transferable.
 - Unresolved: authenticated session ownership/security blocker, universal multi-intent detector, comparisons, hard LLM budget across nested process invocations. No remote/multi-user enablement. Synthesis elision and both existing goal flags remain default OFF.
+
+
+## 2026-10-21 — PUBLIC REPO SYNC + A229M2.2B1 REGRESSION: NEXT BLOCKERS
+
+**Repositories (DO NOT CONFUSE):**
+- Development/internal: `Sovietbear86/PO-Agent-Architecture-Review`, branch `feat/core8-real-query-hardening-v2`.
+- Actual public/community distribution: `Sovietbear86/PO-Agent-Architecture-Public`, branch `main`. The internal branch `clean-public-release` is NOT the distribution repository.
+- Last public `main` sync HEAD: `01cb88dfd4301b5aeb7f9349b0d5d17620c16f40` from 2026-10-06 15:14:54 UTC, commit message `community: sync hardened rich-text point-read normalization`. Earlier same-day commits synced task details UI and rich-text description normalization. No verified community sync since then.
+- Internal branch current staged HEAD at this note: `d425438c44addeb0c7e9b1e17fdeec97e81de9b1`; A229M2.2B1 owner files are staged but **NOT independently tested**.
+- Comparing both repository trees, within app source/frontend/tests/config/scripts there are approximately 210 internal-only added paths and 47 modified paths; some are QA artifacts. This is NOT a ready-to-merge file list. Build a strict SAFE distribution manifest; verify differences against the public tree and retain public-specific `frontend/.env.example`, `frontend/src/vite-env.d.ts` unless explicitly reconciled.
+
+**Public synchronization task — HIGH PRIORITY, requested before A229M2.2B1 QA:**
+1. Inspect previous public commit series (2026-10-02 to 2026-10-06), find historic publication/sanitization scripts/workflow and differences between live public `main` and internal working tree. Avoid force-push, wholesale mirror, copying .env/secrets/credentials, local data, proprietary team profiles, private server endpoints/tokens, .venv, internal logs, real AS21 QA captures, or raw artifacts.
+2. Prepare a **sanitized code-only** delta for updated task type/hierarchy/period capabilities, API dialogue clarification/goal coverage/continuation, synthesis-elision, A229M2.2B1 missing-goal executor, corresponding portable tests, Web UI widgets/task drawer, portable docs/installation instructions. Experimental flags MUST remain false by default.
+3. Build a separate staging branch **in PO-Agent-Architecture-Public** from public `main`, stage only audited portable files; do NOT merge the internal 2200+-commit history or change Agent Core logic. Preserve current public-only files and community configuration.
+4. Run secret/data scanner and full community clean-install/build/test CI, inspect license/read-only safety and safe defaults; then open PR into public `main`. Do not represent untested A229M2.2B1 as production-ready or turn on experimental features. Merge only after security/diff and regression gates pass; if user requires immediate sync before QA, stage code in PR but DO NOT merge/release.
+5. When testing A229M2.2B1, repeat full internal focused+V4 blast+Task API SWTR+frontend+REAL AS21 oracle on exact TESTED_HEAD. Then independently run **public repo** sanitized build/test on the exact PR head; internal success does not certify public packaging. If any code changes after QA, RESTART full regression on new HEAD.
+
+**Latest certified functionality vs pending:**
+- Last independent functional GREEN: `AGENT_CORE_V4_GOAL_STATE_PRESERVATION_GREEN_A229M22AR2` — TESTED_HEAD `1cd644618fcda5e9db633528ca097d5ab1d4751d`, 290/290 V4, 16/16 Task API, 3/3 REAL AS21 two-turn continuation. Core six files untouched.
+- `A229M2.2B-D` DESIGN GREEN only; it selected bounded governed V4 per-goal executor but did not implement it.
+- `A229M2.2B1` code is newly staged in `api/v1/missing_goal_execution.py`, API seam, OFF-default config, and focused unit tests; **QA PENDING** with current `GIGACODE_NEXT_ACTION.md` assignment. No claim of GREEN / no checkpoint / no default flip.
+- Present A229M2.2B1 bounds: max 3 typed detected goals, at most 2 additional governed runtime calls, 110-sec shared elapsed cap. Shared total LLM budget, authenticated session ownership, generic comparison/free-text multi-intent still need independent validation.
+- User priority: keep Agent Core six files byte-identical, do not regress widgets/complex task search, make every post-fix full regression mandatory. GigaCode QA only, owner changes code.
+- **Security deployment blocker:** unauthenticated client-selected session/clarification IDs permit potential replay by other clients. Never enable goal continuation/executor for remote/multi-user/public service before principal-bound auth/session enforcement. Public repo may contain OFF-flag code, not an enabled/deployed feature.
+
+**Immediate order:** create handoff MD → safe public staging/delta/PR (without releasing unverified code) → A229M2.2B1 full QA on internal exact HEAD → fix & repeat if RED → verify public package against PR head → secure merge when gates GREEN → A230 security/rollback → A231 RC.
