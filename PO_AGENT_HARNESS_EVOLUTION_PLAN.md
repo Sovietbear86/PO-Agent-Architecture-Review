@@ -2072,3 +2072,13 @@ Broad grouping:
 - **Next: A229M2.2B-D (design/QA only)**. Evaluate bounded existing-V4 per-goal execution vs governed plugin orchestrator vs governed sidecar. Define immutable goal frontier, termination budgets, factual evidence validation, source/error taxonomy, privacy/session ownership and reversible OFF-default flag. No Core modifications.
 - Session authentication/ownership is an independent **deployment blocker**: do not enable for untrusted remote or multi-user clients until owner binding is proven. Preserve all goal-related feature flags OFF by default.
 - Order: A229M2.2B-D design → owner implementation only if safe seam proven → independent REAL AS21 multi-goal regression → security/rollback A230 → release candidate A231. No new checkpoint merely because a design gate passes.
+
+
+## 2026-10-21 — A229M2.2B1 owner implementation STAGED (NOT YET QA GREEN)
+
+- Design gate `AGENT_CORE_V4_MISSING_GOAL_EXECUTION_DESIGN_GREEN_A229M22BD` selected bounded governed V4 process per missing typed goal, outside Core.
+- New additive `api/v1/missing_goal_execution.py`, API wiring, OFF-default `PO_AGENT_V4_MISSING_GOAL_EXECUTION` setting and focused tests staged. Only enabled in isolated loopback QA when BOTH existing goal guard and goal continuation flags are also explicitly ON.
+- Initial bounds: max 3 recognized goals, max 2 extra governed calls, one at a time, shared elapsed-time cap 110s; source-backed per-goal coverage required, PARTIAL rather than false COMPLETED. Core/planner/registry untouched.
+- **REGRESSION IS MANDATORY**, not optional: at every code-fix HEAD, first focused owner tests; then complete V4 suite, Task API SWTR suites, frontend build, retained complex-query/clarification/hierarchy/Overview/browser acceptance; then independent REAL AS21 A/B/C oracle and OFF/ON parity. Any RED => STOP and owner fix; re-run EVERYTHING on new HEAD. No checkpoint/flag default flip/public deployment until every stage GREEN.
+- GigaCode remains independent QA, never owns production fixes. TESTED_HEAD and suite counts mandatory in report; green from older commits is not transferable.
+- Unresolved: authenticated session ownership/security blocker, universal multi-intent detector, comparisons, hard LLM budget across nested process invocations. No remote/multi-user enablement. Synthesis elision and both existing goal flags remain default OFF.
