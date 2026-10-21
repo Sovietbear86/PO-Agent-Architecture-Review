@@ -109,7 +109,6 @@ async def run_bounded_missing_goals(
     # One per missing goal; cap applies to the WHOLE user query, not each call.
     pending = [g for g in goals if g.goal_id in initial_coverage.unproven]
     start = time.monotonic()
-    parts: dict[str, str] = {}
     for goal in pending[:MAX_EXTRA_CALLS]:
         remain = deadline_seconds - (time.monotonic() - start)
         if remain <= 0:
@@ -131,7 +130,7 @@ async def run_bounded_missing_goals(
                 timeout=min(remain, 100.0),
             )
             step = result.to_dict()
-        except (asyncio.TimeoutError, Exception) as exc:
+        except Exception as exc:
             # Keep the error typed but never fabricate source unavailability.
             source_errors.append(f"missing_goal_execution_{type(exc).__name__}")
             break
@@ -149,30 +148,37 @@ async def run_bounded_missing_goals(
             source_errors.append("missing_goal_terminal_mismatch")
             continue
         current["data"]["results"].extend(rows)
-        parts[goal.goal_id] = str(step.get("answer") or "").strip()
 
     final = check_goal_coverage(_coverage_view(current, prior), goals)
     if not final.unproven:
-        # Guard against claiming full completion if source-backed facts from
-        # earlier turns are absent from the answer.
-        pieces: list[str] = []
-        prev = str(response.get("answer") or "").strip()
-        if prev:
-            pieces.append(prev)
+        # Compose from SOURCE-VERIFIED per-goal terminal answers ONLY.
+        # Do not reuse the original free-form LLM synthesis: it may contain
+        # an unsupported negative inference about another, missing goal.
+        final_view = _coverage_view(current, prior)
+        all_rows = _rows(final_view)
+        goal_texts: list[str] = []
         for goal in goals:
-            if goal.goal_id in parts and parts[goal.goal_id]:
-                pieces.append(parts[goal.goal_id])
-        if prior:
-            for ob in prior:
-                earlier = str(ob.get("answer") or "").strip()
-                if earlier and earlier not in pieces:
-                    pieces.append(earlier)
-        if not pieces:
+            proof_indexes = final.evidence.get(goal.goal_id, ())
+            text = ""
+            for index in proof_indexes:
+                if 0 <= index < len(all_rows):
+                    candidate = str(all_rows[index].get("answer") or "").strip()
+                    if candidate:
+                        text = candidate[:900]
+                        break
+            if not text:
+                break
+            goal_texts.append(text)
+        if len(goal_texts) != len(goals):
             current["status"] = "PARTIAL"
-            current["answer"] = "Цели подтверждены данными источника, но полный текстовый ответ не сформирован."
+            current["answer"] = "Цели подтверждены источником, но полный проверенный ответ пока недоступен."
+            current["warnings"] = [
+                *list(current.get("warnings") or []),
+                "v4_goal_answer_evidence_missing",
+            ]
         else:
             current["status"] = "COMPLETED"
-            current["answer"] = "\n\n".join(pieces)
+            current["answer"] = "\\n\\n".join(goal_texts)
     else:
         current["status"] = "PARTIAL"
         current["answer"] = "Часть целей выполнена; оставшиеся не удалось подтвердить."
