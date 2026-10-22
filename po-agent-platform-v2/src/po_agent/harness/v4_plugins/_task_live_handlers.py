@@ -350,6 +350,33 @@ def _parse_human_created_period(raw: str, *, now: datetime | None = None) -> tup
         start = datetime.combine(start_date, dt_time.min, tzinfo=_MOSCOW_TZ)
         return start, current, f"last_{days}_calendar_days"
 
+    # A230R2.1: bounded rolling-week grammar, without changing the choice
+    # of temporal field. Date-dimension decisions belong to the skill contract.
+    rolling_week = re.fullmatch(
+        r"(?:за\s+)?последн(?:юю|ей)\s+недел[юеи]|"
+        r"(?:за\s+)?последние\s+7\s+дн(?:ей|я)|"
+        r"(?:за\s+)?(?:last|past)\s+week",
+        normalized,
+        flags=re.I,
+    )
+    previous_week = re.fullmatch(
+        r"(?:за\s+)?прошлую\s+неделю|(?:за\s+)?прошлой\s+неделе|"
+        r"(?:за\s+)?предыдущую\s+неделю|(?:the\s+)?previous\s+week",
+        normalized,
+        flags=re.I,
+    )
+    if rolling_week:
+        start_date = current.date() - timedelta(days=6)
+        return datetime.combine(start_date, dt_time.min, tzinfo=_MOSCOW_TZ), current, "last_7_calendar_days"
+    if previous_week:
+        start_date = current.date() - timedelta(days=current.weekday() + 7)
+        end_date = start_date + timedelta(days=6)
+        return (
+            datetime.combine(start_date, dt_time.min, tzinfo=_MOSCOW_TZ),
+            datetime.combine(end_date, dt_time.max, tzinfo=_MOSCOW_TZ),
+            "previous_calendar_week",
+        )
+
     date_tokens = re.findall(r"\b(?:\d{2}\.\d{2}\.\d{4}|\d{4}-\d{2}-\d{2})\b", text)
 
     def parse_one(value: str):
