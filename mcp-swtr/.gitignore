@@ -1,0 +1,8 @@
+run.sh
+.gigacode
+.venv
+.mypy_cache
+.env
+__pycache__
+
+.qwen
