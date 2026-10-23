@@ -1,7 +1,7 @@
 # A230R2.2 — Consolidate MCP-SWTR source into PO Agent working repository
 
 ## Decision
-Import a **reviewed tracked source snapshot** from the clean local GitVerse checkout at `mcp-swtr/` into the **private working** GitHub repository. Replace the current 160000 gitlink with ordinary tracked files. This removes GitVerse as a build-time dependency for this working checkout. Do **NOT** publish the internal MCP code into `PO-Agent-Architecture-Public` automatically.
+Import a **reviewed tracked source snapshot** from the clean local GitVerse checkout at `mcp-swtr/` into the **public working** GitHub repository (the user expressly authorized public source publication conditional on no secrets). Replace the current 160000 gitlink with ordinary tracked files. This removes GitVerse as a build-time dependency for this working checkout. Do **NOT** automatically modify the separate `PO-Agent-Architecture-Public` mirror; public source availability in Review is approved only after strict safety checks.
 
 ## Verified facts (A230R2.2-LOCATE-MCP)
 - Checkout: `PO_Agent_Harness/mcp-swtr` — separate GitVerse repository, branch `master`, clean.
@@ -11,11 +11,11 @@ Import a **reviewed tracked source snapshot** from the clean local GitVerse chec
 - Need to record source SHA and provenance before import.
 
 ## Safety gate (mandatory, before any mutation)
-1. Confirm license/IP authorization to mirror the source from corporate GitVerse into this GitHub private repository. If unclear, STOP.
+1. Public redistribution of MCP-SWTR source has been explicitly authorized by the user; this is CONDITIONAL on excluding all secrets, sensitive personal data and unauthorized third-party materials.
 2. No dirty worktree in either main or nested repo, except explicitly understood local ignored files. Confirm no local-only patches.
 3. Ensure main repo branch `feat/core8-real-query-hardening-v2`. Record parent HEAD, child SHA; verify gitlink matches child SHA or document and resolve discrepancy first.
 4. Inventory `git -C mcp-swtr ls-files`; scrutinize tracked files for secrets, internal credentials, private keys, tokens and sensitive company material — filenames alone are insufficient. Abort on unresolved findings.
-5. Require the new source to be **private**. The public mirror must retain a sanitized/redacted interface instead of entire MCP source.
+5. The destination is **PUBLIC**. Before ANY push, conduct content-wide and staged checks of credentials, embedded secrets, tokens, auth headers, personal data, endpoint documentation, config defaults and binaries. Review the diff manually; run a secrets scanner where available. If a finding is unresolved, STOP. Never commit secret-bearing content even transiently.
 
 ## Safe recommended procedure (owner local terminal; not GigaCode)
 From the parent repo root, AFTER safety gate and with explicit approval:
@@ -36,7 +36,7 @@ Then, in a dedicated migration branch from the working branch:
 - Stage source files deliberately using `git add`, verify `git diff --cached --name-status` and `git diff --cached --check`. Confirm no `.env`, `.git`, `*.pem`, `*.key`, tokens, credentials or generated bulk artifacts in the staged tree.
 - Ensure staged `mcp-swtr` paths are ordinary blobs (100644/100755) and there is **no 160000 gitlink**.
 - Preserve provenance `source remote (redacted), branch, commit SHA, import date` in a nonsecret file. Never embed credentials or internal remote URLs with tokens.
-- Commit once and open a PR back into the private working branch. Do not push to Public.
+- Commit only after content review, then open a PR back into the working branch. Do not import GitVerse Git history or publish unchecked snapshots. Do not push to Public.
 - Reconfigure/restart local MCP service only after reviewing changed paths; verify `mcp_server.py` and `api-docs.json` are present.
 
 ## Post-import gates
@@ -50,3 +50,6 @@ Then, in a dedicated migration branch from the working branch:
 
 ## Stop rules
 If authorization, tracked credentials, dirty checkout, SHA mismatch, or startup compatibility fails: STOP without importing/publishing.
+
+## PUBLIC-source publication clarification (2026-10-23)
+The user explicitly permits MCP-SWTR publication in the public Review repository **provided no secrets are exposed**. This supersedes earlier private-only stop gate. A GitHub visibility flag of `private=false` is now expected, NOT a reason to stop. Blocking conditions remain: secrets/sensitive materials, incomplete review, dirty source, source SHA mismatch, or unsafe binary. Never copy `.env` or GitVerse `.git` history. Separately audit the already-published Review history for any prior leaks; changing visibility cannot undo past exposure.
