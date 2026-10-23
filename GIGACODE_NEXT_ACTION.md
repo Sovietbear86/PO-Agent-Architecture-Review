@@ -1,23 +1,17 @@
 # GigaCode — CURRENT NEXT ACTION
 
-## A230R2.2-SOURCE-AUDIT — Worklogs by person and date range (READ-ONLY QA)
+## A230R2.2-LOCATE-MCP — Read-only source-location audit
 
-**GigaCode role is QA/source oracle only. NO production code, tests, runtime, config, frozen Core, or API modifications. No fixes or auto-implementation.** If critical safety or source boundary fails, stop and report. Only a QA report under `po-agent-platform-v2/qa_reports/` may be committed.
+**STRICTLY READ-ONLY DISCOVERY.** No edits to application, tests, configs, Core V4, MCP-SWTR, service settings, git remotes or branches. No commits/push. GigaCode stays QA/forensics only.
 
-### Background
-A230R1 C3: «покажи списания Гаранина с 01.10.2026 по сегодня» failed; task.worklogs is per-task, member.worklogs requires space+sprint. We want real person+date worklogs, not synthetic task-search fallback or unbounded N+1 per-task reads. A230R2.1 period regression is independently GREEN; do not modify.
+### Goal
+Locate the **actual source checkout** of the MCP-SWTR service used by current PO Agent Harness, and establish how the OWNER can safely access it for the additive worklog-filter tool. Do not implement anything.
 
-### Read-only evidence required
-1. Record TESTED_HEAD, confirm frozen Core six files byte-identical to checkpoint `6fb335d`, flags OFF.
-2. Inspect real SWTR/AS21 read-side API contracts and existing Task API adapter capabilities for a **server-filtered** worklog query by stable employee ID and explicit date window, with pagination and permissions. Distinguish author/assignee/worklog owner and creation date vs logged-on date.
-3. Read actual handler definitions: task.worklogs/task.time_spent, member.worklogs/member.time_spent/utilization_actual; identify exact required arguments and provenance. No source data invented.
-4. Probe only safe, bounded READ operations where authorized. Do **not** scan all tenant tasks or fan out worklog calls across assignee's corpus. Capture source API route/method, request params, response shape (redacted), pagination/limits, evidence whether original worklog events are available, and date filtering semantics. If no safe server-side path, say UNSUPPORTED and specify smallest required API addition; do not implement.
-5. Examine one real request for Гаранин, 01.10.2026 → current date, in a local isolated session, with bounded diagnostics. Identify first failed boundary and whether typed clarification/UNSUPPORTED is surfaced rather than task-search filter hints; separate LLM 429/timeout from capability absence.
-6. Give owner precise minimally scoped non-Core design to implement: capability ID, typed input/output schemas, normalized person ID, from/to timezone, source endpoint, bounded pagination, source-backed result, 403/404/429/502/timeout handling, and tests. Only recommend supported contract; no speculative rollout.
-7. Ensure no credential printing, no mutation, no source writes, no unscoped reads. Remote/multiuser auth ownership remains blocked.
+1. Read running MCP-SWTR process command line / working directory / service launch scripts and determine exact **local path** containing `mcp_server.py` / AS21 timesheet integration, and whether `mcp-swtr/api-docs.json` is part of that source tree.
+2. From that directory run read-only `git rev-parse --show-toplevel`, `git remote -v`, `git branch --show-current`, `git status --short`, `git rev-parse HEAD`; if not a Git repo, state explicitly. Redact usernames, tokens, secrets, internal server names and credentials in the summary.
+3. Check whether relevant MCP server implementation is checked into `PO-Agent-Architecture-Review` (including submodules/subtrees/vendor or ignored/untracked paths), or is an entirely separate checkout/dependency. Report the smallest relevant paths/functions and the git remote **repository identity** only if safe to share.
+4. Verify the audited raw endpoint `POST /rest/api/timesheet/v1/report` and existing MCP worklog tool implementation locations by source inspection only; DO NOT make new live source calls.
+5. Return a concise report IN CHAT ONLY: MCP source path, repo name or 'not versioned', branch/HEAD, which files are owner-editable, whether tracked in an accessible remote, and recommended safe path for OWNER changes. Do not modify `GIGACODE_NEXT_ACTION.md` or generate speculative code.
 
-### Verdict/report
-Save report `po-agent-platform-v2/qa_reports/A230R2_2_WORKLOG_SOURCE_AUDIT.md` with TESTED_HEAD, proven endpoint availability (YES/NO/UNKNOWN), safe limits, source sample redacted, first failing boundary, recommended implementation seam outside Core, coverage gaps, GREEN for audit completeness only or RED if unsafe. Commit+push **only the report**. This is a source audit, NOT implementation GREEN.
-
-### Short command
-Run A230R2.2-SOURCE-AUDIT from GIGACODE_NEXT_ACTION.md. QA and bounded source API inspection only; do not edit application code. Report and stop.
+### Stop
+Once the location/access route is known, STOP. Only the OWNER (not GigaCode) implements A230R2.2 from `docs/assignments/A230R2_2_WORKLOG_IMPLEMENTATION_SPEC.md`. Frozen 6 Core files remain unchanged.
