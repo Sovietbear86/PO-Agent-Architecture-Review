@@ -1003,6 +1003,60 @@ async def get_work_report(unit_code: str = Field(..., description="Код юни
 
 
 @mcp.tool()
+async def get_work_report_filter(
+    user_external_id: str = Field(..., description="Canonical AS21 worklog author externalId"),
+    date_from: str = Field(..., description="Inclusive logged-on start date YYYY-MM-DD"),
+    date_to: str = Field(..., description="Inclusive logged-on finish date YYYY-MM-DD"),
+    page: int = Field(0, ge=0, le=99, description="Zero-based bounded page"),
+    size: int = Field(50, ge=1, le=100, description="Maximum 100 worklogs per page"),
+    space: Optional[str] = Field(None, description="Optional AS21 space"),
+    unit: Optional[str] = Field(None, description="Optional AS21 unit code"),
+) -> str:
+    """Bounded read-only worklog report filtered by author and logged-on period.
+
+    This calls the AS21 timesheet *report* endpoint (not a mutation). Explicit
+    author and dates are mandatory: empty filters could scan an entire tenant.
+    """
+    from datetime import date
+    import re
+
+    author = user_external_id.strip()
+    if not author or len(author) > 120 or not re.fullmatch(r"[A-Za-z0-9_.@-]+", author):
+        raise ValueError("A single canonical worklog author externalId is required")
+    if not 0 <= page <= 99 or not 1 <= size <= 100:
+        raise ValueError("Worklog pagination exceeds safe limits")
+    try:
+        start = date.fromisoformat(date_from)
+        finish = date.fromisoformat(date_to)
+    except (ValueError, TypeError) as exc:
+        raise ValueError("Explicit YYYY-MM-DD start and finish dates are required") from exc
+    if start > finish or (finish - start).days > 366:
+        raise ValueError("Worklog date window must be inclusive, ordered and <=366 days")
+    if finish > date.today():
+        raise ValueError("Worklog finish date must not be in the future")
+    filters: dict[str, Any] = {
+        "users": [author],
+        "range": {"from": start.isoformat(), "to": finish.isoformat()},
+    }
+    for key, raw in (("spaces", space), ("units", unit)):
+        if raw is not None:
+            code = raw.strip()
+            if not code or not re.fullmatch(r"[A-Za-z0-9_-]{1,100}", code):
+                raise ValueError(f"Invalid {key} identifier")
+            filters[key] = [code]
+    response = await call_api_post(
+        "/rest/api/timesheet/v1/report",
+        {"filter": filters, "page": {"page": page, "size": size}},
+    )
+    response.raise_for_status()
+    payload = response.json()
+    if not isinstance(payload, dict) or not isinstance(payload.get("content"), list):
+        raise ValueError("AS21 returned an invalid worklog report payload")
+    return json.dumps(safe_json_dumps(payload), ensure_ascii=False)
+
+
+
+@mcp.tool()
 async def get_work_sum(unit_code: str = Field(..., description="Код юнита")) -> str:
     """Сумма списаний рабочего времени по юниту"""
     response = await call_api_get(f"/rest/api/timesheet/v1/report/{unit_code}/sum")
