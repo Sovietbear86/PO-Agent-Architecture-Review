@@ -1,26 +1,35 @@
 # GigaCode — CURRENT NEXT ACTION
 
-## A230R2.2-MCP-IMPORT-QA-R2 — Corrected public-permission gate & fresh PR QA
+## A230R2.2-PUBLIC-MCP-QA — Independent installation/release gate for Public PR #2
 
-**GigaCode is QA-ONLY.** No app, Docker, test, Core, configuration, Git history, or PR code edits. No merge, no force-push, no deletion, no token printing. May commit a report only on its own report branch if no sensitive information is included.
+**STRICTLY QA/forensics only.** GigaCode must NOT change production, tests, docs, config, Git history, Core V4 or PR code; no merge, publish, force-push or write-capable MCP tools. At RED record first failing boundary and stop. Only non-sensitive QA report may be committed to its own working-review report branch if necessary.
 
-### CRITICAL product decision (supersedes stale P0)
-**THE OWNER EXPLICITLY AUTHORIZED PUBLIC PUBLICATION OF SANITIZED MCP-SWTR SOURCE.** Both Review and Public repos may remain PUBLIC. It is a QA ERROR to mark RED merely because GitHub API returns `private=false`. The correct P0 gate is **NO SECRET / NO SENSITIVE UNREDACTED CONTENT**, plus source safety and runtime viability.
+### Target
+- Public repo: `Sovietbear86/PO-Agent-Architecture-Public`, **draft PR #2** `feat/public-bundled-mcp-swtr-a230r22` -> `main`.
+- Initial tested candidate `cee2ba2e670fa57ea24c63f1661949df338076e6`; fetch and record **current HEAD** before testing.
+- Source provenance: sanitized Review merge `c91f8ed`; GitVerse `ea7f75f`; 12 tracked source files, Python runtime-only, plus community README/PROVENANCE and 3 updated deployment/config docs (17 changed files).
+- Public source publication explicitly approved subject to no secrets.
+- Prior working Review Core V4 and A230R2.1 GREEN are not modified. Compare Public core blobs to `main` before and after; never compare across different distribution branches as though identical.
 
-### Separate existing credential incident
-A pre-existing public default-branch file `mcp-gigacode-config.json` contained a long, structurally valid JWT under `TOKEN`. Owner has deleted it from the latest `clean-public-release` tree in commit `340d5dd`; **the credential remains in Git history and caches until revoked and separately remediated**. Do not copy, display, decode into logs, or make the token appear in any QA report. Owner must revoke/rotate it independently. Audit and classify any other exposed credential-adjacent files or history using redacted metadata only. History rewrite is OUT OF SCOPE.
+### P0 — Security and packaging
+1. Run `python scripts/prepublish_scan.py` against the full PR checkout AND independent whole-tree secret/JWT/token/PII scanner (including commit diff, lock/config/docs). Report only filenames and classifications, NEVER sensitive values; zero permitted actual leaks.
+2. Validate no `.env`, credential-bearing files, corporate personal identifiers, internal production hosts, private IPs or raw GitVerse history; inspect Python MCP source descriptions and `pyproject.toml` sanitized fields.
+3. Validate `.dockerignore` deny-by-default, Dockerfile no build-time secrets, Python >=3.13. If Docker exists test build with a dummy sentinel local .env (no real tokens) and confirm it is not included in the image; otherwise mark Docker build NOT TESTED.
+4. Verify absence of read/write boundary inversion: bundled raw MCP-SWTR includes write tools, **only Task API facade is exposed to browser**. No direct public SSE exposure.
 
-### QA R2
-1. Fetch current PR #3 head `chore/vendor-mcp-swtr-a230r22` and base `feat/core8-real-query-hardening-v2`; record full SHA and ensure tests run on THAT head, not original `67f19d7`. Previous report `AGENT_CORE_V4_MCP_IMPORT_QA_A230R22.md` tested the old import SHA and used an obsolete PRIVATE-only instruction: **superseded**.
-2. Check full PR staged-tree content for credential tokens, JWTs, passwords, secret-bearing URLs, corporate PII, real production hosts/IP, personal data, Docker/image-build secret leaks, `.env`, and private files (no secret values in report). Verify GitVerse only provided tracked clean snapshot and provenance. Compare original source hashes, note documented redactions AND subsequent owner changes.
-3. Validate newest hardening files and functionality: `mcp-swtr/Dockerfile` Python >=3.13, no build-time token ARG/ENV, no `COPY .`, public-safe base image; `mcp-swtr/.dockerignore` deny-by-default, copied paths; README runtime-only auth. If Docker exists, perform safe Docker build and sentinel exclusion check WITHOUT real tokens. If Docker unavailable report NOT_VERIFIED, not GREEN.
-4. Confirm 6/6 EXACT frozen Core files by byte hash vs `6fb335d` (canonical list: agent_core_v4.py, agent_core_v4_robust.py, agent_core_v4_reliable.py, agent_core_v4_completion.py, v4_plugin_registry.py, llm/real.py). No unauthorized application changes.
-5. Run focused MCP startup/48-tool inventory; Task API SWTR tests + full V4 regression and frontend build if environment permits. State exact executed counts; classify pre-existing failures separately. Do not mistake old still-running MCP process for proof of Docker newly built from PR head.
-6. Public colleague AS21 deployment read-only diagnostics: `PO-Agent-Architecture-Public` currently omits MCP source; analyze actual setup path vs `SWTR_MCP_SERVER_DIR`/SSE URL, `SWTR_TOKEN`, reachability, `AS21_MODE=task-api`, health endpoint and dependency/runbooks. Root cause UNKNOWN without colleague logs; do not infer a confirmed cause. Do not change Public.
-7. Separate exposure audit (redacted only): confirm latest default branch no longer tracks `mcp-gigacode-config.json`, flag historic JWT exposure and need for immediate rotation, inspect other default-branch credential-adjacent paths `set_cookie.py`, `setup_jira_token.py`, tracked `.venv`/`__pycache__`, never print their values or commit confidential content.
+### P1 — Fresh-clone install (do not rely on old local checkout)
+1. Make an isolated temp clone of Public PR HEAD (exclude existing local `mcp-swtr` and GitVerse checkout). Confirm all required `mcp-swtr/mcp_server.py`, `models/*`, `requirements.txt` exist and no mode 160000 gitlink.
+2. Install Python 3.13 MCP venv exactly per `DEPLOYMENT.md`; Task API venv and frontend. Test `mcp-swtr-wrapper.sh` without token/base URL (must fail with safe actionable error), then with authorized values passed only from environment. No source edits.
+3. In local stdio mode prove Task API `GET /health` and `GET /api/v1/swtr-read/health`, MCP 48 tools (unless documented variation), agent `/api/v1/health`, browser query. Record all HTTP codes and timings. If authorized network and token available, perform ONE bounded read with AS21 independent oracle A/B; never claim source GREEN without live evidence.
+4. Negative cases: absent token, wrong BASE_URL, no VPN/AS21 network, MCP import path unavailable, bad Python runtime, sse mode with missing server. Must return explicit error rather than fabricated 0 tasks.
+5. Validate that `SWTR_MCP_SERVER_DIR` is optional and wrapper uses bundled folder, env path/docs consistent; no user workstation-specific paths.
 
-### Output
-Issue new report `po-agent-platform-v2/qa_reports/A230R2_2_MCP_IMPORT_QA_R2.md` with exact TESTED_HEAD, P0-P2 case verdicts, build & test evidence, blocking findings and recommendation PR #3 MERGE YES/NO. **Do not mark RED solely for public visibility.** Existing exposed JWT is separately an urgent security incident; explain that current-tip deletion is not revocation/history cleanup. Do NOT merge.
+### P2 — Regression and handoff
+- Full public V4 tests + relevant Task API/SWTR tests; frontend TypeScript build. Record exact executed counts and preexisting baseline failures. Core untouched.
+- Report actual specific first failing boundary for colleague deployments is **UNCONFIRMED until their logs are supplied**; this PR only removes missing-source barrier.
+- Separately remind owner: the JWT previously published on Review default branch was removed from current tip but must be revoked/rotated and historical exposure remediated; do not print or reuse it.
+- Output `A230R2_2_PUBLIC_MCP_QA.md` report with TESTED_HEAD, per-gate GREEN/RED, missing checks, command classifications, and PR #2 merge recommendation. Report only, no implementation.
+- **Do not consider person/date worklog capability implemented**; `member.worklogs_period` remains separately OPEN.
 
 ### Short command
-Run corrected A230R2.2-MCP-IMPORT-QA-R2 from this file. QA only, source publication public is authorized, stop for exposed secrets, not for repository visibility. Use latest PR head. Report; no fixes.
+Run A230R2.2-PUBLIC-MCP-QA from GIGACODE_NEXT_ACTION.md. Independent QA only on the exact Public PR #2 HEAD; build from clean checkout, verify AS21 path and secret safety; no code edits or merges.
