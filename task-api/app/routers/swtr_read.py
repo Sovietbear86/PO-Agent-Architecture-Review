@@ -991,6 +991,96 @@ async def get_task_work_logs(
     }
 
 
+@router.get("/work-logs/report")
+async def get_person_worklogs_report(
+    user: str = Query(..., min_length=1, max_length=120),
+    date_from: str = Query(..., alias="from"),
+    date_to: str = Query(..., alias="to"),
+    space: str | None = Query(None, min_length=1, max_length=100),
+    unit: str | None = Query(None, min_length=1, max_length=100),
+    page: int = Query(0, ge=0, le=99),
+    size: int = Query(50, ge=1, le=100),
+):
+    """One bounded page of REAL AS21 worklogs, attributed to their AUTHOR.
+
+    Dates are worklog logged-on dates, not task creation dates. This endpoint
+    never broadens author/scope filters, reports source failures as failures,
+    and intentionally does not perform tenant-wide scans or per-task fanout.
+    """
+    from datetime import date
+
+    canonical_author = user.strip()
+    if not re.fullmatch(r"[A-Za-z0-9_.@-]{1,120}", canonical_author):
+        raise HTTPException(status_code=400, detail="Canonical worklog author externalId is required")
+    try:
+        start = date.fromisoformat(date_from)
+        finish = date.fromisoformat(date_to)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail="Valid YYYY-MM-DD from/to dates are required") from exc
+    if start > finish or (finish - start).days > 366 or finish > date.today():
+        raise HTTPException(status_code=400, detail="Worklog period must be ordered, <=366 days, and not in future")
+    arguments: dict[str, Any] = {
+        "user_external_id": canonical_author,
+        "date_from": start.isoformat(),
+        "date_to": finish.isoformat(),
+        "page": page,
+        "size": size,
+    }
+    for key, raw in (("space", space), ("unit", unit)):
+        if raw is not None:
+            code = raw.strip()
+            if not re.fullmatch(r"[A-Za-z0-9_-]{1,100}", code):
+                raise HTTPException(status_code=400, detail=f"Invalid {key} identifier")
+            arguments[key] = code
+
+    try:
+        payload = _parse_tool_content(
+            await SWTRMCPClient().call_tool("get_work_report_filter", arguments)
+        )
+    except (SWTRMCPUnavailable, SWTRMCPProtocolError) as exc:
+        raise _transport_http_error(exc) from exc
+
+    if not isinstance(payload, dict) or not isinstance(payload.get("content"), list):
+        raise HTTPException(status_code=502, detail="Incomplete or invalid AS21 report payload")
+    meta = _page_meta(payload)
+    if meta["page"] is None or meta["has_next"] is None:
+        raise HTTPException(status_code=502, detail="AS21 report pagination is unproven")
+    if not isinstance(meta["page"], int) or meta["page"] != page:
+        raise HTTPException(status_code=502, detail="AS21 report page mismatch")
+    rows = payload["content"]
+    if any(not isinstance(row, dict) for row in rows) or len(rows) > size:
+        raise HTTPException(status_code=502, detail="AS21 report rows exceed verified page bounds")
+    entries = []
+    for row in rows:
+        item = _normalize_worklog_entry(row)
+        external_id = item["user"].get("external_id")
+        if not isinstance(external_id, str) or external_id.casefold() != canonical_author.casefold():
+            raise HTTPException(status_code=502, detail="AS21 worklog author mismatch")
+        logged_on = item.get("date")
+        if not isinstance(logged_on, str) or not start.isoformat() <= logged_on[:10] <= finish.isoformat():
+            raise HTTPException(status_code=502, detail="AS21 worklog date outside bounded interval")
+        if item["duration_hours"] is None:
+            raise HTTPException(status_code=502, detail="AS21 worklog duration is incomplete")
+        entries.append(item)
+    return {
+        "source": "REAL_AS21",
+        "author_external_id": canonical_author,
+        "date_from": start.isoformat(),
+        "date_to": finish.isoformat(),
+        "space": space,
+        "unit": unit,
+        "page": page,
+        "page_size": size,
+        "has_next": meta["has_next"],
+        "complete": not meta["has_next"],
+        "worklog_count": len(entries),
+        "page_hours": round(sum(item["duration_hours"] for item in entries), 6),
+        "entries": entries,
+        "attribution": "worklog_author_external_id",
+        "date_semantics": "logged_on_not_created",
+    }
+
+
 @router.get("/tasks/{task_code}/files")
 async def get_task_files(task_code: str):
     normalized = task_code.upper().strip()
