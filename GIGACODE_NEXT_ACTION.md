@@ -1,34 +1,33 @@
-# GigaCode — CURRENT NEXT ACTION
+# A230R3 — FORSENSIC DIAGNOSTICS BEFORE SKILL QA
 
-## A230R2.2-PUBLIC-DEPLOY-SKILLS-QA — independent deployment & health-check skills certification
+**GigaCode: READ-ONLY investigation ONLY. No production/test/Core/UI/MCP/config modifications; no code fixes, merges or commits. Do not start public-deploy/public-health-check QA yet. Report in chat and STOP.**
 
-**QA ONLY.** DO NOT edit application code, Core V4, scripts, tests, documentation, skills, CI, configuration or Git history. No auto-fix, merge, publish, force-push or credential printing. You may write only a sanitized QA report in the working Review repo on an isolated report branch. User-approved local installation in a **temporary separate Public clone** is allowed, but do not alter tracked files or existing production services on ports 8004/8241/3000.
+## Reproductions observed 2026-10-24
+- «покажи списания Гаранина за 2 недели» -> wrong date clarification ("2 недели" not recognized).
+- Follow-up «с 21.09.2026 по сегодня» -> wrong generic task.search filters (status/type/task created), loses worklog intent/person.
+- «Покажи списания Гаранина в DMS за последние 2 недели» -> same generic task.search clarification despite valid person, space, rolling time.
+- «Покажи списания Гаранина в активном спринте DMS» -> COMPLETED, 0 records/0 hours, 34 sprint tasks. Independently verify source-backed author/date/membership and full pagination; NEVER assume zero correct from this answer.
+- «покажи задачи Гаранина в активном спринте по DMS» -> generic planner fallback, while identical Agataeva query finds 2 tasks. Isolate member identity/aliases and planner routing.
+- Successful task query shows internal step/capability/arguments/data JSON in user-visible widget; UI renderer not sanitizing planner envelope.
+- «Что именно нужно уточнить?» repeats generic task-search guidance instead of clarifying missing field.
 
-### Target
-- Community repo: `Sovietbear86/PO-Agent-Architecture-Public`.
-- **Draft PR #3** `feat/gigacode-public-deploy-health-skills` -> `main`; first fetch **current exact HEAD**. Latest known PR HEAD `554dbeed34ee68bf54d676e371e402513ee8ffab` (includes documentation-only MCP example sanitization). **Always fetch HEAD again before testing.**
-- Two canonical skills: `.gigacode/skills/public-deploy/SKILL.md` and `.gigacode/skills/public-health-check/SKILL.md`.
-- Russian canonical `DEPLOYMENT.md`, `GIGACODE.md`, `scripts/public_health_check.py`, `scripts/tests/test_public_health_check.py`.
-- PUBLIC publication permitted **if no secrets**; status `private=false` is NOT a failure.
+## Proven baseline and limitations
+- A230R2.2 person+date worklog capability is NOT IMPLEMENTED. Source audit did verify upstream POST /rest/api/timesheet/v1/report with bounded filter by author externalId and logged-on date.
+- Current time_accounting_member.py supports member worklogs only with space+sprint through bounded per-task reads. Do not route person+date accounting into task.search_created.
+- _task_live_handlers.py date parser has rolling one-week variants but not generic N weeks; that parser is for TASK CREATION, not a substitute for worklog dates.
+- Frozen 6 Core V4 files MUST stay byte-identical to checkpoint 6fb335d.
 
-### P0 — Public safety and docs
-1. Run `python3 scripts/prepublish_scan.py` on the whole PR tree; independent secrets/PII scan on **all 9 changed files** and new skill text. Never print token values or actual task payloads.
-2. Confirm no new `.env` tracked, no internal corporate hostnames or employee data added, no browser direct MCP read/write exposure. Track historical Review JWT rotation separately; do not copy token.
-3. Check both SKILL.md YAML frontmatter `name`/`description`, distinct discoverability in GigaCode, slash or equivalent invocation path. Verify root `GIGACODE.md` routing is accurate.
-4. Verify DEPLOYMENT accurately reflects PUBLIC sources: Python 3.13 for mcp-swtr, default stdio bundled directory/wrapper, env keys, ports 8003/8004/5175, `AS21_MODE=task-api`, products/team setup and Vite proxy. Check macOS/Linux/WSL2 boundary; never assume native Windows Bash support.
-5. Security: no secrets pasted in logs; no source result dumped; all local services bind loopback; raw MCP has write tools and cannot be exposed directly; no tampering with Core files.
+## Required gates
+P0. Record TESTED_HEAD, running services/ports, flags, isolated session, hash Core six files.
+P1. Trace planner typed steps and initial/follow-up intent for each case. Show first failing boundary: period parser, skill/capability selection, clarification memory, entity resolver, fallback, completion gate.
+P2. Compare Garanin and Agataeva task searches in same DMS active sprint; inspect canonical logins, plan, bounded source reads; no unscoped scans.
+P3. Bounded independent REAL AS21 oracle for Garanin worklog-author/date and DMS sprint. Verify whether 0 hours is true with source records and pagination; if no evidence say UNVERIFIED not factual zero. Prior 14 records in Oct source audit are a different scope; never hardcode.
+P4. Inspect exact frontend component rendering raw internal step JSON (not only V4ResultPanel), report safe UI formatter seam, do not leak task descriptions.
+P5. Report why generic filter suggestions incorrectly appear on worklog or missing-context queries; identify requirements for typed clarification and "what should I clarify?" answer.
+P6. Capture latency bottlenecks from existing traces if possible, not a load test.
 
-### P1 — Health CLI contract (offline and negative)
-1. Run `python3 -m compileall -q scripts/public_health_check.py`; `python3 -m unittest discover -s scripts/tests -p 'test_public_health_check.py' -v`; `python3 scripts/public_health_check.py --help`. Record exact passed/failed counts.
-2. Test without task code/LLM probe using controlled mock HTTP stubs: **INCOMPLETE, exit 2**, never GREEN; fake mode, no MCP, bad token, invalid/empty source, unrelated evidence must be RED/INCOMPLETE with clear first boundary. Never send credentials via URL; external non-loopback URLs must be rejected.
-3. Check JSON/text do not expose tokens, task bodies, secret-containing errors, or raw LLM answer; the H6 evidence must have AS21 source provenance (`as21` or `REAL_AS21`) and V4 runtime.
-4. Initial CI confirmation on head `554dbee`: sanitize GREEN, backend GREEN, frontend GREEN, health-tool GREEN (7 offline unit tests). Verify these are still green on the **actual tested HEAD**; if not accessible, mark NOT VERIFIED.
+## Deliverable
+Chat-only concise table: symptom, expected, first failing boundary, CONFIRMED/LIKELY/UNVERIFIED, severity, smallest additive non-Core fix. Distinguish **not yet implemented** from regressions. Recommend owner fix order: (1) MCP→Task API→member.worklogs_period; (2) rolling N-week parser + date semantics + continuation; (3) member/task routing; (4) zero-result completeness guard; (5) UI JSON envelope; (6) independent A/B regression. Do not implement or alter GIGACODE_NEXT_ACTION.md.
 
-### P2 — Fresh clean-clone deployment, not local working harness
-1. Clone the *Public PR head* into an isolated temp directory. Execute the **public-deploy** skill as written, creating only ignored local venvs/.env and no tracked changes. Do not reuse local GitVerse checkout. Confirm Python 3.13, 48 MCP tools, Task API and Agent readiness and UI.
-2. Run **public-health-check** skill on the clean clone, with a user-authorized EXISTING task code for H5 and bounded LLM H6. Source oracle must be independent REAL AS21; no fake/mock for live verdict. If no valid task or LLM credentials, record **INCOMPLETE**, not GREEN.
-3. Validate first failing boundary for missing token, invalid AS21 URL/unavailable VPN, old MCP checkout, incorrect adapter mode or LLM 429; no automatic retries that hide source failure. Preserve existing ports and local services.
-4. Run public V4 regression and relevant Task API/SWTR suite + frontend build; Core unchanged. Record counts; distinguish baseline failures.
-
-### Verdict/report
-Write **only sanitized** `po-agent-platform-v2/qa_reports/A230R2_2_PUBLIC_DEPLOY_SKILLS_QA.md` to a permitted isolated QA report branch or report in chat without a commit if the checkout is dirty. Include TESTED_HEAD, scan/CI results, discovery of both skills, per-stage H0–H6 results, actual source oracle, negative cases, regression counts, no tracked changes, and merge recommendation for PR #3. **No code fixes; STOP on real RED.** 
+## Short command
+Execute A230R3-FORENSIC from GIGACODE_NEXT_ACTION.md. Read-only. Analyze 7 cases, bounded REAL AS21 oracle, identity/period routing, zero-hours, UI raw JSON. Return report, STOP.
