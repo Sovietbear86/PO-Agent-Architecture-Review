@@ -1,24 +1,23 @@
 # GigaCode — CURRENT NEXT ACTION
 
-## A230R2.1-QA — Independent regression of week period changes
+## A230R2.2-SOURCE-AUDIT — Worklogs by person and date range (READ-ONLY QA)
 
-**STRICTLY TEST ONLY.** Do not edit production code, tests, config, runtime, API, frontend, frozen Agent Core V4, or the implementation spec. Do not auto-fix, reformat or refactor. No cherry-pick, merges or publishing. If RED, report the first failing boundary and STOP. Only permitted write is a QA report in `po-agent-platform-v2/qa_reports/` with commit+push on the existing working branch.
+**GigaCode role is QA/source oracle only. NO production code, tests, runtime, config, frozen Core, or API modifications. No fixes or auto-implementation.** If critical safety or source boundary fails, stop and report. Only a QA report under `po-agent-platform-v2/qa_reports/` may be committed.
 
-### Scope
-Owner commits under test: `8090bb6` (week parser), `34ef574` (period-intent guard), `d9dd200` (regression tests).
-Read `docs/assignments/A230R2_OWNER_FIX_SPEC.md` and the independent RED report `po-agent-platform-v2/qa_reports/AGENT_CORE_V4_A230R1_UI_REAL_QUERY_FAILURES.md`.
-First record exact TESTED_HEAD and tracked worktree state. Verify six frozen Core files byte-identical to checkpoint `6fb335d`. All goal feature flags must remain OFF.
+### Background
+A230R1 C3: «покажи списания Гаранина с 01.10.2026 по сегодня» failed; task.worklogs is per-task, member.worklogs requires space+sprint. We want real person+date worklogs, not synthetic task-search fallback or unbounded N+1 per-task reads. A230R2.1 period regression is independently GREEN; do not modify.
 
-### Tests
-1. Run `tests/test_a230r2_week_periods.py` and existing period, task-live-handler, API V4 coverage/clarification/continuation tests, with actual counts, all failures and traceback.
-2. Check deterministic rolling window: `за последнюю неделю` must mean seven calendar dates (today and six preceding dates) under Europe/Moscow; contrast `за прошлую неделю` (previous Monday–Sunday); test month/year boundaries, a fixed clock, malformed expressions and explicit `с 30.09.2026` inclusivity. Detect accidental regex false positives and flag unsupported forms rather than inventing semantics.
-3. Verify `_TASK_PERIOD_INTENT_RE` recognizes the week wording and does not invent the date field. **Important:** parsing a phrase as `created_period` does not by itself fix the unresolved question of whether user meant created/updated/activity. Report that independently; never mark end-to-end C1/C2 GREEN without resolution.
-4. Local REAL AS21 A/B source oracle (no fake/mock for live claim) for `покажи открытые задачи Калачанова за последнюю неделю` and continuation `с 30.09.2026`, if environment accessible. Do not hardcode historic counts; compare fresh source facts and exact arguments. Distinguish environment 429s from deterministic parser failures. Keep read scope bounded.
-5. Run mandatory full V4 and relevant Task API/SWTR regression suites, frontend build, brief UI smoke if available. Reconfirm prior A229M2.2B1 3-goal regressions are not broken; ensure no new leaks, writes or unscoped reads. Report actual tests, skipped/failed and reason when unable.
-6. All implementation changes forbidden. Do not treat preexisting A230R1 RED cases C3–C5 as fixed. This is a **partial gate for R2.1 only**.
+### Read-only evidence required
+1. Record TESTED_HEAD, confirm frozen Core six files byte-identical to checkpoint `6fb335d`, flags OFF.
+2. Inspect real SWTR/AS21 read-side API contracts and existing Task API adapter capabilities for a **server-filtered** worklog query by stable employee ID and explicit date window, with pagination and permissions. Distinguish author/assignee/worklog owner and creation date vs logged-on date.
+3. Read actual handler definitions: task.worklogs/task.time_spent, member.worklogs/member.time_spent/utilization_actual; identify exact required arguments and provenance. No source data invented.
+4. Probe only safe, bounded READ operations where authorized. Do **not** scan all tenant tasks or fan out worklog calls across assignee's corpus. Capture source API route/method, request params, response shape (redacted), pagination/limits, evidence whether original worklog events are available, and date filtering semantics. If no safe server-side path, say UNSUPPORTED and specify smallest required API addition; do not implement.
+5. Examine one real request for Гаранин, 01.10.2026 → current date, in a local isolated session, with bounded diagnostics. Identify first failed boundary and whether typed clarification/UNSUPPORTED is surfaced rather than task-search filter hints; separate LLM 429/timeout from capability absence.
+6. Give owner precise minimally scoped non-Core design to implement: capability ID, typed input/output schemas, normalized person ID, from/to timezone, source endpoint, bounded pagination, source-backed result, 403/404/429/502/timeout handling, and tests. Only recommend supported contract; no speculative rollout.
+7. Ensure no credential printing, no mutation, no source writes, no unscoped reads. Remote/multiuser auth ownership remains blocked.
 
-### Deliverable
-Report under `po-agent-platform-v2/qa_reports/AGENT_CORE_V4_A230R2_1_WEEK_PERIOD_QA.md`: TESTED_HEAD, Core 6/6 hashes, flags, case-by-case GREEN/RED, raw first failing boundary, AS21 A/B parity or unavailable reason, suite/build counts, open semantic issues. Commit/push **report file only**, and return report commit SHA.
+### Verdict/report
+Save report `po-agent-platform-v2/qa_reports/A230R2_2_WORKLOG_SOURCE_AUDIT.md` with TESTED_HEAD, proven endpoint availability (YES/NO/UNKNOWN), safe limits, source sample redacted, first failing boundary, recommended implementation seam outside Core, coverage gaps, GREEN for audit completeness only or RED if unsafe. Commit+push **only the report**. This is a source audit, NOT implementation GREEN.
 
 ### Short command
-Run A230R2.1-QA from GIGACODE_NEXT_ACTION.md. QA only, no implementation changes. Stop and report on RED.
+Run A230R2.2-SOURCE-AUDIT from GIGACODE_NEXT_ACTION.md. QA and bounded source API inspection only; do not edit application code. Report and stop.
