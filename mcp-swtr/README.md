@@ -27,7 +27,7 @@ MCP сервер, предоставляющий набор инструмент
 
 ## Зависимости
 
-- Python 3.11
+- Python 3.13+ (согласно pyproject.toml)
 - fastmcp
 - pydantic
 - httpx
@@ -69,10 +69,8 @@ docker build -t mcp-swtr .
 
 Запуск контейнера:
 ```bash
-docker run -p 8000:8000 \
-  -e BASE_URL=https://AS21_INTERNAL_URL_PLACEHOLDER/swtr \
-  -e TOKEN=your_token_here \
-  mcp-swtr
+# .env remains local and is excluded from Docker build context. Do not commit it.
+docker run --env-file .env -p 8000:8000 mcp-swtr
 ```
 
 ## Доступные инструменты
