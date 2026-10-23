@@ -1043,7 +1043,7 @@ async def get_person_worklogs_report(
     if not isinstance(payload, dict) or not isinstance(payload.get("content"), list):
         raise HTTPException(status_code=502, detail="Incomplete or invalid AS21 report payload")
     meta = _page_meta(payload)
-    if meta["page"] is None or meta["has_next"] is None:
+    if not any(k in payload for k in ("hasNext", "has_next")) or meta["page"] is None:
         raise HTTPException(status_code=502, detail="AS21 report pagination is unproven")
     if not isinstance(meta["page"], int) or meta["page"] != page:
         raise HTTPException(status_code=502, detail="AS21 report page mismatch")
