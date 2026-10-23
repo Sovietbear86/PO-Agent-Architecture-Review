@@ -6,7 +6,7 @@
 
 ### Target
 - Community repo: `Sovietbear86/PO-Agent-Architecture-Public`.
-- **Draft PR #3** `feat/gigacode-public-deploy-health-skills` -> `main`; first fetch **current exact HEAD**. Initial candidate `331b6023a80e170d3053e6652fe7681d0c78c91f`.
+- **Draft PR #3** `feat/gigacode-public-deploy-health-skills` -> `main`; first fetch **current exact HEAD**. Latest known PR HEAD `554dbeed34ee68bf54d676e371e402513ee8ffab` (includes documentation-only MCP example sanitization). **Always fetch HEAD again before testing.**
 - Two canonical skills: `.gigacode/skills/public-deploy/SKILL.md` and `.gigacode/skills/public-health-check/SKILL.md`.
 - Russian canonical `DEPLOYMENT.md`, `GIGACODE.md`, `scripts/public_health_check.py`, `scripts/tests/test_public_health_check.py`.
 - PUBLIC publication permitted **if no secrets**; status `private=false` is NOT a failure.
@@ -22,7 +22,7 @@
 1. Run `python3 -m compileall -q scripts/public_health_check.py`; `python3 -m unittest discover -s scripts/tests -p 'test_public_health_check.py' -v`; `python3 scripts/public_health_check.py --help`. Record exact passed/failed counts.
 2. Test without task code/LLM probe using controlled mock HTTP stubs: **INCOMPLETE, exit 2**, never GREEN; fake mode, no MCP, bad token, invalid/empty source, unrelated evidence must be RED/INCOMPLETE with clear first boundary. Never send credentials via URL; external non-loopback URLs must be rejected.
 3. Check JSON/text do not expose tokens, task bodies, secret-containing errors, or raw LLM answer; the H6 evidence must have AS21 source provenance (`as21` or `REAL_AS21`) and V4 runtime.
-4. Verify `community-ci.yml` health-tool job runs and completes; if not accessible, mark as NOT VERIFIED, do not claim GREEN.
+4. Initial CI confirmation on head `554dbee`: sanitize GREEN, backend GREEN, frontend GREEN, health-tool GREEN (7 offline unit tests). Verify these are still green on the **actual tested HEAD**; if not accessible, mark NOT VERIFIED.
 
 ### P2 — Fresh clean-clone deployment, not local working harness
 1. Clone the *Public PR head* into an isolated temp directory. Execute the **public-deploy** skill as written, creating only ignored local venvs/.env and no tracked changes. Do not reuse local GitVerse checkout. Confirm Python 3.13, 48 MCP tools, Task API and Agent readiness and UI.
