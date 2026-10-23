@@ -857,6 +857,72 @@ class TaskApiAS21Adapter(AS21Adapter):
         }
 
 
+    async def get_member_worklogs_period(
+        self, member_login: str, date_from: str, date_to: str,
+        *, space: str | None = None, unit: str | None = None,
+        max_pages: int = 20,
+    ) -> dict[str, Any]:
+        """Fully bounded, fail-closed author/date collection from REAL AS21.
+
+        One server-filtered request per page, no per-task fanout, no unscoped
+        reads. Worklog author externalId is independent of task assignment.
+        """
+        import re as _re
+        canonical = member_login.strip()
+        if not _re.fullmatch(r"[A-Za-z0-9_.@-]{1,120}", canonical):
+            raise AS21SourceError("Canonical worklog author is required")
+        if not 1 <= max_pages <= 20:
+            raise AS21SourceError("Worklog page budget invalid")
+        entries: list[dict[str, Any]] = []
+        for page in range(max_pages):
+            params: dict[str, Any] = {
+                "user": canonical, "from": date_from, "to": date_to,
+                "page": page, "size": 50,
+            }
+            if space:
+                params["space"] = space
+            if unit:
+                params["unit"] = unit
+            try:
+                response = await self._get_resilient("/api/v1/swtr-read/work-logs/report", params=params)
+                payload = response.json()
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code in (502, 503, 504, 429):
+                    raise AS21SourceUnavailable(
+                        f"Worklog report source unavailable: HTTP {exc.response.status_code}"
+                    ) from exc
+                raise AS21SourceError(
+                    f"Worklog report rejected: HTTP {exc.response.status_code}"
+                ) from exc
+            except (httpx.HTTPError, ValueError) as exc:
+                raise AS21SourceUnavailable("Worklog report source unavailable or returned invalid JSON") from exc
+            if not isinstance(payload, dict) or payload.get("source") != "REAL_AS21":
+                raise AS21SourceUnavailable("Worklog report lacks REAL AS21 provenance")
+            if (payload.get("author_external_id", "").casefold() != canonical.casefold()
+                or payload.get("date_from") != date_from or payload.get("date_to") != date_to
+                or payload.get("page") != page or not isinstance(payload.get("has_next"), bool)):
+                raise AS21SourceUnavailable("Worklog report filters or pagination did not match the request")
+            rows = payload.get("entries")
+            if not isinstance(rows, list) or len(rows) > 50:
+                raise AS21SourceUnavailable("Worklog report page has unbounded or missing rows")
+            entries.extend(rows)
+            if not payload["has_next"]:
+                if any(not isinstance(row.get("duration_hours"), (int, float)) for row in entries
+                       if isinstance(row, dict)) or any(not isinstance(row, dict) for row in entries):
+                    raise AS21SourceUnavailable("Worklog report contains incomplete duration")
+                return {
+                    "member_login": canonical, "date_from": date_from, "date_to": date_to,
+                    "space": space, "unit": unit, "entries": entries,
+                    "worklog_count": len(entries),
+                    "total_hours": round(sum(float(r["duration_hours"]) for r in entries), 6),
+                    "complete": True, "pages_read": page + 1,
+                    "source": "REAL_AS21",
+                    "attribution": "worklog_author_external_id",
+                    "date_semantics": "logged_on_not_created",
+                }
+        raise AS21SourceUnavailable("Worklog pagination exceeded 20 pages: completeness unproven")
+
+
     async def get_attachment_metadata(
         self,
         task_key: str,
