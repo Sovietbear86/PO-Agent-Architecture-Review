@@ -344,6 +344,53 @@ def _clarification_lost_response(session_id: str) -> dict:
     }
 
 
+
+def _free_text_clarification_kind(text: str) -> str | None:
+    """Allow only clearly scoped clarification replies to resume a pending query.
+
+    A new user request must never be silently attached to an earlier query.
+    """
+    value = text.strip().casefold()
+    if not value or len(value) > 300:
+        return None
+    if re.fullmatch(r"(?:а )?что(?: именно)? (?:нужно|надо|следует) уточнить\\??|что уточнить\\??|уточнить что\\??", value):
+        return "meta"
+    iso_date = r"(?:\\d{4}-\\d{2}-\\d{2}|\\d{2}\\.\\d{2}\\.\\d{4})"
+    # One date interval or one relative-period expression. Never accept a
+    # complete new task/worklog request as a continuation.
+    if re.fullmatch(rf"(?:с\\s+)?{iso_date}\\s+(?:по|до|[-–])\\s+(?:{iso_date}|сегодня|today)", value):
+        return "date"
+    if re.fullmatch(rf"(?:с\\s+)?{iso_date}", value):
+        return "date"
+    if re.fullmatch(r"(?:за\\s+)?(?:последние\\s+)?\\d{1,3}\\s*(?:дня|дней|дни|недели|недель|неделю)", value):
+        return "date"
+    if value in {"сегодня", "вчера", "за неделю", "за месяц", "последняя неделя", "этот месяц"}:
+        return "date"
+    return None
+
+
+def _pending_question_response(session_id: str, pending: PendingClarification) -> dict:
+    """Describe exactly the already-pending missing field; do not ask task filters."""
+    return {
+        "status": "NEEDS_CLARIFICATION",
+        "answer": None,
+        "question": pending.question,
+        "options": list(pending.options),
+        "clarification_id": pending.clarification_id,
+        "intent": "pending_clarification",
+        "skill": None,
+        "data": {},
+        "evidence": [],
+        "warnings": [],
+        "trace_id": str(uuid.uuid4()),
+        "session_id": session_id,
+        "latency_ms": 0.0,
+        "runtime": "agent_core_v4",
+        "ui": None,
+    }
+
+
+
 def _prepare_query(
     payload: QueryRequest,
     session_id: str,
@@ -356,8 +403,27 @@ def _prepare_query(
     is performed here.
     """
     if not payload.clarification_id:
-        _pending_clarifications.pop(session_id, None)
-        return payload.query, None, ClarificationContinuation()
+        pending = _pending_clarifications.get(session_id)
+        kind = _free_text_clarification_kind(payload.query)
+        if pending is None or kind is None:
+            # An unrelated new query starts a fresh turn, not an old trajectory.
+            _pending_clarifications.pop(session_id, None)
+            return payload.query, None, ClarificationContinuation()
+        if _clarification_expired(pending):
+            _pending_clarifications.pop(session_id, None)
+            return None, _clarification_lost_response(session_id), ClarificationContinuation()
+        if kind == "meta":
+            return None, _pending_question_response(session_id, pending), ClarificationContinuation()
+        # A date-only reply is safe to attach only when the pending clarification
+        # was about a time range; otherwise treat it as an independent new query.
+        if not re.search(r"период|дат[уыае]|недел|месяц|времен|когда", pending.question.casefold()):
+            _pending_clarifications.pop(session_id, None)
+            return payload.query, None, ClarificationContinuation()
+        # Preserve original query, skills, observations and completion goals.
+        payload = payload.model_copy(update={
+            "clarification_id": pending.clarification_id,
+            "clarification_option": payload.query,
+        })
 
     pending = _pending_clarifications.get(session_id)
     if pending is None or pending.clarification_id != payload.clarification_id or _clarification_expired(pending):
@@ -367,7 +433,7 @@ def _prepare_query(
     option = str(payload.clarification_option or payload.query or "").strip()
     if not option:
         return None, _clarification_lost_response(session_id), ClarificationContinuation()
-    if pending.options and option not in pending.options:
+    if pending.options and option not in pending.options and payload.clarification_option != payload.query:
         return None, {
             **_clarification_lost_response(session_id),
             "question": "Выберите один из предложенных вариантов уточнения или повторите исходный запрос.",
