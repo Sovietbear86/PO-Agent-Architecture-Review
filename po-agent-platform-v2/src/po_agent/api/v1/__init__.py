@@ -353,16 +353,16 @@ def _free_text_clarification_kind(text: str) -> str | None:
     value = text.strip().casefold()
     if not value or len(value) > 300:
         return None
-    if re.fullmatch(r"(?:а )?что(?: именно)? (?:нужно|надо|следует) уточнить\\??|что уточнить\\??|уточнить что\\??", value):
+    if re.fullmatch(r"(?:а )?что(?: именно)? (?:нужно|надо|следует) уточнить\??|что уточнить\??|уточнить что\??", value):
         return "meta"
-    iso_date = r"(?:\\d{4}-\\d{2}-\\d{2}|\\d{2}\\.\\d{2}\\.\\d{4})"
+    iso_date = r"(?:\d{4}-\d{2}-\d{2}|\d{2}\.\d{2}\.\d{4})"
     # One date interval or one relative-period expression. Never accept a
     # complete new task/worklog request as a continuation.
-    if re.fullmatch(rf"(?:с\\s+)?{iso_date}\\s+(?:по|до|[-–])\\s+(?:{iso_date}|сегодня|today)", value):
+    if re.fullmatch(rf"(?:с\s+)?{iso_date}\s+(?:по|до|[-–])\s+(?:{iso_date}|сегодня|today)", value):
         return "date"
-    if re.fullmatch(rf"(?:с\\s+)?{iso_date}", value):
+    if re.fullmatch(rf"(?:с\s+)?{iso_date}", value):
         return "date"
-    if re.fullmatch(r"(?:за\\s+)?(?:последние\\s+)?\\d{1,3}\\s*(?:дня|дней|дни|недели|недель|неделю)", value):
+    if re.fullmatch(r"(?:за\s+)?(?:последние\s+)?\d{1,3}\s*(?:дня|дней|дни|недели|недель|неделю)", value):
         return "date"
     if value in {"сегодня", "вчера", "за неделю", "за месяц", "последняя неделя", "этот месяц"}:
         return "date"
@@ -402,6 +402,7 @@ def _prepare_query(
     observations and pending completion goals). No skill/entity-specific routing
     is performed here.
     """
+    inferred_free_text = False
     if not payload.clarification_id:
         pending = _pending_clarifications.get(session_id)
         kind = _free_text_clarification_kind(payload.query)
@@ -420,6 +421,7 @@ def _prepare_query(
             _pending_clarifications.pop(session_id, None)
             return payload.query, None, ClarificationContinuation()
         # Preserve original query, skills, observations and completion goals.
+        inferred_free_text = True
         payload = payload.model_copy(update={
             "clarification_id": pending.clarification_id,
             "clarification_option": payload.query,
@@ -433,7 +435,7 @@ def _prepare_query(
     option = str(payload.clarification_option or payload.query or "").strip()
     if not option:
         return None, _clarification_lost_response(session_id), ClarificationContinuation()
-    if pending.options and option not in pending.options and payload.clarification_option != payload.query:
+    if pending.options and option not in pending.options and not inferred_free_text:
         return None, {
             **_clarification_lost_response(session_id),
             "question": "Выберите один из предложенных вариантов уточнения или повторите исходный запрос.",
