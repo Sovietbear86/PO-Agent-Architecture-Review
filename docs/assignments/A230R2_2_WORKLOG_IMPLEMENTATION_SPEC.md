@@ -1,6 +1,6 @@
 # A230R2.2 — Owner implementation design: person/date worklogs
 
-Status: SOURCE AUDIT GREEN, IMPLEMENTATION NOT STARTED. GigaCode remains independent QA only.
+Status: A230R3.1 owner implementation STAGED (MCP + Task API + adapter + V4 plugin + unit tests), NOT YET QA-GREEN. GigaCode is independent QA only. No public rollout before A/B regression.
 
 Source evidence: `po-agent-platform-v2/qa_reports/A230R2_2_WORKLOG_SOURCE_AUDIT.md` (report commit `e16b925` on 2026-10-23). The source has a fast server-side filtered endpoint, which is not exposed by existing agent paths.
 
@@ -29,3 +29,11 @@ Source evidence: `po-agent-platform-v2/qa_reports/A230R2_2_WORKLOG_SOURCE_AUDIT.
 ## Open blockers / independent tracks
 - C4 fast ping; C5 meta envelope rendering; C2 bare period continuation.
 - Session/auth ownership binding remains required for remote multiuser.
+
+## A230R3.1 staged owner changes (2026-10-24)
+- `mcp-swtr/mcp_server.py`: bounded `get_work_report_filter` via server-filtered AS21 report API; from/to and author mandatory; max page 99, size 100.
+- `task-api/app/routers/swtr_read.py`: `GET /api/v1/swtr-read/work-logs/report?user=...&from=...&to=...`, page-filtered provenance/author/date/duration guard. Explicit missing hasNext => 502.
+- `po-agent-platform-v2/src/po_agent/adapters/task_api.py`: bounded complete pagination (20 pages x 50 max), fail closed rather than 0 if incomplete.
+- `po-agent-platform-v2/src/po_agent/harness/v4_plugins/time_accounting_period.py`: additive `member.worklogs_period`; independent worklog date grammar including last N weeks; no Core changes.
+- New targeted tests: `task-api/tests/test_swtr_person_worklogs_report.py`, `po-agent-platform-v2/tests/test_member_worklogs_period.py`.
+- **Not yet verified**: source schema parity, planner selecting the new plugin, resolver with live user, exact date semantics, full regression, 49 MCP tools vs earlier 48. Test independently before any merge or propagation to Public. No changes to PR #3 Public deploy skills.
