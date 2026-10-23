@@ -1,3 +1,5 @@
+> **Актуализация 2026-10-23 — Public installation skills.** Для развёртывания публичной версии из самостоятельного checkout используйте `.gigacode/skills/public-deploy/SKILL.md`; для независимой проверки REAL AS21/Agent/UI — `.gigacode/skills/public-health-check/SKILL.md`. Канонические файлы также находятся в `PO-Agent-Architecture-Public` (PR #3). Эти навыки предназначены для установки/QA Public и **не изменяют Core V4 и продуктовый код**. В работающем Review GigaCode сохраняет роль QA-only, за исключением явно запрошенной локальной установки в отдельный каталог. Наиболее актуальное задание см. `GIGACODE_NEXT_ACTION.md` — ранние sections этого документа исторические.
+
 # PO Agent Platform v2 — GigaCode Context
 
 **Last updated:** 2026-08-29  
