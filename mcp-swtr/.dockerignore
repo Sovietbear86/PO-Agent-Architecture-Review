@@ -1,0 +1,7 @@
+# A deny-by-default build context. Only app sources needed by Docker are sent.
+**
+!Dockerfile
+!requirements.txt
+!mcp_server.py
+!models/
+!models/*.py
