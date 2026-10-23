@@ -1,33 +1,37 @@
-# A230R3 — FORSENSIC DIAGNOSTICS BEFORE SKILL QA
+# GigaCode — CURRENT NEXT ACTION
 
-**GigaCode: READ-ONLY investigation ONLY. No production/test/Core/UI/MCP/config modifications; no code fixes, merges or commits. Do not start public-deploy/public-health-check QA yet. Report in chat and STOP.**
+## A230R3.1-WORKLOG-PERIOD-QA — Independent QA on owner's additive implementation
 
-## Reproductions observed 2026-10-24
-- «покажи списания Гаранина за 2 недели» -> wrong date clarification ("2 недели" not recognized).
-- Follow-up «с 21.09.2026 по сегодня» -> wrong generic task.search filters (status/type/task created), loses worklog intent/person.
-- «Покажи списания Гаранина в DMS за последние 2 недели» -> same generic task.search clarification despite valid person, space, rolling time.
-- «Покажи списания Гаранина в активном спринте DMS» -> COMPLETED, 0 records/0 hours, 34 sprint tasks. Independently verify source-backed author/date/membership and full pagination; NEVER assume zero correct from this answer.
-- «покажи задачи Гаранина в активном спринте по DMS» -> generic planner fallback, while identical Agataeva query finds 2 tasks. Isolate member identity/aliases and planner routing.
-- Successful task query shows internal step/capability/arguments/data JSON in user-visible widget; UI renderer not sanitizing planner envelope.
-- «Что именно нужно уточнить?» repeats generic task-search guidance instead of clarifying missing field.
+**STRICT QA ONLY — GigaCode MUST NOT edit application code, tests, Core, MCP, configs, scripts or frontend. No auto-fixes, no source writes, no commits except sanitized QA report.** Do not perform unrelated public deployment Skills QA at this stage.
 
-## Proven baseline and limitations
-- A230R2.2 person+date worklog capability is NOT IMPLEMENTED. Source audit did verify upstream POST /rest/api/timesheet/v1/report with bounded filter by author externalId and logged-on date.
-- Current time_accounting_member.py supports member worklogs only with space+sprint through bounded per-task reads. Do not route person+date accounting into task.search_created.
-- _task_live_handlers.py date parser has rolling one-week variants but not generic N weeks; that parser is for TASK CREATION, not a substitute for worklog dates.
-- Frozen 6 Core V4 files MUST stay byte-identical to checkpoint 6fb335d.
+### Context
+Owner has now staged additions on `feat/core8-real-query-hardening-v2`:
+- MCP tool `get_work_report_filter` using `POST /rest/api/timesheet/v1/report`;
+- Task API `GET /api/v1/swtr-read/work-logs/report`, required `user,from,to`;
+- Adapter `get_member_worklogs_period`, capped 20 x 50 pagination;
+- plugin `member.worklogs_period`, relative weeks parser and fail-closed data;
+- tests `test_swtr_person_worklogs_report.py` / `test_member_worklogs_period.py`.
 
-## Required gates
-P0. Record TESTED_HEAD, running services/ports, flags, isolated session, hash Core six files.
-P1. Trace planner typed steps and initial/follow-up intent for each case. Show first failing boundary: period parser, skill/capability selection, clarification memory, entity resolver, fallback, completion gate.
-P2. Compare Garanin and Agataeva task searches in same DMS active sprint; inspect canonical logins, plan, bounded source reads; no unscoped scans.
-P3. Bounded independent REAL AS21 oracle for Garanin worklog-author/date and DMS sprint. Verify whether 0 hours is true with source records and pagination; if no evidence say UNVERIFIED not factual zero. Prior 14 records in Oct source audit are a different scope; never hardcode.
-P4. Inspect exact frontend component rendering raw internal step JSON (not only V4ResultPanel), report safe UI formatter seam, do not leak task descriptions.
-P5. Report why generic filter suggestions incorrectly appear on worklog or missing-context queries; identify requirements for typed clarification and "what should I clarify?" answer.
-P6. Capture latency bottlenecks from existing traces if possible, not a load test.
+Frozen Core V4 6/6 unchanged vs `6fb335d`. Expected MCP tool registry increased **48 -> 49** after MCP server restart; 48 on old running process is not proof of new implementation.
 
-## Deliverable
-Chat-only concise table: symptom, expected, first failing boundary, CONFIRMED/LIKELY/UNVERIFIED, severity, smallest additive non-Core fix. Distinguish **not yet implemented** from regressions. Recommend owner fix order: (1) MCP→Task API→member.worklogs_period; (2) rolling N-week parser + date semantics + continuation; (3) member/task routing; (4) zero-result completeness guard; (5) UI JSON envelope; (6) independent A/B regression. Do not implement or alter GIGACODE_NEXT_ACTION.md.
+### P0 — Provenance & security
+1. Fetch exact TESTED_HEAD; compare 6 Core files byte-for-byte with `6fb335d`; no unapproved changes, default flags OFF. Preserve current running services until controlled isolated QA.
+2. Inspect new source/tool schemas; mandatory single employee canonical externalId, inclusive logged-on range, space/unit optional, page bounds, authorization, no empty tenant-wide filter and no per-task scans. No credential printing. Confirm no new personal data exposed in public changes.
+3. Validate actual AS21 contract POST report request filter/users/spaces/units/range/page and response pageNumber/hasNext/content. Verify time.duration shape = MILLIS or report mismatch as RED, no invented conversion.
+4. If new MCP tool or Task API argument aliases cannot be invoked as documented, report first failing boundary and STOP, do not self-fix.
 
-## Short command
-Execute A230R3-FORENSIC from GIGACODE_NEXT_ACTION.md. Read-only. Analyze 7 cases, bounded REAL AS21 oracle, identity/period routing, zero-hours, UI raw JSON. Return report, STOP.
+### P1 — Targeted tests and negative paths
+- Run syntax/import validation for 2 new tests and modified Python modules; execute new pytest files. Run existing SWTR facade and member worklog plugin tests. No test modifications.
+- Test input: explicit dates, «2 недели», «за последние 2 недели», «с 21.09.2026 по сегодня», 400 for missing/invalid user/date, >366 days, future dates, missing page continuation, author mismatch, date mismatch, missing duration, 403/429/502/503, pagination max reached. Fail source-closed not 0 hours.
+- Verify one employee's source-dated writes are distinct from tasks currently assigned to that employee.
+- Execute one bounded REAL AS21 oracle read (author Garanin, 2026-10-01 to test-day or another authorized real account) via the POST filter. Compare ID, author, logged-on dates, total hours, count and fully traversed pages with MCP→Task API→adapter→plugin. Do not hardcode the historic 14 entries. Use isolated session.
+- Test standalone conversational query «Покажи списания Гаранина за последние 2 недели» and scoped «в DMS с 01.10.2026 по сегодня». Confirm planner chooses `member.worklogs_period` (not task.search_created), resolves person identity and finishes COMPLETED with evidence, no generic task-filter clarification. If not, RED and identify planner/skill seam without modifying frozen Core.
+- Test a true source-backed zero: complete=true only. Negative zero from source outage must produce typed failure, not facts.
+
+### P2 — Full regression
+- Full V4 test suite + Task API suite + frontend build; run existing 7 human queries in A230R3 for routing/continuation comparisons. Mark unrelated preexisting UI raw JSON and free-text clarification design gaps separate, never GREEN this feature based on partial completion.
+- Record runtime services actually running (not pre-existing processes), exact MCP tools count, latency and measured oracle parity.
+- Verify no regression to previous A230R2.1 week task-creation grammar or sprint-only member.worklogs.
+
+### Report and stop
+Return exact TESTED_HEAD, test counts, source A/B verdict, planner trajectory verdict, 6/6 Core hashes, redacted fail traces, first failing boundary, GREEN/RED/NOT VERIFIED and safe non-Core fix recommendations. Report to chat only or sanitized report file if requested; **no production changes, no merge, no Public synchronization**.
