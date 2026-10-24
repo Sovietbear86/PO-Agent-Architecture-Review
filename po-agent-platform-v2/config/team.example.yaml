@@ -1,0 +1,104 @@
+# Team Configuration Example for PO Agent Platform v2
+# This file defines team structure, members, and sprint settings
+
+team:
+  name: "WMB Team"
+  description: "Web Metrics Backend team"
+  domain: "wmb"
+
+sprints:
+  current:
+    id: "WMB-SPRNT-4"
+    name: "Q3 Sprint 4"
+    start_date: "2026-08-05"
+    end_date: "2026-08-19"
+    goal: "Implement new metrics dashboard"
+
+members:
+  - login: "Ivanov.I.I"
+    name: "Ivanov Ivan Ivanovich"
+    role: "Senior Developer"
+    capacity_hours: 40
+    products:
+      - WMB
+    professional_profile: "Senior backend developer using Python, FastAPI, PostgreSQL and Redis"
+    competencies:
+      - Python
+      - FastAPI
+      - PostgreSQL
+      - Redis
+    skills:
+      - Python
+      - FastAPI
+      - PostgreSQL
+      - Redis
+    team_affiliation: "backend"
+
+  - login: "Petrov.P.P"
+    name: "Petrov Petr Petrovich"
+    role: "Developer"
+    capacity_hours: 40
+    products:
+      - WMB
+    professional_profile: "Backend developer using Python, FastAPI and Redis"
+    competencies:
+      - Python
+      - FastAPI
+      - Redis
+    skills:
+      - Python
+      - FastAPI
+      - Redis
+    team_affiliation: "backend"
+
+  - login: "Sidorov.S.S"
+    name: "Sidorov Sidor Sidorovich"
+    role: "Developer"
+    capacity_hours: 40
+    products:
+      - WMB
+    professional_profile: "Backend developer using Python, FastAPI and PostgreSQL"
+    competencies:
+      - Python
+      - FastAPI
+      - PostgreSQL
+    skills:
+      - Python
+      - FastAPI
+      - PostgreSQL
+    team_affiliation: "backend"
+
+  - login: "SMedvedev.A.A"
+    name: "SMedvedev Alexey Alexeyevich"
+    role: "Senior Developer"
+    capacity_hours: 40
+    products:
+      - WMB
+    professional_profile: "Senior backend developer using Python, FastAPI, PostgreSQL, Redis and RabbitMQ"
+    competencies:
+      - Python
+      - FastAPI
+      - PostgreSQL
+      - Redis
+      - RabbitMQ
+    skills:
+      - Python
+      - FastAPI
+      - PostgreSQL
+      - Redis
+      - RabbitMQ
+    team_affiliation: "backend"
+
+capacity:
+  weekly_hours: 160
+  sprint_capacity_hours: 320
+
+settings:
+  # How many sprints to include in velocity history
+  velocity_history_sprints: 6
+  # Maximum tasks per member to consider workload balanced
+  max_tasks_per_member: 8
+  # Minimum tasks per member for valid workload analysis
+  min_tasks_per_member: 2
+  # Priority threshold for high priority tasks
+  high_priority_threshold: "HIGH"

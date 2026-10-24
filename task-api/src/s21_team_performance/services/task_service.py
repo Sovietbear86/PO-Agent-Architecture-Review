@@ -59,25 +59,25 @@ LOGIN_MAPPINGS: Dict[str, str] = {
 }
 
 # Name mappings: short_name (from tasks) -> login (from config)
-# Tasks use format "Last Name First Name" (e.g., "Петров Петр")
-# Config uses format "First Name Patronymic Last Name" (e.g., "Иванов Иван Иванович")
+# Tasks use format "Last Name First Name" (e.g., "Гаранин Родион")
+# Config uses format "First Name Patronymic Last Name" (e.g., "Калачанов Виктор Вячеславович")
 NAME_MAPPINGS: Dict[str, str] = {
     # Format: "Last Name First Name" (from tasks) -> login (from config)
-    "Петров Петр": "Petrov.P.P",
-    "Новикова Елена": "Novikova.E.V",
-    "Павлов Игорь": "Pavlov.I.V",
-    "Тимофеев Арсений": "Timofeev.A.M",
-    "Соколов Артём": "Sokolov.A.A",
-    "Лебедев Михаил": "Lebedev.M",
-    "Иванов Иван": "Ivanov.I.I",
-    "Сидорова Анна": "Sidorova.A.S",
-    "Смирнов Алексей": "Smirnov.A.D",
-    "Васильева Ольга": "Vasilieva.O.A",
-    "Михайлов Роман": "Mihailov.R.K",
+    "Гаранин Родион": "Garanin.R.V",
+    "Кондратчикова Полина": "Kondratchikova.P.I",
+    "Семавин Михаил": "Semavin.M.M",
+    "Долговской Евгений": "Dolgovskoy.E.N",
+    "Гончаров Александр": "Goncharov.A.O",
+    "Решетник Александр": "Reshetnik.A",
+    "Калачанов Виктор": "Kalachanov.V.V",
+    "Агатаева Айна": "Agataeva.A.Z",
+    "Жданов Александр": "Zhdanov.A.Ni",
+    "Макошина Верея": "Makoshina.V.V",
+    "Моисеев Андрей": "Moiseev.A.N",
     "Кузнецов Матвей": "Kuznetsov.M.Se",
-    "Кузьмин Максим": "Kuzmin.M.O",
-    "Морозов Денис": "Morozov.D.V",
-    "Андреев Николай": "Andreev.N.S",
+    "Гальцов Александр": "Galtsov.A.A",
+    "Шалдунов Александр": "Shaldunov.A.V",
+    "Безруков Павел": "Bezrukov.P.S",
 }
 
 
@@ -407,7 +407,12 @@ class TaskService:
     def _is_within_period(self, task: Task, days: int) -> bool:
         """Check if task was completed within the period."""
         cutoff = datetime.now() - timedelta(days=days)
-        return task.updated_at >= cutoff
+        # Handle both offset-naive and offset-aware datetimes
+        task_updated = task.updated_at
+        if task_updated.tzinfo is not None:
+            # Make cutoff offset-aware if task is
+            cutoff = cutoff.replace(tzinfo=task_updated.tzinfo)
+        return task_updated >= cutoff
 
     def _calculate_cycle_time(self, task: Task) -> Optional[float]:
         """Calculate cycle time for a task (time in in_progress)."""
@@ -421,11 +426,18 @@ class TaskService:
         # Simplified: count active tasks per day
         wip_values = []
         cutoff = datetime.now() - timedelta(days=days)
+        now = datetime.now()
 
         for task in tasks:
-            if task.created_at >= cutoff:
+            # Handle timezone awareness
+            task_created = task.created_at
+            if task_created.tzinfo is not None:
+                cutoff = cutoff.replace(tzinfo=task_created.tzinfo)
+                now = now.replace(tzinfo=task_created.tzinfo)
+
+            if task_created >= cutoff:
                 # Add to WIP for duration of task
-                duration = min((datetime.now() - task.created_at).days, days)
+                duration = min((now - task_created).days, days)
                 if duration > 0:
                     wip_values.append(1.0 / duration)
 

@@ -14,7 +14,7 @@ from app.repositories.task_repository import TaskRepository
 class SWTRSyncService:
     """Service for synchronizing tasks from SberWorks Task Tracker (SWTR)."""
 
-    def __init__(self, mcp_swtr_path: str = "/home/user/Desktop/Мои документы/Обучение/GIGACodeCLI/MyTestProject_1/MyTestProject_1/mcp-swtr", api_port: int = 8003):
+    def __init__(self, mcp_swtr_path: str = "/Users/kalachanov.v.v/Desktop/Мои документы/Обучение/GIGACodeCLI/MyTestProject_1/MyTestProject_1/mcp-swtr", api_port: int = 8003):
         self.mcp_swtr_path = mcp_swtr_path
         self.api_port = api_port
         self.token_file = os.path.expanduser("~/.config/swtr/api_key")

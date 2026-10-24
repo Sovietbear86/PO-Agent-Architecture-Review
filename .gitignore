@@ -1,7 +1,36 @@
-### IntelliJ IDEA ###
+### Python ###
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+.venv/
+venv/
+env/
+
+### Node / frontend ###
+node_modules/
+dist/
+build/
+.vite/
+*.tsbuildinfo
+
+### IntelliJ / IDE ###
+.idea/
+*.iml
 out/
 !**/src/main/**/out/
 !**/src/test/**/out/
+
+### GigaCode / local AI IDE state ###
+.gigaide/
+.gigacode/settings.json
+*.orig
 
 ### Eclipse ###
 .apt_generated
@@ -18,15 +47,39 @@ bin/
 ### NetBeans ###
 /nbproject/private/
 /nbbuild/
-/dist/
 /nbdist/
 /.nb-gradle/
 
 ### VS Code ###
 .vscode/
 
-### Mac OS ###
+### OS ###
 .DS_Store
+Thumbs.db
 
-### Config files with sensitive data ###
+### Local configuration / secrets ###
 .config/
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+mcp-gigacode-config.json
+mcp-gigacode-config.json.*
+
+### Local real-data diagnostics ###
+.artifacts/
+po-agent-platform-v2/.artifacts/
+
+### Temporary / backup / generated artifacts ###
+*.bak
+*.backup
+*.broken
+*.tmp
+*.log
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+reports/generated/
+tmp/

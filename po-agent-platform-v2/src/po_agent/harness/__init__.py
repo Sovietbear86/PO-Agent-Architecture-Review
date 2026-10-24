@@ -1,0 +1,36 @@
+"""Executable harness core for PO Agent Platform.
+
+The public factory returns an observed runtime: business execution remains in
+HarnessRuntime while operational history is recorded by a decorator.
+"""
+
+from .contracts import (
+    CapabilityResult,
+    Evidence,
+    HarnessRequest,
+    HarnessResponse,
+    ResponseStatus,
+)
+from .operational_history import ActiveVersions, ExecutionRecord, SQLiteHistoryStore
+from .observed_runtime import ObservedHarnessRuntime
+from .runtime import HarnessRuntime, build_fake_runtime as _build_unobserved_fake_runtime
+
+
+def build_fake_runtime() -> ObservedHarnessRuntime:
+    """Build deterministic FakeAS21 Harness with append-only execution history."""
+    return ObservedHarnessRuntime(_build_unobserved_fake_runtime())
+
+
+__all__ = [
+    "CapabilityResult",
+    "Evidence",
+    "HarnessRequest",
+    "HarnessResponse",
+    "ResponseStatus",
+    "HarnessRuntime",
+    "ObservedHarnessRuntime",
+    "ActiveVersions",
+    "ExecutionRecord",
+    "SQLiteHistoryStore",
+    "build_fake_runtime",
+]
