@@ -4,9 +4,9 @@ The plugin completes member time-accounting requests end-to-end in one governed
 trajectory. It does not rely on current task assignee for attribution; member
 identity comes from each REAL AS21 worklog author.
 
-Arbitrary rolling-period aggregation is intentionally not implemented because
-the current source exposes worklogs only through bounded per-task reads. A
-source-backed sprint provides the required bounded task universe.
+This sprint-specific accounting reads bounded task worklogs and filters by
+the authoritative sprint calendar. Arbitrary person/date worklogs are handled
+separately by member.worklogs_period, using the server-filtered source.
 """
 from __future__ import annotations
 
@@ -70,7 +70,8 @@ def build_member_time_spent(runtime: Any):
         return CapabilityResult(
             answer=(
                 f"{member_login}: {agg['total_hours']:g} ч по {agg['worklog_count']} списаниям "
-                f"в {sprint_id}."
+                f"в период спринта {sprint_id} ({start.isoformat()} — {finish.isoformat()}). "
+                "Списания по этим задачам вне календарных дат спринта не учитываются."
             ),
             data={
                 "member_login": member_login,
@@ -82,6 +83,9 @@ def build_member_time_spent(runtime: Any):
                 **agg,
                 "source": "REAL_AS21",
                 "attribution": "worklog_author_external_id",
+                "time_basis": "logged_on_within_sprint_dates",
+                "task_basis": "sprint_task_membership",
+                "outside_period_included": False,
                 "scope": "member_sprint_worklogs",
             },
             evidence=_evidence(entries),
@@ -108,7 +112,8 @@ def build_member_worklogs(runtime: Any):
         return CapabilityResult(
             answer=(
                 f"{member_login}: найдено {len(rows)} списаний на {agg['total_hours']:g} ч "
-                f"в {sprint_id}."
+                f"в период спринта {sprint_id} ({start.isoformat()} — {finish.isoformat()}). "
+                "Списания по этим задачам вне календарных дат спринта не учитываются."
             ),
             data={
                 "member_login": member_login,
@@ -122,6 +127,9 @@ def build_member_worklogs(runtime: Any):
                 "worklogs": rows,
                 "source": "REAL_AS21",
                 "attribution": "worklog_author_external_id",
+                "time_basis": "logged_on_within_sprint_dates",
+                "task_basis": "sprint_task_membership",
+                "outside_period_included": False,
             },
             evidence=_evidence(entries),
         )
@@ -159,6 +167,9 @@ def build_member_utilization_actual(runtime: Any):
                 "numerator_source": "REAL_AS21_WORKLOGS",
                 "denominator_source": "OWNER_POLICY",
                 "attribution": "worklog_author_external_id",
+                "time_basis": "logged_on_within_sprint_dates",
+                "task_basis": "sprint_task_membership",
+                "outside_period_included": False,
             },
             evidence=_evidence(entries),
             warnings=["capacity_denominator_owner_policy_average_2026"],
@@ -213,7 +224,7 @@ SKILLS = (
             "Resolve the human reference with member.resolve, passing sprint_id and space as context when useful.",
             "Call member.time_spent with the canonical member_login, space and sprint_id.",
             "Complete the aggregation in the same trajectory; do not stop after listing the person's assigned tasks and do not ask the user to confirm a per-task fan-out.",
-            "If the user asks only for a rolling period such as '2 weeks' without a bounded sprint/task scope, ask for product/sprint context instead of scanning a tenant or inferring current assignment.",
+            "If the user asks for a rolling period without a sprint, select member.worklogs_period instead. This sprint capability counts only worklogs dated within the sprint.",
         ),
         _COMMON_CAPS + ("member.time_spent",),
         completion=(
@@ -230,6 +241,7 @@ SKILLS = (
         (
             "Resolve space, sprint and member, then call member.worklogs.",
             "Attribute work by worklog author externalId, never by current task assignee.",
+            "Explain that hours logged before or after the sprint calendar do not contribute to this sprint-period result.",
         ),
         _COMMON_CAPS + ("member.worklogs",),
         completion=(
