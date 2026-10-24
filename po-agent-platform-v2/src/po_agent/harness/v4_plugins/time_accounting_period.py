@@ -44,6 +44,19 @@ def parse_worklog_period(args: dict[str, str], today: date | None = None) -> tup
         one = re.search(r"\bс\s+(\d{2}\.\d{2}\.\d{4}|\d{4}-\d{2}-\d{2})\s+по\s+(?:сегодня|today)\b", period)
         if one:
             return parse_worklog_period({"date_from": one.group(1), "date_to": "сегодня"}, current)
+        fixed = {
+            "сегодня": (current, current),
+            "today": (current, current),
+            "вчера": (current - timedelta(days=1), current - timedelta(days=1)),
+            "за неделю": (current - timedelta(days=6), current),
+            "последняя неделя": (current - timedelta(days=6), current),
+            "за месяц": (current - timedelta(days=29), current),
+            "последний месяц": (current - timedelta(days=29), current),
+            "этот месяц": (current.replace(day=1), current),
+        }
+        if period in fixed:
+            start, finish = fixed[period]
+            return start.isoformat(), finish.isoformat()
         match = re.fullmatch(
             r"(?:за\s+|в\s+|за\s+последние\s+|последние\s+|последних\s+)?"
             r"(\d{1,3})\s*(недел[ьюияь]?|недели|недель|weeks?|дн(?:я|ей|и)|days?)",
