@@ -232,6 +232,65 @@ def _guard_completed_constraint_coverage(response: dict, original_query: str) ->
     return response
 
 
+
+_LIFETIME_SPRINT_RE = re.compile(
+    r"(?=.*\\b(?:спринт\\w*|sprint)\\b)"
+    r"(?=.*(?:за\\s+вс[её]\\s+время|за\\s+всю\\s+историю|"
+    r"за\\s+весь\\s+период|all[- ]time|lifetime))"
+    r"(?=.*(?:списан|часов|трудозатрат|worklogs?|logged|hours?)).*",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def _guard_lifetime_sprint_scope(response: dict, original_query: str) -> dict:
+    """Refuse calendar-only totals for explicit lifetime sprint-task questions.
+
+    Public API boundary, *not* frozen Core or planner: protects even when LLM
+    silently drops the temporal constraint and triggers generic repair.
+    Does not calculate, extrapolate, or substitute the all-date AS21 oracle.
+    """
+    if not _LIFETIME_SPRINT_RE.search(str(original_query or "")):
+        return response
+    if response.get("status") not in {"NEEDS_CLARIFICATION", "COMPLETED"}:
+        return response
+    data = response.get("data")
+    results = data.get("results") if isinstance(data, dict) else None
+    # Permit only a proven, fully collected ALL-DATE source capability to
+    # answer a lifetime question. A standard sprint capability is not one.
+    all_date_proven = any(
+        isinstance(item, dict)
+        and isinstance(item.get("data"), dict)
+        and item["data"].get("all_time_total") is True
+        and item["data"].get("complete") is True
+        and item["data"].get("source") == "REAL_AS21"
+        for item in (results or [])
+    )
+    if all_date_proven and response.get("status") == "COMPLETED":
+        return response
+    result = dict(response)
+    result["status"] = "NEEDS_CLARIFICATION"
+    result["answer"] = None
+    result["question"] = (
+        "Вы запросили суммарные трудозатраты по задачам спринта за всё время, "
+        "включая списания до и после его календарных дат. "
+        "Доступный расчёт sprint.time_spent охватывает только даты спринта. "
+        "Полный исторический итог по задачам спринта сейчас не подтверждён; "
+        "я не буду выдавать часы за период спринта за общую сумму."
+    )
+    result["options"] = []
+    result["evidence"] = []
+    result["warnings"] = ["sprint_lifetime_scope_unsupported"]
+    # Remove calendar-only results to prevent UI/widgets suggesting all-time.
+    if isinstance(data, dict):
+        clean = dict(data)
+        clean.pop("results", None)
+        clean.pop("total_hours", None)
+        clean.pop("worklog_count", None)
+        result["data"] = clean
+    return result
+
+
+
 def _promote_planner_failure_to_clarification(response: dict, original_query: str) -> dict:
     """Convert only understanding/planning failures into a typed clarification.
 
@@ -628,6 +687,10 @@ async def _run_query(payload: QueryRequest, request: Request, *, force_v4: bool 
                 response,
                 effective_query or original_query,
             )
+            response = _guard_lifetime_sprint_scope(
+                response,
+                effective_query or original_query,
+            )
             # Experimental bounded API orchestration. Only trusted loopback QA;
             # session principal/auth ownership is a separate release blocker.
             if (
@@ -655,6 +718,11 @@ async def _run_query(payload: QueryRequest, request: Request, *, force_v4: bool 
                     preserve_state=getattr(settings, "v4_goal_continuation_enabled", False),
                     trusted_prior_observations=continuation.observations,
                 )
+            # Re-check after bounded optional execution/coverage transforms.
+            response = _guard_lifetime_sprint_scope(
+                response,
+                effective_query or original_query,
+            )
             response = _remember_completed_session_context(response, session_id)
             response = _remember_clarification(response, session_id, effective_query or original_query)
         else:
