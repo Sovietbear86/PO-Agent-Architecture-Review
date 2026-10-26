@@ -234,9 +234,9 @@ def _guard_completed_constraint_coverage(response: dict, original_query: str) ->
 
 
 _LIFETIME_SPRINT_RE = re.compile(
-    r"(?=.*\\b(?:спринт\\w*|sprint)\\b)"
-    r"(?=.*(?:за\\s+вс[её]\\s+время|за\\s+всю\\s+историю|"
-    r"за\\s+весь\\s+период|all[- ]time|lifetime))"
+    r"(?=.*\b(?:спринт\w*|sprint)\b)"
+    r"(?=.*(?:за\s+вс[её]\s+время|за\s+всю\s+историю|"
+    r"за\s+весь\s+период|all[- ]time|lifetime))"
     r"(?=.*(?:списан|часов|трудозатрат|worklogs?|logged|hours?)).*",
     re.IGNORECASE | re.DOTALL,
 )
