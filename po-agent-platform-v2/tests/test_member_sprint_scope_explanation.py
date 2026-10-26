@@ -32,5 +32,5 @@ def test_period_and_sprint_are_distinct_skills():
     from po_agent.harness.v4_plugins.time_accounting_period import PLUGIN as period
     from po_agent.harness.v4_plugins.time_accounting_member import PLUGIN as sprint
     assert period.plugin_id != sprint.plugin_id
-    assert "member.worklogs_period" in {cap.capability_id for cap in period.capabilities}
-    assert "member.worklogs" in {cap.capability_id for cap in sprint.capabilities}
+    assert "member.worklogs_period" in {cap.id for cap in period.capabilities}
+    assert "member.worklogs" in {cap.id for cap in sprint.capabilities}
