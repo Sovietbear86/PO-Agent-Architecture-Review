@@ -176,12 +176,28 @@ def _evidence(entries: list[dict[str, Any]]) -> list[Evidence]:
     return rows
 
 
+def _assert_sprint_calendar_scope(args: dict[str, str]) -> None:
+    """Fail closed if user asks for all-time totals instead of sprint dates."""
+    scope = " ".join(str(args.get(key) or "") for key in
+                     ("scope", "period", "date_range", "time_basis", "question")).casefold()
+    lifetime_tokens = (
+        "за всё время", "за все время", "за весь период существования",
+        "за всю историю", "all time", "all-time", "lifetime",
+    )
+    if any(token in scope for token in lifetime_tokens):
+        raise V4NeedsClarification(
+            "Этот навык считает только списания внутри календарных дат спринта. "
+            "Для суммарных часов по задачам за всё время нужен отдельный подтверждённый отчёт AS21."
+        )
+
+
 def build_sprint_time_spent(runtime: Any):
     async def execute(args: dict[str, str]) -> CapabilityResult:
         sprint_id = str(args.get("sprint_id") or "").strip().upper()
         space = _space(args)
         if not sprint_id:
             raise V4NeedsClarification("Укажите спринт.")
+        _assert_sprint_calendar_scope(args)
         tasks, start, finish = await _sprint_context(runtime, sprint_id, space)
         entries = [row for row in await _bounded_worklogs(runtime, tasks) if _within(row, start, finish)]
         agg = _aggregate(entries)
@@ -194,9 +210,16 @@ def build_sprint_time_spent(runtime: Any):
             **agg,
             "source": "REAL_AS21",
             "scope": "sprint_period_worklogs",
+            "time_basis": "logged_on_within_sprint_dates",
+            "outside_period_included": False,
+            "all_time_total": False,
+            "complete": True,
         }
         return CapabilityResult(
-            answer=f"В {sprint_id} списано {agg['total_hours']:g} ч по {agg['worklog_count']} списаниям.",
+            answer=(f"По задачам спринта {sprint_id} за календарный период "
+                    f"{start.isoformat()} — {finish.isoformat()} списано "
+                    f"{agg['total_hours']:g} ч по {agg['worklog_count']} записям. "
+                    "Списания вне этих дат не включены; это не сумма за всё время."),
             data=data,
             evidence=_evidence(entries),
         )
@@ -206,6 +229,7 @@ def build_sprint_time_spent(runtime: Any):
 def build_team_time_spent(runtime: Any):
     async def execute(args: dict[str, str]) -> CapabilityResult:
         space = _space(args)
+        _assert_sprint_calendar_scope(args)
         sprint_id, tasks, start, finish = await _current_sprint_context(runtime, space)
         entries = [row for row in await _bounded_worklogs(runtime, tasks) if _within(row, start, finish)]
         agg = _aggregate(entries)
@@ -217,9 +241,16 @@ def build_team_time_spent(runtime: Any):
             **agg,
             "source": "REAL_AS21",
             "scope": "current_sprint_worklogs",
+            "time_basis": "logged_on_within_sprint_dates",
+            "outside_period_included": False,
+            "all_time_total": False,
+            "complete": True,
         }
         return CapabilityResult(
-            answer=f"Команда {space} списала {agg['total_hours']:g} ч в текущем спринте {sprint_id}.",
+            answer=(f"Команда {space} списала {agg['total_hours']:g} ч "
+                    f"в календарный период текущего спринта {sprint_id} "
+                    f"({start.isoformat()} — {finish.isoformat()}). "
+                    "Часы по этим задачам вне дат спринта не включены."),
             data=data,
             evidence=_evidence(entries),
         )
@@ -319,15 +350,18 @@ CAPABILITIES = (
 SKILLS = (
     SkillSpecV4(
         "sprint.time_spent",
-        "Show actual time spent in a sprint, grouped by member/task/type/date.",
-        ("Resolve the product space and sprint, then call sprint.time_spent.",),
+        "Show time logged WITHIN the sprint calendar, grouped by member/task/type/date. NOT an all-time total for sprint tasks.",
+        ("Resolve the product space and sprint, then call sprint.time_spent.",
+         "Always state the sprint start and finish dates and explicitly exclude earlier/later worklogs.",
+         "For 'за всё время по задачам спринта', do NOT call sprint.time_spent as if it provided lifetime totals; ask for a separate all-date worklog capability."),
         ("space.resolve", "sprint.resolve", "sprint.search", "sprint.current", "sprint.time_spent"),
         completion=(CompletionRequirement("sprint.time_spent", data_keys=("sprint_id", "worklog_count")),),
     ),
     SkillSpecV4(
         "team.time_spent",
-        "Show actual team time spent in the current sprint.",
-        ("Resolve the product space, then call team.time_spent.",),
+        "Show team time logged WITHIN current sprint dates, NOT lifetime hours for member tasks.",
+        ("Resolve the product space, then call team.time_spent.",
+         "Always expose calendar bounds; never call the result 'за всё время'."),
         ("space.resolve", "team.time_spent"),
         completion=(CompletionRequirement("team.time_spent", data_keys=("space", "sprint_id", "worklog_count")),),
     ),
