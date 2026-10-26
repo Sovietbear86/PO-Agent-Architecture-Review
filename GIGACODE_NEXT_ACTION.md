@@ -1,30 +1,32 @@
 # GigaCode — CURRENT NEXT ACTION
 
-## A230R3.3-R3 — Independent typed clarification / planner-gap QA
+## A230R3.4-UI-ENVELOPE-QA — independent frontend rendering gate
 
-**STRICT QA ONLY.** No production changes, no test edits, no Core changes, no prompt/flags/config changes, no automatic repair, no commits or merge. Fetch remote and test exact fresh HEAD; if local dirty, STOP rather than reset. Keep frozen Core V4 byte-identical 6/6 vs checkpoint `6fb335d`.
+**QA ONLY.** No edits to product code, tests, prompts, Core, Task API, MCP, config or Git. No auto fixes, commits, PRs or merges. Fetch current origin/feat/core8-real-query-hardening-v2 and verify LOCAL_HEAD == REMOTE_HEAD == TESTED_HEAD. If dirty, preserve data and STOP instead of reset.
 
-### Why R2 RED
-R2 confirmed scope guard works when a planner passes lifetime semantics to a capability, but LLM planner loses the all-time constraint entirely for natural language request «Сколько всего часов было списано по задачам DMS-SPRNT-5 за всё время?», then returns generic task-search clarification. That is **not** a source-data error; the source has 660.5h all-time vs 147.5h within dated sprint window in QA snapshot (requery for fresh oracle, counts may drift).
+### Previous gate
+A230R3.3-R3 **GREEN** on tested head `62002fb`, 6/6 frozen Core unchanged, V4 suite 326 passed, Task API 69 passed, frontend built. A transient LLM planner FAILED remained independently open; B lifetime sprint question now returns safe typed scope clarification rather than false 147.5h all-time. True all-time totals are **not implemented**.
 
-### Owner R3 minimal non-Core mitigation
-- `po-agent-platform-v2/src/po_agent/api/v1/__init__.py`: `_guard_lifetime_sprint_scope` at API postcondition boundary. For **explicit** lifetime sprint queries, a V4 COMPLETED or generic NEEDS_CLARIFICATION without verified full all-date worklog provenance becomes a **specific typed scope clarification** saying calendar totals cannot be called lifetime. This runs after planner-response transformation and before recording pending state. It never fabricates total hours, never invokes unscoped scans, and does NOT modify LLM planner or frozen Core V4.
-- New test `po-agent-platform-v2/tests/test_api_sprint_lifetime_guard.py` checks actual `DMS-SPRNT-5` form, generic planner error, no leakage of 147.5h as all-time, non-lifetime query preservation, and proven all-date output exception.
-- The guard is a **conservative fail-closed mitigation**, not implementation of all-date sprint totals and not a fix of LLM planner reasoning. Do not label natural-language lifetime sum feature GREEN until an actual all-date capability exists.
+### Owner A230R3.4 edit
+- Frontend-only `po-agent-platform-v2/frontend/src/components/V4ResultPanel.tsx` now treats `data.results` as **internal planner step envelopes** rather than a business table. Rows only come from explicit allowlisted collections in top-level data or in `results[i].data`: tasks, sprints, matches, queue, timeline, durations, risks, risk_queue, dependencies, members, worklogs, entries.
+- Label rows from allowlisted scalar fields only; never `JSON.stringify` arbitrary planner envelopes or display capability arguments, tool names or traces in the user view. A task collection should display compact key/title for entries.
+- Remove visible `widget: ...`, `kind: ...` labels; translate `Evidence` caption to `Источники`.
+- API / Task API / Core / MCP untouched. No public sync yet.
 
-### QA gates
-1. Capture TESTED_HEAD; inspect exact non-Core diff; check REGEX includes both «спринта» and code `DMS-SPRNT-5`; verify it matches the explicit owner text but not normal period queries.
-2. Run new tests, previous A230R3.3 tests, full V4 suite and Task API SWTR suite and frontend build. Test no accidental API response-key incompatibilities or session contamination. Check 6/6 frozen Core SHA match.
-3. In isolated agent session bounded live REAL AS21, replay:
-  A. «Сколько списал Гаранин в период спринта DMS-SPRNT-5?» → actual within-window result with bounds and evidence.
-  B. «Сколько всего часов было списано по задачам DMS-SPRNT-5 за всё время?» → specific typed scope clarification with warning, NEVER generic status/type filters and NEVER 147.5h as all-time. No historical 660.5h returned unless source complete verified all-time scope.
-  C. Ordinary unrelated task query, relative period and member.worklogs_period must stay unchanged.
-4. Verify typed NEEDS_CLARIFICATION persists correctly via _remember_clarification and that «Что именно нужно уточнить?» returns actual pending scope question.
-5. Negative: all-time words without sprint must NOT trigger guard; sprint period without all-time must not trigger guard; failed source status must remain failed (only V4 COMPLETED/NEEDS_CLARIFICATION transformed); evidence payload of calendar totals not displayed as facts.
-6. Confirm no LIVE AS21 mutations, no unscoped scans, test counts and first failing boundary. If RED, STOP and provide exact non-Core seam. Keep Public rollout paused.
+### P0 static review
+1. Capture TESTED_HEAD and compare 6/6 frozen Core hashes against `6fb335d`, no unexpected diffs. Confirm TypeScript compile and no accidental field omissions.
+2. Look for any other frontend rendering paths outputting `data.results` or JSON.stringify of V4 planner envelopes. Report scope and any remaining leak; do not modify.
+3. Verify source and evidence type contracts; do not accidentally drop valid task/sprint tables, attachments, timeline, member rows, empty states or task metadata. Verify when `results` contains several steps, only user-appropriate business data appears (and whether multiple relevant business collections are preserved). If user data would be silently lost, RED with exact case.
+4. Check no mock/fake fallback and no new exposed internal sensitive data.
 
-### Deliverable
-Chat-only independent QA matrix, exact tested remote head, case statuses, 6/6 Core hashes, tests, source A/B, real failing boundary if any. Do not fix.
+### P1 execution
+1. `cd po-agent-platform-v2/frontend && npm run build` and `npm run lint` if available; classify pre-existing lint failures.
+2. In isolated UI/browser, replay source-backed V4 results for task.search (Agataeva 2 tasks or authorized equivalent), worklogs period, sprint aggregate, empty result, partial/error states, and planner-only results. Capture browser DOM/text checks (no literal `{"step"`, `capability_id`, `arguments`, `widget:`, `kind:` in normal result panel). Confirm 2 task keys/titles render as business rows; no duplicate raw envelope.
+3. UI action 'Источники' remains available and evidence count accurate without raw AS21 payload dumps.
+4. Full V4 regression and Task API smoke; Core frozen. Zero AS21 mutations.
+
+### P2 report
+Return concise GREEN/RED per render fixture, build/lint, exact TESTED_HEAD, Core 6/6, no raw envelope exposure, no business rows lost; exact first failing boundary and smallest frontend-only fix if RED. **No code changes.** STOP. Do not run Public GigaCode Skills QA yet.
 
 ### Short command
-Run A230R3.3-R3 from GIGACODE_NEXT_ACTION.md on updated remote HEAD. QA only, targeted/live A/B + regressions, no code changes; report and STOP.
+Execute A230R3.4-UI-ENVELOPE-QA from GIGACODE_NEXT_ACTION.md. QA only, use fresh HEAD, frontend browser/DOM and regression, do not modify anything; report and STOP.
