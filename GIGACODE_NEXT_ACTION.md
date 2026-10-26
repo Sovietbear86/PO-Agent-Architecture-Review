@@ -1,25 +1,30 @@
-# GigaCode — NEXT ACTION
+# GigaCode — CURRENT NEXT ACTION
 
-## A230R3.3-R2 — Independent RED remediation QA
+## A230R3.3-R3 — Independent typed clarification / planner-gap QA
 
-**QA ONLY:** Do not modify source, tests, Core, configs, Git history, source data, or Public. Do not commit or merge. Fetch exact remote HEAD, compare local/remote and test THAT revision in isolated environment. STOP at first newly introduced RED and report. Freeze Core V4 six files vs checkpoint `6fb335d`.
+**STRICT QA ONLY.** No production changes, no test edits, no Core changes, no prompt/flags/config changes, no automatic repair, no commits or merge. Fetch remote and test exact fresh HEAD; if local dirty, STOP rather than reset. Keep frozen Core V4 byte-identical 6/6 vs checkpoint `6fb335d`.
 
-### Previous failure evidence (2026-10-26)
-- Test defect: `test_member_sprint_scope_explanation.py` referred to `CapabilitySpecV4.capability_id`, actual model field is `id`. Fixed at owner commit `0fe502f`.
-- Source semantic mismatch: `sprint.time_spent` returned 147.5h **within sprint calendar**, but natural-language question asked **all time on sprint tasks**. QA REAL AS21 oracle: 33 current tasks (prior 34 drift), 660.5h / 86 entries across all dates; 147.5h /20 entries within dates; 513h/66 entries outside. Garanin himself had 0h in sprint dates, but 160h outside. Do not assume current numbers fixed: query actual source and note drift.
-- Additive repair in `time_accounting_aggregate.py` at `2a40f22`: explicitly identify calendar scope in `sprint.time_spent` and `team.time_spent`, add `time_basis`, `all_time_total=false`, `outside_period_included=false`, `complete=true`, and block explicit lifetime wording in capability arguments with typed clarification instead of returning sprint hours as lifetime.
-- New tests `test_sprint_aggregate_scope_guard.py` at `07b9c27`. Existing period parser changes remain intact.
+### Why R2 RED
+R2 confirmed scope guard works when a planner passes lifetime semantics to a capability, but LLM planner loses the all-time constraint entirely for natural language request «Сколько всего часов было списано по задачам DMS-SPRNT-5 за всё время?», then returns generic task-search clarification. That is **not** a source-data error; the source has 660.5h all-time vs 147.5h within dated sprint window in QA snapshot (requery for fresh oracle, counts may drift).
+
+### Owner R3 minimal non-Core mitigation
+- `po-agent-platform-v2/src/po_agent/api/v1/__init__.py`: `_guard_lifetime_sprint_scope` at API postcondition boundary. For **explicit** lifetime sprint queries, a V4 COMPLETED or generic NEEDS_CLARIFICATION without verified full all-date worklog provenance becomes a **specific typed scope clarification** saying calendar totals cannot be called lifetime. This runs after planner-response transformation and before recording pending state. It never fabricates total hours, never invokes unscoped scans, and does NOT modify LLM planner or frozen Core V4.
+- New test `po-agent-platform-v2/tests/test_api_sprint_lifetime_guard.py` checks actual `DMS-SPRNT-5` form, generic planner error, no leakage of 147.5h as all-time, non-lifetime query preservation, and proven all-date output exception.
+- The guard is a **conservative fail-closed mitigation**, not implementation of all-date sprint totals and not a fix of LLM planner reasoning. Do not label natural-language lifetime sum feature GREEN until an actual all-date capability exists.
 
 ### QA gates
-1. Exact TESTED_HEAD and Core hash 6/6. Diff limited to the small additive plugin/test changes since previous A230R3.3 test.
-2. Targeted tests: `test_member_sprint_scope_explanation.py`, `test_sprint_aggregate_scope_guard.py`, `test_member_worklogs_period.py`; verify test discovery and expected 3+ acceptance cases. Check Python syntax, no test/test-fixture bug. Validate `CapabilitySpecV4.id` and ability to instantiate tests. On RED report exact first failing line, no code changes.
-3. Source contract: verify `sprint.time_spent` and `team.time_spent` preserve all existing keys/results; date-scope explanation must explicitly exclude outside-period worklogs. Utilization policy and original source aggregation unchanged.
-4. LIVE two distinct intents (controlled test sessions, bounded REAL AS21):
-   - **A** «Сколько списал Гаранин в период спринта DMS-SPRNT-5?» → within-period only, evidence-backed with explicit dates.
-   - **B** «Сколько всего часов было списано по задачам DMS-SPRNT-5 за всё время?» → MUST NOT label 147.5h as lifetime. A typed unsupported/clarification with explanation is acceptable until an approved complete bounded all-date capability exists. A real complete all-date oracle is also acceptable ONLY with proven complete pagination, task membership and provenance. If LLM planner omits lifetime semantics from capability arguments, determine first planner/completion boundary, RED and do not edit frozen Core.
-5. Revalidate 33/34 membership drift, author/date scope, 0h Garanin within vs 160h outside from a fresh independent AS21 oracle; never hardcode old counts.
-6. No fake zeros during errors, missing duration/pagination must fail closed. Previous relative period forms still pass. Full V4 regression, Task API SWTR regression, frontend build. Classify pre-existing service/LLM failures separately.
-7. Report case matrix and exact GREEN/RED, source oracle totals and boundaries, first failing boundary, test counts, Core 6/6, verified `TESTED_HEAD`. Chat only; STOP. **Do not begin A230R3.4 UI or Public skills QA in this task.**
+1. Capture TESTED_HEAD; inspect exact non-Core diff; check REGEX includes both «спринта» and code `DMS-SPRNT-5`; verify it matches the explicit owner text but not normal period queries.
+2. Run new tests, previous A230R3.3 tests, full V4 suite and Task API SWTR suite and frontend build. Test no accidental API response-key incompatibilities or session contamination. Check 6/6 frozen Core SHA match.
+3. In isolated agent session bounded live REAL AS21, replay:
+  A. «Сколько списал Гаранин в период спринта DMS-SPRNT-5?» → actual within-window result with bounds and evidence.
+  B. «Сколько всего часов было списано по задачам DMS-SPRNT-5 за всё время?» → specific typed scope clarification with warning, NEVER generic status/type filters and NEVER 147.5h as all-time. No historical 660.5h returned unless source complete verified all-time scope.
+  C. Ordinary unrelated task query, relative period and member.worklogs_period must stay unchanged.
+4. Verify typed NEEDS_CLARIFICATION persists correctly via _remember_clarification and that «Что именно нужно уточнить?» returns actual pending scope question.
+5. Negative: all-time words without sprint must NOT trigger guard; sprint period without all-time must not trigger guard; failed source status must remain failed (only V4 COMPLETED/NEEDS_CLARIFICATION transformed); evidence payload of calendar totals not displayed as facts.
+6. Confirm no LIVE AS21 mutations, no unscoped scans, test counts and first failing boundary. If RED, STOP and provide exact non-Core seam. Keep Public rollout paused.
+
+### Deliverable
+Chat-only independent QA matrix, exact tested remote head, case statuses, 6/6 Core hashes, tests, source A/B, real failing boundary if any. Do not fix.
 
 ### Short command
-Run A230R3.3-R2 from GIGACODE_NEXT_ACTION.md against up-to-date remote HEAD. QA-only; no fixes, no commits; report and stop.
+Run A230R3.3-R3 from GIGACODE_NEXT_ACTION.md on updated remote HEAD. QA only, targeted/live A/B + regressions, no code changes; report and STOP.
