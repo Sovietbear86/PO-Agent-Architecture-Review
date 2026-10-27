@@ -11,7 +11,7 @@ function asRecord(value: unknown): Record<string, unknown> | undefined {
 
 // The V4 'results' array contains internal planner envelopes, not user rows.
 // Show only explicit business collections from the execution payload.
-const BUSINESS_COLLECTIONS = ['tasks', 'sprints', 'matches', 'queue', 'timeline', 'durations', 'risks', 'risk_queue', 'dependencies', 'members', 'worklogs', 'entries'] as const
+const BUSINESS_COLLECTIONS = ['tasks', 'sprints', 'matches', 'candidates', 'queue', 'timeline', 'durations', 'risks', 'risk_queue', 'dependencies', 'members', 'worklogs', 'entries'] as const
 const BUSINESS_LABEL_FIELDS = ['key', 'id', 'sprint_id', 'task_code', 'source_id', 'member', 'full_name', 'title', 'name', 'summary', 'status', 'date', 'duration_hours'] as const
 
 function safeText(value: unknown): string | undefined {
