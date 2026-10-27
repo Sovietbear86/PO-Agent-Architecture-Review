@@ -1,32 +1,20 @@
 # GigaCode — CURRENT NEXT ACTION
 
-## A230R3.4-UI-ENVELOPE-QA — independent frontend rendering gate
+## A230R3.4-R2-UI-ENVELOPE-QA — Independent regression re-gate
 
-**QA ONLY.** No edits to product code, tests, prompts, Core, Task API, MCP, config or Git. No auto fixes, commits, PRs or merges. Fetch current origin/feat/core8-real-query-hardening-v2 and verify LOCAL_HEAD == REMOTE_HEAD == TESTED_HEAD. If dirty, preserve data and STOP instead of reset.
+**QA ONLY.** Do not modify code, tests, docs, configuration, V4 Core, runtime source, Git history or Public repository. Do not auto-fix, commit or merge. Fetch origin and establish exact `LOCAL_HEAD = REMOTE_HEAD = TESTED_HEAD` before testing; preserve dirty worktree safely (STOP on conflicts, no reset --hard). Frozen Agent Core V4 6/6 byte-identical vs checkpoint `6fb335d`.
 
-### Previous gate
-A230R3.3-R3 **GREEN** on tested head `62002fb`, 6/6 frozen Core unchanged, V4 suite 326 passed, Task API 69 passed, frontend built. A transient LLM planner FAILED remained independently open; B lifetime sprint question now returns safe typed scope clarification rather than false 147.5h all-time. True all-time totals are **not implemented**.
+### Prior QA RED and owner minimal fix
+A230R3.4-UI-ENVELOPE-QA confirmed primary raw planner JSON leakage fixed, but found a regression: `team.assignee_recommendation` emits `data.candidates` and the new renderer had omitted `candidates` from its allowlist, silently losing ranked recommendations. Owner added `candidates` back to `BUSINESS_COLLECTIONS` in **frontend-only** `po-agent-platform-v2/frontend/src/components/V4ResultPanel.tsx` (owner commit `1c5f563`). No Core/API/MCP/source changes.
 
-### Owner A230R3.4 edit
-- Frontend-only `po-agent-platform-v2/frontend/src/components/V4ResultPanel.tsx` now treats `data.results` as **internal planner step envelopes** rather than a business table. Rows only come from explicit allowlisted collections in top-level data or in `results[i].data`: tasks, sprints, matches, queue, timeline, durations, risks, risk_queue, dependencies, members, worklogs, entries.
-- Label rows from allowlisted scalar fields only; never `JSON.stringify` arbitrary planner envelopes or display capability arguments, tool names or traces in the user view. A task collection should display compact key/title for entries.
-- Remove visible `widget: ...`, `kind: ...` labels; translate `Evidence` caption to `Источники`.
-- API / Task API / Core / MCP untouched. No public sync yet.
+### Required QA
+1. Fetch and record exact TESTED_HEAD, confirm production delta restricted to frontend component. All six Core files remain byte-identical to checkpoint.
+2. Verify `data.candidates` for `team.assignee_recommendation` now renders ranked member rows, not zero rows; `data.matches` for `team.competency_match` remains rendered. Check both top-level data and `results[i].data` envelopes. The user must not lose rows due to unsafe allowlist omissions.
+3. Verify all supported business lists `tasks, sprints, matches, candidates, queue, timeline, durations, risks, risk_queue, dependencies, members, worklogs, entries`. A raw `results` collection remains intentionally hidden. Unknown planner/tool envelopes must NEVER be stringified into UI. Verify task key/title and worklogs remain readable.
+4. Run frontend `npm run build`; browser DOM smoke with authorized read-only REAL AS21 cases: task search, ranked assignee recommendations, member competencies, worklogs, sprint result, empty/partial/error. Check no raw `capability_id`, `arguments`, `step`, `widget:`, `kind:`, `JSON.stringify` output. Evidence accordion shows `Источники` accurately. No data leaks in visible normal user panel.
+5. Confirm original `Pages.tsx` QualityPage raw JSON issue is **pre-existing separate item**, not this component's RED unless newly affected. No scope creep.
+6. Run relevant V4 full regression (expected baseline 326), Task API SWTR (69) and report frontend build. Treat environmental LLM failures separately and don't hide newly induced failures.
+7. Report test matrix, counts and exact first failing boundary if RED. Do not change files. **No merge to Public until GREEN.**
 
-### P0 static review
-1. Capture TESTED_HEAD and compare 6/6 frozen Core hashes against `6fb335d`, no unexpected diffs. Confirm TypeScript compile and no accidental field omissions.
-2. Look for any other frontend rendering paths outputting `data.results` or JSON.stringify of V4 planner envelopes. Report scope and any remaining leak; do not modify.
-3. Verify source and evidence type contracts; do not accidentally drop valid task/sprint tables, attachments, timeline, member rows, empty states or task metadata. Verify when `results` contains several steps, only user-appropriate business data appears (and whether multiple relevant business collections are preserved). If user data would be silently lost, RED with exact case.
-4. Check no mock/fake fallback and no new exposed internal sensitive data.
-
-### P1 execution
-1. `cd po-agent-platform-v2/frontend && npm run build` and `npm run lint` if available; classify pre-existing lint failures.
-2. In isolated UI/browser, replay source-backed V4 results for task.search (Agataeva 2 tasks or authorized equivalent), worklogs period, sprint aggregate, empty result, partial/error states, and planner-only results. Capture browser DOM/text checks (no literal `{"step"`, `capability_id`, `arguments`, `widget:`, `kind:` in normal result panel). Confirm 2 task keys/titles render as business rows; no duplicate raw envelope.
-3. UI action 'Источники' remains available and evidence count accurate without raw AS21 payload dumps.
-4. Full V4 regression and Task API smoke; Core frozen. Zero AS21 mutations.
-
-### P2 report
-Return concise GREEN/RED per render fixture, build/lint, exact TESTED_HEAD, Core 6/6, no raw envelope exposure, no business rows lost; exact first failing boundary and smallest frontend-only fix if RED. **No code changes.** STOP. Do not run Public GigaCode Skills QA yet.
-
-### Short command
-Execute A230R3.4-UI-ENVELOPE-QA from GIGACODE_NEXT_ACTION.md. QA only, use fresh HEAD, frontend browser/DOM and regression, do not modify anything; report and STOP.
+### Command
+Run A230R3.4-R2-UI-ENVELOPE-QA from GIGACODE_NEXT_ACTION.md. Independent QA only, current HEAD, full build + UI business rows/no raw JSON + Core 6/6; report and STOP.
