@@ -73,7 +73,7 @@ def forecast_sprint(value: SprintForecastInput) -> dict:
         return _incomplete("invalid_scope_counts")
     if len(value.closed_at) != value.closed_total:
         return _incomplete("closure_count_mismatch")
-    if any(x > value.as_of or x.date() < value.sprint_start for x in value.closed_at):
+    if any(x > value.as_of or not (value.sprint_start <= x.date() <= value.sprint_end) for x in value.closed_at):
         return _incomplete("closure_out_of_scope")
     if value.scope_total == 0:
         return _incomplete("empty_sprint_scope")
