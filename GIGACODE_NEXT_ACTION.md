@@ -1,31 +1,32 @@
-# GigaCode — CURRENT NEXT ACTION
+# GigaCode — NEXT ACTION
 
-## A230R3.12-PUBLIC-MAIN-POSTMERGE-SMOKE-QA
+## A230R3.14-P31-D0-SPRINT-FORECAST-SOURCE-DISCOVERY
 
-**INDEPENDENT QA ONLY.** No code changes, commits, merges, pushes, deployment to network/multi-user hosts, AS21 writes, or termination of user's existing services. Keep Review frozen Core V4 (6/6). Use a fresh disposable clone of Public main and free isolated ports.
+**Only independent QA / investigation, no development.** Do not modify application code, scripts, docs, config, frozen Core V4, Public repo, AS21 or sbeproject. No commits, pushes, merges, unbounded source scans or write-capable MCP. Do not stop existing Review/Public services. Preserve dirty files. Record exact LOCAL=REMOTE=TESTED_HEAD.
 
-### Owners' merged release state (verify independently; do not assume)
-- Public PR #3 merged into main, merge SHA `fb2e72166e80e981909696ae8c07a79d7d2eeea2`.
-- Public PR #4 merged after it, merge SHA `36be0493f92c4348c55ba51e481a247b1372fb1e` (**expected Public main HEAD**).
-- Prior independent PR #4 exact code-head QA `f27fea7` was PUBLIC_RELEASE_GREEN in authorized single-user isolated deployment: H0–H6 cold/warm, Chromium, bounded REAL AS21 A/B, 49 MCP, 6-job CI GREEN; current merge commit has NOT YET been postmerge certified.
-- Review A230R3.10 snapshot patch passed independent GREEN but is **Review-only**; it was NOT intentionally included in this Public release.
-- Multi-user session authentication and principal-bound ownership remain OPEN security gates; do not infer production authorization from merge.
+### Read first
+- `PO_AGENT_HARNESS_EVOLUTION_PLAN_UPDATE_2026-11-01.md` P3.1.
+- `PO_AGENT_P31_SPRINT_DELIVERY_FORECAST_DISCOVERY_2026-11-01.md` (owner design, **not implementation**).
+- Existing Review `Pages.tsx` around sprint predictability and 6 snapshots, `task-api/src/s21_team_performance/skills/sprint_health.py`, `sprint/intelligence.py` and the source-backed V4 plugin graph.
 
-### Gate 0 — source and provenance
-1. Independently `git fetch origin`, verify Public main HEAD equals `36be0493...` and includes both PR #3 and #4 merge ancestry; compare main tree to QA-certified PR #4 code tree. Report any unexpected postmerge file changes and STOP if found.
-2. Run `python3 scripts/prepublish_scan.py`, confirm no secrets, corporate hosts or personal identities in proposed public tree. Compare Public six frozen Core V4 files against previously verified Public main baseline blobs; no drift.
-3. Verify CI on the exact **merge commit** (not only PR4 HEAD). Check six expected jobs; if not triggered/available report `POSTMERGE_CI_NOT_VERIFIED`, run local suites without inventing CI success.
+### Gate A — actual implementation contract
+1. Independently identify **which code path and skill** currently produce Predictability N/A for the active `DMS-SPRNT-5` UI. Track request → V4 capability → Task API → AS21; inspect raw typed fields without revealing PII. Distinguish historical committed baseline from live scope.
+2. Trace `SprintMetrics.tsx` and `task-api/src/s21_team_performance/skills/sprint_health.py` reachable vs legacy paths; pinpoint use of `len(completed_tasks) * 3.0`, if reachable from any UI/CLI then flag **P1 fake-metric risk**. No false-positive claim of production impact without call graph proof.
+3. Identify canonical sprint status, start/end timezone, statuses representing DONE/WIP/BLOCKED, and authoritative closure timestamps; reject using `updated_at` as a completion timestamp without proof.
 
-### Gate 1 — clean-clone functional smoke
-1. Install declared Agent, Task API, MCP (Python 3.13) and frontend Node requirements. Run available offline V4 focused/full, Task API, health CLI and frontend build. Report exact counts. Verify MCP list_tools count 49 and all read-only source facades.
-2. Use Public's `public-deploy` and `public-health-check` skills from actual main clone in isolated local single-user environment, no internal GitVerse or Review dependency. Use available scoped secrets securely, never print/store in repo.
-3. H0–H6 on cold and warm standalone Public, REAL AS21 bounded independent A/B, browser UI (task row, period worklog, ranked candidates), safe empty/error output and no raw planner JSON; verify proxy stays on isolated Public Agent, not Review.
-4. If REAL AS21/LLM/browser unavailable, label the specific gate NOT VERIFIED rather than all-GREEN. Do not run unscoped queries or write to AS21.
+### Gate B — scoped independent REAL AS21 oracle
+1. With existing read-only authorized access, query **only DMS-SPRNT-5** and at most 3–5 immediately preceding comparable DMS sprints. Strict bounded pagination/limit (explicit max pages/time), no tenant scan. Record exact `as_of` and request counts; no task/member payload in report.
+2. Inventory fields: sprint start/end, historical membership and committed start baseline (if available), current task scope, task resolution dates, creation timestamps, status transitions, WIP, blocked, task-point fields if actually present; throughput of previous sprints, missing values and source lag.
+3. Independently compute a **sample-only illustrative formula from REAL source** if all required facts exist. Otherwise typed `INSUFFICIENT_EVIDENCE`. No fabricated scores or invented confidence. Compare all numbers to source B and classify incomplete/partial rather than pretending 0.
+4. Check selected 18/36 and 18/35 historical screenshots as **old snapshots only**; never present either as current counts.
 
-### Gate 2 — Windows/macOS readiness discovery (P2)
-1. Audit install Skill + health Skill + DEPLOYMENT.md against Windows 11 PowerShell 7 and macOS zsh (Apple Silicon / Intel) workflows. Record exact unsupported command, path separator, subprocess, env/export, venv, Python 3.13 stdio or port handling. No actual Windows GREEN until independently run on Windows.
-2. Propose concise separate README sections / QUICKSTART_WINDOWS.md and QUICKSTART_MACOS.md covering prerequisites, install, local config, health H0–H6, browser test, rollback, troubleshooting and warnings for single-user only. **Draft recommendations only** for owner; no code/doc changes.
-3. Identify especially if health H3 cold stdio 15s budget has risk on slow Windows and whether platform-specific timeout controls need redesign; do not simply increase until measured.
+### Gate C — feasibility/design review
+1. Confirm ability to backtest forecast using information as it existed at the start/middle of prior sprints: no look-ahead leakage.
+2. Propose concise exact contracts for `sprint.delivery_forecast` plugin (outside frozen Core), Task API bounded source facade, frontend card and UI data; list unprovable fields and safe fallbacks. Compare alternative rate estimators: current sprint throughput vs prior 3–5 comparable sprints; do not overpromise statistical confidence.
+3. Run no code changes. State whether P31-D1 is READY, BLOCKED_BY_SOURCE or NEEDS_DATA_CONTRACT; include specific source field evidence. Read-only checks of frozen Core 6/6.
 
-### Report
-Exact Public main TESTED_HEAD, CI, scan, 6/6 Core, 49 tools, H0–H6, A/B, browser, deploy skill, macOS vs Windows status, first failed boundary, Windows/macOS instruction change plan. Verdict `POSTMERGE_GREEN` / `INCOMPLETE` / `RED`. QA-only, report then STOP.
+### Deliverable
+One clear in-chat report `P31-D0`: exact TESTED_HEAD, code-path map, evidence matrix `field | AS21 source | completeness | authority | outcome`, bounded requests, DMS-SPRNT-5 source-backed facts with timestamps, unsafe legacy code reachability, initial MVP design, first blocking boundary and suggested smallest non-Core implementation. Optionally save a sanitized **untracked** QA report, never commit. STOP.
+
+### Short command
+Execute A230R3.14-P31-D0-SPRINT-FORECAST-SOURCE-DISCOVERY from current Review GIGACODE_NEXT_ACTION.md. Inspect implementation, bounded read-only AS21 oracle for DMS-SPRNT-5 and up to 5 previous DMS sprints, fake-metric reachability, Core 6/6. No fixes/commits. Report and STOP.
