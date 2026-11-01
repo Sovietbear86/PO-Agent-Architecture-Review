@@ -2,7 +2,9 @@
 
 **Status:** STABILIZED V4 / controlled evolution  
 **Current branch:** `feat/core8-real-query-hardening-v2`  
-**Last reviewed:** 2026-10-21  
+**Current priorities (01.11.2026):** [Актуализация плана: стабилизация Review → Public → Win/macOS deploy/health → predictability/release/summaries/quality](PO_AGENT_HARNESS_EVOLUTION_PLAN_UPDATE_2026-11-01.md). This new amendment overrides historical execution-order paragraphs below when sequencing today's new work, but never weakens Core/security/source/QA rules.  
+**Current QA:** Review frontend snapshot fail-closed A230R3.10 independent QA pending; Public A230R3.9-R2 declared PUBLIC_RELEASE_GREEN at `f27fea7`, Draft PR #3 and #4 not merged.  
+**Last reviewed:** 2026-11-01  
 **Current stable checkpoint:** `checkpoint/v4-complex-task-clarification-green-a229f3r@6fb335d6f67344245a5c65e5c1b5b145759e96da`  
 **Current baseline:** PO acceptance A227R3 GREEN; restart/recovery A228 GREEN; low-risk latency verification A229R1 GREEN; created-period/status, task-type analysis, hierarchy, complex task composition and resumable clarification are certified through A229F3R; full V4 blast 258/258 and focused Task API SWTR 57/57; canonical 54 remains certified; live registry = 72 unique skills. PO assessment remains approximately 90% complete pending A229R2/A230/A231 release-hardening gates.
 **Architecture decision:** the V4 Harness/Core is now a stable platform. Further product capabilities should be added through plugins/capabilities/UI/task-api seams. Agent Core/planner/runtime orchestration changes require a proven release-blocking defect and explicit owner approval.  
