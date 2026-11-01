@@ -52,7 +52,7 @@ export function OverviewDashboard() {
   const statusState = classifyResult(status)
 
   return <section className="page page-overview">
-    <div className="page-heading"><div><h1>Обзор</h1><p>Единая точка внимания PO: портфель, риски, brief и задачи по пространствам</p></div><div className="page-heading-actions"><SnapshotRefresh updatedAt={[attentionQ.updatedAt, briefQ.updatedAt, statusQ.updatedAt]} refreshing={attentionQ.refreshing || briefQ.refreshing || statusQ.refreshing} refreshError={attentionQ.refreshError || briefQ.refreshError || statusQ.refreshError} onRefresh={() => setRefreshNonce(value => value + 1)} /><button className="primary-button" onClick={openAgent}>Спросить PO Agent</button></div></div>
+    <div className="page-heading"><div><h1>Обзор</h1><p>Единая точка внимания PO: портфель, риски, brief и задачи по пространствам</p></div><div className="page-heading-actions"><SnapshotRefresh updatedAt={[attentionQ.updatedAt, briefQ.updatedAt, statusQ.updatedAt]} refreshing={attentionQ.refreshing || briefQ.refreshing || statusQ.refreshing} refreshError={attentionQ.refreshError || briefQ.refreshError || statusQ.refreshError} refreshErrorReason={attentionQ.refreshErrorReason || briefQ.refreshErrorReason || statusQ.refreshErrorReason} onRefresh={() => setRefreshNonce(value => value + 1)} /><button className="primary-button" onClick={openAgent}>Спросить PO Agent</button></div></div>
     <div className="metric-grid">
       <Metric label="Активно" value={stateAllowsBusinessData(statusState) ? (sd.active ?? '—') : '—'} />
       <Metric label="Завершено" value={stateAllowsBusinessData(statusState) ? (sd.completed ?? '—') : '—'} />
