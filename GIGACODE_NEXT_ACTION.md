@@ -1,43 +1,28 @@
 # GigaCode — CURRENT NEXT ACTION
 
-## A230R3.10-REVIEW-SNAPSHOT-FAIL-CLOSED-QA
+## A230R3.11-PUBLIC-STACKED-PR-RELEASE-READINESS-QA
 
-**INDEPENDENT QA ONLY.** GigaCode must not edit product code, tests, docs, config, Core, Git history, or any AS21 data. No commits/pushes/merges. Preserve existing user services and dirty files. Only read-only bounded REAL AS21 calls. Fetch origin and ensure LOCAL_HEAD = REMOTE_HEAD = TESTED_HEAD before testing.
+**INDEPENDENT QA ONLY.** Do not change code, tests, configs, docs, Git history, PR state/base, tags, AS21 or running services. No merges/pushes/commits. Preserve any local dirty files. Record LOCAL_HEAD=REMOTE_HEAD=TESTED_HEAD where tested.
 
-### Evidence from QA_REVIEW_INCIDENT_2026-10-30
-- Prior incident 2026-10-30: V4 FAILED after 80.7s at planner repair / fail-closed without source evidence. Earlier exact trace/logs unavailable; do not assert that 429 caused that exact request. Triage live rerun on later Review runtime: one bounded person+space+creation-period query COMPLETED 46/46 EXACT vs REAL AS21, one task lookup passed; no new code regression. LLM limit/endpoint degradation during previous incident remains plausible, not proven.
-- Overview previously timed out after 120s with 3 separate snapshot queries (Snapshot MAX_CONCURRENCY=2) and showed correctly timestamped last-good cache. Sprint 18/36=50% snapshot was stale; fresh observed count 18/35=51.4%, not an AS21 source-data regression. Predictability N/A is valid because no committed baseline.
+### Certified evidence
+- Review A230R3.10 independent **GREEN**, TESTED_HEAD `4a75cb4`: 11/11 deterministic snapshot fail-closed/cache scenarios, browser+bounded REAL AS21 parity, V4 297 passed, Task API SWTR 52 passed, frontend build 0, Core V4 6/6. Previous LLM outage remains separate.
+- Public A230R3.9-R2 independent `PUBLIC_RELEASE_GREEN`, TESTED_HEAD `f27fea7`: clean isolated clone, cold/warm H0–H6, real Chromium UI, bounded REAL AS21 A/B, 49 MCP, six-job GitHub CI all GREEN, Public Core six frozen files byte-identical to Public main.
+- Public PR #3 `feat/gigacode-public-deploy-health-skills` → main is OPEN/DRAFT; PR #4 `feat/a230r3-community-migration` → PR #3 branch is OPEN/DRAFT. **Neither merged**. This assignment is NOT approval to merge.
 
-### Owner frontend-only corrective change (NOT yet QA verified)
-- `b395bd6` `po-agent-platform-v2/frontend/src/recovery/pageSnapshot.tsx`: rejects refresh when the Agent returns status other than COMPLETED (FAILED/NEEDS_CLARIFICATION/PARTIAL are **never** saved as successful snapshot), retains previous verified cache and timestamp; safe error taxonomy timeout/rate_limit/source/agent/network/request. Does not expose raw payload/error text or source data.
-- `a269f26` `po-agent-platform-v2/frontend/src/recovery/OverviewDashboard.tsx`: Overview displays classified failure reason from the three snapshot requests rather than generic flag only.
-- Frozen six Core V4 files, Task API, MCP, LLM planner and source semantics were NOT changed; Public PR #3/#4 remain separate and untouched.
+### Gate A — precise PR and security release audit
+1. Fetch current Public main, PR #3 and PR #4 HEAD/base and CI. Confirm previously QA-tested SHA remains current; on changes, require new independent QA. Check PR #3 alone retains deploy and health skills, no corporate credentials, PII, hardcoded internal hostnames or unsafe defaults.
+2. Check PR #4 stacked delta preserves PR #3 features, sanitized MCP bundle and 49 tools, safe public placeholders and products configuration, four experimental flags default OFF, no internal Review Core/file history copied. Public Core 6/6 must exactly match Public main (sanitized docstring preserved).
+3. Identify mergeability and potential conflicts: PR #3 → main FIRST, then retarget PR #4 to main and independently validate the resulting PR delta, CI and security **before separate owner merge approval**. Do not perform any retarget, merge, change draft state or other writes.
+4. Security posture: principal-bound auth/session ownership still absent for remote multi-user service, so only documented local trusted single-user deployment may be considered release ready. Record security gate required for multi-user use. No tenant-wide AS21 scans.
 
-### Gate 0 — source and safety
-1. Fetch origin and verify exact tested HEAD and owner delta relative to `ceac9fe`; changes only new QA markdown and these two frontend files; Core V4 6/6 bytes match `6fb335d`.
-2. Ensure no secret/token/data leakage, no added unbounded AS21 queries, no API mutation. Public staging unaffected.
+### Gate B — delivery and portability audit
+1. Confirm full official CI for PR #3 and #4 exact heads; if tests unavailable, mark NOT VERIFIED. Verify read-only source paths, 49 tool count for PR #4, V4+Task API+frontend build and prior isolated Public H0–H6/Browser/AS21 evidence matches heads.
+2. Check GigaCode public-deploy and public-health-check Skills and deployed docs. macOS isolated E2E verified; Windows/PowerShell user journey and canonical empty-host ports remain NOT VERIFIED. Do not claim cross-platform certification without actual tests.
+3. Review existing separated OPEN issues: Review planner reliability vs LLM 429, created-period plural-week grammar, QualityPage raw JSON, committed predictability baseline, release sbeproject discovery. Recent Review-only A230R3.10 snapshot patch must **not** silently appear in current Public release.
+4. Specify safe rollback/release tags (proposal only), full audit matrix, and recommended go/no-go for each PR. Distinguish QA-approved functionality from actual unrestricted production/multiuser readiness.
 
-### Gate 1 — deterministic non-network frontend tests
-1. `npm ci` / `npm run build` in frontend, TypeScript contract. Exercise `useSnapshotHarness` with mocked agent.query and mocked sessionStorage. Cases:
-   - COMPLETED -> new snapshot and timestamp.
-   - FAILED -> no snapshot overwrite; error visible as "Агент не завершил запрос"; cached rows retain last successful provenance/date.
-   - NEEDS_CLARIFICATION or PARTIAL -> not silently presented as refreshed complete data; old snapshot stays.
-   - rejected HTTP 429, 503, ERR_NETWORK, timeout -> correct safe user-facing class, stale cache preserved, no raw response/error included.
-   - non-cached failed first run -> no fake current data; timestamp remains null.
-   - successful retry after failure resets error and refreshes snapshot; stale late response cannot overwrite a newer query.
-   - SnapshotStatus / SnapshotRefresh interfaces: all existing callers compile, Overview combines three failure reasons with no unsafe output.
-2. Check existing 120s timeout and global max concurrency 2 remain; no repeated parallel requests or increased load. No logging sensitive request bodies.
+### Required report
+Exact SHA and CI/PR state, security scan evidence, risk matrix, sequential merge plan, rollback, `MERGE_READY_FOR_OWNER_REVIEW` / `HOLD` / `INCOMPLETE`. No modifications, no commits. STOP.
 
-### Gate 2 — browser/AS21 smoke (read-only scoped)
-1. If safe, run isolated Review browser with valid existing session; prove "Обзор" UI status on one failed request and next success; do not interfere with user's services. Explicitly check "Обзор", "Задачи", "Спринты", "Качество" after owner frontend delta. Preserve good snapshots, no planner JSON leak.
-2. Test one bounded existing task and one person+space+creation-period query, compare with independent REAL AS21 oracle; if LLM 429 recurs classify accordingly, don't claim code bug or fail correctness. No multiple repeated broad scans.
-3. Confirm sprint 18/35 fresh value only if source snapshot/current state proves so; do not hardcode historic count.
-
-### Gate 3 — full regression
-Execute V4 full regression, Task API SWTR and frontend build. Report exact passed/failed/skipped and baseline vs delta. Confirm frozen Core 6/6, no Public modifications, no QA commits.
-
-### Verdict
-GREEN only if UI failure/last-success semantics and TypeScript build pass, no new regression; RED first failing boundary otherwise; INCOMPLETE when live oracle/browser unavailable. Distinguish original external LLM transient from UI status telemetry fix. Detailed QA report and STOP.
-
-### Short command
-Execute A230R3.10-REVIEW-SNAPSHOT-FAIL-CLOSED-QA from current GIGACODE_NEXT_ACTION.md (Review branch). Independent QA only, no code changes. Recheck stale-cache/error taxonomy, frontend build, full V4/Task API and frozen Core 6/6; report and STOP.
+### Command
+Run A230R3.11-PUBLIC-STACKED-PR-RELEASE-READINESS-QA from Review GIGACODE_NEXT_ACTION.md. Strict independent QA only; inspect current Public PR #3 and PR #4, verify exact release evidence and propose safe merge sequence. No edits or merges, report and STOP.
