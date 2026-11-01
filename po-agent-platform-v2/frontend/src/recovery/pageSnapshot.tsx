@@ -9,6 +9,25 @@ type SnapshotRecord = {
 const PREFIX = 'po-page-snapshot:v1:'
 const REFRESH_TIMEOUT_MS = 120_000
 const SNAPSHOT_MAX_CONCURRENCY = 2
+
+type RefreshFailure = 'timeout' | 'rate_limit' | 'source' | 'agent' | 'network' | 'request'
+
+function refreshFailure(error: unknown): RefreshFailure {
+  if (error instanceof Error && error.message === 'page refresh timeout') return 'timeout'
+  const candidate = error as { response?: { status?: number }; code?: string } | null
+  const status = candidate?.response?.status
+  if (status === 429) return 'rate_limit'
+  if (status === 502 || status === 503 || status === 504) return 'source'
+  if (candidate?.code === 'ECONNABORTED' || candidate?.code === 'ETIMEDOUT') return 'timeout'
+  if (candidate?.code === 'ERR_NETWORK') return 'network'
+  return 'request'
+}
+
+function failureLabel(error: RefreshFailure): string {
+  return ({ timeout: 'Таймаут запроса', rate_limit: 'Сервис перегружен (429)',
+    source: 'Источник временно недоступен', agent: 'Агент не завершил запрос',
+    network: 'Ошибка соединения', request: 'Ошибка запроса' })[error]
+}
 let snapshotInFlight = 0
 const snapshotWaiters: Array<() => void> = []
 
@@ -76,6 +95,7 @@ export function useSnapshotHarness(namespace: string, query: string, refreshNonc
   const [updatedAt, setUpdatedAt] = useState<string | null>(initial?.updatedAt ?? null)
   const [refreshing, setRefreshing] = useState(false)
   const [refreshError, setRefreshError] = useState(false)
+  const [refreshErrorReason, setRefreshErrorReason] = useState<RefreshFailure | null>(null)
   const requestId = useRef(0)
 
   const load = useCallback(async () => {
@@ -83,6 +103,7 @@ export function useSnapshotHarness(namespace: string, query: string, refreshNonc
     const id = ++requestId.current
     setRefreshing(true)
     setRefreshError(false)
+    setRefreshErrorReason(null)
     try {
       const next = await withSnapshotSlot(() => Promise.race([
         agent.query({ query }),
@@ -91,12 +112,23 @@ export function useSnapshotHarness(namespace: string, query: string, refreshNonc
         }),
       ]))
       if (id !== requestId.current) return
+      // Only complete, sourced answers may replace a previously verified snapshot.
+      if (next.status !== 'COMPLETED') {
+        if (id === requestId.current) {
+          setRefreshError(true)
+          setRefreshErrorReason(next.status === 'FAILED' ? 'agent' : 'request')
+        }
+        return
+      }
       const timestamp = new Date().toISOString()
       setResult(next)
       setUpdatedAt(timestamp)
       writeSnapshot(cacheKey, { result: next, updatedAt: timestamp })
-    } catch {
-      if (id === requestId.current) setRefreshError(true)
+    } catch (error) {
+      if (id === requestId.current) {
+        setRefreshError(true)
+        setRefreshErrorReason(refreshFailure(error))
+      }
     } finally {
       if (id === requestId.current) setRefreshing(false)
     }
@@ -107,6 +139,7 @@ export function useSnapshotHarness(namespace: string, query: string, refreshNonc
     setResult(cached?.result ?? null)
     setUpdatedAt(cached?.updatedAt ?? null)
     setRefreshError(false)
+    setRefreshErrorReason(null)
     setRefreshing(false)
     if (enabled && !cached) void load()
     return () => { requestId.current += 1 }
@@ -119,24 +152,26 @@ export function useSnapshotHarness(namespace: string, query: string, refreshNonc
     if (enabled) void load()
   }, [refreshNonce, load])
 
-  return { result, updatedAt, refreshing, refreshError }
+  return { result, updatedAt, refreshing, refreshError, refreshErrorReason }
 }
 
 export function SnapshotRefresh({
   updatedAt,
   refreshing,
   refreshError,
+  refreshErrorReason,
   onRefresh,
 }: {
   updatedAt: Array<string | null>
   refreshing: boolean
   refreshError: boolean
+  refreshErrorReason?: RefreshFailure | null
   onRefresh(): void
 }) {
   const label = snapshotLabel(updatedAt)
   return <div className="snapshot-refresh">
     <span className={refreshError ? 'snapshot-state snapshot-state-error' : 'snapshot-state'}>
-      {refreshError ? `Не удалось обновить · данные на ${label}` : `Снимок · обновлено ${label}`}
+      {refreshError ? `Не удалось обновить (${refreshErrorReason ? failureLabel(refreshErrorReason) : 'ошибка'}) · данные на ${label}` : `Снимок · обновлено ${label}`}
     </span>
     <button type="button" onClick={onRefresh} disabled={refreshing}>{refreshing ? 'Обновляем…' : 'Обновить'}</button>
   </div>
@@ -147,13 +182,15 @@ export function SnapshotStatus({
   updatedAt,
   refreshing,
   refreshError,
+  refreshErrorReason,
 }: {
   updatedAt: Array<string | null>
   refreshing: boolean
   refreshError: boolean
+  refreshErrorReason?: RefreshFailure | null
 }) {
   const label = snapshotLabel(updatedAt)
   return <span className={refreshError ? 'snapshot-state snapshot-state-error' : 'snapshot-state'}>
-    {refreshing ? 'Обновляем…' : refreshError ? `Не удалось обновить · данные на ${label}` : `Последнее обновление: ${label}`}
+    {refreshing ? 'Обновляем…' : refreshError ? `Не удалось обновить (${refreshErrorReason ? failureLabel(refreshErrorReason) : 'ошибка'}) · данные на ${label}` : `Последнее обновление: ${label}`}
   </span>
 }
