@@ -1,28 +1,31 @@
 # GigaCode — CURRENT NEXT ACTION
 
-## A230R3.11-PUBLIC-STACKED-PR-RELEASE-READINESS-QA
+## A230R3.12-PUBLIC-MAIN-POSTMERGE-SMOKE-QA
 
-**INDEPENDENT QA ONLY.** Do not change code, tests, configs, docs, Git history, PR state/base, tags, AS21 or running services. No merges/pushes/commits. Preserve any local dirty files. Record LOCAL_HEAD=REMOTE_HEAD=TESTED_HEAD where tested.
+**INDEPENDENT QA ONLY.** No code changes, commits, merges, pushes, deployment to network/multi-user hosts, AS21 writes, or termination of user's existing services. Keep Review frozen Core V4 (6/6). Use a fresh disposable clone of Public main and free isolated ports.
 
-### Certified evidence
-- Review A230R3.10 independent **GREEN**, TESTED_HEAD `4a75cb4`: 11/11 deterministic snapshot fail-closed/cache scenarios, browser+bounded REAL AS21 parity, V4 297 passed, Task API SWTR 52 passed, frontend build 0, Core V4 6/6. Previous LLM outage remains separate.
-- Public A230R3.9-R2 independent `PUBLIC_RELEASE_GREEN`, TESTED_HEAD `f27fea7`: clean isolated clone, cold/warm H0–H6, real Chromium UI, bounded REAL AS21 A/B, 49 MCP, six-job GitHub CI all GREEN, Public Core six frozen files byte-identical to Public main.
-- Public PR #3 `feat/gigacode-public-deploy-health-skills` → main is OPEN/DRAFT; PR #4 `feat/a230r3-community-migration` → PR #3 branch is OPEN/DRAFT. **Neither merged**. This assignment is NOT approval to merge.
+### Owners' merged release state (verify independently; do not assume)
+- Public PR #3 merged into main, merge SHA `fb2e72166e80e981909696ae8c07a79d7d2eeea2`.
+- Public PR #4 merged after it, merge SHA `36be0493f92c4348c55ba51e481a247b1372fb1e` (**expected Public main HEAD**).
+- Prior independent PR #4 exact code-head QA `f27fea7` was PUBLIC_RELEASE_GREEN in authorized single-user isolated deployment: H0–H6 cold/warm, Chromium, bounded REAL AS21 A/B, 49 MCP, 6-job CI GREEN; current merge commit has NOT YET been postmerge certified.
+- Review A230R3.10 snapshot patch passed independent GREEN but is **Review-only**; it was NOT intentionally included in this Public release.
+- Multi-user session authentication and principal-bound ownership remain OPEN security gates; do not infer production authorization from merge.
 
-### Gate A — precise PR and security release audit
-1. Fetch current Public main, PR #3 and PR #4 HEAD/base and CI. Confirm previously QA-tested SHA remains current; on changes, require new independent QA. Check PR #3 alone retains deploy and health skills, no corporate credentials, PII, hardcoded internal hostnames or unsafe defaults.
-2. Check PR #4 stacked delta preserves PR #3 features, sanitized MCP bundle and 49 tools, safe public placeholders and products configuration, four experimental flags default OFF, no internal Review Core/file history copied. Public Core 6/6 must exactly match Public main (sanitized docstring preserved).
-3. Identify mergeability and potential conflicts: PR #3 → main FIRST, then retarget PR #4 to main and independently validate the resulting PR delta, CI and security **before separate owner merge approval**. Do not perform any retarget, merge, change draft state or other writes.
-4. Security posture: principal-bound auth/session ownership still absent for remote multi-user service, so only documented local trusted single-user deployment may be considered release ready. Record security gate required for multi-user use. No tenant-wide AS21 scans.
+### Gate 0 — source and provenance
+1. Independently `git fetch origin`, verify Public main HEAD equals `36be0493...` and includes both PR #3 and #4 merge ancestry; compare main tree to QA-certified PR #4 code tree. Report any unexpected postmerge file changes and STOP if found.
+2. Run `python3 scripts/prepublish_scan.py`, confirm no secrets, corporate hosts or personal identities in proposed public tree. Compare Public six frozen Core V4 files against previously verified Public main baseline blobs; no drift.
+3. Verify CI on the exact **merge commit** (not only PR4 HEAD). Check six expected jobs; if not triggered/available report `POSTMERGE_CI_NOT_VERIFIED`, run local suites without inventing CI success.
 
-### Gate B — delivery and portability audit
-1. Confirm full official CI for PR #3 and #4 exact heads; if tests unavailable, mark NOT VERIFIED. Verify read-only source paths, 49 tool count for PR #4, V4+Task API+frontend build and prior isolated Public H0–H6/Browser/AS21 evidence matches heads.
-2. Check GigaCode public-deploy and public-health-check Skills and deployed docs. macOS isolated E2E verified; Windows/PowerShell user journey and canonical empty-host ports remain NOT VERIFIED. Do not claim cross-platform certification without actual tests.
-3. Review existing separated OPEN issues: Review planner reliability vs LLM 429, created-period plural-week grammar, QualityPage raw JSON, committed predictability baseline, release sbeproject discovery. Recent Review-only A230R3.10 snapshot patch must **not** silently appear in current Public release.
-4. Specify safe rollback/release tags (proposal only), full audit matrix, and recommended go/no-go for each PR. Distinguish QA-approved functionality from actual unrestricted production/multiuser readiness.
+### Gate 1 — clean-clone functional smoke
+1. Install declared Agent, Task API, MCP (Python 3.13) and frontend Node requirements. Run available offline V4 focused/full, Task API, health CLI and frontend build. Report exact counts. Verify MCP list_tools count 49 and all read-only source facades.
+2. Use Public's `public-deploy` and `public-health-check` skills from actual main clone in isolated local single-user environment, no internal GitVerse or Review dependency. Use available scoped secrets securely, never print/store in repo.
+3. H0–H6 on cold and warm standalone Public, REAL AS21 bounded independent A/B, browser UI (task row, period worklog, ranked candidates), safe empty/error output and no raw planner JSON; verify proxy stays on isolated Public Agent, not Review.
+4. If REAL AS21/LLM/browser unavailable, label the specific gate NOT VERIFIED rather than all-GREEN. Do not run unscoped queries or write to AS21.
 
-### Required report
-Exact SHA and CI/PR state, security scan evidence, risk matrix, sequential merge plan, rollback, `MERGE_READY_FOR_OWNER_REVIEW` / `HOLD` / `INCOMPLETE`. No modifications, no commits. STOP.
+### Gate 2 — Windows/macOS readiness discovery (P2)
+1. Audit install Skill + health Skill + DEPLOYMENT.md against Windows 11 PowerShell 7 and macOS zsh (Apple Silicon / Intel) workflows. Record exact unsupported command, path separator, subprocess, env/export, venv, Python 3.13 stdio or port handling. No actual Windows GREEN until independently run on Windows.
+2. Propose concise separate README sections / QUICKSTART_WINDOWS.md and QUICKSTART_MACOS.md covering prerequisites, install, local config, health H0–H6, browser test, rollback, troubleshooting and warnings for single-user only. **Draft recommendations only** for owner; no code/doc changes.
+3. Identify especially if health H3 cold stdio 15s budget has risk on slow Windows and whether platform-specific timeout controls need redesign; do not simply increase until measured.
 
-### Command
-Run A230R3.11-PUBLIC-STACKED-PR-RELEASE-READINESS-QA from Review GIGACODE_NEXT_ACTION.md. Strict independent QA only; inspect current Public PR #3 and PR #4, verify exact release evidence and propose safe merge sequence. No edits or merges, report and STOP.
+### Report
+Exact Public main TESTED_HEAD, CI, scan, 6/6 Core, 49 tools, H0–H6, A/B, browser, deploy skill, macOS vs Windows status, first failed boundary, Windows/macOS instruction change plan. Verdict `POSTMERGE_GREEN` / `INCOMPLETE` / `RED`. QA-only, report then STOP.
