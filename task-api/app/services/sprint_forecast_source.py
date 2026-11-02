@@ -75,5 +75,7 @@ def complete_workflow_history(payload: dict[str, Any], task_key: str) -> list[di
         out.append({"event_id": event_id, "event_identity_source": "local" if event_id.startswith("local:") else "source",
                     "changed_at": ts.isoformat(),
                     "from_name": event.get("old_value"),
-                    "to_name": event.get("new_value")})
+                    "to_name": event.get("new_value"),
+                    "from_status_type": event.get("from_status_type"),
+                    "to_status_type": event.get("to_status_type")})
     return out
