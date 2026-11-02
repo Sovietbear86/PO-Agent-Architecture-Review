@@ -7,6 +7,7 @@ business calendars, sprint baseline or throughput.
 from __future__ import annotations
 
 from datetime import datetime
+from hashlib import sha256
 from typing import Any
 
 
@@ -58,12 +59,21 @@ def complete_workflow_history(payload: dict[str, Any], task_key: str) -> list[di
         if ts.tzinfo is None:
             raise ValueError("history_timezone_missing")
         event_id = event.get("event_id")
-        if event_id:
-            if not isinstance(event_id, str) or event_id in seen:
-                raise ValueError("duplicate_status_event")
-            seen.add(event_id)
+        if event_id is None:
+            # AS21 history rows may have no source event ID. This is explicitly
+            # a LOCAL deduplication key, not a claimed source identifier.
+            # Identical timestamp+transition pairs are ambiguous: fail closed.
+            old_status, new_status = event.get("old_value"), event.get("new_value")
+            if not all(isinstance(v, str) and v for v in (old_status, new_status)):
+                raise ValueError("status_event_identity_unverified")
+            signature = "\\x1f".join((task_key, ts.isoformat(), old_status, new_status))
+            event_id = "local:" + sha256(signature.encode("utf-8")).hexdigest()
+        if not isinstance(event_id, str) or not event_id or event_id in seen:
+            raise ValueError("duplicate_status_event")
+        seen.add(event_id)
         # Neither 'updated_at' nor a guessed closed status is treated as closure.
-        out.append({"event_id": event_id, "changed_at": ts.isoformat(),
+        out.append({"event_id": event_id, "event_identity_source": "local" if event_id.startswith("local:") else "source",
+                    "changed_at": ts.isoformat(),
                     "from_name": event.get("old_value"),
                     "to_name": event.get("new_value")})
     return out
