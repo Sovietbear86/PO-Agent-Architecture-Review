@@ -112,3 +112,54 @@ def test_missing_terminal_closure_is_not_assumed():
     data["history_by_task"]["PRD-1"] = []
     with pytest.raises(ValueError, match="terminal_closure_event_missing"):
         project(data, events={"PRD-1": {}, "PRD-2": {"e3": "IN_PROGRESS"}})
+
+
+def test_source_status_type_binding_uses_exact_declared_lowercase():
+    from app.services.sprint_forecast_projection import bind_source_status_types
+
+    data = sample()
+    data["history_by_task"]["PRD-1"][0]["to_status_type"] = "in_progress"
+    data["history_by_task"]["PRD-1"][1]["to_status_type"] = "done"
+    data["history_by_task"]["PRD-2"][0]["to_status_type"] = "in_progress"
+    out = bind_source_status_types(
+        data,
+        current_status_types={"PRD-1": "done", "PRD-2": "in_progress"},
+        terminal_status_types=frozenset({"done"}),
+        as_of=AS_OF,
+    )
+    assert out["closed_total"] == 1
+    assert out["closed_at_by_task"]["PRD-1"] == "2026-10-21T09:00:00+00:00"
+    assert out["committed_predictability"] is None
+    assert out["forecast"] is None
+
+
+def test_source_binding_missing_status_type_fails_closed():
+    from app.services.sprint_forecast_projection import bind_source_status_types
+
+    data = sample()
+    data["history_by_task"]["PRD-1"][0]["to_status_type"] = "in_progress"
+    data["history_by_task"]["PRD-1"][1]["to_status_type"] = None
+    data["history_by_task"]["PRD-2"][0]["to_status_type"] = "in_progress"
+    with pytest.raises(ValueError, match="status_transition_type_unverified"):
+        bind_source_status_types(
+            data,
+            current_status_types={"PRD-1": "done", "PRD-2": "in_progress"},
+            terminal_status_types=frozenset({"done"}),
+            as_of=AS_OF,
+        )
+
+
+def test_source_binding_never_guesses_terminal_set_from_labels():
+    from app.services.sprint_forecast_projection import bind_source_status_types
+
+    data = sample()
+    for events in data["history_by_task"].values():
+        for event in events:
+            event["to_status_type"] = "done"
+    with pytest.raises(ValueError, match="terminal_status_contract_missing"):
+        bind_source_status_types(
+            data,
+            current_status_types={"PRD-1": "done", "PRD-2": "done"},
+            terminal_status_types=frozenset(),
+            as_of=AS_OF,
+        )
