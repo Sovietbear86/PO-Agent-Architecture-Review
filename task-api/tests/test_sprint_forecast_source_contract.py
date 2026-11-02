@@ -61,3 +61,10 @@ def test_workflow_history_preserves_only_authoritative_status_changes():
 def test_history_fail_closed(change, reason):
     with pytest.raises(ValueError, match=reason):
         complete_workflow_history(history(**change), "PRD-17")
+
+
+@pytest.mark.parametrize('invalid_value', [None, [], 'invalid', 10, False])
+def test_source_data_type_is_validated(invalid_value):
+    payload = collection(complete_tasks=[{'source_id': 'PRD-17', 'source_data': invalid_value}])
+    with pytest.raises(ValueError, match='task_sprint_membership_unproven'):
+        validate_complete_sprint_collection(payload)
