@@ -14,6 +14,8 @@ class HistoryEvent(BaseModel):
     field_name: Optional[str] = Field(None, description="Human-readable field name")
     old_value: Optional[str] = Field(None, description="Previous value (JSON string for structured data)")
     new_value: Optional[str] = Field(None, description="New value (JSON string for structured data)")
+    from_status_type: Optional[str] = Field(None, description="Source statusType before workflow_status transition, if present")
+    to_status_type: Optional[str] = Field(None, description="Source statusType after workflow_status transition, if present")
     actor: str = Field(..., description="User externalId who made the change")
     
     @classmethod
