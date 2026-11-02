@@ -1558,3 +1558,69 @@ async def get_task_history(task_code: str):
             "source_tool": "get_task_history",
         },
     )
+
+
+@router.get("/sprints/{sprint_id}/forecast/source-evidence")
+async def get_sprint_forecast_source_evidence(
+    sprint_id: str,
+    max_tasks: int = Query(100, ge=1, le=100),
+):
+    """Read-only, bounded source-proof gate; does NOT output a forecast.
+
+    Reuse the existing authenticated MCP source calls and proven pagination
+    rather than a cached/local task search. No raw history or task PII leaves
+    this route. Numeric forecasts and product calendar are later stages.
+    """
+    from app.services.sprint_forecast_collector import collect_sprint_workflow_evidence
+
+    normalized = sprint_id.strip().upper()
+    if not _SPRINT_ID_RE.fullmatch(normalized):
+        raise HTTPException(status_code=400, detail="Invalid sprint ID")
+
+    async def read_sprint(key: str) -> dict[str, Any]:
+        # FastAPI handler defaults are Query objects outside request injection.
+        # All source arguments are therefore passed explicitly as plain Python.
+        return await get_sprint_tasks(
+            sprint_id=key, space=None, page=0, limit=max_tasks,
+            complete=True, include_task_type=False, max_pages=10,
+        )
+
+    async def read_history(key: str) -> dict[str, Any]:
+        result = await get_task_history(key)
+        return result.model_dump(mode="json")
+
+    try:
+        result = await collect_sprint_workflow_evidence(
+            normalized, read_sprint=read_sprint, read_history=read_history,
+            max_tasks=max_tasks, concurrency=5, timeout_seconds=90.0,
+        )
+    except ValueError as exc:
+        reason = str(exc)
+        if reason in ("sprint_source_timeout",):
+            code = 504
+        elif reason in (
+            "sprint_source_identity_mismatch", "task_history_identity_mismatch",
+            "task_history_incomplete", "sprint_membership_incomplete",
+            "duplicate_or_missing_task_id", "task_sprint_membership_unproven",
+            "sprint_membership_over_limit", "invalid_task", "invalid_task_history",
+            "invalid_history_event", "history_timezone_missing",
+            "missing_closure_timestamp", "invalid_closure_timestamp",
+            "duplicate_status_event",
+        ):
+            code = 422
+        else:
+            code, reason = 502, "sprint_source_validation_failed"
+        raise HTTPException(status_code=code, detail={"reason": reason, "complete": False}) from exc
+    # Collector evidence is intentionally reduced to counts. Raw events remain
+    # internal for the later projection adapter, not displayed or persisted.
+    return {
+        "sprint_id": normalized,
+        "source": result["source"],
+        "complete": True,
+        "membership_proven": True,
+        "task_count": result["task_count"],
+        "history_complete_count": result["history_complete_count"],
+        "scope": result["scope"],
+        "forecast": None,
+        "committed_predictability": None,
+    }
