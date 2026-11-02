@@ -68,3 +68,36 @@ def test_source_data_type_is_validated(invalid_value):
     payload = collection(complete_tasks=[{'source_id': 'PRD-17', 'source_data': invalid_value}])
     with pytest.raises(ValueError, match='task_sprint_membership_unproven'):
         validate_complete_sprint_collection(payload)
+
+
+def test_missing_as21_event_id_uses_scoped_local_identity_not_source_id():
+    payload = history(events=[{
+        "task_code": "PRD-17", "field_code": "workflow_status",
+        "event_id": None, "old_value": "In progress", "new_value": "Done",
+        "changed_at": "2026-10-21T15:00:00Z",
+    }])
+    rows = complete_workflow_history(payload, "PRD-17")
+    assert len(rows) == 1
+    assert rows[0]["event_id"].startswith("local:")
+    assert rows[0]["event_identity_source"] == "local"
+    assert rows == complete_workflow_history(payload, "PRD-17")
+
+
+def test_duplicate_no_id_transition_is_rejected_not_counted_twice():
+    event = {
+        "task_code": "PRD-17", "field_code": "workflow_status",
+        "event_id": None, "old_value": "In progress", "new_value": "Done",
+        "changed_at": "2026-10-21T15:00:00Z",
+    }
+    with pytest.raises(ValueError, match="duplicate_status_event"):
+        complete_workflow_history(history(events=[event, dict(event)]), "PRD-17")
+
+
+def test_no_id_missing_transition_fields_must_fail_closed():
+    event = {
+        "task_code": "PRD-17", "field_code": "workflow_status",
+        "event_id": None, "new_value": "Done",
+        "changed_at": "2026-10-21T15:00:00Z",
+    }
+    with pytest.raises(ValueError, match="status_event_identity_unverified"):
+        complete_workflow_history(history(events=[event]), "PRD-17")
