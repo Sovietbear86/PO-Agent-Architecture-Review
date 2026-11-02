@@ -84,3 +84,25 @@ async def test_facade_bad_history_fails_closed(monkeypatch):
         await swtr_read.get_sprint_forecast_source_evidence("PRD-SPRNT-1", max_tasks=100)
     assert err.value.status_code == 422
     assert err.value.detail["reason"] == "task_history_incomplete"
+
+
+def test_status_type_extractor_only_reads_authoritative_source_field():
+    from app.routers.swtr_read import _history_workflow_status_type
+
+    assert _history_workflow_status_type({"name": "Resolved", "statusType": "DONE"}) == "DONE"
+    assert _history_workflow_status_type({"name": "Resolved", "statusType": {"code": "DONE"}}) == "DONE"
+    assert _history_workflow_status_type({"name": "Resolved"}) is None
+    assert _history_workflow_status_type("Resolved") is None
+    assert _history_workflow_status_type({"name": "Resolved", "statusType": []}) is None
+
+
+def test_history_model_preserves_optional_status_types():
+    from app.models.history import HistoryEvent
+
+    event = HistoryEvent(
+        task_code="PRD-17", field_code="workflow_status", actor="Test.User",
+        old_value="In progress", new_value="Resolved",
+        from_status_type="IN_PROGRESS", to_status_type="DONE",
+        changed_at="2026-10-21T15:00:00+00:00",
+    )
+    assert event.model_dump(mode="json")["to_status_type"] == "DONE"
