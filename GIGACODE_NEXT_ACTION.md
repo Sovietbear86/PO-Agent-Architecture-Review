@@ -1,24 +1,26 @@
 # GigaCode — CURRENT NEXT ACTION
 
-## A230R3.24-P31-D2-R8-SOURCE-STATUS-BINDING-QA
+## A230R3.25-P31-D2-R9-EXPLICIT-FORECAST-POLICY-QA
 
-**Independent QA ONLY.** No changes to code, tests, docs, config, frozen Core V4, Git history, Public, AS21, existing user services. No commits/pushes/merges/writes/unbounded scans. Keep local untracked QA artifacts and dirty state. Fetch origin; record LOCAL=REMOTE=TESTED_HEAD.
+**Independent QA ONLY**. Do not edit any code, tests, docs, configuration, frozen Core V4 or AS21. No commits/pushes/merges or destructive cleanup, broad source scans or mutations. Preserve all running Review/Public services and user dirty files. Fetch origin, report LOCAL=REMOTE=TESTED_HEAD.
 
-### Previous checkpoint
-A230R3.23 D2_R7_GREEN, TESTED_HEAD `7adcf5f`: optional HistoryEvent from/to_status_type and source-preserved workflow statusType confirmed by bounded REAL AS21 DMS-SPRNT-5 oracle (5 tasks/17 events, 17/17 status types), focused 57/57, independent 22/22, V4 299, Task API 161 passed/25 existing failures, frontend build 0, frozen Core 6/6. REAL AS21 statusType values are **lowercase** (done, in_progress, pause); test mocks uppercase; terminal status set must derive from source metadata, never from task display name or hardcoded synthetic guesses. Running Task API process may be stale; identify HEAD before live recheck.
+### Baseline
+A230R3.24 `D2_R8_GREEN + LIVE_ADAPTER_BLOCKED(terminal-set)`, tested HEAD `5f2ded2`. Independent source-status binding 60/60 focused, 36/36 adversarial, source A/B 5/5 DMS-SPRNT-5, Agent V4 299, Task API 164 passed/25 known baseline failures, frontend build 0, frozen Core V4 6/6. AS21 gives source-declared statusType values lowercase `done`, `in_progress`, `pause`, but TQL/metadata do NOT enumerate authoritative terminal categories. Consequently owner must supply *approved terminal-type product policy*, not infer from observed `done` samples.
 
-### Owner-only next patch (NOT QA certified)
-- `4729c11` appended pure `bind_source_status_types` to `task-api/app/services/sprint_forecast_projection.py`. It maps per-event **source-declared** `to_status_type` by locally proven event identity into existing `verify_forecast_closure_inputs`. Requires explicit caller-provided *source-authoritative* current per-task types, terminal types and snapshot as_of. Exact lowercase values preserved; no name inference or synthetic terminal set, fail closed on missing/duplicate event IDs, missing status types, inconsistent history.
-- `77336d8` added three offline tests in `task-api/tests/test_sprint_forecast_projection.py`: lowercase source-proven closed count, absent event type, absent terminal contract.
-- **No live adapter/current task type extraction, no terminal source metadata reader, no product-local calendar/TZ, no forecast HTTP route, no V4 Plugin and no UI.** Live Delivery Forecast remains NOT IMPLEMENTED. No frozen Core changes.
+### Owner patch not yet QA certified
+- `0324c87` NEW pure `task-api/app/services/sprint_forecast_policy.py`, a `SprintForecastPolicy` with *explicit* authority string, timezone name, approved_at tz-aware, canonical working weekdays and exact terminal frozenset. `validate_forecast_policy` fails closed if missing/invalid policy; it does not set defaults, infer from display names or call AS21.
+- `891b127` NEW `task-api/tests/test_sprint_forecast_policy.py` offline policy contract tests including missing approval/authority, invalid timezone/workdays, absent/invalid terminal type.
+- **IMPORTANT: No actual PO approval has been granted for specific statuses, calendar, or time zone in production by these test fixtures.** The sample `frozenset({"done"})` and Europe/Moscow appear ONLY in synthetic tests, NOT deployed settings. Do not claim live forecast. The pure validator is not yet connected to route, projector, plugin or UI. No Core changes.
 
-### Gates
-1. Source integrity: compare delta after previous A230R3.23; only projection + its tests + this assignment. Verify frozen Core 6/6 byte-identical to checkpoint `6fb335d`, no secrets, hardcodes, writes or raw AS21 leaks.
-2. Run projection tests (prior 13 + three new = expected **16**), source contract tests (19/19 baseline), collector (6), source-proof route (6), forecast calculator (11). Run independent adversarial: mixed uppercase/lowercase source types, wrong current status, duplicate event IDs, event time future/outside as_of, reopened after done, missing event type, source complete=false, non-dict histories; all must fail closed, with no fake 100% or committed predictability.
-3. Source contract review: verify the actual fields for current task statusType in `get_sprint_tasks` complete tasks and **source-defined terminal categories** (e.g. status metadata). Source may return type strings lowercase; do not treat sample `done` as universal production terminal classification. Confirm how to validate statusType lookup against AS21 rather than UI text or manually fabricated values. If missing, `LIVE_ADAPTER_BLOCKED` (pure QA can still pass).
-4. Run full Agent V4 (~299) and Task API source-backed/full regression against known 25 Task API baseline failures; frontend build; Core 6/6. Report exact counts, first failing boundary. Do not claim source-to-UI working.
-5. Deliver next minimal owner integration contract: task statusType as-of snapshot, authoritative terminal set, explicit product timezone and workdays, projection output conversion to `SprintForecastInput`, HTTP-facing safe response, Plugin/UI change separate. Preserve real source provenance.
-6. Verdict: `D2_R8_GREEN` if focused tests and independent guards pass; `RED` if any production regression; *separately* report `LIVE_ADAPTER_BLOCKED` if current/terminal statusType source cannot be proved. QA-only, no code modification, STOP.
+### Gate 0 — audit
+Verify delta from `5f2ded2` exactly new policy module, test module, this QA spec. All six frozen Core V4 files byte-identical to checkpoint `6fb335d`; preserve worktree. Scan source for unauthorized defaults/credentials/PII or hardcoded sprint keys. Confirm policy is not auto-enabled.
+### Gate 1 — contract tests + adversarial
+Run `pytest -q task-api/tests/test_sprint_forecast_policy.py` (expected 11 pytest cases; calculate actual collected count). Independently test malformed policy object, dates, timezone values and missing tzdb, duplicate weekdays, bool weekdays, non-frozenset terminal list, blanks/spaces, policy authority missing, unapproved policy and local/AS21 source unavailable. Distinguish a valid syntax contract from actual business-approved policy provenance. Any TypeError/AttributeError on malformed caller input = RED fail-closed defect. In particular invalid *unhashable* weekday items might trigger TypeError from `set(weekdays)`; check robust validation.
+### Gate 2 — regressions and design contract
+Run existing source/projection 16+ tests, collector 6, route 6, calculator 11, V4 full (~299), Task API source-backed and broad (25 existing baseline failures), frontend build. Check Core V4 6/6 and Public unaffected.
+Confirm smallest owner integration after GREEN: (1) explicit authorized product policy source and as_of status snapshot, (2) internally bind current statusType and terminal set to `bind_source_status_types`, (3) map verified closures to `SprintForecastInput` using product timezone + weekdays, (4) bounded safe GET projection and V4 Plugin, then UI tile replacement. Historical committed Predictability remains N/A absent baseline. Real AS21 values must be read, no invented numeric forecasts.
+### Verdict
+`D2_R9_GREEN` if independent tests pass and fail-closed policy mechanism sound, else RED first boundary. **Live integration remains blocked on product approval/configuration and future wiring even if green.** QA only, report and STOP.
 
 ### Short command
-Execute A230R3.24-P31-D2-R8-SOURCE-STATUS-BINDING-QA from current Review GIGACODE_NEXT_ACTION.md. Verify source-declared lowercase statusType binding and strict fail-closed, current/terminal source contracts, all regression and frozen Core 6/6. Independent QA only; report and STOP.
+Execute A230R3.25-P31-D2-R9-EXPLICIT-FORECAST-POLICY-QA from Review GIGACODE_NEXT_ACTION.md. Independent QA: validate explicit terminal status / TZ / weekday policy guards, adversarial, full regression, Core 6/6. No changes or commits; report and STOP.
