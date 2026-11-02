@@ -24,7 +24,8 @@ def validate_complete_sprint_collection(payload: dict[str, Any], *, max_tasks: i
         key = task.get("source_id")
         if not isinstance(key, str) or not key or key in seen:
             raise ValueError("duplicate_or_missing_task_id")
-        if task.get("source_data", {}).get("sprint_membership_proven") is not True:
+        source_data = task.get("source_data")
+        if not isinstance(source_data, dict) or source_data.get("sprint_membership_proven") is not True:
             raise ValueError("task_sprint_membership_unproven")
         seen.add(key)
     return tasks
