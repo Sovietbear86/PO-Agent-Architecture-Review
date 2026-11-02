@@ -101,3 +101,26 @@ def test_no_id_missing_transition_fields_must_fail_closed():
     }
     with pytest.raises(ValueError, match="status_event_identity_unverified"):
         complete_workflow_history(history(events=[event]), "PRD-17")
+
+
+def test_authoritative_status_types_survive_source_validation():
+    event = {
+        "task_code": "PRD-17", "field_code": "workflow_status",
+        "event_id": None, "old_value": "In progress", "new_value": "Resolved",
+        "from_status_type": "IN_PROGRESS", "to_status_type": "DONE",
+        "changed_at": "2026-10-21T15:00:00Z",
+    }
+    rows = complete_workflow_history(history(events=[event]), "PRD-17")
+    assert rows[0]["to_status_type"] == "DONE"
+    assert rows[0]["from_status_type"] == "IN_PROGRESS"
+    assert rows[0]["event_identity_source"] == "local"
+
+
+def test_unknown_status_type_does_not_get_guessed_from_display_name():
+    event = {
+        "task_code": "PRD-17", "field_code": "workflow_status",
+        "event_id": None, "old_value": "In progress", "new_value": "Resolved",
+        "changed_at": "2026-10-21T15:00:00Z",
+    }
+    rows = complete_workflow_history(history(events=[event]), "PRD-17")
+    assert rows[0]["to_status_type"] is None
