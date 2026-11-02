@@ -1,6 +1,6 @@
 """Source-complete deterministic forecast regression (no AS21 credentials)."""
 from dataclasses import replace
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timezone, timedelta
 
 from po_agent.sprint.delivery_forecast import SprintForecastInput, forecast_sprint
 
@@ -87,3 +87,39 @@ def test_invalid_scope_empty_and_future_start_fail_closed():
     assert forecast_sprint(sample(scope_total=4))["reason"] == "invalid_scope_counts"
     assert forecast_sprint(sample(scope_total=0, closed_total=0, closed_at=()))["reason"] == "empty_sprint_scope"
     assert forecast_sprint(sample(as_of=datetime(2026, 10, 18, tzinfo=UTC)))["reason"] == "sprint_not_started"
+
+
+def test_prevent_one_day_closure_burst_from_promising_100_percent():
+    burst = tuple(datetime(2026, 10, 19, h, tzinfo=UTC) for h in (11, 12, 13))
+    out = forecast_sprint(sample(
+        as_of=datetime(2026, 10, 19, 18, tzinfo=UTC),
+        closed_total=3, closed_at=burst))
+    assert out["status"] == "INSUFFICIENT_EVIDENCE"
+    assert out["reason"] == "insufficient_observation_window"
+
+
+def test_closure_dates_are_interpreted_in_product_as_of_timezone():
+    # 2026-10-19 23:30Z is 2026-10-20 locally (+02:00).
+    local = timezone(timedelta(hours=2))
+    closures = (
+        datetime(2026, 10, 19, 23, 30, tzinfo=UTC),
+        datetime(2026, 10, 21, 12, tzinfo=UTC),
+        datetime(2026, 10, 22, 12, tzinfo=UTC),
+    )
+    out = forecast_sprint(sample(
+        as_of=datetime(2026, 10, 23, 20, tzinfo=local),
+        closed_total=3, closed_at=closures))
+    assert out["status"] == "READY"
+
+
+def test_utc_date_before_start_is_valid_if_local_date_is_sprint_start():
+    local = timezone(timedelta(hours=3))
+    closures = (
+        datetime(2026, 10, 18, 22, tzinfo=UTC),
+        datetime(2026, 10, 20, 11, tzinfo=UTC),
+        datetime(2026, 10, 21, 12, tzinfo=UTC),
+    )
+    out = forecast_sprint(sample(
+        as_of=datetime(2026, 10, 23, 20, tzinfo=local),
+        closed_total=3, closed_at=closures))
+    assert out["status"] == "READY"
