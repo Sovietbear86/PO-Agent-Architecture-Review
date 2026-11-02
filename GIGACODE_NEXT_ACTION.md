@@ -1,22 +1,32 @@
 # GigaCode — CURRENT NEXT ACTION
 
-## A230R3.16-P31-D1-R2-FORECAST-GUARDS-QA
+## A230R3.16-R2-P31-D1-FORECAST-ESCAPED-NEWLINE-FIX-QA
 
-**QA ONLY — no edits or commits.** Preserve local dirty state, all running Review/Public processes and AS21. No source writes, tenant-wide scans, Core V4 modifications or uncontrolled query retries.
+**Independent QA ONLY.** Do not edit source code/tests/docs/config, do not commit/push/merge, do not stop user's processes, no AS21 writes or unbounded reads. Preserve untracked QA files and local dirty state. Fetch remote and confirm exact LOCAL_HEAD = REMOTE_HEAD = TESTED_HEAD before testing.
 
-### Preceding gate
-Independent A230R3.15 D1 **GREEN** on `25eb8dc`: forecast 8/8, V4 297, frontend build exit 0; Task API 112 passed / 21 **pre-existing legacy local-store CRUD** failures (not a D1 regression). Core frozen 6/6. DMS-SPRNT-5 source snapshot as of 2026-11-02T05:35Z: 35 tasks / 20 done / 11 in progress / 4 paused, no committed baseline, closure timestamps available, source lacks official holiday calendar. New `sprint.delivery_forecast` **NOT connected** to live AS21 or UI. D1 source model expects explicit working-day calendar, complete membership and trustworthy timestamps; do not fake them.
+### First failing boundary (R1)
+A230R3.16 previous QA on `061c554` was `D1_R2_RED`: `delivery_forecast.py` line 76 contained **literal** backslash-n strings inside a comment, accidentally commenting out timezone normalization and `closure_out_of_scope` verification, and the early-window guard was also swallowed. 9/11 forecast tests passed, 2 failed: `test_reject_incomplete_or_incorrect_closure_evidence` and `test_prevent_one_day_closure_burst_from_promising_100_percent`. One unintended false-READY=100% at sprint start was reproduced. Frozen Core V4 6/6 unchanged, V4 297 passed, frontend built, Task API legacy CRUD 21 failed/112 passed unchanged baseline, source-backed SWTR-read 63 passed. This was a genuine owner D1 regression, **not** AS21 failure.
 
-### Owner-only D1.1 hardening awaiting independent QA
-- `ed67cf8`: normalizes completion timestamps into as_of's timezone before membership-window date checks; rejects remaining-scope projections from fewer than 3 elapsed weekdays, to avoid burst of 3 same-day closes implying 100%.
-- `005123c`: 3 synthetic tests for one-day burst and UTC↔local midnight transitions. Pure module and tests only, outside 6 frozen Core files. These patches have not yet been independently run.
+### Owner-only fix
+`29ca0ac` edits **only** `po-agent-platform-v2/src/po_agent/sprint/delivery_forecast.py`:
+1. Replace 3 literal `\\n` escapes at line ~76 with real Python source line breaks, so `local_closures = ...astimezone(as_of.tzinfo)` and `if any(...)` execute.
+2. Restore the `elapsed < 3 and closed_total < scope_total` fail-closed `insufficient_observation_window` guard.
+No other calculator semantics, no V4 plugin/live AS21/UI changes and no Core changes. This new fix is **NOT yet independently QA-verified**.
 
-### Gates
-1. Fetch/verify exact local=remote=TESTED_HEAD. Delta since `25eb8dc` only `delivery_forecast.py`, `test_sprint_delivery_forecast.py`, assignment. Check Core V4 6/6 byte-identical to checkpoint `6fb335d`.
-2. Run forecast tests (expected **11/11**) including independent adversarial cases (one-day completion, timezone boundaries, sprint end, full complete, duplicated closing timestamp, missing source working calendar, closure authoritativeness, partial membership, source outage); fail closed and no false high-confidence or committed prediction.
-3. Run V4 full regression, Task API source-backed tests, frontend build and report exact numbers, compare 21 legacy Task API failures to recorded baseline; no fake GREEN for test suite as a whole.
-4. Verify pure module is still NOT wired to live V4/AS21/UI. Evaluate next D2 integration contract: canonical AS21 sprint key + actual sprint dates/statuses, complete scoped task read, **unique task IDs** for closed-event dedup, source-backed resolved/closed_at (not updated_at), mixed timezone normalization, working weekdays/calendar supplied as a declared product configuration, not an invented AS21 fact. If source calendar unverified, output INSUFFICIENT_EVIDENCE. Do not invent live forecast counts.
-5. Inspect for any other forward-looking data leaks. Report exact first failure, tested HEAD, source provenance, bounded source note (no new source queries required), frozen Core, and `D1_R2_GREEN / RED / INCOMPLETE`. STOP.
+### Gate 0 — integrity
+1. Sync branch HEAD and verify exactly one-owner-file delta since `061c554` plus this QA spec, preserve ALL dirty files. Confirm all 6 frozen Core V4 byte-identical to `6fb335d`.
+2. Scan file for literal `\\n` source text in timezone guard, confirm source line separation is valid, and run Python `compileall` on calculator. No hidden source/log leakage.
 
-### Short command
-Run A230R3.16-P31-D1-R2-FORECAST-GUARDS-QA from Review GIGACODE_NEXT_ACTION.md. QA only: 11 forecast tests, full regress, timezone/one-day guards, Core 6/6; no fixes/commits. Report and STOP.
+### Gate 1 — focused + adversarial
+1. Run 11 unit tests in `po-agent-platform-v2/tests/test_sprint_delivery_forecast.py`; demand **11/11**. Specifically previously failing cases: post-sprint closure timestamp rejected with `closure_out_of_scope`; UTC date normalized to product-local start/end; one-day same-day 3 closures returns `INSUFFICIENT_EVIDENCE`, not READY 100%.
+2. Additional boundary tests (independent, without production edits): 0/1/2 closure events, 3 closure events after 1/2 days with remaining scope, elapsed >=3, all done, negative/out-of-range counts, missing membership/timezone/calendar/AS21, end date, future resolved_at, duplicate task events if adapter later supplies such input. Do not claim caller-dedup is implemented when it is not.
+3. Verify calculator is still pure and disconnected from live AS21/UI, no source mutation or fictitious historical predictability. Working calendar and membership must be verified before next integration.
+
+### Gate 2 — regression
+V4 full (~297 baseline), source-backed SWTR Task API (~63 baseline), frontend build; run broader Task API and classify previously existing 21 legacy CRUD failures as baseline vs new delta. Do not blanket label Task API green if those remain. Confirm 6/6 Core unchanged. No new LIVE AS21 tests necessary for a pure-module change.
+
+### Verdict and STOP
+Return exact TESTED_HEAD, pass/fail per suite, independent adversarial and static checks, proof of line-76 runtime behavior, Core hashes, delta, remaining known gaps. `D1_R2_GREEN` only if required tests and guard behaviors pass. For RED cite first failing line/test and stop. Do not edit anything; optionally keep only untracked QA report. STOP.
+
+### Command
+Run A230R3.16-R2-P31-D1-FORECAST-ESCAPED-NEWLINE-FIX-QA from current Review GIGACODE_NEXT_ACTION.md. QA only; 11/11 targeted, recovered timezone/closure/early-window guards, full regression, Core V4 6/6. No fixes/commits. Report and STOP.
