@@ -108,3 +108,47 @@ def verify_forecast_closure_inputs(
         "committed_predictability": None,
         "forecast": None,
     }
+
+
+def bind_source_status_types(
+    evidence: dict[str, Any],
+    *,
+    current_status_types: dict[str, str],
+    terminal_status_types: frozenset[str],
+    as_of: datetime,
+) -> dict[str, Any]:
+    """Bind already-proven AS21 per-event types into the existing projector.
+
+    Types are exact, source-declared values (including lowercase). No name
+    inference and no guessed terminal set. Missing statusType fails closed.
+    The returned closed_at_by_task mapping is INTERNAL, never UI-facing.
+    """
+    if not isinstance(evidence, dict) or not isinstance(evidence.get("history_by_task"), dict):
+        raise ValueError("forecast_source_incomplete")
+    if not isinstance(terminal_status_types, frozenset) or not terminal_status_types:
+        raise ValueError("terminal_status_contract_missing")
+    if not all(isinstance(x, str) and x and x == x.strip() for x in terminal_status_types):
+        raise ValueError("terminal_status_contract_invalid")
+    event_types: dict[str, dict[str, str]] = {}
+    for task_key, events in evidence["history_by_task"].items():
+        if not isinstance(task_key, str) or not isinstance(events, list):
+            raise ValueError("invalid_forecast_history")
+        mapped: dict[str, str] = {}
+        for event in events:
+            if not isinstance(event, dict):
+                raise ValueError("invalid_forecast_history")
+            event_id = event.get("event_id")
+            declared = event.get("to_status_type")
+            if not isinstance(event_id, str) or not event_id or event_id in mapped:
+                raise ValueError("status_event_identity_unverified")
+            if not isinstance(declared, str) or not declared or declared != declared.strip():
+                raise ValueError("status_transition_type_unverified")
+            mapped[event_id] = declared
+        event_types[task_key] = mapped
+    return verify_forecast_closure_inputs(
+        evidence,
+        current_status_types=current_status_types,
+        terminal_status_types=terminal_status_types,
+        event_status_types=event_types,
+        as_of=as_of,
+    )
