@@ -22,7 +22,7 @@ def history(code):
     return HistoryResponse(
         task_code=code,
         events=[HistoryEvent(task_code=code, field_code="workflow_status",
-                             old_value="In Progress", new_value="Done",
+                             old_value="In Progress", new_value="Done", actor="Test.User",
                              changed_at="2026-10-21T10:00:00+00:00")],
         page_info={"complete": True, "has_next": False},
     )
