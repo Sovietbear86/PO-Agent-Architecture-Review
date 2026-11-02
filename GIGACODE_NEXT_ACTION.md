@@ -1,31 +1,36 @@
 # GigaCode — CURRENT NEXT ACTION
 
-## A230R3.19-P31-D2-R3-BOUNDED-COLLECTOR-QA
+## A230R3.20-P31-D2-R4-SOURCE-PROOF-GET-QA
 
-**Independent QA ONLY.** No code/tests/config/README/Core edits; no commits, pushes, merges, AS21 writes or unbounded scans; preserve user services and dirty/untracked QA reports. Fetch origin and record LOCAL=REMOTE=TESTED_HEAD.
+**INDEPENDENT QA ONLY.** GigaCode must not change application code, tests, documents, configs, frozen Core V4, Git history, Public repo or AS21. No commits, pushes, merges, mutations, tenant-wide scans, or stopping existing user services. Preserve dirty/untracked QA files. Fetch origin, confirm LOCAL=REMOTE=TESTED_HEAD.
 
-### Previous checkpoint
-A230R3.18-R2 **D2_R2_GREEN** on `62e4322`: source-contract 16/16, adversarial 17/17, forecast 11/11, V4 299, frontend build exit 0, frozen Core 6/6; Task API 131 passed/25 failed (pre-existing: 21 legacy CRUD + 4 MCP-dependent integration). This closes R1 uncaught AttributeError from malformed source_data.
+### Baseline and approved product decision
+- A230R3.19 D2_R3_GREEN on `38e9fe1`: 6/6 collector tests, 16/16 source validators, 11/11 pure calculator, 26/26 independent adversarial, V4 299, frontend build exit 0, frozen Core 6/6. Task API 137 passed/25 failed same pre-existing categories (21 legacy CRUD + 4 MCP integration). Source collector is bounded to <=100 tasks, <=5 concurrent histories, 90s runtime at route.
+- **UX decision:** Delivery Forecast will **replace** main Predictability tile in Sprint view once genuinely source-proven; historical committed Predictability remains in expandable additional metrics and stays N/A absent baseline. NO UI change in this assignment.
+- Owner-only first D2 transport patch (NOT yet QA certified):
+  - `1faaa20`: one new GET `/api/v1/swtr-read/sprints/{sprint_id}/forecast/source-evidence` in `task-api/app/routers/swtr_read.py`, validated sprint ID, explicit plain Python args for existing complete collection and task history handlers, max_tasks<=100, concurrency=5, whole timeout=90s, no source mutations. Aggregates only task_count/history_complete_count and proven flags. **Does NOT compute forecast, does NOT expose raw task/history payload**.
+  - `c3e27d5`: offline route contract tests `task-api/tests/test_sprint_forecast_source_route.py` (complete, incomplete, invalid id and truncated history).
+- Agent V4 plugin, real forecast projection, product-local TZ/working-day config and UI tile NOT implemented. No Core change; Public remains at previously merged release.
 
-### Owner D2 incremental change, not QA-certified
-- `d54284e` added `task-api/app/services/sprint_forecast_collector.py`, a dependency-injected bounded **read-only pure source orchestrator**: complete canonical sprint membership first; <=100 tasks; <=5 concurrent history calls; whole operation <=120s; per-task history completeness and timestamp verification; fails closed, returns compact source evidence plus explicit forecast=None and committed_predictability=None. No fabricated closure/forecast and no CORE changes.
-- `ae762ca` added `task-api/tests/test_sprint_forecast_collector.py` offline tests for completeness, concurrency, timeout, identity, bounds.
-- Not connected to HTTP route, AS21 runtime adapter, Agent V4 plugin or UI. **Do NOT call this a live feature or declare REAL AS21 forecast GREEN.**
+### Gate 0 — integrity/security
+1. Compare HEAD against `38e9fe1`; only one Task API router file + one new test + this spec. All 6 frozen Core files byte-identical to `6fb335d`.
+2. Confirm no write-capable route/method, no raw history/user PII in response, no internal host or secret. Audited route must be bounded and must not fall back to local task stores/fake metrics.
 
-### Gate 0 — integrity
-Sync current branch; show delta only two new collector files and this assignment since `62e4322`. Core V4 six files byte-identical to checkpoint `6fb335d`; no credentials/PII/source writes.
+### Gate 1 — isolated tests and adversarial cases
+1. Run `pytest -q task-api/tests/test_sprint_forecast_source_route.py`; then collector 6, source contract 16, calculator 11.
+2. Verify GET source-proof successful response contains only compact typed fields (no `events`, `complete_tasks`, `actor`, raw `history_by_task`), no `forecast` number (null only), committed predictability null.
+3. Verify partial/incorrect source (incomplete page, membership truncated, wrong sprint identity, malformed source_data, missing history, wrong history task ID) results in safe typed error with correct HTTP status (not HTTP 200, not uncaught 500). Check error-code consistency and potential exception leaking.
+4. Confirm all FastAPI handler `Query` defaults are explicitly passed as plain Python values. Confirm all handler arguments and route path match actual API source and registered router. Source MCP calls remain read-only. Route SLA: <=100 tasks, <=5 concurrent history, timeout 90s. Evaluate whether client timeout is shorter than route budget.
+5. Optional, if authorized: one **bounded REAL AS21 DMS-SPRNT-5** GET against isolated Review Task API, independent direct read-only oracle, document exact as_of and complete counts; no broad scans. If source/LLM unavailable mark NOT VERIFIED.
+6. Run full V4 (~299), Task API SWTR-read and full baseline (known 25 failures), frontend build. Report exact pass/fail and baseline classification, no blanket GREEN for failing suite. Core 6/6.
 
-### Gate 1 — focused independent test
-Run `task-api/tests/test_sprint_forecast_collector.py` (expected 6 PASS), `task-api/tests/test_sprint_forecast_source_contract.py` (16 PASS) and 11 Delivery Forecast tests. Probe adversarially: malformed source_data/metadata; source not complete; history truncated; duplicate task IDs; task count 0 and >100; read_sprint non-dict/wrong ID; history non-dict; first history error while others await; >=6 simultaneous history attempts; 120s bound and cancellation; non-authoritative statuses; reused data from different sprint. **Check timeout on one bad stalled MCP/history call with cancellation.** If exceptions leak as HTTP 500 on future facade, document needed typed mapping.
-Independently inspect generated response for raw PII/history; ensure pure orchestration does not yet expose it to UI.
+### Gate 2 — next D2 contracts
+- Determine exact JSON of terminal `statusType` and lifecycle history that can prove a task remains terminal as of snapshot, handling reopened tasks. `updated_at` must NEVER substitute for closure timestamp.
+- Define product-local timezone/weekday calendar explicit config (AS21 has no authoritative holiday calendar). If config missing, forecast `INSUFFICIENT_EVIDENCE`.
+- Next owner patch after GREEN: adapt safe source evidence into date/timezone/weekday projection, then external-Core `sprint.delivery_forecast` plugin, then UI replacement. Do not attempt in QA.
 
-### Gate 2 — regressions and next contract
-Run V4 full (~299), Task API source-backed battery and broader Task API, frontend build. Classify known 25 previous failures as baseline. Confirm collector can be called by future Task API read-only route with *real* existing `get_sprint_tasks(complete=true)` and `get_task_history` while honoring QoS; inspect for FastAPI Query object defaults when calling handlers internally (must pass ordinary Python args).
-Recommend next **smallest** owner patch: one GET source-proof endpoint with typed incomplete/unavailable response (no raw payload), isolated tests. Explicitly specify required source-proven sprint date/timezone/weekdays/terminal status classification before any projection or plugin.
-Core 6/6 no drift, Public untouched.
-
-### Verdict
-`D2_R3_GREEN` only if collector gates all pass, else RED with first failing boundary and minimal owner fix. QA only, report then STOP.
+### Verdict / STOP
+`D2_R4_GREEN` only if route response and errors safe, tests/regr unchanged and bounded scoped source. Otherwise `RED` first failing boundary with minimal owner fix. Tested SHA, route URI, exact counts, Core hashes, assumptions, report and STOP.
 
 ### Short command
-Execute A230R3.19-P31-D2-R3-BOUNDED-COLLECTOR-QA from Review GIGACODE_NEXT_ACTION.md. Independently test new bounded async collector (<=100 tasks, <=5 concurrency, fail closed), 16 source tests, 11 forecast, full regress and frozen Core 6/6. No edits/commits. Report and STOP.
+Run A230R3.20-P31-D2-R4-SOURCE-PROOF-GET-QA from current Review GIGACODE_NEXT_ACTION.md. Independent QA only: new GET source-proof route and tests, bounded AS21 read, safe outputs, full regress, Core 6/6. No edits/commits. Report and STOP.
