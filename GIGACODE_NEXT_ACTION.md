@@ -1,21 +1,22 @@
 # GigaCode — CURRENT NEXT ACTION
 
-## A230R3.15-P31-D1-FORECAST-DETERMINISTIC-CORELESS-QA
+## A230R3.16-P31-D1-R2-FORECAST-GUARDS-QA
 
-**Independent QA only.** Do not modify code, tests, docs, configs, source data, frozen Agent Core V4, or Public. No commits/pushes/merges. Preserve existing user worktree, services, and credentials; use read-only bounded source queries only when needed.
+**QA ONLY — no edits or commits.** Preserve local dirty state, all running Review/Public processes and AS21. No source writes, tenant-wide scans, Core V4 modifications or uncontrolled query retries.
 
-### Context
-Previous A230R3.14 P31-D0 **READY** for Delivery Forecast, **BLOCKED_BY_SOURCE** for historical committed predictability. Independent bounded oracle reported DMS-SPRNT-5 as of 2026-11-01T20:45Z: 35 tasks, 20 closed, 15 open, 20 closure timestamps, no committed start baseline, indicative observed 2.0 tasks/workday. Numbers are dated snapshots, not today's facts. Cannot silently use a current snapshot as original committed baseline.
-Owner implemented only pure deterministic calculator `po-agent-platform-v2/src/po_agent/sprint/delivery_forecast.py` plus offline tests `po-agent-platform-v2/tests/test_sprint_delivery_forecast.py` (commits `ef20e70`, `10dfd4c`, `2810a55`). **NO plugin wiring, AS21 adapter or UI change yet**. This is a new pure module, NOT frozen Agent Core V4.
+### Preceding gate
+Independent A230R3.15 D1 **GREEN** on `25eb8dc`: forecast 8/8, V4 297, frontend build exit 0; Task API 112 passed / 21 **pre-existing legacy local-store CRUD** failures (not a D1 regression). Core frozen 6/6. DMS-SPRNT-5 source snapshot as of 2026-11-02T05:35Z: 35 tasks / 20 done / 11 in progress / 4 paused, no committed baseline, closure timestamps available, source lacks official holiday calendar. New `sprint.delivery_forecast` **NOT connected** to live AS21 or UI. D1 source model expects explicit working-day calendar, complete membership and trustworthy timestamps; do not fake them.
 
-### Required gates
-1. Fetch origin; record exact `LOCAL_HEAD=REMOTE_HEAD=TESTED_HEAD`, diff relative to previous discovery checkpoint `519ac33`, confirm only new pure module + tests and no Core/service changes. Core V4 6/6 byte-identical to `6fb335d`. No rebase/overwrite dirty files.
-2. Run `python -m pytest -q po-agent-platform-v2/tests/test_sprint_delivery_forecast.py` with correct package install/PYTHONPATH. Check 8 test cases all passed; run complete V4/Task API regression and frontend build for unrelated regressions. Report exact counts, first failure if RED.
-3. Independently inspect formula implementation: no committed-baseline fabrication; `closed_at` authoritative timestamps, explicit complete membership, counted closed events, verified working calendar and timezone, source=REAL_AS21, no made-up 3 story points, zero/partial/source outage fail closed, current-scope vs committed semantic separation, no lookahead in retrospective mode (currently not implemented).
-4. Test boundaries with additional independent adversarial cases: 2 or fewer closures, no working days, sprint just started, closed outside end, naive dates, in-flight future closure, percent never exceeds 100, zero open with all tasks done, leap/month/year changes, invalid status/negative counts and duplicates. Note exact first bug and minimal owner-only fix recommendation; do not edit.
-5. Explicit **risk check**: current calculator accepts `closed_total` and `closed_at` as authoritative from caller; identify any unvalidated input that could contaminate metrics, and whether source can provide both. No code path is currently wired to actual AS21; do not report Live A/B forecast GREEN. No UI test for new feature yet.
-6. Confirm DMS-SPRNT-5 authoritative source constraints and any missing fields before next stage: no committed baseline, closure timestamps available, current membership exact, working calendar/timezone must be specified and source-backed. Validate normalized timestamps in product timezone rather than UTC unless contract says UTC.
-7. Write report: tested SHA, test matrix, code-source evidence, frozen Core 6/6, correctness/fail-closed assessment, remaining API/plugin/UI wiring contracts, recommendations and `D1_GREEN / RED / INCOMPLETE`. No QA code changes, report and STOP.
+### Owner-only D1.1 hardening awaiting independent QA
+- `ed67cf8`: normalizes completion timestamps into as_of's timezone before membership-window date checks; rejects remaining-scope projections from fewer than 3 elapsed weekdays, to avoid burst of 3 same-day closes implying 100%.
+- `005123c`: 3 synthetic tests for one-day burst and UTC↔local midnight transitions. Pure module and tests only, outside 6 frozen Core files. These patches have not yet been independently run.
+
+### Gates
+1. Fetch/verify exact local=remote=TESTED_HEAD. Delta since `25eb8dc` only `delivery_forecast.py`, `test_sprint_delivery_forecast.py`, assignment. Check Core V4 6/6 byte-identical to checkpoint `6fb335d`.
+2. Run forecast tests (expected **11/11**) including independent adversarial cases (one-day completion, timezone boundaries, sprint end, full complete, duplicated closing timestamp, missing source working calendar, closure authoritativeness, partial membership, source outage); fail closed and no false high-confidence or committed prediction.
+3. Run V4 full regression, Task API source-backed tests, frontend build and report exact numbers, compare 21 legacy Task API failures to recorded baseline; no fake GREEN for test suite as a whole.
+4. Verify pure module is still NOT wired to live V4/AS21/UI. Evaluate next D2 integration contract: canonical AS21 sprint key + actual sprint dates/statuses, complete scoped task read, **unique task IDs** for closed-event dedup, source-backed resolved/closed_at (not updated_at), mixed timezone normalization, working weekdays/calendar supplied as a declared product configuration, not an invented AS21 fact. If source calendar unverified, output INSUFFICIENT_EVIDENCE. Do not invent live forecast counts.
+5. Inspect for any other forward-looking data leaks. Report exact first failure, tested HEAD, source provenance, bounded source note (no new source queries required), frozen Core, and `D1_R2_GREEN / RED / INCOMPLETE`. STOP.
 
 ### Short command
-Run A230R3.15-P31-D1-FORECAST-DETERMINISTIC-CORELESS-QA from current Review GIGACODE_NEXT_ACTION.md. QA-only, fresh HEAD, pure forecast unit/adversarial tests + full regress, source semantics and Core 6/6. No commits, report and STOP.
+Run A230R3.16-P31-D1-R2-FORECAST-GUARDS-QA from Review GIGACODE_NEXT_ACTION.md. QA only: 11 forecast tests, full regress, timezone/one-day guards, Core 6/6; no fixes/commits. Report and STOP.
