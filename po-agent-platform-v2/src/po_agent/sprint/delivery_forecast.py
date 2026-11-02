@@ -73,7 +73,7 @@ def forecast_sprint(value: SprintForecastInput) -> dict:
         return _incomplete("invalid_scope_counts")
     if len(value.closed_at) != value.closed_total:
         return _incomplete("closure_count_mismatch")
-    if any(x > value.as_of or not (value.sprint_start <= x.date() <= value.sprint_end) for x in value.closed_at):
+    # Compare closure calendar dates in the explicitly supplied as_of timezone.\n    # Different UTC offsets must not change which product-local day was closed.\n    local_closures = tuple(x.astimezone(value.as_of.tzinfo) for x in value.closed_at)\n    if any(x > value.as_of or not (value.sprint_start <= x.date() <= value.sprint_end) for x in local_closures):
         return _incomplete("closure_out_of_scope")
     if value.scope_total == 0:
         return _incomplete("empty_sprint_scope")
