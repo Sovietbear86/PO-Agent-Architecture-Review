@@ -1463,6 +1463,16 @@ def _history_value(value: Any) -> str | None:
     return str(value)
 
 
+def _history_workflow_status_type(raw: Any) -> str | None:
+    """Extract only the source-declared statusType; never infer it from a name."""
+    if not isinstance(raw, dict):
+        return None
+    candidate = raw.get("statusType", raw.get("status_type"))
+    if isinstance(candidate, dict):
+        candidate = candidate.get("code")
+    return candidate.strip() if isinstance(candidate, str) and candidate.strip() else None
+
+
 def _history_actor(raw: Any) -> str:
     if isinstance(raw, dict):
         for key in ("externalId", "external_id", "login", "name"):
@@ -1541,6 +1551,8 @@ async def get_task_history(task_code: str):
                 field_name=str(entity.get("name") or "") or None,
                 old_value=_history_value(raw.get("oldValue", raw.get("old_value"))),
                 new_value=_history_value(raw.get("newValue", raw.get("new_value"))),
+                from_status_type=(_history_workflow_status_type(raw.get("oldValue", raw.get("old_value"))) if field_code == "workflow_status" else None),
+                to_status_type=(_history_workflow_status_type(raw.get("newValue", raw.get("new_value"))) if field_code == "workflow_status" else None),
                 changed_at=_history_timestamp(raw.get("createdAt", raw.get("changedAt", raw.get("changed_at")))),
                 actor=_history_actor(raw.get("user", raw.get("actor"))),
             )
