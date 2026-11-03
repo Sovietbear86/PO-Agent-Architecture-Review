@@ -49,6 +49,7 @@ export function QualityDashboard() {
   const missingReady = stateAllowsBusinessData(missingState)
   const acceptanceReady = stateAllowsBusinessData(acceptanceState)
   const decisionReady = qualityReady && missingReady && acceptanceReady
+  const qualityRefreshErrorReason = [qualityQ, missingQ, acceptanceQ].find(q => q.refreshError)?.refreshErrorReason ?? null
 
   const rawScore = qualityReady ? Number(qd.score ?? md.quality_score) : NaN
   const rawAcceptanceScore = acceptanceReady ? Number(ad.score) : NaN
@@ -89,7 +90,7 @@ export function QualityDashboard() {
   }
 
   return <section className="page page-quality">
-    <div className="page-heading"><div><h1>Качество</h1><p>Качество постановки, критерии приёмки, пробелы и team-scoped aging</p></div><div className="page-heading-actions"><SnapshotRefresh updatedAt={[qualityQ.updatedAt, missingQ.updatedAt, acceptanceQ.updatedAt]} refreshing={qualityQ.refreshing || missingQ.refreshing || acceptanceQ.refreshing} refreshError={qualityQ.refreshError || missingQ.refreshError || acceptanceQ.refreshError} onRefresh={() => setTaskRefreshNonce(value => value + 1)} /><button className="primary-button" onClick={openAgent}>Спросить PO Agent</button></div></div>
+    <div className="page-heading"><div><h1>Качество</h1><p>Качество постановки, критерии приёмки, пробелы и team-scoped aging</p></div><div className="page-heading-actions"><SnapshotRefresh updatedAt={[qualityQ.updatedAt, missingQ.updatedAt, acceptanceQ.updatedAt]} refreshing={qualityQ.refreshing || missingQ.refreshing || acceptanceQ.refreshing} refreshError={qualityQ.refreshError || missingQ.refreshError || acceptanceQ.refreshError} refreshErrorReason={qualityRefreshErrorReason} onRefresh={() => setTaskRefreshNonce(value => value + 1)} /><button className="primary-button" onClick={openAgent}>Спросить PO Agent</button></div></div>
 
     <form className="panel entity-toolbar" onSubmit={submitTask}>
       <div><span>Задача</span><input value={taskKey} onChange={e => setTaskKey(e.target.value)} placeholder="WMB-102" /></div>
@@ -97,9 +98,9 @@ export function QualityDashboard() {
     </form>
 
     <div className="metric-grid">
-      <Metric label="Quality score" value={score == null ? '—' : `${score}/100`} hint={qualityReady ? (String(qd.quality_level ?? '') || undefined) : undefined} />
-      <Metric label="Acceptance" value={acceptanceScore == null ? '—' : `${acceptanceScore}/100`} hint={acceptanceReady ? `${ad.testable_criteria?.length ?? 0} проверяемых условий` : undefined} />
-      <Metric label="Пробелы" value={missingCount == null ? '—' : missingCount} hint={missingReady ? 'missing requirements' : undefined} />
+      <Metric label="Качество постановки"  value={score == null ? '—' : `${score}/100`} hint={qualityReady ? (String(qd.quality_level ?? '') || undefined) : undefined} />
+      <Metric label="Проверяемость критериев"  value={acceptanceScore == null ? '—' : `${acceptanceScore}/100`} hint={acceptanceReady ? `${ad.testable_criteria?.length ?? 0} проверяемых условий` : undefined} />
+      <Metric label="Отсутствующие требования"  value={missingCount == null ? '—' : missingCount} hint={missingReady ? 'missing requirements' : undefined} />
       <Metric label="Решение PO" value={!decisionHasScores ? 'NOT RUN' : returnForRework ? 'REWORK' : 'READY'} hint={decisionLabel} />
     </div>
 
@@ -108,6 +109,9 @@ export function QualityDashboard() {
       {decisionHasScores
         ? <p>{reasons.length ? reasons.join(' · ') : 'Детерминированные проверки не выявили блокирующих пробелов в постановке.'}</p>
         : <ResultStatePanel result={!qualityReady ? quality : !missingReady ? missing : acceptance} compact />}
+      {decisionHasScores && score != null && acceptanceScore != null && score >= 70 && acceptanceScore < 70
+        ? <p className="muted">Общая оценка постановки и проверяемость критериев — разные проверки. Высокий балл постановки не означает, что критерии приёмки достаточны; решение «Вернуть на доработку» основано на проверяемости.</p>
+        : null}
       <Meta result={quality} />
     </div>
 
