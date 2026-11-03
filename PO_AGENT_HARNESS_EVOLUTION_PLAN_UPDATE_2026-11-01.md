@@ -136,3 +136,17 @@
 6. Если обнаружен OLP-only hardcode/default, исправлять **только вне замороженного Agent Core V4**, минимальным owner patch с регрессом всех метрик; не менять формулы без подтверждённого источника и спецификации.
 
 **DoD:** доказан и документирован охват всех настроенных пространств и согласованность карточек/очереди/Daily Brief; независимое AS21 A/B и UI C parity с источником/временем; отсутствие скрытого OLP-only фильтра и недостоверных 0; корректная маркировка ограничений ролей/команды/топ-N; Core V4 6/6, полный V4/Task API/UI регресс GREEN. **Приоритет:** P3.5 — после завершения текущего P3.1 Delivery Forecast gate, до широких UI-улучшений P3.2–P3.4, если аудит не выявит критическую ошибку раньше.
+
+
+## P3.1 — Delivery Forecast v1: end-to-end implementation submitted to integrated QA (2026-11-03)
+
+**PO decision (approved):** `workflow_status.statusType=done` is terminal, Monday–Friday working week (holidays not modeled), timezone `Europe/Moscow`; observed throughput is an **operational projection of the currently visible sprint scope**, not committed Predictability. Approval is recorded in `task-api/config/sprint_forecast_policy.json` and must not be generalized to multi-tenant policy/authorization.
+
+**Production vertical slice prepared in Review:**
+- Source-verified bounded sprint membership and per-task workflow history, statusType/provenance/timestamp checks, reopened tasks, fail-closed validation, real sprint start/end from AS21.
+- Local approved policy + scalar-only `GET /api/v1/swtr-read/sprints/{id}/delivery-forecast`; existing counts-only source-evidence endpoint preserved. Agent-side `GET /api/v1/sprints/{id}/delivery-forecast` uses typed source adapter.
+- Additive, registry-discovered V4 Plugin Skill `sprint.delivery_forecast` without modification of the six frozen Core V4 files.
+- «Спринты»: Delivery Forecast is the primary metric with loading/unknown states; historical committed Predictability remains a separate secondary card (N/A without source baseline).
+- Implementation-stage synthetic tests for approved policy/typed forecasts/plugin; **NOT yet certified** by independent end-to-end QA; do not claim live forecast until REAL AS21 A/B + browser acceptance is GREEN.
+
+**Acceptance:** one integrated independent GigaCode QA `A230R3.29-P31-DELIVERY-FORECAST-VERTICAL-E2E-QA` from `GIGACODE_NEXT_ACTION.md`. Verify real DMS-SPRNT-5, exact scope/date math, UI/browser & plugin, typed error states, data privacy, all V4/Task API/UI regressions, frozen Core 6/6. If GREEN, close P3.1 and proceed to P3.5 Overview cross-space audit; if RED, owner fixes only the demonstrated first failing boundary, then rerun this same integrated gate (do not spawn per-file QA loops).
