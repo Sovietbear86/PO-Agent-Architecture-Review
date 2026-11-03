@@ -530,37 +530,30 @@ export function SprintPage() {
   const velocityQ = useSnapshotHarness('sprint:' + submitted, `Покажи velocity ${submitted}`, refreshNonce)
   const throughputQ = useSnapshotHarness('sprint:' + submitted, `Покажи throughput ${submitted}`, refreshNonce)
   const wipQ = useSnapshotHarness('sprint:' + submitted, `Покажи WIP ${submitted}`, refreshNonce)
-  const predictabilityQ = useSnapshotHarness('sprint:' + submitted, `Покажи predictability ${submitted}`, refreshNonce)
   const risksQ = useSnapshotHarness('sprint:' + submitted, `Покажи риски спринта ${submitted}`, refreshNonce)
   const health = healthQ.result
   const velocity = velocityQ.result
   const throughput = throughputQ.result
   const wip = wipQ.result
-  const predictability = predictabilityQ.result
   const risks = risksQ.result
   const hd = getCapabilityData(health) as Record<string, unknown>
   const vd = getCapabilityData(velocity) as Record<string, unknown>
   const td = getCapabilityData(throughput) as Record<string, unknown>
   const wd = getCapabilityData(wip) as Record<string, unknown>
-  const pd = getCapabilityData(predictability) as Record<string, unknown>
   const rd = getCapabilityData(risks) as { queue?: Array<Record<string, unknown>>; count?: number }
   const riskRows = rd.queue ?? []
   const healthState = classifyResult(health)
   const velocityState = classifyResult(velocity)
   const throughputState = classifyResult(throughput)
   const wipState = classifyResult(wip)
-  const predictabilityState = classifyResult(predictability)
-  const predictabilityRatio = typeof pd.predictability === 'number'
-    ? Number(pd.predictability)
-    : (typeof pd.predictability_percent === 'number' ? Number(pd.predictability_percent) / 100 : null)
-  const predictabilityPercent = predictabilityRatio == null ? null : Math.round(predictabilityRatio * 1000) / 10
   const risksState = classifyResult(risks)
-  const sprintUpdated = [healthQ.updatedAt, velocityQ.updatedAt, throughputQ.updatedAt, wipQ.updatedAt, predictabilityQ.updatedAt, risksQ.updatedAt]
-  const sprintRefreshing = healthQ.refreshing || velocityQ.refreshing || throughputQ.refreshing || wipQ.refreshing || predictabilityQ.refreshing || risksQ.refreshing
-  const sprintRefreshError = healthQ.refreshError || velocityQ.refreshError || throughputQ.refreshError || wipQ.refreshError || predictabilityQ.refreshError || risksQ.refreshError
+  const sprintUpdated = [healthQ.updatedAt, velocityQ.updatedAt, throughputQ.updatedAt, wipQ.updatedAt, risksQ.updatedAt]
+  const sprintRefreshing = healthQ.refreshing || velocityQ.refreshing || throughputQ.refreshing || wipQ.refreshing || risksQ.refreshing
+  const sprintRefreshError = healthQ.refreshError || velocityQ.refreshError || throughputQ.refreshError || wipQ.refreshError || risksQ.refreshError
+  const sprintRefreshErrorReason = [healthQ, velocityQ, throughputQ, wipQ, risksQ].find(q => q.refreshError)?.refreshErrorReason ?? null
   return <section className="page page-sprint">
     <PageHeader title="Спринты" subtitle="Delivery Forecast, velocity, throughput, WIP и очередь рисков" />
-    <form className="panel entity-toolbar" onSubmit={e => { e.preventDefault(); const next = sprintId.trim().toUpperCase(); if (!next) return; if (next === submitted) setRefreshNonce(value => value + 1); else setSubmitted(next) }}><div><span>Спринт</span><input value={sprintId} onChange={e => setSprintId(e.target.value)} /></div><SnapshotStatus updatedAt={sprintUpdated} refreshing={sprintRefreshing} refreshError={sprintRefreshError} /><button type="submit">{sprintRefreshing ? 'Обновляем…' : 'Обновить'}</button></form>
+    <form className="panel entity-toolbar" onSubmit={e => { e.preventDefault(); const next = sprintId.trim().toUpperCase(); if (!next) return; if (next === submitted) setRefreshNonce(value => value + 1); else setSubmitted(next) }}><div><span>Спринт</span><input value={sprintId} onChange={e => setSprintId(e.target.value)} /></div><SnapshotStatus updatedAt={sprintUpdated} refreshing={sprintRefreshing} refreshError={sprintRefreshError} refreshErrorReason={sprintRefreshErrorReason} /><button type="submit">{sprintRefreshing ? 'Обновляем…' : 'Обновить'}</button></form>
     <div className="metric-grid"><MetricCard label="Scope" value={stateAllowsBusinessData(healthState) ? String(hd.total ?? '—') : '—'} /><MetricCard label="Completed" value={stateAllowsBusinessData(healthState) ? String(hd.completed ?? '—') : '—'} /><MetricCard label="Velocity" value={stateAllowsBusinessData(velocityState) ? `${String(vd.velocity ?? '—')} ${String(vd.unit ?? '')}` : '—'} /><MetricCard
       label="Delivery Forecast"
       value={!deliveryLoading && deliveryForecast?.status === 'READY' &&
@@ -573,7 +566,6 @@ export function SprintPage() {
           : `Прогноз недоступен: ${String(deliveryForecast?.reason ?? 'источник недоступен')}`}
     /></div>
     <div className="insight-grid">
-      <div className="panel insight-card"><div className="panel-title"><strong>Исторический Predictability</strong><span>{predictability?.skill?.id ?? '—'}</span></div><div className="insight-value">{stateAllowsBusinessData(predictabilityState) && predictabilityPercent != null ? `${predictabilityPercent}%` : 'н/д'}</div><div className="muted">{stateAllowsBusinessData(predictabilityState) && pd.baseline_committed != null ? `По подтверждённому baseline: ${String(pd.completed ?? '—')} / ${String(pd.baseline_committed)}` : 'AS21 не предоставляет committed baseline на старт спринта; Delivery Forecast рассчитывается отдельно.'}</div><HarnessMeta result={predictability} /></div>
       <div className="panel insight-card"><div className="panel-title"><strong>Throughput</strong><span>{throughput?.skill?.id ?? '—'}</span></div>{stateAllowsBusinessData(throughputState) ? <><div className="insight-value">{String(td.throughput ?? '—')}</div><div className="muted">завершённых задач · unit {String(td.unit ?? 'tasks')}</div></> : <ResultStatePanel result={throughput} compact />}<HarnessMeta result={throughput} /></div>
       <div className="panel insight-card"><div className="panel-title"><strong>WIP</strong><span>{wip?.skill?.id ?? '—'}</span></div>{stateAllowsBusinessData(wipState) ? <><div className="insight-value">{String(wd.wip ?? '—')}</div><div className="muted">задач в активной работе</div></> : <ResultStatePanel result={wip} compact />}<HarnessMeta result={wip} /></div>
       <div className="panel insight-card"><div className="panel-title"><strong>Готовность</strong><span>{health?.skill?.id ?? '—'}</span></div>{stateAllowsBusinessData(healthState) ? <><div className="insight-value">{String(hd.completion_percent ?? '—')}%</div><div className="muted">{String(hd.completed ?? '—')} из {String(hd.total ?? '—')} задач</div></> : <ResultStatePanel result={health} compact />}<HarnessMeta result={health} /></div>
