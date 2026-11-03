@@ -1,26 +1,24 @@
 # GigaCode — CURRENT NEXT ACTION
 
-## A230R3.25-P31-D2-R9-EXPLICIT-FORECAST-POLICY-QA
+## A230R3.25-R2-P31-D2-R9-WEEKDAY-POLICY-GUARD-QA
 
-**Independent QA ONLY**. Do not edit any code, tests, docs, configuration, frozen Core V4 or AS21. No commits/pushes/merges or destructive cleanup, broad source scans or mutations. Preserve all running Review/Public services and user dirty files. Fetch origin, report LOCAL=REMOTE=TESTED_HEAD.
+**Independent QA ONLY.** No source/test/doc/config/Core code edits, no commits, pushes or merges. Preserve all dirty/untracked local QA artifacts, users' services and source credentials. Fetch origin, verify LOCAL_HEAD=REMOTE_HEAD=TESTED_HEAD. No AS21 writes or tenant-wide scans.
 
-### Baseline
-A230R3.24 `D2_R8_GREEN + LIVE_ADAPTER_BLOCKED(terminal-set)`, tested HEAD `5f2ded2`. Independent source-status binding 60/60 focused, 36/36 adversarial, source A/B 5/5 DMS-SPRNT-5, Agent V4 299, Task API 164 passed/25 known baseline failures, frontend build 0, frozen Core V4 6/6. AS21 gives source-declared statusType values lowercase `done`, `in_progress`, `pause`, but TQL/metadata do NOT enumerate authoritative terminal categories. Consequently owner must supply *approved terminal-type product policy*, not infer from observed `done` samples.
+### Previous QA and first failing boundary
+GigaCode A230R3.25 QA RED on TESTED_HEAD `1e48ef2`: `task-api/app/services/sprint_forecast_policy.py:37` computed `len(set(weekdays))` before validating tuple entries at line 39. With `working_weekdays=([1], 1)` or `({}, 1)` an uncontrolled TypeError escaped instead of typed ValueError; would be HTTP 500 if enabled. Policy 11/11 original unit tests, 32/34 previous adversarial, forecast existing suites 60/60, calculator 11/11, V4 299, Task API 175 pass/25 known baseline failures, frontend exit 0, frozen Core 6/6. No production policy approved or enabled; AS21 does not provide authoritative terminal status categories.
 
-### Owner patch not yet QA certified
-- `0324c87` NEW pure `task-api/app/services/sprint_forecast_policy.py`, a `SprintForecastPolicy` with *explicit* authority string, timezone name, approved_at tz-aware, canonical working weekdays and exact terminal frozenset. `validate_forecast_policy` fails closed if missing/invalid policy; it does not set defaults, infer from display names or call AS21.
-- `891b127` NEW `task-api/tests/test_sprint_forecast_policy.py` offline policy contract tests including missing approval/authority, invalid timezone/workdays, absent/invalid terminal type.
-- **IMPORTANT: No actual PO approval has been granted for specific statuses, calendar, or time zone in production by these test fixtures.** The sample `frozenset({"done"})` and Europe/Moscow appear ONLY in synthetic tests, NOT deployed settings. Do not claim live forecast. The pure validator is not yet connected to route, projector, plugin or UI. No Core changes.
+### Owner fix (NOT independently QA-certified)
+- `def3120`: one small owner fix in `task-api/app/services/sprint_forecast_policy.py`: type/range guard executes **before** `set(weekdays)`, preserve explicit tuple requirement, reject unhashable/malformed with `ValueError("forecast_working_calendar_invalid")`; duplicate valid weekday returns `forecast_working_calendar_missing` per existing contract.
+- `26a750e`: adds seven negative test cases for malformed tuple entries and non-tuple weekdays.
+- No other production changes, no default terminal statuses, no live endpoint/plugin/UI and no Core modifications. **Do not claim live forecast deployed.**
 
-### Gate 0 — audit
-Verify delta from `5f2ded2` exactly new policy module, test module, this QA spec. All six frozen Core V4 files byte-identical to checkpoint `6fb335d`; preserve worktree. Scan source for unauthorized defaults/credentials/PII or hardcoded sprint keys. Confirm policy is not auto-enabled.
-### Gate 1 — contract tests + adversarial
-Run `pytest -q task-api/tests/test_sprint_forecast_policy.py` (expected 11 pytest cases; calculate actual collected count). Independently test malformed policy object, dates, timezone values and missing tzdb, duplicate weekdays, bool weekdays, non-frozenset terminal list, blanks/spaces, policy authority missing, unapproved policy and local/AS21 source unavailable. Distinguish a valid syntax contract from actual business-approved policy provenance. Any TypeError/AttributeError on malformed caller input = RED fail-closed defect. In particular invalid *unhashable* weekday items might trigger TypeError from `set(weekdays)`; check robust validation.
-### Gate 2 — regressions and design contract
-Run existing source/projection 16+ tests, collector 6, route 6, calculator 11, V4 full (~299), Task API source-backed and broad (25 existing baseline failures), frontend build. Check Core V4 6/6 and Public unaffected.
-Confirm smallest owner integration after GREEN: (1) explicit authorized product policy source and as_of status snapshot, (2) internally bind current statusType and terminal set to `bind_source_status_types`, (3) map verified closures to `SprintForecastInput` using product timezone + weekdays, (4) bounded safe GET projection and V4 Plugin, then UI tile replacement. Historical committed Predictability remains N/A absent baseline. Real AS21 values must be read, no invented numeric forecasts.
-### Verdict
-`D2_R9_GREEN` if independent tests pass and fail-closed policy mechanism sound, else RED first boundary. **Live integration remains blocked on product approval/configuration and future wiring even if green.** QA only, report and STOP.
+### Gates
+1. Exact commit delta since `1e48ef2`: policy module + its test + this spec only; no unauthorized additions. Confirm frozen Core V4 six canonical files byte-identical to `6fb335d`, preserve QA files.
+2. Run policy unit test file; expect **18 pytest cases** (prior 11 + new 7), count actual collection and report. Reproduce both original RED cases `([1], 1)` and `({}, 1)`; expect controlled ValueError, not TypeError. Additional adversarial: `working_weekdays=([],1)`, nested dict, bool, float, negative, >=7, valid duplicate, missing, non-tuple, malicious unusual objects, terminal_status_types malformed including unhashable list -> typed fail-closed (not AttributeError/TypeError).
+3. Confirm caller-provided explicit authority, approved_at tz-aware, product timezone and weekdays, exact source-declared terminal types; no automatic approval, no synthetic values in production. `Europe/Moscow` and `done` in tests are illustrations only.
+4. Run 11 calculator tests, source-proof/collector/projection/validator focused suites, full V4 (~299), Task API source-backed/full regression (25 pre-existing failures), frontend build. Report precise baseline. Core 6/6.
+5. Verdict `D2_R9_R2_GREEN` only if all required type guards, regress and source-policy checks pass; else RED first failing line and STOP. Distinguish policy VALIDATED from real business authorization (still not granted) and from live wiring (still absent).
+6. QA ONLY. No code fixes/commits. Report exact TESTED_HEAD + test counts and STOP.
 
 ### Short command
-Execute A230R3.25-P31-D2-R9-EXPLICIT-FORECAST-POLICY-QA from Review GIGACODE_NEXT_ACTION.md. Independent QA: validate explicit terminal status / TZ / weekday policy guards, adversarial, full regression, Core 6/6. No changes or commits; report and STOP.
+Run A230R3.25-R2-P31-D2-R9-WEEKDAY-POLICY-GUARD-QA from Review GIGACODE_NEXT_ACTION.md. Independently re-test the unhashable weekday policy fix, 18 unit cases, 34+ adversarial, full regress and frozen Core 6/6. No fixes/commits; report and STOP.
