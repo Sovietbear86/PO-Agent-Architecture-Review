@@ -1,6 +1,6 @@
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
-import { agent, HarnessQueryResponse } from '../api/client'
+import { agent, HarnessQueryResponse, sprintForecast, SprintDeliveryForecastResponse } from '../api/client'
 import { ResultStatePanel } from '../components/ResultStatePanel'
 import { RichAnswer } from '../components/agent/RichAnswer'
 import { classifyResult, getCapabilityData, stateAllowsBusinessData } from './resultState'
@@ -509,6 +509,23 @@ export function SprintPage() {
   const [sprintId, setSprintId] = useSessionState('sprint.input', 'WMB-SPRNT-1')
   const [submitted, setSubmitted] = useSessionState('sprint.submitted', 'WMB-SPRNT-1')
   const [refreshNonce, setRefreshNonce] = useState(0)
+  const [deliveryForecast, setDeliveryForecast] = useState<SprintDeliveryForecastResponse | null>(null)
+  const [deliveryLoading, setDeliveryLoading] = useState(true)
+  useEffect(() => {
+    let active = true
+    setDeliveryLoading(true)
+    setDeliveryForecast(null)
+    sprintForecast.get(submitted)
+      .then(data => { if (active) setDeliveryForecast(data) })
+      .catch(() => {
+        if (active) setDeliveryForecast({
+          sprint_id: submitted, status: 'SOURCE_UNAVAILABLE',
+          reason: 'forecast_source_unavailable', forecast_completion_percent: null,
+        })
+      })
+      .finally(() => { if (active) setDeliveryLoading(false) })
+    return () => { active = false }
+  }, [submitted, refreshNonce])
   const healthQ = useSnapshotHarness('sprint:' + submitted, `Покажи состояние ${submitted}`, refreshNonce)
   const velocityQ = useSnapshotHarness('sprint:' + submitted, `Покажи velocity ${submitted}`, refreshNonce)
   const throughputQ = useSnapshotHarness('sprint:' + submitted, `Покажи throughput ${submitted}`, refreshNonce)
@@ -542,18 +559,21 @@ export function SprintPage() {
   const sprintRefreshing = healthQ.refreshing || velocityQ.refreshing || throughputQ.refreshing || wipQ.refreshing || predictabilityQ.refreshing || risksQ.refreshing
   const sprintRefreshError = healthQ.refreshError || velocityQ.refreshError || throughputQ.refreshError || wipQ.refreshError || predictabilityQ.refreshError || risksQ.refreshError
   return <section className="page page-sprint">
-    <PageHeader title="Спринты" subtitle="Velocity, throughput, WIP, predictability и очередь рисков" />
+    <PageHeader title="Спринты" subtitle="Delivery Forecast, velocity, throughput, WIP и очередь рисков" />
     <form className="panel entity-toolbar" onSubmit={e => { e.preventDefault(); const next = sprintId.trim().toUpperCase(); if (!next) return; if (next === submitted) setRefreshNonce(value => value + 1); else setSubmitted(next) }}><div><span>Спринт</span><input value={sprintId} onChange={e => setSprintId(e.target.value)} /></div><SnapshotStatus updatedAt={sprintUpdated} refreshing={sprintRefreshing} refreshError={sprintRefreshError} /><button type="submit">{sprintRefreshing ? 'Обновляем…' : 'Обновить'}</button></form>
     <div className="metric-grid"><MetricCard label="Scope" value={stateAllowsBusinessData(healthState) ? String(hd.total ?? '—') : '—'} /><MetricCard label="Completed" value={stateAllowsBusinessData(healthState) ? String(hd.completed ?? '—') : '—'} /><MetricCard label="Velocity" value={stateAllowsBusinessData(velocityState) ? `${String(vd.velocity ?? '—')} ${String(vd.unit ?? '')}` : '—'} /><MetricCard
-      label="Predictability"
-      value={stateAllowsBusinessData(predictabilityState) && predictabilityPercent != null ? `${predictabilityPercent}%` : 'н/д'}
-      hint={stateAllowsBusinessData(predictabilityState)
-        ? (pd.baseline_committed != null && pd.completed != null
-          ? `${String(pd.completed)} / ${String(pd.baseline_committed)} committed`
-          : undefined)
-        : 'AS21 не отдаёт committed baseline на старт спринта'}
+      label="Delivery Forecast"
+      value={!deliveryLoading && deliveryForecast?.status === 'READY' &&
+        deliveryForecast.source === 'REAL_AS21' &&
+        typeof deliveryForecast.forecast_completion_percent === 'number'
+        ? `${deliveryForecast.forecast_completion_percent}%` : 'н/д'}
+      hint={deliveryLoading ? 'Получаем подтверждённые данные AS21…'
+        : deliveryForecast?.status === 'READY'
+          ? `Прогноз: ${String(deliveryForecast.forecast_closed_by_end)} из ${String(deliveryForecast.scope_total)} задач текущего состава · ${String(deliveryForecast.observed_tasks_per_workday)} задач/раб. день · оценка, не обязательство`
+          : `Прогноз недоступен: ${String(deliveryForecast?.reason ?? 'источник недоступен')}`}
     /></div>
     <div className="insight-grid">
+      <div className="panel insight-card"><div className="panel-title"><strong>Исторический Predictability</strong><span>{predictability?.skill?.id ?? '—'}</span></div><div className="insight-value">{stateAllowsBusinessData(predictabilityState) && predictabilityPercent != null ? `${predictabilityPercent}%` : 'н/д'}</div><div className="muted">{stateAllowsBusinessData(predictabilityState) && pd.baseline_committed != null ? `По подтверждённому baseline: ${String(pd.completed ?? '—')} / ${String(pd.baseline_committed)}` : 'AS21 не предоставляет committed baseline на старт спринта; Delivery Forecast рассчитывается отдельно.'}</div><HarnessMeta result={predictability} /></div>
       <div className="panel insight-card"><div className="panel-title"><strong>Throughput</strong><span>{throughput?.skill?.id ?? '—'}</span></div>{stateAllowsBusinessData(throughputState) ? <><div className="insight-value">{String(td.throughput ?? '—')}</div><div className="muted">завершённых задач · unit {String(td.unit ?? 'tasks')}</div></> : <ResultStatePanel result={throughput} compact />}<HarnessMeta result={throughput} /></div>
       <div className="panel insight-card"><div className="panel-title"><strong>WIP</strong><span>{wip?.skill?.id ?? '—'}</span></div>{stateAllowsBusinessData(wipState) ? <><div className="insight-value">{String(wd.wip ?? '—')}</div><div className="muted">задач в активной работе</div></> : <ResultStatePanel result={wip} compact />}<HarnessMeta result={wip} /></div>
       <div className="panel insight-card"><div className="panel-title"><strong>Готовность</strong><span>{health?.skill?.id ?? '—'}</span></div>{stateAllowsBusinessData(healthState) ? <><div className="insight-value">{String(hd.completion_percent ?? '—')}%</div><div className="muted">{String(hd.completed ?? '—')} из {String(hd.total ?? '—')} задач</div></> : <ResultStatePanel result={health} compact />}<HarnessMeta result={health} /></div>
