@@ -34,10 +34,14 @@ def validate_forecast_policy(policy: SprintForecastPolicy | None) -> tuple[ZoneI
     except (ZoneInfoNotFoundError, ValueError, TypeError) as exc:
         raise ValueError("forecast_timezone_invalid") from exc
     weekdays = policy.working_weekdays
-    if not isinstance(weekdays, tuple) or not weekdays or len(set(weekdays)) != len(weekdays):
+    if not isinstance(weekdays, tuple) or not weekdays:
         raise ValueError("forecast_working_calendar_missing")
+    # Reject malformed/unhashable elements *before* constructing a set.
+    # An invalid caller policy must never escape as an unhandled TypeError.
     if any(type(x) is not int or x not in range(7) for x in weekdays):
         raise ValueError("forecast_working_calendar_invalid")
+    if len(set(weekdays)) != len(weekdays):
+        raise ValueError("forecast_working_calendar_missing")
     terminal = policy.terminal_status_types
     if not isinstance(terminal, frozenset) or not terminal:
         raise ValueError("forecast_terminal_policy_missing")
