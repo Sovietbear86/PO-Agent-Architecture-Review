@@ -569,7 +569,7 @@ export function SprintPage() {
         ? `${deliveryForecast.forecast_completion_percent}%` : 'н/д'}
       hint={deliveryLoading ? 'Получаем подтверждённые данные AS21…'
         : deliveryForecast?.status === 'READY'
-          ? `Прогноз: ${String(deliveryForecast.forecast_closed_by_end)} из ${String(deliveryForecast.scope_total)} задач текущего состава · ${String(deliveryForecast.observed_tasks_per_workday)} задач/раб. день · оценка, не обязательство`
+          ? `Прогноз: ${String(deliveryForecast.forecast_closed_by_end)} из ${String(deliveryForecast.scope_total)} задач текущего состава · ${String(deliveryForecast.observed_tasks_per_workday)} задач/раб. день · REAL AS21, срез ${String(deliveryForecast.as_of ?? 'не указан')} · пн–пт без праздников · оценка, не обязательство`
           : `Прогноз недоступен: ${String(deliveryForecast?.reason ?? 'источник недоступен')}`}
     /></div>
     <div className="insight-grid">
