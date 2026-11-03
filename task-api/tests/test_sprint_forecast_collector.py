@@ -121,3 +121,68 @@ async def test_identity_and_bounds_fail_closed():
         await collect_sprint_workflow_evidence(
             "PRD-SPRNT-1", read_sprint=read_sprint,
             read_history=read_history, concurrency=6)
+
+
+@pytest.mark.asyncio
+async def test_opt_in_snapshot_captures_real_declared_types_without_extra_reads():
+    from datetime import datetime, timezone
+    calls = {"sprint": 0, "history": 0}
+    payload = sprint()
+    for i, task in enumerate(payload["complete_tasks"]):
+        task["source_data"]["swtr_attributes"] = [
+            {"code": "workflow_status", "value": {
+                "name": "Display ignored", "statusType": "done" if i == 0 else "in_progress"
+            }}
+        ]
+
+    async def read_sprint(key):
+        calls["sprint"] += 1
+        return payload
+
+    async def read_history(key):
+        calls["history"] += 1
+        return history(key)
+
+    out = await collect_sprint_workflow_evidence(
+        "PRD-SPRNT-1", read_sprint=read_sprint, read_history=read_history,
+        require_current_status_types=True,
+    )
+    assert out["current_status_types"] == {"PRD-1": "done", "PRD-2": "in_progress"}
+    assert datetime.fromisoformat(out["snapshot_observed_at"]).tzinfo == timezone.utc
+    assert calls == {"sprint": 1, "history": 2}
+    assert out["forecast"] is None
+    assert out["committed_predictability"] is None
+
+
+@pytest.mark.asyncio
+async def test_opt_in_missing_source_type_fails_before_history_fetch():
+    calls = []
+
+    async def read_sprint(key):
+        return sprint()
+
+    async def read_history(code):
+        calls.append(code)
+        return history(code)
+
+    with pytest.raises(ValueError, match="current_status_source_missing"):
+        await collect_sprint_workflow_evidence(
+            "PRD-SPRNT-1", read_sprint=read_sprint, read_history=read_history,
+            require_current_status_types=True,
+        )
+    assert calls == []
+
+
+@pytest.mark.asyncio
+async def test_legacy_counts_only_collector_never_exposes_snapshot_fields():
+    async def read_sprint(key):
+        return sprint()
+
+    async def read_history(code):
+        return history(code)
+
+    out = await collect_sprint_workflow_evidence(
+        "PRD-SPRNT-1", read_sprint=read_sprint, read_history=read_history,
+    )
+    assert "current_status_types" not in out
+    assert "snapshot_observed_at" not in out
