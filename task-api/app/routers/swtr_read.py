@@ -1636,3 +1636,82 @@ async def get_sprint_forecast_source_evidence(
         "forecast": None,
         "committed_predictability": None,
     }
+
+
+@router.get("/sprints/{sprint_id}/delivery-forecast")
+async def get_sprint_delivery_forecast(sprint_id: str):
+    """PO-approved, bounded, READ-ONLY operational forecast for one real sprint.
+
+    Exposes scalar results ONLY; source proofs, task codes, transition records,
+    user names, and per-task closure timestamps are never serialized.
+    """
+    from datetime import date
+    from app.services.sprint_forecast_delivery import approved_policy, scalar_delivery_forecast
+    from app.services.sprint_forecast_pipeline import collect_and_project_sprint_closures
+
+    normalized = sprint_id.strip().upper()
+    if not _SPRINT_ID_RE.fullmatch(normalized):
+        raise HTTPException(status_code=400, detail={"reason": "invalid_sprint_id"})
+    # Product authorization check happens BEFORE calling AS21.
+    try:
+        policy = approved_policy()
+    except ValueError as exc:
+        raise HTTPException(status_code=503, detail={"reason": str(exc)}) from exc
+
+    space = _SPRINT_ID_RE.fullmatch(normalized).group("space")
+    listing = await list_space_sprints(space=space, page=0, limit=100, max_pages=5)
+    if listing.get("complete") is not True or listing.get("source") != "REAL_AS21":
+        raise HTTPException(status_code=422, detail={"reason": "sprint_period_source_incomplete"})
+    matching = [row for row in listing["sprints"] if row.get("code", "").upper() == normalized]
+    if len(matching) != 1:
+        raise HTTPException(status_code=422, detail={"reason": "sprint_period_unverified"})
+    row = matching[0]
+    try:
+        start_raw, end_raw = row["start_at"], row["finish_at"]
+        if not isinstance(start_raw, str) or not isinstance(end_raw, str):
+            raise ValueError("missing dates")
+        start = date.fromisoformat(start_raw[:10])
+        end = date.fromisoformat(end_raw[:10])
+    except (ValueError, TypeError, KeyError) as exc:
+        raise HTTPException(status_code=422, detail={"reason": "sprint_period_unverified"}) from exc
+
+    async def read_sprint(key: str) -> dict[str, Any]:
+        return await get_sprint_tasks(
+            sprint_id=key, space=space, page=0, limit=100,
+            complete=True, include_task_type=False, max_pages=5,
+        )
+
+    async def read_history(key: str) -> dict[str, Any]:
+        record = await get_task_history(key)
+        return record.model_dump(mode="json")
+
+    try:
+        proof = await collect_and_project_sprint_closures(
+            normalized, policy=policy, read_sprint=read_sprint,
+            read_history=read_history, max_tasks=100, concurrency=5,
+            timeout_seconds=90.0,
+        )
+        result = scalar_delivery_forecast(
+            proof, sprint_id=normalized, start=start, end=end, policy=policy,
+        )
+    except ValueError as exc:
+        # Return a typed source failure; never turn a failed source read into 0%.
+        reason = str(exc)
+        return {
+            "sprint_id": normalized, "status": "INSUFFICIENT_EVIDENCE",
+            "reason": reason if re.fullmatch(r"[a-z0-9_]{3,80}", reason) else "forecast_source_validation_failed",
+            "forecast_completion_percent": None,
+            "forecast_closed_by_end": None,
+            "committed_predictability": None,
+            "source": "REAL_AS21", "method": "observed_throughput_v1",
+        }
+    # Explicit fixed allowlist: never leak internal proof/history/closures.
+    permitted = {
+        "sprint_id", "status", "reason", "method", "source", "as_of",
+        "sprint_start", "sprint_end", "scope_total", "closed_total", "open_count",
+        "elapsed_workdays", "remaining_workdays", "observed_tasks_per_workday",
+        "eta_workdays", "forecast_closed_by_end", "forecast_completion_percent",
+        "forecast_scope_kind", "committed_predictability", "confidence_state",
+        "calendar_note",
+    }
+    return {key: value for key, value in result.items() if key in permitted}
