@@ -1,3 +1,16 @@
+# One-time priority smoke: A230R3.32-SPRINT-UI-FORECAST-REFRESH-SMOKE
+
+This is a **short, single deployment/source check**, NOT another testing marathon. Independently QA-only; do not edit, commit, restart/stop existing services, read/write AS21 outside bounded scopes. Fetch latest Review HEAD first; preserve dirty state. Recent owner updates: Sprint UI Predictability card and its redundant V4 query removed; refresh failure reason displayed; 105-second bounded forecast source HTTP budget to match 90-second history collector; typed error distinguishing a missing task-api forecast route. Frozen Agent Core 6/6.
+
+1. Record `TESTED_HEAD`, actual executable source checkout/commit of existing agent (8004), task-api (8241), Vite (5175), MCP (3000). **Do not assume running processes have auto-reloaded**; inspect process cwd/launch source and current GET API. Never restart user servers without user consent; if stale, report `DEPLOYMENT_STALE`, how owner safely restarts, and STOP smoke.
+2. Read-only GET `/api/v1/sprints/DMS-SPRNT-5/delivery-forecast` agent -> corresponding Task API GET `/api/v1/swtr-read/sprints/DMS-SPRNT-5/delivery-forecast`. Compare HTTP code and safe typed reason. Do not reveal actor/task history. Old finished sprint can legitimately return `closure_out_of_scope`; `forecast_route_not_deployed` means stale Task API, not deficient AS21.
+3. Browser tab «Спринты» on current source: **no Predictability card and NO predictability query in Network**, card Delivery Forecast localized error, one Refresh produces correct update status and reason. For active DMS-SPRNT-6, if 3+ proven in-window closures, bounded REAL AS21 A/B forecast; otherwise `SOURCE_CONDITIONAL`, never fake a number.
+4. Only targeted frontend compile, relevant fast tests, Core hash check. Diagnose cause of the refresh failure from which named query failed (health/velocity/throughput/wip/risks); do not claim bug fixed simply because query was removed. Report `SPRINT_UI_SMOKE_GREEN`, `SPRINT_UI_DEPLOYMENT_STALE`, `SPRINT_UI_SOURCE_CONDITIONAL` or `SPRINT_UI_SMOKE_RED` with first failing source and STOP. One untracked concise report `po-agent-platform-v2/qa_reports/SPRINT_UI_REFRESH_FORECAST_SMOKE.md`, no commits.
+
+After delivering this smoke report **do not automatically start sbeproject discovery**; wait for PO to approve continuing. The saved P3.2 instructions below remain current for the subsequent step.
+
+---
+
 # GigaCode — CURRENT NEXT ACTION
 
 ## A230R3.31-P32-SBEPROJECT-RELEASES-SOURCE-CONTRACT-DISCOVERY
