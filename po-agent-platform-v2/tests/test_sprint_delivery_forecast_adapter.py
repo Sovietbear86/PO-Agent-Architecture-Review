@@ -94,3 +94,26 @@ def test_out_of_sprint_closure_does_not_produce_forecast():
     x = run(proof)
     assert x["status"] == "INSUFFICIENT_EVIDENCE"
     assert x["reason"] == "closure_out_of_scope"
+
+
+@pytest.mark.parametrize("bad_id", [None, "", " ", 12, "PRD-1", "../PRD-SPRNT-1"])
+def test_missing_or_malformed_source_sprint_id_fails_closed(bad_id):
+    proof = source_proof()
+    proof["sprint_id"] = bad_id
+    x = run(proof)
+    assert x["status"] == "INSUFFICIENT_EVIDENCE"
+    assert x["reason"] == "sprint_identity_unverified"
+    assert x["forecast"] is None
+
+
+def test_expected_sprint_scope_mismatch_fails_closed():
+    x = run(expected_sprint_id="PRD-SPRNT-2")
+    assert x["status"] == "INSUFFICIENT_EVIDENCE"
+    assert x["reason"] == "sprint_identity_mismatch"
+    assert x["forecast"] is None
+
+
+def test_expected_sprint_scope_same_is_valid():
+    x = run(expected_sprint_id="PRD-SPRNT-1")
+    assert x["status"] == "READY"
+    assert x["sprint_key"] == "PRD-SPRNT-1"
