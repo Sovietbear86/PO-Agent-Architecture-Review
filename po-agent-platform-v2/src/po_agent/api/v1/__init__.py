@@ -803,7 +803,15 @@ async def sprint_delivery_forecast(sprint_id: str):
             return await adapter.get_sprint_delivery_forecast(normalized)
         finally:
             await adapter.close()
-    except (AS21SourceError, AS21SourceUnavailable):
+    except (AS21SourceError, AS21SourceUnavailable) as exc:
+        # Safe bounded vocabulary; no raw HTTP payloads, internal URL or PII.
+        reason = str(exc)
+        if reason not in {
+            "forecast_route_not_deployed", "forecast_source_contract_incomplete",
+            "forecast_upstream_http_unavailable", "forecast_upstream_timeout",
+            "forecast_upstream_connection", "forecast_invalid_json",
+        }:
+            reason = "forecast_source_unavailable"
         return {"sprint_id": normalized, "status": "SOURCE_UNAVAILABLE",
-                "reason": "forecast_source_unavailable", "forecast_completion_percent": None,
+                "reason": reason, "forecast_completion_percent": None,
                 "committed_predictability": None}
