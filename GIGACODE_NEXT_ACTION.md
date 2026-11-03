@@ -1,24 +1,24 @@
 # GigaCode — CURRENT NEXT ACTION
 
-## A230R3.25-R2-P31-D2-R9-WEEKDAY-POLICY-GUARD-QA
+## A230R3.26-P31-D2-R10-FORECAST-INPUT-ADAPTER-QA
 
-**Independent QA ONLY.** No source/test/doc/config/Core code edits, no commits, pushes or merges. Preserve all dirty/untracked local QA artifacts, users' services and source credentials. Fetch origin, verify LOCAL_HEAD=REMOTE_HEAD=TESTED_HEAD. No AS21 writes or tenant-wide scans.
+**Independent QA ONLY.** No source/test/doc/config/Core edits, no commits/push/merge, no AS21 writes or tenant-wide scans. Preserve local dirty/untracked QA files and all user services. Fetch origin; confirm LOCAL_HEAD=REMOTE_HEAD=TESTED_HEAD.
 
-### Previous QA and first failing boundary
-GigaCode A230R3.25 QA RED on TESTED_HEAD `1e48ef2`: `task-api/app/services/sprint_forecast_policy.py:37` computed `len(set(weekdays))` before validating tuple entries at line 39. With `working_weekdays=([1], 1)` or `({}, 1)` an uncontrolled TypeError escaped instead of typed ValueError; would be HTTP 500 if enabled. Policy 11/11 original unit tests, 32/34 previous adversarial, forecast existing suites 60/60, calculator 11/11, V4 299, Task API 175 pass/25 known baseline failures, frontend exit 0, frozen Core 6/6. No production policy approved or enabled; AS21 does not provide authoritative terminal status categories.
+### Previous independent gate
+A230R3.25-R2 **D2_R9_R2_GREEN** on `ee8effe` (per user screenshot, QA same HEAD re-run): working_weekdays policy 18/18, all 34/34 adversarial fail-closed, Delivery Forecast calculator 11/11, full V4 299, Task API 182 passed/25 baseline failures, focused forecast 67/67, frontend build exit 0, Core V4 six frozen files byte-identical to checkpoint `6fb335d`. No real business-approved terminal categories / calendar / timezone deployed, and live Plugin/UI forecast remains absent.
 
-### Owner fix (NOT independently QA-certified)
-- `def3120`: one small owner fix in `task-api/app/services/sprint_forecast_policy.py`: type/range guard executes **before** `set(weekdays)`, preserve explicit tuple requirement, reject unhashable/malformed with `ValueError("forecast_working_calendar_invalid")`; duplicate valid weekday returns `forecast_working_calendar_missing` per existing contract.
-- `26a750e`: adds seven negative test cases for malformed tuple entries and non-tuple weekdays.
-- No other production changes, no default terminal statuses, no live endpoint/plugin/UI and no Core modifications. **Do not claim live forecast deployed.**
+### Owner incremental patch (NOT independently QA-certified)
+- `45f40cb`: new `po-agent-platform-v2/src/po_agent/sprint/delivery_forecast_adapter.py`, pure **internal** adapter from source-proven closure evidence (output of complete status transition projector) to existing `SprintForecastInput` and `forecast_sprint`. Requires caller-provided product-local timezone and working weekdays, source-proven snapshot, exact closure evidence. Fails closed on missing/invalid evidence/config, never invents committed Predictability.
+- `a3d38b4`: new `po-agent-platform-v2/tests/test_sprint_delivery_forecast_adapter.py`, offline synthetic tests of READY input and incomplete/invalid proof, timezone/calendar, reopen and outside scope.
+- **NOT wired** to REAL AS21, REST forecast route, V4 Plugin or UI; source-proven status types and policy approval remain mandatory upstream. No Core change. Synthetic task keys only.
 
 ### Gates
-1. Exact commit delta since `1e48ef2`: policy module + its test + this spec only; no unauthorized additions. Confirm frozen Core V4 six canonical files byte-identical to `6fb335d`, preserve QA files.
-2. Run policy unit test file; expect **18 pytest cases** (prior 11 + new 7), count actual collection and report. Reproduce both original RED cases `([1], 1)` and `({}, 1)`; expect controlled ValueError, not TypeError. Additional adversarial: `working_weekdays=([],1)`, nested dict, bool, float, negative, >=7, valid duplicate, missing, non-tuple, malicious unusual objects, terminal_status_types malformed including unhashable list -> typed fail-closed (not AttributeError/TypeError).
-3. Confirm caller-provided explicit authority, approved_at tz-aware, product timezone and weekdays, exact source-declared terminal types; no automatic approval, no synthetic values in production. `Europe/Moscow` and `done` in tests are illustrations only.
-4. Run 11 calculator tests, source-proof/collector/projection/validator focused suites, full V4 (~299), Task API source-backed/full regression (25 pre-existing failures), frontend build. Report precise baseline. Core 6/6.
-5. Verdict `D2_R9_R2_GREEN` only if all required type guards, regress and source-policy checks pass; else RED first failing line and STOP. Distinguish policy VALIDATED from real business authorization (still not granted) and from live wiring (still absent).
-6. QA ONLY. No code fixes/commits. Report exact TESTED_HEAD + test counts and STOP.
+1. Exact delta since `ee8effe`: only two new agent-side adapter/test files and this assignment. Frozen Core 6/6 vs `6fb335d`, no direct AS21 reads, no production endpoint changes, no forbidden literal identifiers/secrets.
+2. Run new adapter tests and existing `po-agent-platform-v2/tests/test_sprint_delivery_forecast.py` (11). Inspect import isolation, handling of malformed proof dict: missing `sprint_id`, missing/invalid closure mapping, source=LOCAL_CACHE, type confusion booleans for counts, naive as_of/closure, unknown calendar, out-of-sprint dates and future closures, inclusive timezone boundary and rollover, malformed/unhashable weekdays. Confirm `READY` only when complete source-proven closures and valid product timezone/calendar. **Identify any uncaught TypeError/AttributeError** or false READY as RED.
+3. Compare real provenance semantics: this adapter trusts a `SOURCE_PROVEN` gate. Confirm that upstream `bind_source_status_types` and explicit business policy are *mandatory* in future callers, not bypassed by raw user input. No premature live feature claims; inspect `closed_at_by_task` stays internal, never goes to UI.
+4. Run full V4 (~299), Task API source-backed/full baseline (25 known pre-existing failures), frontend build; identify any delta, verify Core six blob SHA byte-identical.
+5. Provide smallest subsequent owner step: an approved/source-authenticated source policy + current status snapshot contract, bounded private projection in Task API, safe compact HTTP response, external-Core V4 Plugin, UI replacement, independent REAL AS21 A/B. Recommend guarding cross-service DTO trust (the current source-proof route only returns counts and no closure timestamps, so the adapter cannot yet consume it).
+6. Verdict `D2_R10_GREEN` only if focused tests and all adversarial checks pass; `RED` with first failing line otherwise. Be explicit about live integration still pending. QA only, report and STOP.
 
 ### Short command
-Run A230R3.25-R2-P31-D2-R9-WEEKDAY-POLICY-GUARD-QA from Review GIGACODE_NEXT_ACTION.md. Independently re-test the unhashable weekday policy fix, 18 unit cases, 34+ adversarial, full regress and frozen Core 6/6. No fixes/commits; report and STOP.
+Run A230R3.26-P31-D2-R10-FORECAST-INPUT-ADAPTER-QA from Review GIGACODE_NEXT_ACTION.md. Independent QA: new pure forecast input adapter, edge cases, full regress and frozen Core 6/6; no edits/commits. Report and STOP.
