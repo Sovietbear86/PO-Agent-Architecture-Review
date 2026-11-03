@@ -1,24 +1,40 @@
 # GigaCode — CURRENT NEXT ACTION
 
-## A230R3.26-P31-D2-R10-FORECAST-INPUT-ADAPTER-QA
+## A230R3.27-P31-D2-R11-CURRENT-STATUS-SNAPSHOT-QA
 
-**Independent QA ONLY.** No source/test/doc/config/Core edits, no commits/push/merge, no AS21 writes or tenant-wide scans. Preserve local dirty/untracked QA files and all user services. Fetch origin; confirm LOCAL_HEAD=REMOTE_HEAD=TESTED_HEAD.
+**INDEPENDENT QA ONLY.** No edits of source/tests/docs/config, no commits/pushes/merges, no AS21 writes or tenant-wide scans, no changes to frozen Core V4, Public repository or user's running services. Preserve dirty/untracked local QA files. Fetch origin and record LOCAL=REMOTE=TESTED_HEAD.
 
-### Previous independent gate
-A230R3.25-R2 **D2_R9_R2_GREEN** on `ee8effe` (per user screenshot, QA same HEAD re-run): working_weekdays policy 18/18, all 34/34 adversarial fail-closed, Delivery Forecast calculator 11/11, full V4 299, Task API 182 passed/25 baseline failures, focused forecast 67/67, frontend build exit 0, Core V4 six frozen files byte-identical to checkpoint `6fb335d`. No real business-approved terminal categories / calendar / timezone deployed, and live Plugin/UI forecast remains absent.
+### Previously certified
+A230R3.26 D2_R10_GREEN on previous `d190a29` checkpoint: pure forecast adapter 14/14, calculator 11/11, >50 independent adversarial probes, full V4 299, Task API 182 passed/25 same pre-existing failures, frontend build exit 0, Core V4 6/6. Two nonblocking findings: source proof adapter does not yet require sprint_id and the source-proof route gives only counts, not the private closure evidence. No live Delivery Forecast or product-approved terminal-set. This QA must not misclassify isolated pure-module GREEN as live production forecast.
 
-### Owner incremental patch (NOT independently QA-certified)
-- `45f40cb`: new `po-agent-platform-v2/src/po_agent/sprint/delivery_forecast_adapter.py`, pure **internal** adapter from source-proven closure evidence (output of complete status transition projector) to existing `SprintForecastInput` and `forecast_sprint`. Requires caller-provided product-local timezone and working weekdays, source-proven snapshot, exact closure evidence. Fails closed on missing/invalid evidence/config, never invents committed Predictability.
-- `a3d38b4`: new `po-agent-platform-v2/tests/test_sprint_delivery_forecast_adapter.py`, offline synthetic tests of READY input and incomplete/invalid proof, timezone/calendar, reopen and outside scope.
-- **NOT wired** to REAL AS21, REST forecast route, V4 Plugin or UI; source-proven status types and policy approval remain mandatory upstream. No Core change. Synthetic task keys only.
+### Owner-only R11 changes (NOT YET QA CERTIFIED)
+1. `6c5e2b3` NEW `task-api/app/services/sprint_forecast_snapshot.py`: pure function `extract_sprint_current_status_types` reads a complete sprint membership's canonical `source_data.swtr_attributes[code=workflow_status].value.statusType` and returns exact source types keyed by canonical task ID. Lowercase values preserved, no name inference, cannot silently accept conflicting status types/missing source metadata. This is source-declared *current* status only; not a transactional AS21 historical snapshot.
+2. `140ddbe` changes only Task API `sprint_forecast_collector.py`: new **opt-in** `require_current_status_types=False`. When explicitly True, extract types from the SAME single bounded complete sprint read (no extra scans), capture local UTC `snapshot_observed_at` after that read, before concurrently fetching task histories. Fail closed before history fetch if source status types absent. Internal `current_status_types` and `snapshot_observed_at` are included ONLY in this opt-in collection; default and existing source-evidence GET stay counts-only. Local as-of is NOT an AS21 transactional snapshot or proof statuses remain stable while reading histories; later projector must enforce history/current status agreement and reject transitions after captured as_of.
+3. `aafc2bf` NEW offline `task-api/tests/test_sprint_forecast_snapshot.py`: exact lower-case source values, duplicate/conflict, invalid/missing/unknown type, no display-name fallback, incomplete scope.
+4. `41af2a3` appended 3 collector tests for opt-in, no extra reads and legacy safe output. No new REST endpoint, authorization/config changes, calc/agent adapter/plugin/UI changes or Core edits. **No approved terminal-status product policy; live forecast remains gated.**
 
-### Gates
-1. Exact delta since `ee8effe`: only two new agent-side adapter/test files and this assignment. Frozen Core 6/6 vs `6fb335d`, no direct AS21 reads, no production endpoint changes, no forbidden literal identifiers/secrets.
-2. Run new adapter tests and existing `po-agent-platform-v2/tests/test_sprint_delivery_forecast.py` (11). Inspect import isolation, handling of malformed proof dict: missing `sprint_id`, missing/invalid closure mapping, source=LOCAL_CACHE, type confusion booleans for counts, naive as_of/closure, unknown calendar, out-of-sprint dates and future closures, inclusive timezone boundary and rollover, malformed/unhashable weekdays. Confirm `READY` only when complete source-proven closures and valid product timezone/calendar. **Identify any uncaught TypeError/AttributeError** or false READY as RED.
-3. Compare real provenance semantics: this adapter trusts a `SOURCE_PROVEN` gate. Confirm that upstream `bind_source_status_types` and explicit business policy are *mandatory* in future callers, not bypassed by raw user input. No premature live feature claims; inspect `closed_at_by_task` stays internal, never goes to UI.
-4. Run full V4 (~299), Task API source-backed/full baseline (25 known pre-existing failures), frontend build; identify any delta, verify Core six blob SHA byte-identical.
-5. Provide smallest subsequent owner step: an approved/source-authenticated source policy + current status snapshot contract, bounded private projection in Task API, safe compact HTTP response, external-Core V4 Plugin, UI replacement, independent REAL AS21 A/B. Recommend guarding cross-service DTO trust (the current source-proof route only returns counts and no closure timestamps, so the adapter cannot yet consume it).
-6. Verdict `D2_R10_GREEN` only if focused tests and all adversarial checks pass; `RED` with first failing line otherwise. Be explicit about live integration still pending. QA only, report and STOP.
+### Gate 0 — integrity and scope
+- Compare current HEAD delta against prior QA-tested head. Enumerate exact 2 production files (one NEW snapshot helper + one collector additive opt-in), 2 test files (one NEW), this QA assignment; classify any unrelated commits without modifying them.
+- Agent Core V4 frozen 6/6 byte-identical to `6fb335d`. Verify no AS21 writes, secrets, hardcoded sprint names/personnel or tenant scans. Public unchanged.
+
+### Gate 1 — independent offline tests
+- Run new snapshot test file (expected ~16 parametrized tests), collector tests (previous 6 + 3 new = 9), source-contract (19), source-proof REST route (6), projection (16), policy (18), forecast adapter (14), calculator (11), plus full V4 and Task API. Report exact actual counts, not estimates; known Task API baseline 25 failures must remain separately classified.
+- Probe adversarial: `status` only with no `statusType` MUST fail closed; `value.statusType` lowercase exact; dict `statusType.code`; empty/malformed/ambiguous status type; duplicate conflicting attrs; source_data missing; `complete=False`, duplicate task IDs, >100 tasks. No absent field may become a fake `done`.
+- Opt-in MUST use one canonical sprint source read, <=100 tasks, <=5 concurrent histories, fail BEFORE history reads on invalid current status type. Default collector remains backward-compatible and existing public GET output has ONLY safe compact counts (no current_status_types/history/PII).
+- Temporal contract: `snapshot_observed_at` is server-local UTC *observation* immediately after sprint list read, not an AS21 source as-of timestamp. Induce a task status change/history event after captured as_of in mocked collector and ensure downstream projection rejects or fails on current/history mismatch; **never silently count newer closure**.
+- Do not rely on actual user status names, timestamp updated_at or current source metadata to infer terminal classification.
+
+### Gate 2 — REAL AS21 contract (bounded read-only)
+- If authorized and available, request **up to 5 tasks** from DMS-SPRNT-5 using existing bounded complete sprint reader; inspect only sanitized `workflow_status.statusType` and no task descriptions/actors, test `extract_sprint_current_status_types` with canonical rows. Cross-check with independent direct MCP oracle. If AS21 does not encode statusType under the assumed canonical attribute schema, report `LIVE_SNAPSHOT_SOURCE_BLOCKED` with actual redacted schema and minimal owner correction; do not guess/copy a display status or rewrite implementation.
+- Do not run unbounded/tenant searches. If unavailable, mark LIVE NOT VERIFIED, do not call the feature live.
+
+### Gate 3 — regression and next integration recommendation
+- V4 full (~299), Task API full/source-backed (25 known baseline failures), frontend build. Confirm unchanged counts-only GET. Identify any new regressions and Core hashes.
+- Next smallest owner step AFTER this green: source-approved terminal-status policy + source sprint dates/weekdays/timezone; private source projection combining same-list status types and complete histories via `bind_source_status_types`, safe typed HTTP response, then external-Core V4 plugin + UI. **No numeric forecast without these gates.**
+- Mention earlier nonblocking F1: adapter missing `sprint_id` guard to address before live route.
+
+### Verdict
+`D2_R11_GREEN` only if focused/new regresses pass with safe snapshot contract; `D2_R11_RED` with first failing boundary otherwise. Separately mark LIVE source contract VERIFIED/BLOCKED/NOT_VERIFIED. QA-only, report and STOP.
 
 ### Short command
-Run A230R3.26-P31-D2-R10-FORECAST-INPUT-ADAPTER-QA from Review GIGACODE_NEXT_ACTION.md. Independent QA: new pure forecast input adapter, edge cases, full regress and frozen Core 6/6; no edits/commits. Report and STOP.
+Run A230R3.27-P31-D2-R11-CURRENT-STATUS-SNAPSHOT-QA from latest Review GIGACODE_NEXT_ACTION.md. Independently verify opt-in same-read current statusType snapshot and as_of, bounded DMS-SPRNT-5 A/B, safe default GET, full V4/Task API/UI regression and frozen Core 6/6. QA only, no edits/commits. Report and STOP.
