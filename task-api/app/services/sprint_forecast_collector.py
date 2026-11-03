@@ -6,9 +6,11 @@ completion from updated_at or text status labels. Do not expose raw source rows.
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime, timezone
 from collections.abc import Awaitable, Callable
 from typing import Any
 
+from .sprint_forecast_snapshot import extract_sprint_current_status_types
 from .sprint_forecast_source import (
     complete_workflow_history,
     validate_complete_sprint_collection,
@@ -23,6 +25,7 @@ async def collect_sprint_workflow_evidence(
     max_tasks: int = 100,
     concurrency: int = 5,
     timeout_seconds: float = 90.0,
+    require_current_status_types: bool = False,
 ) -> dict[str, Any]:
     """Prove every task and every status history, else fail closed.
 
@@ -42,6 +45,15 @@ async def collect_sprint_workflow_evidence(
         if not isinstance(source, dict) or source.get("sprint_id") != sprint_id:
             raise ValueError("sprint_source_identity_mismatch")
         tasks = validate_complete_sprint_collection(source, max_tasks=max_tasks)
+        # Capture the local observation time immediately after the sprint read.
+        # It is NOT a source transactional snapshot; downstream must compare
+        # every history transition against it and the observed status type.
+        if require_current_status_types:
+            current_types = extract_sprint_current_status_types(source, max_tasks=max_tasks)
+            observed_at = datetime.now(timezone.utc).isoformat()
+        else:
+            current_types = None
+            observed_at = None
         semaphore = asyncio.Semaphore(concurrency)
 
         async def _one(task: dict[str, Any]) -> tuple[str, list[dict[str, Any]]]:
@@ -51,7 +63,7 @@ async def collect_sprint_workflow_evidence(
                 return key, complete_workflow_history(raw, key)
 
         results = await asyncio.gather(*(_one(t) for t in tasks))
-        return {
+        result = {
             "sprint_id": sprint_id,
             "source": "REAL_AS21",
             "complete": True,
@@ -64,6 +76,12 @@ async def collect_sprint_workflow_evidence(
             "forecast": None,
             "committed_predictability": None,
         }
+        if require_current_status_types:
+            # Private collection evidence only; the existing public counts-only
+            # source-evidence route never enables or returns this mapping.
+            result["current_status_types"] = current_types
+            result["snapshot_observed_at"] = observed_at
+        return result
 
     try:
         return await asyncio.wait_for(_bounded(), timeout=timeout_seconds)
