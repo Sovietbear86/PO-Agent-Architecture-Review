@@ -25,6 +25,7 @@ Terminal source statusType=`done` (exact, lowercase), product timezone `Europe/M
 - Check source event change AFTER current status observation fails closed, no optimistic blending; statusType source declared, no `updated_at` fallback; reopened not counted, strict history completeness.
 
 ### Gate B — backend + plugin
+- Include five offline tests in `task-api/tests/test_sprint_forecast_delivery_route.py`. Check agent forecast GET does not initialize any LLM and closes the short-lived Task API client (owner change 304bc2e).
 - Build/import Task API with fresh processes and correct config path, verify the new two GETs: direct Task API and agent proxy return **only allowed scalar fields**, status READY only on SOURCE_PROVEN. Source outage/incomplete returns typed no-forecast. Old source-evidence endpoint remains counts-only. Verify appropriate HTTP timeouts, errors, request regex and that no forbidden AS21 mutations occur.
 - Registry discovery: `builtin.sprint.delivery_forecast`, skill `sprint.delivery_forecast`, argument `sprint_id`, completion/evidence, typed refusal; no Core modifications. Agent runtime adapter in REAL task-api mode supports method. Dynamic trusted plugin discovery works; no fake model/source payload.
 - Check routing correctness for user prompts such as `Спрогнозируй завершение DMS-SPRNT-5`, `Delivery Forecast DMS-SPRNT-5`; if LLM endpoint unreliable label separately and run deterministic capability handler. Never claim agent live skill GREEN if only offline fixture passed.
