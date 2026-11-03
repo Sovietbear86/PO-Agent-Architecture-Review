@@ -505,6 +505,25 @@ export function TasksPage() {
   </section>
 }
 
+function forecastUnavailableLabel(reason?: string | null): string {
+  const labels: Record<string, string> = {
+    forecast_route_not_deployed: 'Сервер Task API не обновлён: маршрут прогноза отсутствует',
+    forecast_source_contract_incomplete: 'AS21 не подтвердил полноту данных для прогноза',
+    forecast_upstream_http_unavailable: 'Сервис источника временно недоступен',
+    forecast_upstream_timeout: 'Истекло время ожидания истории задач AS21',
+    forecast_upstream_connection: 'Нет соединения с Task API',
+    forecast_invalid_json: 'Task API вернул некорректный ответ',
+    forecast_source_unavailable: 'Не удалось получить прогноз от сервера; проверьте его версию и подключение к AS21',
+    sprint_period_unverified: 'AS21 не подтвердил даты выбранного спринта',
+    sprint_period_source_incomplete: 'AS21 не предоставил полный список спринтов',
+    closure_out_of_scope: 'События закрытия задач выходят за даты спринта',
+    insufficient_closure_events: 'Недостаточно закрытых задач для прогноза',
+    insufficient_observation_window: 'Недостаточно прошедших рабочих дней для прогноза',
+    real_as21_not_configured: 'Не настроено подключение к реальному AS21',
+  }
+  return labels[reason ?? ''] ?? 'Недостаточно подтверждённых данных AS21 для прогноза'
+}
+
 export function SprintPage() {
   const [sprintId, setSprintId] = useSessionState('sprint.input', 'WMB-SPRNT-1')
   const [submitted, setSubmitted] = useSessionState('sprint.submitted', 'WMB-SPRNT-1')
@@ -563,7 +582,7 @@ export function SprintPage() {
       hint={deliveryLoading ? 'Получаем подтверждённые данные AS21…'
         : deliveryForecast?.status === 'READY'
           ? `Прогноз: ${String(deliveryForecast.forecast_closed_by_end)} из ${String(deliveryForecast.scope_total)} задач текущего состава · ${String(deliveryForecast.observed_tasks_per_workday)} задач/раб. день · REAL AS21, срез ${String(deliveryForecast.as_of ?? 'не указан')} · пн–пт без праздников · оценка, не обязательство`
-          : `Прогноз недоступен: ${String(deliveryForecast?.reason ?? 'источник недоступен')}`}
+          : `Прогноз недоступен: ${forecastUnavailableLabel(deliveryForecast?.reason)}`}
     /></div>
     <div className="insight-grid">
       <div className="panel insight-card"><div className="panel-title"><strong>Throughput</strong><span>{throughput?.skill?.id ?? '—'}</span></div>{stateAllowsBusinessData(throughputState) ? <><div className="insight-value">{String(td.throughput ?? '—')}</div><div className="muted">завершённых задач · unit {String(td.unit ?? 'tasks')}</div></> : <ResultStatePanel result={throughput} compact />}<HarnessMeta result={throughput} /></div>
