@@ -1,40 +1,35 @@
 # GigaCode — CURRENT NEXT ACTION
 
-## A230R3.30-P35-OVERVIEW-CROSS-SPACE-SOURCE-AUDIT
+## A230R3.31-P32-SBEPROJECT-RELEASES-SOURCE-CONTRACT-DISCOVERY
 
-### Purpose
-Independent QA/discovery of the real running Overview dashboard (not a request to rewrite it). Check whether **any of its portfolio metrics, daily brief, owner attention queue, task counts or readiness** silently filter to OLP or otherwise omit authorized DMS/WMB/CRPV/STS spaces. Previous P3.1 A230R3.29 was **P31_E2E_SOURCE_CONDITIONAL**, NOT a code RED: DMS-SPRNT-5 finished with 26/26, 6 post-end closure events, no verified active READY forecast; retain that verdict and do not restart forecast QA.
+### Контекст и цель
+P3.5 «Обзор» — `P35_OVERVIEW_GREEN` на `fa3c154`: все 5 реально настроенных пространств проверены независимой сверкой AS21 и браузером, скрытого OLP-only фильтра нет. **Переходим к P3.2 «Релизы»** — крупнейшему запланированному развитию. Система **sbeproject** является мастер-системой релизов, синхронизированной с AS21; у GigaCode уже имеется локальный skill доступа к ней. Сейчас нужен **ОДИН короткий discovery реального интерфейса и схемы источника**, чтобы владелец сразу реализовал целиком адаптер, безопасный API и вкладку «Релизы». Не запускай циклы тестов отдельных файлов.
 
-### Hard rules
-GigaCode is independent tester only. READ ONLY: no code/config/test/spec writes, no commit/push, no Core V4 changes, no Public changes, no AS21 writes, no tenant-wide scan. Do not stop/restart the user's servers (8004/8241/5175/3000). Use separate ports if running an isolated stack. Preserve dirty/untracked files. Fetch branch `feat/core8-real-query-hardening-v2` from `Sovietbear86/PO-Agent-Architecture-Review`, record tested HEAD local=remote and verified Core V4 6/6 vs `6fb335d`. Capture screenshots with no personal data/secrets in the report.
+### Роль и ограничения
+Ты — независимый исследователь источника/QA. **Никаких правок исходников, тестов, конфигураций, rules, Agent Core V4, GIGACODE.md или Public; никаких коммитов, push, PR, слияний.** Только авторизованные read-only операции. Не отправляй данные в sbeproject/AS21, не меняй релизы, задачи, права, credentials. Не осуществляй tenant-wide сканирование; сначала смотри существующий локальный скилл/документацию. Не выводи и не копируй токены, PII, полные payload, внутренние URL с секретами. Не останавливай сервисы пользователя, сохрани dirty/untracked файлы. Синхронизируй Review HEAD с origin и зафиксируй TESTED_HEAD, Core V4 = 6/6 vs `6fb335d`.
 
-### Gate 0: Real UI/source map
-Identify which actual router/page implementation serves the user's screenshot of «Обзор» with four tiles `Активно`, `Завершено`, `Заблокировано`, `Готовность портфеля`, `Очередь внимания PO`, `Daily Brief`, `Задачи по пространствам`. Do not mistakenly audit an old/dead OverviewPage. Trace exact React component -> useSnapshotHarness/query -> skill/capability -> source adapter -> AS21 MCP endpoint -> configured products/team roster. Report file:line pointers. Document any stale snapshot indicator versus actual current source.
+### 1. Обнаружение подключения sbeproject (не изобретать API)
+- Найди **реально существующий** локальный GigaCode skill для sbeproject: путь, SKILL.md, MCP/CLI/HTTP endpoint contracts, права подключения, read-only инструменты, auth/bootstrap (без вывода секретов), ограничения и статус подключения. Если скилл недоступен или доступ требует ручной авторизации — честно `SOURCE_BLOCKED`, не придумывай методы/URL.
+- Определи, что в sbeproject является release: канонический ID, display name, связанное пространство/продукт, версии, даты (план/факт), статусы/жизненный цикл, этапы/вехи, ответственные, зависимости, ссылки на AS21. Зафиксируй **реальные имена полей, типы, пустые значения и provenance**. Не подменяй sbeproject обычной выборкой AS21.
 
-### Gate 1: Configuration and filters
-- Compare authorized spaces using actual `task-api/config/products.yaml` and `team_members.yaml` (or the actual `PRODUCTS_CONFIG_PATH` / `TEAM_CONFIG_PATH` effective config). Do not assume fixed five-space list without verifying config.
-- Search all executed Overview / portfolio / daily brief / attention queue / per-space aggregation paths and query planner arguments for hardcoded `OLP`, `space=OLP`, default `OLP`, implicit first-space-only logic, config-based allowed spaces dropped, case-mismatch, space-specific page limits, per-assignee roster filter, dedup and stale snapshot cache keys.
-- Distinguish **intended** scope (tasks assigned to configured members in configured spaces) from all tasks of each product, and from tenant-wide tasks. An OLP-only result can be valid for explicitly OLP-filtered user query, but not the default portfolio Overview.
+### 2. Минимальная ограниченная A/B-сверка
+- Если авторизовано, выбери **2–3 конкретных разрешённых релиза**, желательно из DMS и OLP, с лимитом <=20 релизов/страницу и <=100 связанных задач/релиз при наличии этих возможностей; если пагинация/полнота не доказаны, помечай INCOMPLETE.
+- A: bounded read-only sbeproject релиз → идентификатор, даты, статус и ссылки на задачи.
+- B: независимая bounded read-only AS21 проверка небольшой выборки **канонических task keys** релиза (до 10 на релиз) и статусов; не скачивай все задачи пространства.
+- Покажи правила согласования: уникальный идентификатор; различие «релиз в sbeproject» / «задача AS21» / «версия»; 1:N и N:N membership; дубли, переносы, архивные релизы; несовпадения источников, задержка синхронизации; источник истины по каждому полю. Нужны реальные примеры без PII.
+- Если доступен только AS21 или только sbeproject, **не объявляй интеграцию доказанной**.
 
-### Gate 2: Bounded independent REAL AS21 oracle
-Using *authorized*, *per-space and per-assignee bounded* source reads only (no tenant-wide scan), verify numeric tile aggregations and per-space table for OLP and at least DMS plus another configured space when access allows. At most 5 configured spaces and <=100 tasks per bounded page; obey existing source budgets. Log page counts, completeness, dedup keys, task IDs anonymized/hashed, statusType semantics and as_of. Verify:
-- `active + completed` vs eligible task scope and status exclusions,
-- blocked count and source statuses,
-- portfolio readiness numerator/denominator,
-- attention queue contains risks from non-OLP spaces if present,
-- daily brief sprint mapping includes other configured spaces,
-- OLP query results cannot contaminate cache for DMS/other products.
-Where source is incomplete/outage, report typed SOURCE_UNAVAILABLE/INCOMPLETE instead of treating missing as zeros.
-Check **cross-space ownership**: the same task assigned to multiple team members or returned by multiple queries must be counted once by canonical identity.
+### 3. Аудит текущей вкладки «Релизы»
+- Проследи реальный frontend route «Релизы» (не legacy/dead component) → API → skill → adapter → AS21 / sbeproject; найди, какие поля сейчас заполняются, какие являются заглушками, какие данные считаются локально. Зафиксируй конкретные пути/строки и UI-контракты, избегай стороннего рефакторинга.
+- Предложи **один реализуемый MVP вертикального среза**: safe bounded sbeproject read-only adapter → GET API → Release view + статус связи с AS21, loading/error/unknown/stale. Исторические релизы без задач/дат не должны становиться «0% готовности». Укажи готовые компоненты, которые можно переиспользовать, и список реально недостающих полей. Никаких fake metrics или tenant-wide reads.
+- Корректное поведение при недоступности sbeproject: typed SOURCE_UNAVAILABLE, не переключаться на AS21 незаметно.
 
-### Gate 3: Browser A/B/C and regression
-Use isolated browser if feasible. Verify the actual Overview and click Refresh: no hidden OLP selection, all configured space headers shown, numeric tile and per-space sources match the independent oracle or are explicitly stale/incomplete. Do not mislabel prior cached snapshot as fresh. Inspect network response and UI for raw planner JSON or source PII. Cross-check `Спринты` forecast UI remains safe N/A when source is insufficient. Run only relevant targeted tests plus frozen Core hash and frontend compile; if production code unchanged and previous full regression GREEN, do not repeat expensive unrelated full suites. Classify baseline vs new defect separately. Note available status/health latency, source retries and failed updates.
+### Отчёт и STOP
+Единственный артефакт (untracked, без коммита): `po-agent-platform-v2/qa_reports/P32_SBEPROJECT_SOURCE_DISCOVERY.md`:
+1. TESTED_HEAD, путь существующего skill, доступность, точные read-only contracts.
+2. Таблица `поле релиза | источник истины | тип/пример без PII | полнота | AS21 mapping`.
+3. До 3 ограниченных A/B примеров + фактические лимиты/тайминги/ошибки.
+4. Текущий UI data-flow, узкие места и **конкретный owner implementation plan из одной законченной вертикали**.
+5. Вердикт `P32_DISCOVERY_READY` (подтверждённый контракт) / `P32_SOURCE_BLOCKED` (нет доступа) / `P32_CONTRACT_INCOMPLETE` (существенные поля не доказаны).
 
-### Output — one report, STOP
-Write ONE untracked QA artifact `po-agent-platform-v2/qa_reports/P35_OVERVIEW_CROSS_SPACE_AUDIT.md`:
-1. Exact `TESTED_HEAD`, executed UI source path and config scope.
-2. Per-widget evidence matrix `widget | true scope | space filter | authoritative oracle | count parity | stale/complete`.
-3. Verdict `P35_OVERVIEW_GREEN` (proven cross-space), `P35_OVERVIEW_RED` (specific verified OLP-only or misaggregation), or `P35_OVERVIEW_SOURCE_CONDITIONAL` (unverifiable source, no fabricated pass).
-4. The **single first failing boundary** with minimal owner-only fix if RED. No edits by QA.
-
-**Do not turn this into a new indefinite series of isolated checks. One bounded report and STOP.**
+**После отчёта остановись. Не начинай самостоятельно разработку или полный регресс. Владелец продукта реализует следующую цельным изменением; затем один финальный независимый E2E.**
