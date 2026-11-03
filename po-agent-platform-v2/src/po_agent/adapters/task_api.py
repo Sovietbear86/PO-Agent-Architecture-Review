@@ -680,6 +680,31 @@ class TaskApiAS21Adapter(AS21Adapter):
         query = f"sprint = {sprint_id}" if not space else f"project = {space} AND sprint = {sprint_id}"
         return await self.search_tasks(query, max_results=self._scan_limit)
 
+    async def get_sprint_delivery_forecast(self, sprint_id: str) -> dict[str, Any]:
+        """Read-only scalar forecast from bounded Task API source endpoint."""
+        code = sprint_id.strip().upper()
+        if not re.fullmatch(r"[A-Z][A-Z0-9_-]*-SPRNT-[0-9]+", code):
+            raise AS21SourceError("Invalid sprint identity")
+        try:
+            response = await self._get_resilient(
+                f"/api/v1/swtr-read/sprints/{code}/delivery-forecast"
+            )
+        except httpx.HTTPError as exc:
+            raise AS21SourceUnavailable("Sprint forecast source unavailable") from exc
+        data = response.json()
+        if not isinstance(data, dict) or data.get("sprint_id") != code:
+            raise AS21SourceError("Sprint forecast identity mismatch")
+        permitted = frozenset((
+            "sprint_id", "status", "reason", "method", "source", "as_of",
+            "sprint_start", "sprint_end", "scope_total", "closed_total",
+            "open_count", "elapsed_workdays", "remaining_workdays",
+            "observed_tasks_per_workday", "eta_workdays",
+            "forecast_closed_by_end", "forecast_completion_percent",
+            "forecast_scope_kind", "committed_predictability",
+            "confidence_state", "calendar_note",
+        ))
+        return {key: value for key, value in data.items() if key in permitted}
+
     async def get_release_tasks(self, release_id: str, space: Optional[str] = None) -> list[Task]:
         query = f"release = {release_id}" if not space else f"project = {space} AND release = {release_id}"
         return await self.search_tasks(query, max_results=self._scan_limit)
