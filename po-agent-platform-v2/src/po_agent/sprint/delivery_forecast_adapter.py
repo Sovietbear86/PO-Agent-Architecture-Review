@@ -7,6 +7,7 @@ Evidence must be produced by a separate authoritative, complete source gate.
 from __future__ import annotations
 
 from datetime import date, datetime
+import re
 from typing import Any
 from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
@@ -21,6 +22,7 @@ def forecast_from_proven_closures(
     as_of: datetime,
     product_timezone: str,
     working_weekdays: tuple[int, ...],
+    expected_sprint_id: str | None = None,
 ) -> dict[str, Any]:
     """Project complete source-proven closures into a typed heuristic forecast.
 
@@ -35,6 +37,16 @@ def forecast_from_proven_closures(
 
     if not isinstance(proof, dict) or proof.get("status") != "SOURCE_PROVEN" or proof.get("source") != "REAL_AS21":
         return incomplete("closure_provenance_missing")
+    sprint_id = proof.get("sprint_id")
+    if not isinstance(sprint_id, str) or not re.fullmatch(
+        r"[A-Z][A-Z0-9_-]*-SPRNT-[0-9]+", sprint_id, flags=re.IGNORECASE
+    ):
+        return incomplete("sprint_identity_unverified")
+    if expected_sprint_id is not None and (
+        not isinstance(expected_sprint_id, str)
+        or sprint_id.upper() != expected_sprint_id.upper()
+    ):
+        return incomplete("sprint_identity_mismatch")
     if not isinstance(sprint_start, date) or isinstance(sprint_start, datetime):
         return incomplete("invalid_sprint_dates")
     if not isinstance(sprint_end, date) or isinstance(sprint_end, datetime):
@@ -69,7 +81,7 @@ def forecast_from_proven_closures(
             return incomplete("closure_timezone_missing")
         parsed.append(value)
     result = forecast_sprint(SprintForecastInput(
-        sprint_key=proof.get("sprint_id") if isinstance(proof.get("sprint_id"), str) else "",
+        sprint_key=sprint_id,
         sprint_start=sprint_start,
         sprint_end=sprint_end,
         as_of=as_of.astimezone(timezone),
