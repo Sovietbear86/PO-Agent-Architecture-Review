@@ -686,12 +686,28 @@ class TaskApiAS21Adapter(AS21Adapter):
         if not re.fullmatch(r"[A-Z][A-Z0-9_-]*-SPRNT-[0-9]+", code):
             raise AS21SourceError("Invalid sprint identity")
         try:
-            response = await self._get_resilient(
-                f"/api/v1/swtr-read/sprints/{code}/delivery-forecast"
+            # This endpoint performs bounded sprint history fan-out (up to 90s).
+            # The default 30s Task API timeout is too short for this one operation.
+            # Do not retry the expensive fan-out automatically.
+            response = await self._client.get(
+                f"/api/v1/swtr-read/sprints/{code}/delivery-forecast",
+                timeout=httpx.Timeout(105.0),
             )
+            response.raise_for_status()
+        except httpx.HTTPStatusError as exc:
+            if exc.response.status_code == 404:
+                raise AS21SourceError("forecast_route_not_deployed") from exc
+            if exc.response.status_code == 422:
+                raise AS21SourceError("forecast_source_contract_incomplete") from exc
+            raise AS21SourceUnavailable("forecast_upstream_http_unavailable") from exc
+        except httpx.TimeoutException as exc:
+            raise AS21SourceUnavailable("forecast_upstream_timeout") from exc
         except httpx.HTTPError as exc:
-            raise AS21SourceUnavailable("Sprint forecast source unavailable") from exc
-        data = response.json()
+            raise AS21SourceUnavailable("forecast_upstream_connection") from exc
+        try:
+            data = response.json()
+        except ValueError as exc:
+            raise AS21SourceError("forecast_invalid_json") from exc
         if not isinstance(data, dict) or data.get("sprint_id") != code:
             raise AS21SourceError("Sprint forecast identity mismatch")
         permitted = frozenset((
