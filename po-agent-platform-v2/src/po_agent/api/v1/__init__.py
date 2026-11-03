@@ -783,3 +783,23 @@ async def learn_semantic(payload: SemanticLearningRequest):
         term=payload.term, meaning=payload.meaning, source_trace_id=payload.source_trace_id, scope=payload.scope,
     )
     return {"rule_id": rule.rule_id, "term": rule.term, "meaning": rule.meaning, "scope": rule.scope, "version": rule.version, "status": rule.status}
+
+
+@router.get("/sprints/{sprint_id}/delivery-forecast")
+async def sprint_delivery_forecast(sprint_id: str):
+    """Read-only projection for Sprint UI via the existing Task API adapter."""
+    from po_agent.adapters import AS21SourceUnavailable
+    normalized = sprint_id.strip().upper()
+    if not re.fullmatch(r"[A-Z][A-Z0-9_-]*-SPRNT-[0-9]+", normalized):
+        raise HTTPException(status_code=400, detail={"reason": "invalid_sprint_id"})
+    if get_settings().as21_mode.lower() not in ("task-api", "task_api", "real"):
+        return {"sprint_id": normalized, "status": "SOURCE_UNAVAILABLE",
+                "reason": "real_as21_not_configured", "forecast_completion_percent": None,
+                "committed_predictability": None}
+    try:
+        adapter = get_runtime_bundle().adapter
+        return await adapter.get_sprint_delivery_forecast(normalized)
+    except (AS21SourceError, AS21SourceUnavailable):
+        return {"sprint_id": normalized, "status": "SOURCE_UNAVAILABLE",
+                "reason": "forecast_source_unavailable", "forecast_completion_percent": None,
+                "committed_predictability": None}
