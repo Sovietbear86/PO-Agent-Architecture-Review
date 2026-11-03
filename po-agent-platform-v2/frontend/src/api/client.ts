@@ -129,3 +129,33 @@ export const system = {
   },
   getMetrics: () => api.get('/metrics'),
 }
+
+
+export interface SprintDeliveryForecastResponse {
+  sprint_id: string
+  status: 'READY' | 'INSUFFICIENT_EVIDENCE' | 'SOURCE_UNAVAILABLE'
+  reason?: string | null
+  source?: string
+  method?: string
+  as_of?: string
+  scope_total?: number
+  closed_total?: number
+  open_count?: number
+  forecast_completion_percent?: number | null
+  forecast_closed_by_end?: number | null
+  observed_tasks_per_workday?: number | null
+  remaining_workdays?: number
+  sprint_end?: string
+  forecast_scope_kind?: string
+  committed_predictability?: number | null
+}
+
+export const sprintForecast = {
+  get: async (sprintId: string): Promise<SprintDeliveryForecastResponse> => {
+    const response = await api.get<SprintDeliveryForecastResponse>(
+      `/sprints/${encodeURIComponent(sprintId)}/delivery-forecast`,
+      { timeout: 110000 },
+    )
+    return response.data
+  },
+}
