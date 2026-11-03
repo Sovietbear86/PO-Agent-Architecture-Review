@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "approved_by": "Product Owner (user confirmation in ChatGPT)",
+  "approved_on": "2026-11-03T14:57:00+03:00",
+  "terminal_status_types": [
+    "done"
+  ],
+  "timezone_name": "Europe/Moscow",
+  "working_weekdays": [
+    0,
+    1,
+    2,
+    3,
+    4
+  ],
+  "holidays_supported": false,
+  "scope": "single-user first release; current membership, not committed baseline",
+  "method": "observed_throughput_v1"
+}
