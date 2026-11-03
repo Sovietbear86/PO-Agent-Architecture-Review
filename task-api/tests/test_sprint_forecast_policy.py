@@ -45,3 +45,21 @@ def test_authorized_policy_keeps_exact_source_type_values():
 def test_invalid_policy_fails_closed(value, reason):
     with pytest.raises(ValueError, match=reason):
         validate_forecast_policy(sample(**value))
+
+
+@pytest.mark.parametrize("weekdays", [
+    ([], 1),
+    ({}, 1),
+    ([1], 2),
+    ({"weekday": 1}, 3),
+    (0, ["bad"]),
+    (1, None),
+])
+def test_unhashable_or_malformed_weekdays_fail_closed(weekdays):
+    with pytest.raises(ValueError, match="forecast_working_calendar_invalid"):
+        validate_forecast_policy(sample(working_weekdays=weekdays))
+
+
+def test_non_tuple_weekdays_fail_closed():
+    with pytest.raises(ValueError, match="forecast_working_calendar_missing"):
+        validate_forecast_policy(sample(working_weekdays=[0, 1, 2, 3, 4]))
