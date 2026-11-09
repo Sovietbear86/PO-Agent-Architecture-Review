@@ -1,35 +1,18 @@
 # GigaCode — CURRENT NEXT ACTION
 
-## A230R3.34-P32-SBEPROJECT-ACCESS-RECOVERY-AND-BOUNDED-ORACLE
+## A230R3.35-P32-SBEPROJECT-RELEASE-MEMBERSHIP-ORACLE
 
-### Почему
-A230R3.31 завершён `P32_SOURCE_BLOCKED` (TESTED_HEAD `fbb9b56`). Найден реальный skill `.gigacode/skills/sbt-project/` v0.3.0, read-only contracts sbeproject подтверждены по документации. **Живой read-only доступ не подтверждён**: прежний токен истёк, повторная авторизация блокируется отсутствующим корпоративным trust CA/self-signed цепочкой сертификатов. Интеграция с AS21 по релизам не доказана. Ранее наблюдалось: sbeproject как мастер релизов; в AS21 видны версии DMS, OLP, WMB, но поле fix_version_s пусто и точное соответствие ещё не доказано. P3.2 нельзя помечать READY.
+### Context
+User has **successfully authenticated to SberProject using the existing `.gigacode/skills/sbt-project/`** and shown real `versions OLP` output: 69 versions, first 50 shown with `has_more=true`, real UUID-like product/release identifiers formatted `OLP.NN`, release dates and workflow statuses (RELEASED, INSTALLATION, END_OF_SUPPORT, TRANSFERRED, CANCELLED, INSTALLATION_CANCELLED). A230R3.31 `P32_SOURCE_BLOCKED` is **partially unblocked for catalog**, but live release membership and AS21 parity have NOT yet been verified. Do not repeat TLS/SSO discovery, do not expose credentials/CA. This is ONE bounded source-contract validation before owner implementation.
 
-### Роль и ограничения
-Ты — GigaCode, ассистент пользователя по **восстановлению авторизованного read-only доступа**, затем независимый QA oracle. Разрешены диагностика пользовательского окружения и **интерактивные действия авторизации только с явным согласием пользователя**. Не меняй исходники, Core V4, rules, конфиги системы безопасности, git/Project файлы, не создавай коммитов. Не используй `verify=False`, `curl -k`, `NODE_TLS_REJECT_UNAUTHORIZED=0`, отключение валидации TLS, обход SSO или самодельные сертификаты. Не запрашивай и не выводи токены, cookie, пароли, приватные ключи или корпоративный CA в чат/логи/отчет. Не извлекай секреты браузера без явного подтверждения. Не выполняй release/task mutations, write APIs или широкий перебор релизов. Не останавливай пользовательские процессы. Сохрани dirty/untracked. Core 6/6.
+### Constraints
+Independent read-only QA: no code/config/spec edits, commits, pushes, AS21/SberProject writes, tenant scans. Keep existing user services/dirty tree, Core V4 6/6. Use authenticated skill and secure storage already configured; do not echo cookies/tokens/passwords or raw PII. Sync Review from origin and record TESTED_HEAD. Do not perform logout/login unless strictly needed and with user consent.
 
-### Шаг 1 — безопасность сертификата
-1. Синхронизируй `Sovietbear86/PO-Agent-Architecture-Review`, ветку `feat/core8-real-query-hardening-v2`; зафиксируй HEAD.
-2. Прочитай фактический `.gigacode/skills/sbt-project/SKILL.md` и локальный `sbt-project.sh --help` (без вывода секретов). Определи, где skill ожидает корпоративный CA через `NODE_EXTRA_CA_CERTS` (или подтвержденный системный trust store).
-3. Проверь только **наличие и пригодность** корпоративной цепочки доверия по официальному местоположению и инструкции организации. Если нет корневого/промежуточного CA — остановись с `CA_REQUIRED` и дай пользователю точные действия для получения **официального CA у корпоративной ИТ-службы**; нельзя загружать неавторизованные CA и нельзя игнорировать TLS. Не копируй файл сертификата в git или отчет. Не выдавай пользователю содержимое CA.
+### Tasks (single bounded pass)
+1. Establish authoritative product identities for PV OLAP Analytics (OLP) and PV DataMarts (DMS) using existing skill `products` with bounded filters. **Do not infer a release key from its version string**; use canonical `id` / `versionId` as returned. `has_more=true` is an incomplete page, never claim 69 were verified from first 50.
+2. Using the skill's documented `release <versionId>` method, retrieve **two exact concrete OLP release cards** from already-listed IDs (e.g. OLP.78 and OLP.80, but only if still present in current output), and **one DMS card** if an authorized DMS release ID can be discovered in <=1 page. Read-only only; do not filter out CANCELLED or END_OF_SUPPORT silently. Capture fields `versionId, versionNumber, workflowStatus, beginDate, endDate, releaseDate, issueKey, percentDone`, source provenance and completeness/pagination metadata. Release version status is not task status.
+3. For up to **10** distinct `issueKey` values across the sampled cards, perform independent bounded AS21 read-only point lookups. Compare exact task key, current status, relation to release, and link correctness. If `release` returns `has_more`, `truncated`, missing membership, or inaccessible records, mark incomplete, NOT empty. Report status/dates from sbeproject as authoritative, task status/assignee from AS21 as authoritative.
+4. Check `plan-costs` only if essential to understanding release detail; do not fetch sensitive cost values unnecessarily. Capture API contracts and `sbt-project.sh` command syntax **without credentials**. Trace the real live frontend `ReleasesPage` to current AS21 capability and identify minimum replace/augment boundary. Explicitly document a single MVP: `sbeproject bounded read-only adapter → typed Task API route → external-Core plugin/capability → ReleasesPage catalog + release detail + bounded AS21 status join`, with typed source auth/unavailable/incomplete.
+5. An explicitly capped single report `po-agent-platform-v2/qa_reports/P32_RELEASE_MEMBERSHIP_AS21_ORACLE.md` (untracked): exact HEAD, 2–3 release IDs and source status, up to 10 anonymized task-key A/B parity cases, pagination/completeness, release field schema & integration gaps, one owner-ready implementation contract. Verdict `P32_SOURCE_READY`, `P32_MEMBERSHIP_INCOMPLETE`, or `P32_SOURCE_BLOCKED`. Core hashes and user services intact.
 
-### Шаг 2 — предпочтительный вариант пользователя: логин и пароль SberProject
-Пользователь предложил **авторизацию по логину и паролю** вместо извлечения SPA-токена. Сначала проверь только локальный реальный skill и официальный контракт: поддерживает ли `sbt-project.sh login --help` / sbeproject разрешённый корпоративной политикой **интерактивный password login** (возможно, через корпоративный SSO web form). НЕ придумывай флаги, URL, authentication endpoint или протокол. 
-- Если такой способ **поддерживается и разрешён**, **после проверки TLS** открой штатное интерактивное окно логина или безопасный локальный TTY prompt. Пользователь вводит логин/пароль **самостоятельно**, не передавая их в чат GigaCode, код, аргументы CLI, shell history, логи, GitHub, скриншоты, `.env`, текст отчёта или незащищённые файлы. Не пытайся читать ввод или печатать переменные с секретами. MFA/SSO при необходимости — только штатный способ, без обхода.
-- Не запускать `login --use-shared-creds` автоматически: пользователь хочет интерактивный ввод, а использование общих учётных данных требует отдельного разрешения.
-- Парольная авторизация **не устраняет сертификатную ошибку**. Если CA по-прежнему не доверенный — остановись с `CA_REQUIRED` до запроса пароля. Запрещены `verify=False`, `curl -k`, `NODE_TLS_REJECT_UNAUTHORIZED=0`, self-signed bypass и любые обходы SSO/MFA.
-- Если API поддерживает только корпоративный SSO/токен или password login запрещён, сообщи `PASSWORD_FLOW_UNSUPPORTED` и предложи официальный поддерживаемый вход; не реализуй кастомный password-grant и не перехватывай browser tokens. Если парольный вход поддерживается, но credentials отклонены — `AUTH_REQUIRED`.
-- После успешного входа допускается только ограниченный read-only oracle из шага 3. Не сохраняй пароль, проверяй лишь обезличенный признак успешной сессии.
-
-### Шаг 3 — одна read-only верификация
-Если TLS и авторизация GREEN, проведи **не более 3 ограниченных GET** к sbeproject по известным product IDs (DMS/OLP — только если они действительно найдены в skill), возвращая только release IDs/версии/статусы/плановые-фактические даты и признак полноты/пагинации; строго limit <=20. Затем максимум 10 AS21 `get_task`/task-key lookups по ссылкам из конкретного релиза. Сверь canonical task keys, принадлежность релизу, актуальные статусы и задержки синхронизации. Не считать 0 строк достоверной пустотой, если отсутствует полный release membership. Никаких tenant-wide scans, никаких персональных деталей и raw payload.
-
-### Output — один отчёт
-`po-agent-platform-v2/qa_reports/P32_SBEPROJECT_ACCESS_AND_ORACLE.md` (untracked, только обезличенные данные):
-- `P32_ACCESS_READY` + подтверждённый API source-contract/A-B; или `P32_CA_REQUIRED`, `P32_AUTH_REQUIRED`, `P32_SOURCE_BLOCKED`.
-- Что доступно и что именно не доступно; проверка chain-of-trust без вывода сертификатов/секретов.
-- Минимальные точные инструкции для человека; схемы и ограниченные A/B результаты если удалось.
-- Если доступ восстановлен: owner-ready контракт входных/выходных DTO для **одного** вертикального среза; без правок кода.
-- Если источник всё ещё заблокирован: не повторяй discovery, STOP; пользователь сам решает доступ с ИТ/SSO.
-
-Один короткий проход. Никакого нового цикла предварительных QA. После отчета — STOP.
+**Stop after this ONE report. Do NOT start implementation or additional investigations. Owner writes code in one vertical slice, then single integrated regression.**
