@@ -254,3 +254,10 @@ Move from discovery to **one bounded implementation** A230R3.39: server-side nor
 **P3.2.4**: Release Health/Forecast только на реальных датах, завершённых задачах, скорости и ограничениях качества источника; ни одной фальшивой цифры.
 
 **Контроль качества**: GigaCode принимает готовые ChatGPT коммиты по одному узкому заданию с PASS/FAIL и воспроизводимыми evidence, не меняя код и не проводя бесконечный цикл проверок.
+
+
+## 10.11.2026 — P3.2.2 implementation (ChatGPT owner)
+
+ChatGPT authored a new frontend Releases dashboard in Review: `frontend/src/recovery/ReleasesDashboard.tsx` (commits `00373ff`, `c467643`), routed from `frontend/src/recovery/Pages.tsx` (`79ad7ab`). Full-width responsive metadata-only portfolio: product/version/status filtering, source-as-of, source total, loaded-page released/active/without-release-date KPI, status distribution, future-dated versions, sortable version table, full-width details, honest partial pagination and stale-refresh. Uses strictly SberProject version catalog; no speculative AS21 task aggregates; explicitly acknowledges that release tasks synchronize with AS21 and that technical identity linkage remains to be wired.
+
+**Delivery status: CODE_WRITTEN_REMOTE_NOT_YET_RUNTIME_VERIFIED.** The user's actual live SberProject bridge is in unpushed LOCAL commits, and cannot be treated as present in GitHub Review. Do not overwrite that local branch. A safe integration of owner dashboard patch into the LIVE local tree is required BEFORE GigaCode QA; GigaCode remains tester only. Once synchronized, run one focused frontend build/browser check on real OLP/DMS then independent QA A230R3.42. No assertion of GREEN until that occurs.
