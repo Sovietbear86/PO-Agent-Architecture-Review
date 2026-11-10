@@ -1,6 +1,6 @@
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
-import { agent, HarnessQueryResponse, sprintForecast, SprintDeliveryForecastResponse } from '../api/client'
+import { agent, HarnessQueryResponse, sprintForecast, SprintDeliveryForecastResponse, sberprojectCatalog, SberProjectCatalog, SberProjectVersion } from '../api/client'
 import { ResultStatePanel } from '../components/ResultStatePanel'
 import { RichAnswer } from '../components/agent/RichAnswer'
 import { classifyResult, getCapabilityData, stateAllowsBusinessData } from './resultState'
@@ -594,64 +594,100 @@ export function SprintPage() {
 }
 
 export function ReleasesPage() {
-  const [releaseId, setReleaseId] = useSessionState('release.input', 'WMB-2024-Q3')
-  const [submitted, setSubmitted] = useSessionState('release.submitted', 'WMB-2024-Q3')
-  const [refreshNonce, setRefreshNonce] = useState(0)
-  const scopeQ = useSnapshotHarness('release:' + submitted, `Покажи scope ${submitted}`, refreshNonce)
-  const progressQ = useSnapshotHarness('release:' + submitted, `Покажи прогресс ${submitted}`, refreshNonce)
-  const blockersQ = useSnapshotHarness('release:' + submitted, `Покажи блокеры ${submitted}`, refreshNonce)
-  const dependenciesQ = useSnapshotHarness('release:' + submitted, `Покажи зависимости ${submitted}`, refreshNonce)
-  const risksQ = useSnapshotHarness('release:' + submitted, `Покажи риски релиза ${submitted}`, refreshNonce)
-  const forecastQ = useSnapshotHarness('release:' + submitted, `Покажи прогноз завершения релиза ${submitted}`, refreshNonce)
-  const scope = scopeQ.result
-  const progress = progressQ.result
-  const blockers = blockersQ.result
-  const dependencies = dependenciesQ.result
-  const risks = risksQ.result
-  const forecast = forecastQ.result
-  const sd = getCapabilityData(scope) as { count?: number; tasks?: TaskRow[] }
-  const pd = getCapabilityData(progress) as Record<string, unknown>
-  const bd = getCapabilityData(blockers) as { count?: number; tasks?: TaskRow[] }
-  const dd = getCapabilityData(dependencies) as { internal?: Array<Record<string, unknown>>; external?: Array<Record<string, unknown>> }
-  const rd = getCapabilityData(risks) as { risk_queue?: Array<Record<string, unknown>> }
-  const fd = getCapabilityData(forecast, 'release.forecast') as Record<string, unknown>
-  const riskRows = rd.risk_queue ?? []
-  const scopeState = classifyResult(scope)
-  const progressState = classifyResult(progress)
-  const blockersState = classifyResult(blockers)
-  const dependenciesState = classifyResult(dependencies)
-  const releaseRisksState = classifyResult(risks)
-  const forecastState = classifyResult(forecast)
-  const releaseUpdated = [scopeQ.updatedAt, progressQ.updatedAt, blockersQ.updatedAt, dependenciesQ.updatedAt, risksQ.updatedAt, forecastQ.updatedAt]
-  const releaseRefreshing = scopeQ.refreshing || progressQ.refreshing || blockersQ.refreshing || dependenciesQ.refreshing || risksQ.refreshing || forecastQ.refreshing
-  const releaseRefreshError = scopeQ.refreshError || progressQ.refreshError || blockersQ.refreshError || dependenciesQ.refreshError || risksQ.refreshError || forecastQ.refreshError
+  const [product, setProduct] = useState<'OLP' | 'DMS'>('OLP')
+  const [offset, setOffset] = useState(0)
+  const [nonce, setNonce] = useState(0)
+  const [catalog, setCatalog] = useState<SberProjectCatalog | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [selected, setSelected] = useState<string | null>(null)
+
+  useEffect(() => {
+    let active = true
+    setLoading(true)
+    setError(null)
+    setCatalog(null) // never show a previous product/page as a current source result
+    sberprojectCatalog.list(product, offset)
+      .then(data => {
+        if (!active) return
+        if (data.status === 'SOURCE_UNAVAILABLE') {
+          setError(data.reason ?? 'sberproject_source_unavailable')
+        } else {
+          setCatalog(data)
+        }
+      })
+      .catch(() => { if (active) setError('sberproject_source_unavailable') })
+      .finally(() => { if (active) setLoading(false) })
+    return () => { active = false }
+  }, [product, offset, nonce])
+
+  const rows = catalog?.versions ?? []
+  const chosen = rows.find(row => row.id === selected || row.versionId === selected) ?? null
+  function pickProduct(next: 'OLP' | 'DMS') {
+    setProduct(next)
+    setOffset(0)
+    setSelected(null)
+  }
+  const readableStatus: Record<string, string> = {
+    RELEASED: 'Выпущен',
+    INSTALLATION: 'Внедрение',
+    END_OF_SUPPORT: 'Снят с поддержки',
+    TRANSFERRED: 'Передан',
+    CANCELLED: 'Отменён',
+    INSTALLATION_CANCELLED: 'Внедрение отменено',
+  }
+  const date = (value?: string | null) => value ? value.slice(0, 10) : '—'
+  const status = (item: SberProjectVersion) =>
+    readableStatus[item.workflowStatus ?? ''] ?? (item.workflowStatus ?? 'Не указан')
+
   return <section className="page page-releases">
-    <PageHeader title="Релизы" subtitle="Progress, blockers, dependencies, risk queue и source-backed forecast" />
-    <form className="panel entity-toolbar" onSubmit={e => { e.preventDefault(); const next = releaseId.trim().toUpperCase(); if (!next) return; if (next === submitted) setRefreshNonce(value => value + 1); else setSubmitted(next) }}><div><span>Релиз</span><input value={releaseId} onChange={e => setReleaseId(e.target.value)} /></div><SnapshotStatus updatedAt={releaseUpdated} refreshing={releaseRefreshing} refreshError={releaseRefreshError} /><button type="submit">{releaseRefreshing ? 'Обновляем…' : 'Обновить'}</button></form>
-    <div className="metric-grid"><MetricCard label="Scope" value={stateAllowsBusinessData(scopeState) ? String(sd.count ?? '—') : '—'} /><MetricCard label="Completed" value={stateAllowsBusinessData(progressState) ? String(pd.completed ?? '—') : '—'} /><MetricCard label="Blocked" value={stateAllowsBusinessData(progressState) ? String(pd.blocked ?? '—') : '—'} /><MetricCard label="Готовность" value={stateAllowsBusinessData(progressState) ? `${String(pd.task_completion_percent ?? '—')}%` : '—'} hint={stateAllowsBusinessData(progressState) && pd.effort_completion_percent != null ? `effort ${String(pd.effort_completion_percent)}%` : undefined} /></div>
-    <div className="content-grid"><div className="panel"><div className="panel-title"><strong>Очередь рисков релиза</strong><span>{stateAllowsBusinessData(releaseRisksState) ? riskRows.length : '—'}</span></div>{stateAllowsBusinessData(releaseRisksState) ? (riskRows.length ? riskRows.map((row, index) => { const task = (row.task ?? {}) as TaskRow; return <div className="risk-row" key={String(task.key ?? index)}><div><b>{String(task.key ?? '')}</b><span>{String(task.title ?? '')} · {((row.reasons ?? []) as string[]).join(', ')}</span></div><em>{String(row.risk_score ?? '')}</em></div> }) : <div className="muted">Источник подтвердил: риски не выявлены.</div>) : <ResultStatePanel result={risks} compact />}<HarnessMeta result={risks} /></div>
-      <div className="panel"><div className="panel-title"><strong>Dependencies</strong><span>{stateAllowsBusinessData(dependenciesState) ? (dd.internal?.length ?? 0) + (dd.external?.length ?? 0) : '—'}</span></div>{stateAllowsBusinessData(dependenciesState) ? <><div className="fact-row"><span>Внутренние</span><b>{dd.internal?.length ?? 0}</b></div><div className="fact-row"><span>Внешние</span><b>{dd.external?.length ?? 0}</b></div></> : <ResultStatePanel result={dependencies} compact />}<HarnessMeta result={dependencies} /></div></div>
-    <div className="panel"><div className="panel-title"><strong>Blockers</strong><span>{stateAllowsBusinessData(blockersState) ? (bd.count ?? '—') : '—'}</span></div>{stateAllowsBusinessData(blockersState) ? (bd.tasks?.length ? bd.tasks.map(task => <div className="task-row" key={String(task.key)}><div className="task-key">{String(task.key)}</div><div className="task-main"><b>{String(task.title ?? '')}</b><span>{String(task.assignee ?? 'Не назначен')}</span></div><div className="status-pill">{String(task.status ?? '')}</div></div>) : <div className="muted">Источник подтвердил: заблокированных задач нет.</div>) : <ResultStatePanel result={blockers} compact />}<HarnessMeta result={blockers} /></div>
-    <div className="panel insight-card">
-      <div className="panel-title"><strong>Predictability / Forecast</strong><span>{forecast?.skill?.id ?? '—'}</span></div>
-      {stateAllowsBusinessData(forecastState)
-        ? <>
-            <div className="insight-value">
-              {fd.state === 'COMPLETED'
-                ? 'Завершён'
-                : fd.forecast_days_remaining != null
-                  ? `${String(fd.forecast_days_remaining)} дн.`
-                  : String(fd.state ?? '—')}
-            </div>
-            <div className="muted">
-              {fd.forecast_date
-                ? `Прогнозная дата: ${new Date(String(fd.forecast_date)).toLocaleDateString('ru-RU')}`
-                : 'Подтверждённая прогнозная дата отсутствует.'}
-            </div>
-          </>
-        : <ResultStatePanel result={forecast} compact />}
-      <HarnessMeta result={forecast} />
+    <PageHeader title="Релизы" subtitle="Каталог версий из мастер-системы SberProject · read-only" />
+    <div className="panel entity-toolbar">
+      <label>Продукт{' '}
+        <select aria-label="Продукт" value={product} onChange={e => pickProduct(e.target.value as 'OLP' | 'DMS')}>
+          <option value="OLP">PV OLAP Analytics</option>
+          <option value="DMS">PV DataMarts</option>
+        </select>
+      </label>
+      <button type="button" disabled={loading} onClick={() => setNonce(v => v + 1)}>
+        {loading ? 'Загрузка…' : 'Обновить'}
+      </button>
+      <span className="muted">{catalog?.as_of ? `Получено: ${new Date(catalog.as_of).toLocaleString('ru-RU')}` : 'Источник: SberProject'}</span>
     </div>
+    {error ? <div className="panel" role="alert">Каталог недоступен: {error === 'sberproject_auth_required' ? 'требуется авторизация SberProject' : error === 'sberproject_incomplete' ? 'ответ источника неполный' : 'не удалось получить данные SberProject'}. Данные AS21 не подставляются вместо релизов.</div> : null}
+    {loading ? <div className="panel">Получаем подтверждённые данные SberProject…</div> : null}
+    {catalog ? <>
+      <div className="panel">
+        <div className="panel-title"><strong>Версии {product}</strong><span>{catalog.total != null ? `Всего по источнику: ${catalog.total}` : `На странице: ${rows.length}`}</span></div>
+        <div className="muted">Статусы и даты — данные SberProject. Состав задач: источник не подтверждён.</div>
+        {rows.map(row => <button
+          type="button" className="task-row" key={row.id}
+          onClick={() => setSelected(row.id)} aria-pressed={chosen?.id === row.id}
+        >
+          <div className="task-key">{row.id}</div>
+          <div className="task-main"><b>{row.versionNumber}</b><span>{status(row)}</span></div>
+          <div className="status-pill">{date(row.releaseDate)}</div>
+        </button>)}
+        {!rows.length && catalog.status === 'COMPLETE' ? <p>Источник подтвердил пустую страницу версий.</p> : null}
+        <div className="entity-toolbar">
+          <button type="button" disabled={loading || offset === 0} onClick={() => { setOffset(v => Math.max(0, v - 20)); setSelected(null) }}>Назад</button>
+          <span>Страница {Math.floor(offset / 20) + 1}</span>
+          <button type="button" disabled={loading || !catalog.has_more || catalog.next_offset == null} onClick={() => { setOffset(catalog.next_offset!); setSelected(null) }}>Далее</button>
+          {catalog.has_more && catalog.next_offset == null ? <span className="muted">Следующая страница не подтверждена источником</span> : null}
+        </div>
+      </div>
+      {chosen ? <div className="panel">
+        <div className="panel-title"><strong>Версия {chosen.versionNumber}</strong><span>{chosen.id}</span></div>
+        <div className="details-grid">
+          <span>Состояние</span><b>{status(chosen)}</b>
+          <span>Начало</span><b>{date(chosen.beginDate)}</b>
+          <span>Окончание</span><b>{date(chosen.endDate)}</b>
+          <span>Дата выпуска</span><b>{date(chosen.releaseDate)}</b>
+          <span>Ответственный</span><b>{chosen.owner ?? 'Не указан'}</b>
+        </div>
+        <p className="muted">Состав задач: источник не подтверждён. Прогресс, блокировки и проценты не вычисляются без подтверждённой связи SberProject ↔ AS21.</p>
+      </div> : null}
+    </> : null}
   </section>
 }
 
