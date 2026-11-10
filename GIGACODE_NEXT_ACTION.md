@@ -1,17 +1,35 @@
 # GigaCode — NEXT ACTION
 
-## A230R3.41 — P3.2 LOCAL SKILL BRIDGE (single-user macOS; bounded vertical)
+## A230R3.42 — P3.2 Releases analytics dashboard, UI/UX owner implementation (ONE bounded patch)
 
-### Evidence
-A230R3.40 local diagnostic `P32_SBERPROJECT_SKILL_AUTH_REUSE.md` (owner's local commit `d509c84`, check actual HEAD; do not assume pushed). Verdict `REUSABLE_VIA_SUBPROCESS_ADAPTER`: existing `.gigacode/skills/sbt-project` CLI can run `doctor` and `versions <product>` and return JSON `meta/results`. Skill owns OS Keychain session; no second PO Agent token client required. **This is technical feasibility, not security authorization.** The CLI reportedly uses an AD-password grant for initial login and Keychain access; do not automate login, read stored secrets, or install CA. A user-approved local read-only delegation is the only scope to attempt. Corporate TLS trust chain is still a prerequisite. Source catalog uses SberProject `productVersion` codes and product lookup, not any fabricated UUID.
+### Confirmed user starting point (10.11.2026)
+User's local PO Agent now has **live source**: `SBERPROJECT_FINAL_CONNECT_GREEN`, OLP 69 versions (20 on confirmed first page), DMS 16; TLS enabled via approved PEM and opt-in same-user CLI bridge. User screenshot: poor layout: tiny version rows in narrow left column, a large empty right area; missing analytical value. Existing `ReleasesPage` is just a source catalog; Sprint page has useful KPI cards. Core V4 frozen. Owner's last live commits may be **LOCAL ONLY** because git push failed due to GitHub auth; do not force-reset or overwrite them with stale origin. Before edits compare actual LOCAL HEAD with upstream; preserve user runtime `task-api/.env`, certs and running services.
 
-### One cohesive owner implementation (avoid research loops)
-1. Confirm current branch/source and local skill's **documented JSON output and executable interface**. If skill cannot run noninteractively with an existing, valid user session, stop typed `sberproject_auth_required` — never invoke `login` or grant-type flows. Do not modify skill itself or SberProject security configuration.
-2. Implement an **opt-in, disabled-by-default** local-macOS-only provider behind the existing `SBERPROJECT_CATALOG_READ_URL` adapter contract (or explicit local transport if simpler). Server may call only an allowlisted CLI with `subprocess.run/asyncio.create_subprocess_exec` (argument-array, no shell), with fixed working directory/executable allowlist, explicit `versions OLP|DMS` args and bounds, timeout/cancellation, bounded output bytes, no inherited attacker-provided env/extra args, and no secret logging. Never parse freeform prose into release facts; parse known JSON schema and reject incomplete pages. Normalized DTO only (id/versionNumber/workflowStatus/dates/owner + total/has_more/next_offset). This is strictly a **local personal-user deployment**, not public/multiuser; production/default remains disabled.
-3. Enforce **same OS user** for app server and CLI; ensure CLI script/files are trusted, permissions appropriate, and invoke ONLY if existing authorization is expressly permissible under corporate policy. TLS validation stays enabled. If official corporate CA missing, do not replace it with disabling verification; provide typed `sberproject_tls_unavailable` and narrow operator instructions to install approved CA. No credentials/tokens/cookies read or copied by PO Agent; do not print or expose `doctor` secret details.
-4. Prove bounded OLP + DMS pagination. IMPORTANT: user's screenshot reported first page 50, `has_more=true`. If CLI does not support `limit/offset` with complete-page contract, implement safe capped single-page + explicit `PARTIAL`/no next; do NOT invent offset or claim all 69. Use cached data only with timestamp/provenance and explicit stale marker. No task membership: display `Состав задач: источник не подтверждён`.
-5. Tests: opt-in OFF, auth missing, TLS missing, process timeout, malformed/oversized JSON, out-of-scope product, injection attempts, has_more without next, no secret exposure, no AS21 fallback. One targeted regression/frontend build + Core V4 6/6, then **one** smoke on already-authenticated local session if approved and CA configured. Do not run repeated QA loops. Do not restart user's processes without confirming safe restart plan; preserve unrelated dirty tree.
-6. Commit **one cohesive owner delta** only if tests pass, report `po-agent-platform-v2/qa_reports/P32_LOCAL_SKILL_BRIDGE_IMPLEMENTATION.md`. Verdict `LOCAL_BRIDGE_READY` only if actual running UI shows real OLP and DMS rows via this bridge, otherwise `BRIDGE_IMPLEMENTED_AUTH_OR_TLS_BLOCKED`, with exact nonsecret blocker. STOP.
+### Target: make Releases a useful source-grounded dashboard without inventing tasks
+Implement **one cohesive frontend-centric patch** based on the actual source fields. Never infer release-task membership from names or AS21 task space. Distinguish metadata KPIs now from task KPIs later.
 
-### Security guardrail
-Do not pass password, access/refresh tokens or raw Keychain items from CLI into PO Agent; CLI outputs public release metadata ONLY. No auth bypass, no MFA bypass, no SSL disable. If actual CLI auto-auth triggers a password grant and no pre-established session, return auth-required and do not proceed. No changes to frozen Core V4. Public app release cannot reuse this local bridge without a separately reviewed auth architecture.
+#### UI layout, like Sprints
+1. Top compact filter bar: product OLP/DMS, searchable version (ID/number), lifecycle status selector, refresh, source-as-of timestamp/status. All controls usable on mobile/small viewport. No giant empty area.
+2. First row 4 KPI cards, **computed from the full verified version collection or clearly labeled loaded subset**:
+   - Total versions (source `total`).
+   - Released versions (`workflowStatus.code=RELEASED` or documented aliases).
+   - Active/in implementation (only explicit states `INSTALLATION` etc.; do not invent mappings).
+   - Upcoming / at risk: counts **only if** complete verified dates/status make them derivable; otherwise use `Не определено` and explanation. Better substitute "Без даты выпуска" for entirely source-grounded data.
+3. Main full-width dashboard grid (responsive, 2 columns on wide screens):
+   - Release timeline/table: version, SberProject ID, lifecycle badge, begin/end/release date, owner, overdue indicator derived from explicit planned end and unfinished status (date semantics confirmed), sortable.
+   - Lifecycle status distribution by product. Use lightweight CSS bars; no new chart dependency.
+   - Upcoming/recent releases ordered by verified dates, with no fake schedule.
+4. Selecting a version opens an informative **full-width details panel** (or side panel consuming reasonable width): key dates, lifecycle, owner, relative deadline if provable, source/provenance. A separate disabled/unknown block `Задачи / прогресс / блокировки / зависимости: связь SberProject ↔ AS21 ещё не подтверждена`. Do not display 0 tasks, 0 blocked, percentages, fictitious progress or risk scores. Mark date gaps 'нет данных' and leave raw statuses readable.
+5. End state with empty, partial, auth/TLS error and stale-refresh all distinct; preserve prior successful source snapshot visibly marked as stale (never relabel as fresh). Pagination remains honest: prior source CLI only supported page 1 -> never synthesize page 2. If full collection cannot be fetched, count cards based on confirmed total only for totals, and label status distribution `из N загруженных`.
+
+### Evidence gates and completion
+- FIRST read `frontend/src/recovery/Pages.tsx`, existing `SprintPage` cards/styles, `frontend/src/api/client.ts`, live JSON response contract and report `P32_SBERPROJECT_FINAL_CONNECT_E2E.md` (if present); confirm which status/date/owner fields are returned and whether date meaning is planned vs actual. No broad external scan.
+- Implement small modular components/derivations outside Core V4. Responsive layout/consistent typography; remove the tiny left-column presentation. Prefer existing UI patterns and CSS. Avoid change to Task API unless absolutely necessary for reliable provenance.
+- One local fixture/unit run for state arithmetic, no falsified AS21 fields; one frontend build + small browser smoke with real local OLP/DMS if running; 6/6 core integrity. No endless regression, no user services restart unless authorized and required.
+- Single coherent commit (only frontend/docs/tests + any necessary route fixes), update evolution plan. Output `po-agent-platform-v2/qa_reports/P32_RELEASES_DASHBOARD_UI_QA.md`, verdict `RELEASES_DASHBOARD_UI_GREEN` only after actual browser checks, else precise typed partial and STOP.
+- Do NOT push until GitHub authorization restored; do not claim remote synced. Preserve `task-api/.env`, PEM, keychain and unrelated dirty state.
+
+### FOLLOW-ON (not in this task)
+Release task membership + metrics similar to sprint throughput/WIP/forecast require a **verified release→task identity bridge** from SberProject/AS21 data owner. Record discovery question `task.plan.accountingObject → ProductVersion` (display ID vs internal ID); then scope bounded task collection before implementing progress, completed, remaining, blockers, forecast. Must never fill cards with fabricated 0%/100%.
+
+**One implementation + one narrow QA, report, STOP.**
