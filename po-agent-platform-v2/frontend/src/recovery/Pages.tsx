@@ -1,6 +1,6 @@
 import { FormEvent, ReactNode, useEffect, useMemo, useState } from 'react'
 import { useOutletContext } from 'react-router-dom'
-import { agent, HarnessQueryResponse, sprintForecast, SprintDeliveryForecastResponse, sberprojectCatalog, SberProjectCatalog, SberProjectVersion } from '../api/client'
+import { agent, HarnessQueryResponse, sprintForecast, SprintDeliveryForecastResponse } from '../api/client'
 import { ResultStatePanel } from '../components/ResultStatePanel'
 import { RichAnswer } from '../components/agent/RichAnswer'
 import { classifyResult, getCapabilityData, stateAllowsBusinessData } from './resultState'
@@ -593,103 +593,7 @@ export function SprintPage() {
   </section>
 }
 
-export function ReleasesPage() {
-  const [product, setProduct] = useState<'OLP' | 'DMS'>('OLP')
-  const [offset, setOffset] = useState(0)
-  const [nonce, setNonce] = useState(0)
-  const [catalog, setCatalog] = useState<SberProjectCatalog | null>(null)
-  const [error, setError] = useState<string | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [selected, setSelected] = useState<string | null>(null)
-
-  useEffect(() => {
-    let active = true
-    setLoading(true)
-    setError(null)
-    setCatalog(null) // never show a previous product/page as a current source result
-    sberprojectCatalog.list(product, offset)
-      .then(data => {
-        if (!active) return
-        if (data.status === 'SOURCE_UNAVAILABLE') {
-          setError(data.reason ?? 'sberproject_source_unavailable')
-        } else {
-          setCatalog(data)
-        }
-      })
-      .catch(() => { if (active) setError('sberproject_source_unavailable') })
-      .finally(() => { if (active) setLoading(false) })
-    return () => { active = false }
-  }, [product, offset, nonce])
-
-  const rows = catalog?.versions ?? []
-  const chosen = rows.find(row => row.id === selected || row.versionId === selected) ?? null
-  function pickProduct(next: 'OLP' | 'DMS') {
-    setProduct(next)
-    setOffset(0)
-    setSelected(null)
-  }
-  const readableStatus: Record<string, string> = {
-    RELEASED: 'Выпущен',
-    INSTALLATION: 'Внедрение',
-    END_OF_SUPPORT: 'Снят с поддержки',
-    TRANSFERRED: 'Передан',
-    CANCELLED: 'Отменён',
-    INSTALLATION_CANCELLED: 'Внедрение отменено',
-  }
-  const date = (value?: string | null) => value ? value.slice(0, 10) : '—'
-  const status = (item: SberProjectVersion) =>
-    readableStatus[item.workflowStatus ?? ''] ?? (item.workflowStatus ?? 'Не указан')
-
-  return <section className="page page-releases">
-    <PageHeader title="Релизы" subtitle="Каталог версий из мастер-системы SberProject · read-only" />
-    <div className="panel entity-toolbar">
-      <label>Продукт{' '}
-        <select aria-label="Продукт" value={product} onChange={e => pickProduct(e.target.value as 'OLP' | 'DMS')}>
-          <option value="OLP">PV OLAP Analytics</option>
-          <option value="DMS">PV DataMarts</option>
-        </select>
-      </label>
-      <button type="button" disabled={loading} onClick={() => setNonce(v => v + 1)}>
-        {loading ? 'Загрузка…' : 'Обновить'}
-      </button>
-      <span className="muted">{catalog?.as_of ? `Получено: ${new Date(catalog.as_of).toLocaleString('ru-RU')}` : 'Источник: SberProject'}</span>
-    </div>
-    {error ? <div className="panel" role="alert">Каталог недоступен: {error === 'sberproject_auth_required' ? 'требуется авторизация SberProject' : error === 'sberproject_incomplete' ? 'ответ источника неполный' : 'не удалось получить данные SberProject'}. Данные AS21 не подставляются вместо релизов.</div> : null}
-    {loading ? <div className="panel">Получаем подтверждённые данные SberProject…</div> : null}
-    {catalog ? <>
-      <div className="panel">
-        <div className="panel-title"><strong>Версии {product}</strong><span>{catalog.total != null ? `Всего по источнику: ${catalog.total}` : `На странице: ${rows.length}`}</span></div>
-        <div className="muted">Статусы и даты — данные SberProject. Состав задач: источник не подтверждён.</div>
-        {rows.map(row => <button
-          type="button" className="task-row" key={row.id}
-          onClick={() => setSelected(row.id)} aria-pressed={chosen?.id === row.id}
-        >
-          <div className="task-key">{row.id}</div>
-          <div className="task-main"><b>{row.versionNumber}</b><span>{status(row)}</span></div>
-          <div className="status-pill">{date(row.releaseDate)}</div>
-        </button>)}
-        {!rows.length && catalog.status === 'COMPLETE' ? <p>Источник подтвердил пустую страницу версий.</p> : null}
-        <div className="entity-toolbar">
-          <button type="button" disabled={loading || offset === 0} onClick={() => { setOffset(v => Math.max(0, v - 20)); setSelected(null) }}>Назад</button>
-          <span>Страница {Math.floor(offset / 20) + 1}</span>
-          <button type="button" disabled={loading || !catalog.has_more || catalog.next_offset == null} onClick={() => { setOffset(catalog.next_offset!); setSelected(null) }}>Далее</button>
-          {catalog.has_more && catalog.next_offset == null ? <span className="muted">Следующая страница не подтверждена источником</span> : null}
-        </div>
-      </div>
-      {chosen ? <div className="panel">
-        <div className="panel-title"><strong>Версия {chosen.versionNumber}</strong><span>{chosen.id}</span></div>
-        <div className="details-grid">
-          <span>Состояние</span><b>{status(chosen)}</b>
-          <span>Начало</span><b>{date(chosen.beginDate)}</b>
-          <span>Окончание</span><b>{date(chosen.endDate)}</b>
-          <span>Дата выпуска</span><b>{date(chosen.releaseDate)}</b>
-          <span>Ответственный</span><b>{chosen.owner ?? 'Не указан'}</b>
-        </div>
-        <p className="muted">Состав задач: источник не подтверждён. Прогресс, блокировки и проценты не вычисляются без подтверждённой связи SberProject ↔ AS21.</p>
-      </div> : null}
-    </> : null}
-  </section>
-}
+export { ReleasesDashboard as ReleasesPage } from './ReleasesDashboard'
 
 export function TeamPage() {
   const result = useHarness('Покажи нагрузку команды'); const d = (result?.data ?? {}) as { workload?: Array<Record<string, unknown>> }; const rows = d.workload ?? []
