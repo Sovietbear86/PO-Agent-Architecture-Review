@@ -60,7 +60,7 @@ def _catalog_response(payload: object, product: str, limit: int) -> dict:
     # No "task_count": a missing membership link must never become a false zero.
     return {
         "status": "COMPLETE" if not has_more else "PARTIAL",
-        "source": "SBErPROJECT",
+        "source": "SBERPROJECT",
         "product": product,
         "versions": safe_rows,
         "has_more": has_more,
