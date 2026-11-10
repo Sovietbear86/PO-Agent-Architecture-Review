@@ -1,24 +1,20 @@
-# GigaCode — NEXT ACTION
+# GigaCode — NEXT ACTION / EXTERNAL BLOCKER
 
-## A230R3.39-P32-SBERPROJECT-CONNECTOR-IMPLEMENTATION
+## A230R3.40 — SberProject auth decision & IT handoff (NO new QA cycle)
 
-### Starting point
-A230R3.38 verdict **CONNECTOR_REQUIRED** (10.11.2026), independent report `po-agent-platform-v2/qa_reports/P32_LIVE_CONNECTOR_DECISION.md` in owner's local workspace (untracked). There is **no approved production server connector yet**. The local personal `sbt-project` skill v0.3.0 proves one bounded real `versions OLP` read (69 total, 50 page; `has_more=true`) but is not runtime-deployable as an app service. GigaCode has identified the existing registered `productVersionListByPage` operation and exact source fields; **no newly invented persisted/hash query**. Existing Review code has catalog-only UI + Agent → Task API → configured corporate read-only HTTPS facade. A230R3.37 all 7 contract gates GREEN, Core V4 frozen.
+### State as of 2026-11-10
+A230R3.39 server connector implemented locally with verdict `CONNECTOR_IMPLEMENTED_PENDING_APPROVAL` (owner reported commits `da571cc`, `620a1e4`; do NOT assume pushed). Subsequent GigaCode report `P32_SBERPROJECT_INTERACTIVE_OIDC_FEASIBILITY.md`, commit `c9f7008`, verdict `CAPABILITY_PRESENT_LOCAL_USER_PATH_BLOCKED`: SberProject public user client supports authorization code+refresh token but its redirect URI is tied to `https://project.sbertech.ru/` with no localhost PKCE registration; password flow would put personal AD credentials into the app and is NOT authorized. Real host TLS currently fails CA validation in Node/Python (corporate `SberTech AD Subordinate Certification Authority` chain not in approved runtime trust), and no approved confidential service client has been provisioned. Core V4 unchanged. Existing local GigaCode skill login is **NOT** permission to transfer keychain credentials/tokens into the application.
 
-### Objective: ONE implementation change set, not another discovery/QA marathon
-Develop a minimal **maintainable, read-only, server-side SberProject connector** that can be deployed *after* the security/IT owner approves the identity and source access. Prioritize a safe, operator-configurable connector, with **no dependency on invoking the local GigaCode skill in production**. GigaCode may implement application source code per owner's current direction. Avoid appending diagnostic scripts or asking user to paste passwords into chat.
+### PO decision
+**STOP implementation and repetitive testing pending external IT/security decision.** GigaCode must not change auth settings, probe grant types, bypass TLS, copy credentials, or try to reuse an existing browser session. No speculative workarounds. Do not put secrets/CA private keys in repo.
 
-### Engineering steps (owner change, one vertical)
-1. First read the current Review code + `po-agent-platform-v2/docs/P32_SBEPROJECT_CATALOG_CONTRACT.md` + local `.gigacode/skills/sbt-project` for **the exact registered operation** `productVersionListByPage`, GraphQL transport headers and response shape. Use **only** the verified registered operation syntax/hash from skill; no guessed operation hash, secret, domain fallback or tenant scan. Treat `OLP.78` as the canonical displayed ID, not an invented UUID.
-2. Implement the smallest HTTPS adapter endpoint meeting the existing `SBERPROJECT_CATALOG_READ_URL` contract. A maintained operator-approved OIDC confidential service identity **must** be provisioned by SberTech IT/security. Where that has not yet happened, implement only a **disabled-by-default config path and typed `AUTH_REQUIRED`/source-unavailable state**; never simulate a working source. Make OIDC token acquisition/renewal modular, with credentials from a secure runtime provider (not Git, `.env.example`, browser, shared-keychain, command args or logs). TLS verification on and corporate CA approved by IT. No `verify=False`, `-k`, bypass SSO/MFA or raw cookie reuse.
-3. Normalize only `id/versionNumber/workflowStatus/beginDate/endDate/releaseDate/owner`; page size <=20, paginate using verified source capabilities and preserve total/has_more/next_offset, never claim full catalog from first page. If source cannot reliably paginate, return typed INCOMPLETE instead of truncation-as-complete. OLP/DMS only, bounded requests, read-only. No issueKey/percentDone/membership until the SberProject data owner confirms the bridge.
-4. Connect adapter to existing Task API via the already defined facade, and provide a short operator runbook with non-secret configuration **names** and a precise corporate IT approval checklist (approved service client/permissions/CA/endpoints). Confirm the running 8004/8241 stack cannot claim source-ready before actual approval.
-5. Targeted unit/contract tests and frontend build + baseline-aware regression **once**, no unlimited test loop; frozen Core V4 6/6. Single commit or small cohesive commit series only if code/tests are GREEN; leave unrelated dirty/untracked files untouched. Do not push secrets. One report `po-agent-platform-v2/qa_reports/P32_SERVER_CONNECTOR_IMPLEMENTATION.md` and STOP.
+### Exact IT request / decision (send by human, not automate)
+Request a documented read-only SberProject integration for local/single-user PO Agent:
+1. Preferred: dedicated OIDC confidential service client under SBT-TNT, scoped only to registered `productVersionListByPage` query for OLP/DMS release versions, with secure client credential issuance, refresh/rotation and approved usage policy. Or confirm whether a public PKCE client with **explicit localhost loopback redirect registration** is permitted for single-user desktop use. Do **not** ask for enabling resource-owner-password credentials grant.
+2. Provide official corporate SberTech AD CA chain and instructions for Node/Python trust; mandatory TLS verification stays enabled.
+3. Confirm endpoint/origin, required `x-dspc-tenant: SBT-TNT` / GraphQL registered operation headers, read scopes, limits, and who operates the secret provider, plus process for future token expiry/rotation.
 
-### Acceptance / stops
-- **`CONNECTOR_IMPLEMENTED_PENDING_APPROVAL`** is valid if adapter+tests work with *safe controlled fixtures* but real OIDC service identity/CA/access is not provisioned. This is not LIVE_GREEN.
-- **`LIVE_GREEN`** only after an approved authorized service credential provider is present, **one** bounded REAL OLP and DMS HTTP check succeeds (not synthetic), and the normal running UI shows real source-grounded version rows, dates, statuses, paging.
-- If API contract requires undocumented operation not in local skill or corporate policy disallows service integration, stop with precise `IT_APPROVAL_REQUIRED`, identify the single decision/approval needed, do not invent a workaround.
-- Never change Core V4, never claim membership link as proven or show zero tasks because no AS21 issueKey exists.
+### Trigger to resume
+Only after IT issues the documented approval and approved non-secret connection metadata: configure the already-built connector, one real bounded OLP+DMS catalogue read, then one UI smoke, one independent QA. Any user credentials or certificates installed only via corporate-approved mechanisms, **never** shared in chat/Git. If no authorization is granted, keep releases UI typed `SOURCE_UNAVAILABLE` rather than fabricated catalogue. Release↔AS21 membership remains separate `DATA_OWNER_REQUIRED`.
 
-**After delivery: one independent QA on the committed owner change, then move to data-owner linkage request. Do not re-run A230R3.31–38.**
+**GigaCode action now: HOLD / STOP.** No tests or commits until approval arrives.
