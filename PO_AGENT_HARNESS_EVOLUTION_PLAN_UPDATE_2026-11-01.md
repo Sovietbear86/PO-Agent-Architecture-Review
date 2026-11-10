@@ -237,3 +237,20 @@ Release linkage: sbeproject release-task membership is a work-plan relationship 
 GigaCode independently confirmed no corporate production-ready server SberProject connector is deployed or documented; its working personal skill is **not** an authorized replacement for server service account/OIDC provider. Local source operation `productVersionListByPage` (registered/hash-pinned) and source field mappings are observed; local OLP version list real (69 total, first page 50), source catalog contract remains viable. Existing UI/REST validated A230R3.37, but **live release catalog in PO Agent remains BLOCKED**.
 
 Move from discovery to **one bounded implementation** A230R3.39: server-side normalized read-only HTTPS connector using verified registered operation only, OLP/DMS <=20 per page, TLS verified, OIDC service identity provided/approved by corporate IT; fail closed by default if not provisioned. Do not reuse personal GigaCode Keychain tokens or store login/password. A fixture-only implementation with no authorized live connection must say `CONNECTOR_IMPLEMENTED_PENDING_APPROVAL`, not LIVE_GREEN. Then one live user-session smoke and independent QA after security approval. Release task membership remains `DATA_OWNER_REQUIRED`, independent of catalog MVP. Core 6/6 frozen.
+
+
+## 10.11.2026 — Роли и синхронизация релизов (решение PO)
+
+**Единственный разработчик — ChatGPT.** GigaCode больше не получает заданий на реализацию, фиксы или изменения конфигурации; только независимые QA, targeted regression, browser checks и отчёты по уже созданным ChatGPT коммитам. Эту границу закрепляет `GIGACODE_NEXT_ACTION.md`.
+
+**Бизнес-факт:** задачи, включённые в релизы SberProject, синхронизированы с AS21/SWTR. Соответственно, стратегическая аналитика релиза строится на комбинации SberProject (версия, график, жизненный цикл, принадлежность релизу) и AS21/SWTR (фактическое состояние задач, исполнители, типы, зависимости, история). Прежний `DATA_OWNER_REQUIRED` уточняется: требуется не подтверждать само наличие синхронизации, а **найти и проверить конкретный join key/отношение** для безопасной технической реализации. Нельзя трактовать отсутствие `issueKey` в версии SberProject как отсутствие синхронизации задач.
+
+**P3.2.1**: локальное live подключение OLP/DMS выполнено (`SBERPROJECT_FINAL_CONNECT_GREEN` на машине пользователя). Коммиты локального рабочего экземпляра могут отсутствовать в origin из-за GitHub auth — никакие правки устаревшего remote вместо живой локальной ветки не допускать.
+
+**P3.2.2 (ChatGPT owner)**: полноширинная панель «Релизы» по примеру «Спринтов», real-source KPI, статусный портфель, timeline, фильтры, карточка версии, корректная пагинация/частичные данные.
+
+**P3.2.3 (ChatGPT owner)**: исследовать фактическое поле/таблицу связи `SberProject version → release task identity → AS21 code`; провести bounded A/B сопоставление конкретного релиза и связанных задач, без сканирования всего тенанта. После этого сделать read-only агрегацию `scope/completed/WIP/blocked/dependencies`, детальный список с переходом в AS21, честный freshness.
+
+**P3.2.4**: Release Health/Forecast только на реальных датах, завершённых задачах, скорости и ограничениях качества источника; ни одной фальшивой цифры.
+
+**Контроль качества**: GigaCode принимает готовые ChatGPT коммиты по одному узкому заданию с PASS/FAIL и воспроизводимыми evidence, не меняя код и не проводя бесконечный цикл проверок.
