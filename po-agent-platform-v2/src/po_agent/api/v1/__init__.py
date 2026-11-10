@@ -815,3 +815,40 @@ async def sprint_delivery_forecast(sprint_id: str):
         return {"sprint_id": normalized, "status": "SOURCE_UNAVAILABLE",
                 "reason": reason, "forecast_completion_percent": None,
                 "committed_predictability": None}
+
+
+@router.get("/sberproject/releases")
+async def sberproject_releases(product: str = "OLP", limit: int = 20, offset: int = 0):
+    """Bounced read-only catalogue lookup. No browser tokens or AS21 fallback."""
+    import httpx
+    product = product.upper().strip()
+    if product not in ("OLP", "DMS") or not 1 <= limit <= 20 or not 0 <= offset <= 500:
+        raise HTTPException(status_code=400, detail={"reason": "invalid_catalog_request"})
+    settings = get_settings()
+    base_url = settings.task_api_base_url.rstrip("/")
+    try:
+        async with httpx.AsyncClient(timeout=24) as client:
+            response = await client.get(
+                base_url + "/api/v1/sberproject-read/versions",
+                params={"product": product, "limit": limit, "offset": offset},
+            )
+        if response.status_code != 200:
+            reason = "sberproject_source_unavailable"
+            try:
+                detail = response.json().get("detail", {})
+                candidate = detail.get("reason", "") if isinstance(detail, dict) else ""
+                if candidate in {"sberproject_auth_required", "sberproject_incomplete",
+                                 "sberproject_pagination_unknown", "sberproject_page_over_limit"}:
+                    reason = candidate
+            except (ValueError, AttributeError):
+                pass
+            return {"status": "SOURCE_UNAVAILABLE", "reason": reason, "product": product,
+                    "versions": [], "has_more": None, "membership_status": "SOURCE_UNVERIFIED"}
+        payload = response.json()
+        if not isinstance(payload, dict):
+            raise ValueError("invalid catalogue shape")
+        return payload
+    except (httpx.RequestError, ValueError):
+        return {"status": "SOURCE_UNAVAILABLE", "reason": "sberproject_source_unavailable",
+                "product": product, "versions": [], "has_more": None,
+                "membership_status": "SOURCE_UNVERIFIED"}
