@@ -4,7 +4,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.routers import tasks, jira, swtr_sync, swtr_read, swtr_assignee, swtr_entities, swtr_query
+from app.routers import tasks, jira, swtr_sync, swtr_read, swtr_assignee, swtr_entities, swtr_query, sberproject_read
 from app.exceptions.handlers import (
     validation_exception_handler,
     value_error_handler,
@@ -73,3 +73,4 @@ app.include_router(swtr_read.router)
 app.include_router(swtr_assignee.router)
 app.include_router(swtr_entities.router)
 app.include_router(swtr_query.router)
+app.include_router(sberproject_read.router)
