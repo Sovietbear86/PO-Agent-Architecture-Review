@@ -159,3 +159,37 @@ export const sprintForecast = {
     return response.data
   },
 }
+
+
+export interface SberProjectVersion {
+  id: string
+  versionId?: string
+  versionNumber: string
+  workflowStatus?: string
+  beginDate?: string | null
+  endDate?: string | null
+  releaseDate?: string | null
+  owner?: string | null
+  manager?: string | null
+}
+export interface SberProjectCatalog {
+  status: 'COMPLETE' | 'PARTIAL' | 'SOURCE_UNAVAILABLE'
+  source?: string
+  reason?: string
+  product: 'OLP' | 'DMS'
+  versions: SberProjectVersion[]
+  has_more: boolean | null
+  next_offset?: number | null
+  total?: number | null
+  as_of?: string
+  membership_status: 'SOURCE_UNVERIFIED'
+}
+export const sberprojectCatalog = {
+  list: async (product: 'OLP' | 'DMS', offset = 0): Promise<SberProjectCatalog> => {
+    const response = await api.get<SberProjectCatalog>('/sberproject/releases', {
+      params: { product, offset, limit: 20 },
+      timeout: 30000,
+    })
+    return response.data
+  },
+}
