@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type CSSProperties } from 'react'
 import { sberprojectCatalog, type SberProjectCatalog, type SberProjectVersion } from '../api/client'
 
 /**
@@ -25,10 +25,10 @@ const fmt = (v?: string | null) => {
   return `${day}.${month}.${year}`
 }
 const description = (value?: string) => labels[value || ''] || value || 'Не указан'
-const panel: React.CSSProperties = { background: 'var(--surface, rgba(28,43,65,.82))', border: '1px solid rgba(143,180,216,.24)', borderRadius: 14, padding: 18, minWidth: 0 }
-const grid: React.CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: 14 }
-const input: React.CSSProperties = { minWidth: 0, maxWidth: '100%', padding: '9px 12px', borderRadius: 8 }
-const muted: React.CSSProperties = { opacity: .73, fontSize: 13 }
+const panel: CSSProperties = { background: 'var(--surface, rgba(28,43,65,.82))', border: '1px solid rgba(143,180,216,.24)', borderRadius: 14, padding: 18, minWidth: 0 }
+const grid: CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: 14 }
+const input: CSSProperties = { minWidth: 0, maxWidth: '100%', padding: '9px 12px', borderRadius: 8 }
+const muted: CSSProperties = { opacity: .73, fontSize: 13 }
 const day = (v?: string | null): number | null => {
   const iso = v && /^\d{4}-\d{2}-\d{2}/.exec(v)?.[0]
   if (!iso) return null
