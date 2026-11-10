@@ -2,10 +2,14 @@
 
 ## A230R3.42-QA — Releases Dashboard, independent verification after owner implementation
 
+ChatGPT OWNER CODE WRITTEN on Review branch (remote): `00373ff` (new `ReleasesDashboard.tsx`), `79ad7ab` (`Pages.tsx` swap), `c467643` (typed CSSProperties). **Do not presume these commits are present in the user's LOCAL branch**: user has unpublished live SberProject/TLS bridge commits. Source changes are remote-only at this moment and must be integrated by ChatGPT/owner-controlled safe Git synchronization before any runtime QA. GigaCode must not cherry-pick, merge, rebase, edit, commit or fix anything independently.
+
+QA trigger: local app source has BOTH the real live bridge and the above dashboard commits, and ChatGPT explicitly supplies integrated HEAD. Until then: HOLD.
+
 ### Mandatory ownership boundaries (PO decision 2026-11-10)
 - **ChatGPT is the sole author/developer**: architecture, code, features, fixes, commits, documentation, UI/UX and release integration. GigaCode is **independent QA/tester only**.
 - GigaCode must NOT implement features, modify source, fix defects, change production configuration, or commit/push code. It may create a QA report only, clearly separated and untracked unless ChatGPT explicitly asks otherwise.
-- Do not launch QA until ChatGPT provides a precise commit/HEAD and test scope. Existing owner task A230R3.42 is NOT a GigaCode implementation assignment.
+- Do not launch QA until ChatGPT provides a precise **integrated local** commit/HEAD and test scope. Existing owner task A230R3.42 is NOT a GigaCode implementation assignment.
 
 ### Verified domain fact supplied by PO
 Tasks included in SberProject releases **are synchronized with AS21/SWTR**. Treat this as a domain invariant: release management uses SberProject as release/version authority and AS21/SWTR as task/status/hierarchy/owner/quality authority.
