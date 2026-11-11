@@ -37,7 +37,7 @@ const day = (v?: string | null): number | null => {
 }
 
 function Metric({ label, value, hint }: { label: string; value: string | number; hint: string }) {
-  return <div className="metric-card" style={panel}><div className="metric-label">{label}</div><div className="metric-value">{value}</div><div className="muted">{hint}</div></div>
+  return <div className="metric-card"><span>{label}</span><strong>{value}</strong><small>{hint}</small></div>
 }
 export function ReleasesDashboard() {
   const [product, setProduct] = useState<'OLP' | 'DMS'>('OLP')
