@@ -139,23 +139,24 @@ export function ReleasesDashboard() {
       <h1 style={{ marginBottom: 5 }}>Релизы</h1>
       <p style={muted}>Аналитика версий из SberProject · задачи релизов синхронизируются с AS21/SWTR · read-only</p>
     </div>
-    <div className="panel entity-toolbar" style={{ ...panel, gap: '16px 24px', flexWrap: 'wrap', alignItems: 'center', marginBottom: 15 }}>
-      <label style={{ display: 'inline-flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>Продукт
+    <div className="panel entity-toolbar" style={{ ...panel, display: 'flex', gap: '14px 24px', alignItems: 'center', flexWrap: 'wrap', marginBottom: 15 }}>
+      <label style={{ display: 'inline-flex', alignItems: 'center', gap: 10, flex: '0 0 auto' }}>Продукт
         <select style={{ width: 190 }} aria-label="Продукт" value={product} onChange={e => switchProduct(e.target.value as 'OLP' | 'DMS')}>
           <option value="OLP">PV OLAP Analytics</option><option value="DMS">PV DataMarts</option>
         </select>
       </label>
-      <div className="filter-input-row free-search-row" style={{ flex: '1 1 320px', maxWidth: 570, minWidth: 240 }}>
-        <input aria-label="Поиск версии" placeholder="Поиск версии: номер, ID, ответственный" value={search} onChange={e => setSearch(e.target.value)} style={{ width: '100%', minWidth: 0 }} />
-      </div>
-      <label style={{ display: 'inline-flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>Статус
+      <label style={{ display: 'inline-flex', alignItems: 'center', gap: 10, flex: '0 0 auto' }}>Статус
         <select style={{ width: 175 }} aria-label="Статус релиза" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
           <option value="">Все статусы</option>{statuses.map(value => <option key={value} value={value}>{description(value)}</option>)}
         </select>
       </label>
-      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
+      <div className="filter-input-row free-search-row" style={{ flex: '1 1 280px', maxWidth: 440, minWidth: 210 }}>
+        <input aria-label="Поиск версии" placeholder="Поиск версии: номер, ID, ответственный" value={search} onChange={e => setSearch(e.target.value)}
+          style={{ width: '100%', minWidth: 0, background: 'var(--input-bg, #17283a)', color: 'var(--text-primary, #ecf5ff)', border: '1px solid var(--border, rgba(142,180,211,.38))', borderRadius: 9, padding: '10px 12px', colorScheme: 'dark' }} />
+      </div>
+      <div style={{ marginLeft: 'auto', display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'flex-end', flex: '1 0 auto' }}>
         <span className="muted" style={{ fontSize: 12 }}>{data?.as_of ? `Источник: ${new Date(data.as_of).toLocaleString('ru-RU')}` : 'SberProject'}</span>
-        <button type="button" disabled={loading} onClick={() => setNonce(x => x + 1)}>{loading ? 'Обновляем…' : 'Обновить'}</button>
+        <button className="refresh-button" type="button" disabled={loading} onClick={() => setNonce(x => x + 1)}>{loading ? 'Обновляем…' : 'Обновить'}</button>
       </div>
     </div>
     {error && <div className="panel" role="alert" style={{ ...panel, marginBottom: 14 }}>
