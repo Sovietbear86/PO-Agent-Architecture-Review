@@ -5,11 +5,12 @@ Owner uses the output to implement source-level paging in the unpushed local
 SberProject adapter; GigaCode is not authorized to change code.
 """
 import ast
+import os
 from pathlib import Path
 import re
 import subprocess
 
-root = Path(__file__).resolve().parent.parent
+root = Path(os.environ.get("PO_AGENT_ROOT", os.getcwd())).resolve()
 candidates = [
     *root.glob("task-api/app/**/*sberproject*.py"),
     *root.glob("task-api/app/**/*skill_bridge*.py"),
