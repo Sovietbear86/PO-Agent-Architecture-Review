@@ -1,12 +1,19 @@
-# A230R3.46 — QA only: Releases toolbar one-row verification
+# A230R3.47 — SberProject pagination QA ONLY
 
-ChatGPT owns ALL source development and fixes. GigaCode must not edit source, scripts, configuration, commit, deploy, or troubleshoot by changing code.
+**ChatGPT owns implementation. GigaCode may not edit, patch, commit, deploy, or auto-fix source.**
 
-After user runs `scripts/update_releases_dashboard_toolbar.sh`, perform exactly ONE bounded browser review:
-- Desktop 1200px+: **one row** with Product, Status, narrow dark version Search, source timestamp, and Refresh at the far right; timestamp directly LEFT of Refresh; no Refresh line break.
-- At narrow viewport ensure no overlap or clipped controls; horizontal scrolling is tolerable only when actual available width is below the controls' minimum.
-- Compare Refresh button with Sprint and Overview buttons, and version-search background with Tasks tab; no white input.
-- OLP 69 total / 20 currently loaded, DMS 16 total; no red React exceptions.
-- Strict front-end build PASS as prerequisite (owner script runs it). Core V4 unchanged. One concise PASS/RED report; STOP.
+Current state: live UI 69 OLP versions total / only 20 visible, CLI hardcodes offset=0 even though SberProject GraphQL productVersionListByPage supports offset. No live pagination GREEN claim.
 
-**Pagination: development task, NOT QA**. Live SberProject source GraphQL `productVersionListByPage` supports OFFSET, but skill CLI hardcodes offset=0 while exposing --max-results. The browser cannot get page 2 until owner changes the CLI and server bridge to carry verified offsets and next_offset. DO NOT invent cursors, turn on fake Next, or declare this issue GREEN. Next owner step is source code of `.gigacode/skills/sbt-project/src/sbt-project.js` command definition plus local `task-api/app/services/sberproject/` integration. QA must not modify.
+ChatGPT has committed offline tracked-facade safeguards (source page identity and next_offset fail-closed) and contract tests. These are NOT the working local skill bridge.
+
+Next owner step: review the local (untracked) exact .gigacode/skills/sbt-project/src/sbt-project.js + task-api/app/... sberproject bridge. Use only read-only source inventory in scripts/inspect_sberproject_pagination.py; no network, secrets or account credentials. Return sanitized function names, parameters and source line references. Do not implement the modifications as QA.
+
+When ChatGPT later lands a bridge/CLI pagination patch, perform a SINGLE bounded QA:
+- OLP page offsets 0,20,40,60 yield disjoint IDs with 20,20,20,9 rows, aggregate 69.
+- Back from page 4 to page 3, forward from page 1 to page 2; disabled at ends.
+- DMS 16 versions one page.
+- Search/filter retains semantics; report if search is page-local (still a limitation).
+- No tenant-wide scans; query only named product; TLS verify on; Core V4 unchanged.
+- One focused build/regression and live browser verification, report PASS/RED and STOP.
+
+No fake fallback to page-one results, no invented cursor, no fake task membership.
