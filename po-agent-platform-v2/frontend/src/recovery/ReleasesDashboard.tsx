@@ -29,7 +29,6 @@ const fmt = (v?: string | null) => {
 const description = (value?: string) => labels[value || ''] || value || 'Не указан'
 const panel: CSSProperties = { minWidth: 0 } // colors, borders and surfaces come from the shared .panel theme
 const grid: CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: 14 }
-const input: CSSProperties = { minWidth: 0, maxWidth: '100%', padding: '9px 12px', borderRadius: 8 }
 const muted: CSSProperties = { opacity: .73, fontSize: 13 }
 /** Trust only source-declared HTTPS deep links on the known SberProject host. */
 function verifiedReleaseUrl(version: SberProjectVersion): string | null {
@@ -141,22 +140,24 @@ export function ReleasesDashboard() {
       <h1 style={{ marginBottom: 5 }}>Релизы</h1>
       <p style={muted}>Аналитика версий из SberProject · задачи релизов синхронизируются с AS21/SWTR · read-only</p>
     </div>
-    <div className="panel" style={{ ...panel, display: 'flex', gap: '16px 26px', alignItems: 'center', flexWrap: 'wrap', marginBottom: 15 }}>
-      <label style={{ display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>Продукт
-        <select style={{ ...input, width: 190 }} aria-label="Продукт" value={product} onChange={e => switchProduct(e.target.value as 'OLP' | 'DMS')}>
+    <div className="panel entity-toolbar" style={{ ...panel, gap: '16px 24px', flexWrap: 'wrap', alignItems: 'center', marginBottom: 15 }}>
+      <label style={{ display: 'inline-flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>Продукт
+        <select style={{ width: 190 }} aria-label="Продукт" value={product} onChange={e => switchProduct(e.target.value as 'OLP' | 'DMS')}>
           <option value="OLP">PV OLAP Analytics</option><option value="DMS">PV DataMarts</option>
         </select>
       </label>
-      <label style={{ display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>Поиск версии
-        <input style={{ ...input, width: 235 }} aria-label="Поиск версии" placeholder="Номер, ID, ответственный" value={search} onChange={e => setSearch(e.target.value)} />
-      </label>
-      <label style={{ display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>Статус
-        <select style={{ ...input, width: 180 }} aria-label="Статус релиза" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
-          <option value="">Все статусы</option>{statuses.map(s => <option key={s} value={s}>{description(s)}</option>)}
+      <div className="filter-input-row free-search-row" style={{ flex: '1 1 320px', maxWidth: 570, minWidth: 240 }}>
+        <input aria-label="Поиск версии" placeholder="Поиск версии: номер, ID, ответственный" value={search} onChange={e => setSearch(e.target.value)} style={{ width: '100%', minWidth: 0 }} />
+      </div>
+      <label style={{ display: 'inline-flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>Статус
+        <select style={{ width: 175 }} aria-label="Статус релиза" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+          <option value="">Все статусы</option>{statuses.map(value => <option key={value} value={value}>{description(value)}</option>)}
         </select>
       </label>
-      <button type="button" disabled={loading} onClick={() => setNonce(x => x + 1)}>{loading ? 'Загрузка…' : 'Обновить'}</button>
-      <span style={{ ...muted, marginLeft: 'auto' }}>{data?.as_of ? `Источник: ${new Date(data.as_of).toLocaleString('ru-RU')}` : 'SberProject'}</span>
+      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
+        <span className="muted" style={{ fontSize: 12 }}>{data?.as_of ? `Источник: ${new Date(data.as_of).toLocaleString('ru-RU')}` : 'SberProject'}</span>
+        <button type="button" disabled={loading} onClick={() => setNonce(x => x + 1)}>{loading ? 'Обновляем…' : 'Обновить'}</button>
+      </div>
     </div>
     {error && <div className="panel" role="alert" style={{ ...panel, marginBottom: 14 }}>
       Не удалось обновить каталог: {error}. {data && stale ? 'Показан предыдущий снимок этой страницы — данные могут устареть.' : 'Нет подтверждённых данных; AS21 не подставляется вместо SberProject.'}
