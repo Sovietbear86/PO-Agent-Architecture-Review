@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
-import { sberprojectCatalog, type SberProjectCatalog } from '../api/client'
+import { sberprojectCatalog, type SberProjectCatalog, type SberProjectVersion } from '../api/client'
 
 /**
  * Releases dashboard v1: real SberProject VERSION metadata only.
@@ -31,6 +31,19 @@ const panel: CSSProperties = { minWidth: 0 } // colors, borders and surfaces com
 const grid: CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: 14 }
 const input: CSSProperties = { minWidth: 0, maxWidth: '100%', padding: '9px 12px', borderRadius: 8 }
 const muted: CSSProperties = { opacity: .73, fontSize: 13 }
+/** Trust only source-declared HTTPS deep links on the known SberProject host. */
+function verifiedReleaseUrl(version: SberProjectVersion): string | null {
+  const candidate = version.webUrl || version.url
+  if (!candidate) return null
+  try {
+    const parsed = new URL(candidate)
+    if (parsed.protocol !== 'https:' || parsed.hostname !== 'project.sbertech.ru' || parsed.username || parsed.password) return null
+    // Plain portal landing page is not a release deep link; never pass it off as one.
+    if (parsed.pathname === '/' && !parsed.search && !parsed.hash) return null
+    return parsed.toString()
+  } catch { return null }
+}
+
 const day = (v?: string | null): number | null => {
   const iso = v && /^\d{4}-\d{2}-\d{2}/.exec(v)?.[0]
   if (!iso) return null
@@ -187,6 +200,7 @@ export function ReleasesDashboard() {
           {chosen ? <>
             <strong style={{ fontSize: 19 }}>{chosen.versionNumber} · {chosen.id}</strong>
             <p style={{ ...muted, margin: '8px 0 12px' }}>{description(chosen.workflowStatus)}</p>
+            {verifiedReleaseUrl(chosen) ? <a href={verifiedReleaseUrl(chosen)!} target="_blank" rel="noopener noreferrer" style={{ alignSelf: 'flex-start', marginBottom: 14 }}>Открыть релиз в SberProject ↗</a> : <p style={{ ...muted, margin: '0 0 12px' }}>Ссылка на конкретный релиз не передана SberProject. Открытие по неподтверждённому адресу отключено.</p>}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
               {[['Начало', fmt(chosen.beginDate)], ['Окончание', fmt(chosen.endDate)], ['Выпуск', fmt(chosen.releaseDate)], ['Ответственный', chosen.owner || 'Нет данных'], ['Менеджер', chosen.manager || 'Нет данных']].map(([key, val]) =>
                 <div key={key}><div style={muted}>{key}</div><strong style={{ overflowWrap: 'anywhere' }}>{val}</strong></div>)}
