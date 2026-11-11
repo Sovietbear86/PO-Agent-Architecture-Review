@@ -1,16 +1,19 @@
-# A230R3.48 — Releases membership source audit (QA only)
+# A230R3.49 — release linkage subset: QA only
 
-Owner: ChatGPT. GigaCode is an independent QA tester: NO code edits, NO commits, NO deployments, NO source modifications.
+Owner: ChatGPT; GigaCode must NOT change code, patches, scripts, config or commits.
 
-## Confirmed state
-- User confirmed live /Releases pagination works, OLP 69 versions in four pages.
-- SberProject provides version catalogue. AS21/SWTR task data exists, but release→task identity has NOT been proven.
-- ChatGPT added the pure source-proven release membership contract and narrow unit tests under task-api/app/services/sberproject/ and task-api/tests/. These are NOT wired to live UI, must not be described as an operational release analytics feature.
+### Source findings from completed A230R3.48
+- OLP.78 (SberProject version 1.9.0) SberProject release composition has 7 rows.
+- 5 rows have source=swtr + issueKey; five AS21 point reads independently show matching fix_version_s linked to the AS21 version UUID.
+- 2 rows lack issueKey (internal SberProject tasks).
+- AS21 reverse query via release=<version-uuid> returned 0: this is NOT an exhaustive enumerator for the fix_version_s link.
+- Therefore MEMBERSHIP_UNVERIFIED for whole release; do not produce Scope, Completed, WIP, ready%, Delivery Forecast, or assert there are only 5/7 tasks in the total release population.
 
-## One bounded QA review
-1. Execute ONLY: `python3 -m pytest -q task-api/tests/test_release_membership_contract.py` from repo root, in the existing environment. If dependencies are missing, report BLOCKED, do not install anything.
-2. Read-only inspect ONE real OLP version (OLP.78) and at most TEN task records in AS21 through existing configured read-only skills; establish which field actually links version ID to task IDs. Do NOT infer from display version number, no tenant-wide scan, no secrets or token/log output.
-3. Return one concise report with: source field name, raw *field names only* of the SberProject and AS21 objects, match-count if provable, and explicit verdict SOURCE_PROVEN / MEMBERSHIP_UNVERIFIED.
-4. STOP. Do not implement any change, do not re-run full regressions, do not claim fake scope, completion or forecast.
+### New owner pure code
+`task-api/app/services/sberproject/release_membership_contract.py`: `verified_partial_links` verifies source-issued issueKey + source=swtr + AS21 key + explicit fix_version_s UUID. It returns PARTIAL_SOURCE_PROVEN and complete=False; no live API integrated.
 
-If source interface unavailable, state unavailable; no invented results.
+### One bounded QA action
+Run only `python3 -m pytest -q task-api/tests/test_release_membership_contract.py`, inspect resulting tests (no edits), summarize PASS/RED + failure reason and STOP. No live data reads, no full regression, no deployment.
+
+### Owner next integration decision
+A separate read-only adapter must fetch a SINGLE selected release's SberProject composition and point-read the linked AS21 task IDs, returning a bounded list. Do not confuse the linked subset with exhaustive membership. To unlock aggregate metrics, source owner must confirm an authoritative exhaustive version-to-task contract (including internal-only rows) and explicit version identity binding. Do not infer from version name/number.
