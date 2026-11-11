@@ -7,7 +7,7 @@ cd "$ROOT"
 TARGET="po-agent-platform-v2/frontend/src/recovery/ReleasesDashboard.tsx"
 FRONT="po-agent-platform-v2/frontend"
 BASE="a07e47a"
-UPDATED="14f49e1"
+UPDATED="590bf8f"
 git fetch --no-tags origin feat/core8-real-query-hardening-v2
 OLD="$(mktemp)" NEW="$(mktemp)"
 STAGING=""
