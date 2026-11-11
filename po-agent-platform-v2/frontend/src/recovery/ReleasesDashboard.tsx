@@ -150,9 +150,8 @@ export function ReleasesDashboard() {
           <option value="">Все статусы</option>{statuses.map(value => <option key={value} value={value}>{description(value)}</option>)}
         </select>
       </label>
-      <div className="filter-input-row free-search-row" style={{ minWidth: 145, maxWidth: 265, width: '100%' }}>
-        <input aria-label="Поиск версии" placeholder="Поиск версии: номер или ID" value={search} onChange={e => setSearch(e.target.value)}
-          style={{ width: '100%', minWidth: 0, background: 'var(--input-bg, #17283a)', color: 'var(--text-primary, #ecf5ff)', border: '1px solid var(--border, rgba(142,180,211,.38))', borderRadius: 9, padding: '10px 12px', colorScheme: 'dark' }} />
+      <div className="filter-input-row free-search-row" style={{ minWidth: 145, maxWidth: 440, width: '100%' }}>
+        <input aria-label="Поиск версии" placeholder="Поиск версии: номер, ID, ответственный" value={search} onChange={e => setSearch(e.target.value)} />
       </div>
       <span className="muted" style={{ fontSize: 12, whiteSpace: 'nowrap', justifySelf: 'end' }}>{data?.as_of ? `Источник: ${new Date(data.as_of).toLocaleString('ru-RU')}` : 'SberProject'}</span>
       <button className="refresh-button" style={{ justifySelf: 'end', whiteSpace: 'nowrap' }} type="button" disabled={loading} onClick={() => setNonce(x => x + 1)}>{loading ? 'Обновляем…' : 'Обновить'}</button>
