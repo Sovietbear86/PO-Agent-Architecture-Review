@@ -1,19 +1,16 @@
-# A230R3.47 — SberProject pagination QA ONLY
+# A230R3.48 — Releases membership source audit (QA only)
 
-**ChatGPT owns implementation. GigaCode may not edit, patch, commit, deploy, or auto-fix source.**
+Owner: ChatGPT. GigaCode is an independent QA tester: NO code edits, NO commits, NO deployments, NO source modifications.
 
-Current state: live UI 69 OLP versions total / only 20 visible, CLI hardcodes offset=0 even though SberProject GraphQL productVersionListByPage supports offset. No live pagination GREEN claim.
+## Confirmed state
+- User confirmed live /Releases pagination works, OLP 69 versions in four pages.
+- SberProject provides version catalogue. AS21/SWTR task data exists, but release→task identity has NOT been proven.
+- ChatGPT added the pure source-proven release membership contract and narrow unit tests under task-api/app/services/sberproject/ and task-api/tests/. These are NOT wired to live UI, must not be described as an operational release analytics feature.
 
-ChatGPT has committed offline tracked-facade safeguards (source page identity and next_offset fail-closed) and contract tests. These are NOT the working local skill bridge.
+## One bounded QA review
+1. Execute ONLY: `python3 -m pytest -q task-api/tests/test_release_membership_contract.py` from repo root, in the existing environment. If dependencies are missing, report BLOCKED, do not install anything.
+2. Read-only inspect ONE real OLP version (OLP.78) and at most TEN task records in AS21 through existing configured read-only skills; establish which field actually links version ID to task IDs. Do NOT infer from display version number, no tenant-wide scan, no secrets or token/log output.
+3. Return one concise report with: source field name, raw *field names only* of the SberProject and AS21 objects, match-count if provable, and explicit verdict SOURCE_PROVEN / MEMBERSHIP_UNVERIFIED.
+4. STOP. Do not implement any change, do not re-run full regressions, do not claim fake scope, completion or forecast.
 
-Next owner step: review the local (untracked) exact .gigacode/skills/sbt-project/src/sbt-project.js + task-api/app/... sberproject bridge. Use only read-only source inventory in scripts/inspect_sberproject_pagination.py; no network, secrets or account credentials. Return sanitized function names, parameters and source line references. Do not implement the modifications as QA.
-
-When ChatGPT later lands a bridge/CLI pagination patch, perform a SINGLE bounded QA:
-- OLP page offsets 0,20,40,60 yield disjoint IDs with 20,20,20,9 rows, aggregate 69.
-- Back from page 4 to page 3, forward from page 1 to page 2; disabled at ends.
-- DMS 16 versions one page.
-- Search/filter retains semantics; report if search is page-local (still a limitation).
-- No tenant-wide scans; query only named product; TLS verify on; Core V4 unchanged.
-- One focused build/regression and live browser verification, report PASS/RED and STOP.
-
-No fake fallback to page-one results, no invented cursor, no fake task membership.
+If source interface unavailable, state unavailable; no invented results.
