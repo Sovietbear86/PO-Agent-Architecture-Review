@@ -216,7 +216,7 @@ export function ReleasesDashboard() {
       <div className="panel" style={{ ...panel, overflowX: 'auto', marginBottom: 15 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <h2 style={{ fontSize: 19 }}>Каталог версий <span style={muted}>({filtered.length} на странице по фильтрам)</span></h2>
-          <label>Сортировка{' '}<select style={input} aria-label="Сортировка релизов" value={sortBy} onChange={e => setSortBy(e.target.value as typeof sortBy)}>
+          <label>Сортировка{' '}<select style={{ width: 175 }} aria-label="Сортировка релизов" value={sortBy} onChange={e => setSortBy(e.target.value as typeof sortBy)}>
             <option value="release">Дата выпуска</option><option value="end">Дата окончания</option><option value="version">Номер версии</option>
           </select></label>
         </div>
