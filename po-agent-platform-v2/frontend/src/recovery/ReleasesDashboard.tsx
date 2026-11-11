@@ -128,14 +128,20 @@ export function ReleasesDashboard() {
       <h1 style={{ marginBottom: 5 }}>Релизы</h1>
       <p style={muted}>Аналитика версий из SberProject · задачи релизов синхронизируются с AS21/SWTR · read-only</p>
     </div>
-    <div className="panel entity-toolbar" style={{ ...panel, display: 'flex', gap: 13, alignItems: 'end', flexWrap: 'wrap', marginBottom: 15 }}>
-      <label>Продукт<br /><select style={input} aria-label="Продукт" value={product} onChange={e => switchProduct(e.target.value as 'OLP' | 'DMS')}>
-        <option value="OLP">PV OLAP Analytics</option><option value="DMS">PV DataMarts</option>
-      </select></label>
-      <label>Поиск версии<br /><input style={input} aria-label="Поиск версии" placeholder="Номер, ID, ответственный" value={search} onChange={e => setSearch(e.target.value)} /></label>
-      <label>Статус<br /><select style={input} aria-label="Статус релиза" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
-        <option value="">Все статусы</option>{statuses.map(s => <option key={s} value={s}>{description(s)}</option>)}
-      </select></label>
+    <div className="panel" style={{ ...panel, display: 'flex', gap: '16px 26px', alignItems: 'center', flexWrap: 'wrap', marginBottom: 15 }}>
+      <label style={{ display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>Продукт
+        <select style={{ ...input, width: 190 }} aria-label="Продукт" value={product} onChange={e => switchProduct(e.target.value as 'OLP' | 'DMS')}>
+          <option value="OLP">PV OLAP Analytics</option><option value="DMS">PV DataMarts</option>
+        </select>
+      </label>
+      <label style={{ display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>Поиск версии
+        <input style={{ ...input, width: 235 }} aria-label="Поиск версии" placeholder="Номер, ID, ответственный" value={search} onChange={e => setSearch(e.target.value)} />
+      </label>
+      <label style={{ display: 'inline-flex', alignItems: 'center', flexWrap: 'wrap', gap: 10 }}>Статус
+        <select style={{ ...input, width: 180 }} aria-label="Статус релиза" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+          <option value="">Все статусы</option>{statuses.map(s => <option key={s} value={s}>{description(s)}</option>)}
+        </select>
+      </label>
       <button type="button" disabled={loading} onClick={() => setNonce(x => x + 1)}>{loading ? 'Загрузка…' : 'Обновить'}</button>
       <span style={{ ...muted, marginLeft: 'auto' }}>{data?.as_of ? `Источник: ${new Date(data.as_of).toLocaleString('ru-RU')}` : 'SberProject'}</span>
     </div>
@@ -155,7 +161,7 @@ export function ReleasesDashboard() {
         {data.has_more && data.next_offset == null ? ' Переход «Далее» недоступен: CLI не передаёт подтверждённый курсор следующей страницы. Это ограничение источника, не отсутствие следующих релизов.' : ''}
       </p>}
       {stale && <p role="status">Данные устарели: обновление завершилось ошибкой.</p>}
-      <div className="insight-grid" style={{ marginBottom: 15 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 310px), 1fr))", gap: 14, alignItems: "stretch", marginBottom: 15 }}>
         <div className="panel insight-card" style={panel}>
           <h2 style={{ marginTop: 0, fontSize: 19 }}>Распределение по статусам</h2>
           {shares.length ? shares.map(s => <div key={s.status} style={{ marginBottom: 12 }}>
@@ -172,6 +178,24 @@ export function ReleasesDashboard() {
             <span><strong>{r.versionNumber}</strong><br /><span style={muted}>{description(r.workflowStatus)} · {milestone(r)?.label}</span></span><b>{fmt(milestone(r)?.date)}</b>
           </button>) : <p style={muted}>В загруженных версиях нет предстоящих подтверждённых дат выпуска или плановых дат окончания.</p>}
           <p style={muted}>Показываем только версии без финального статуса и с будущей датой. Если дата выпуска отсутствует, дата окончания плана помечается отдельно. Для OLP доступны только загруженные страницы.</p>
+        </div>
+        <div className="panel insight-card" style={{ ...panel, display: 'flex', flexDirection: 'column', minHeight: 290 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'start' }}>
+            <h2 style={{ marginTop: 0, fontSize: 19 }}>Карточка релиза</h2>
+            {chosen && <button type="button" onClick={() => setSelected(null)}>Закрыть</button>}
+          </div>
+          {chosen ? <>
+            <strong style={{ fontSize: 19 }}>{chosen.versionNumber} · {chosen.id}</strong>
+            <p style={{ ...muted, margin: '8px 0 12px' }}>{description(chosen.workflowStatus)}</p>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: 10 }}>
+              {[['Начало', fmt(chosen.beginDate)], ['Окончание', fmt(chosen.endDate)], ['Выпуск', fmt(chosen.releaseDate)], ['Ответственный', chosen.owner || 'Нет данных'], ['Менеджер', chosen.manager || 'Нет данных']].map(([key, val]) =>
+                <div key={key}><div style={muted}>{key}</div><strong style={{ overflowWrap: 'anywhere' }}>{val}</strong></div>)}
+            </div>
+            <h3 style={{ fontSize: 15, margin: '18px 0 8px' }}>Задачи релиза</h3>
+            <div aria-label="Задачи выбранного релиза" role="region" tabIndex={0} style={{ maxHeight: 220, minHeight: 90, overflowY: 'auto', overscrollBehavior: 'contain', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border, rgba(143,180,216,.20))' }}>
+              <p style={muted}>Задачи синхронизируются между SberProject и AS21/SWTR, но идентификатор связи и read-only API получения состава пока не проверены. Список задач временно недоступен — не подменяем его посторонними задачами и не показываем фиктивный ноль.</p>
+            </div>
+          </> : <p className="muted" style={{ flex: 1 }}>Выберите версию в каталоге или в блоке контрольных дат. Здесь появятся сведения о релизе и список синхронизированных задач AS21/SWTR.</p>}
         </div>
       </div>
       <div className="panel" style={{ ...panel, overflowX: 'auto', marginBottom: 15 }}>
@@ -196,13 +220,7 @@ export function ReleasesDashboard() {
           {data.has_more && data.next_offset == null && <span role="status" className="muted">«Далее» отключена: источник не предоставляет безопасную пагинацию. Не подменяем следующие версии повтором первой страницы.</span>}
         </div>
       </div>
-      {chosen && <div className="panel" style={{ ...panel, marginBottom: 15 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12 }}><h2 style={{ marginTop: 0 }}>Версия {chosen.versionNumber} · {chosen.id}</h2><button type="button" onClick={() => setSelected(null)}>Закрыть</button></div>
-        <div style={grid}>
-          {[['Статус', description(chosen.workflowStatus)], ['Начало', fmt(chosen.beginDate)], ['Окончание', fmt(chosen.endDate)], ['Выпуск', fmt(chosen.releaseDate)], ['Ответственный', chosen.owner || 'Нет данных'], ['Менеджер', chosen.manager || 'Нет данных']].map(([key, val]) => <div key={key}><div style={muted}>{key}</div><strong>{val}</strong></div>)}
-        </div>
-        <p style={{ ...muted, marginBottom: 0 }}>Связь релизов и задач AS21/SWTR существует, но технический ключ сопоставления пока не подтверждён в API. Scope, Completed, WIP, блокировки, прогноз и процент готовности не рассчитываются до проверки состава задач.</p>
-      </div>}
+
     </>}
   </section>
 }
