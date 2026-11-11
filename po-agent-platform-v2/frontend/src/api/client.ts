@@ -162,6 +162,9 @@ export const sprintForecast = {
 
 
 export interface SberProjectVersion {
+  /** Canonical, source-declared deep link, not synthesized from display ID. */
+  url?: string | null
+  webUrl?: string | null
   id: string
   versionId?: string
   versionNumber: string
