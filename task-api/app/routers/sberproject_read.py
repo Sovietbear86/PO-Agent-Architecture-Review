@@ -35,7 +35,7 @@ def _source_config():
     return url, token
 
 
-def _catalog_response(payload: object, product: str, limit: int) -> dict:
+def _catalog_response(payload: object, product: str, limit: int, offset: int = 0) -> dict:
     if not isinstance(payload, dict):
         raise HTTPException(502, detail={"reason": "sberproject_incomplete"})
     rows = payload.get("results")
@@ -49,6 +49,26 @@ def _catalog_response(payload: object, product: str, limit: int) -> dict:
     has_more = meta.get("has_more")
     if not isinstance(has_more, bool):
         raise HTTPException(502, detail={"reason": "sberproject_pagination_unknown"})
+    # A cursor is only trustworthy if the upstream confirms this page's offset.
+    # Do not derive a cursor from has_more alone: a CLI pinned to offset=0 would
+    # otherwise repeat page 1 indefinitely and silently corrupt portfolio totals.
+    upstream_offset = meta.get("offset")
+    if type(upstream_offset) is not int or upstream_offset != offset:
+        raise HTTPException(502, detail={"reason": "sberproject_page_identity_unverified"})
+    reported_total = meta.get("total")
+    if reported_total is not None and (type(reported_total) is not int or reported_total < 0):
+        raise HTTPException(502, detail={"reason": "sberproject_pagination_unknown"})
+    next_offset = meta.get("next_offset")
+    if has_more:
+        if not rows or type(next_offset) is not int or next_offset <= offset or next_offset > 500:
+            raise HTTPException(502, detail={"reason": "sberproject_pagination_unknown"})
+        if next_offset != offset + len(rows):
+            raise HTTPException(502, detail={"reason": "sberproject_pagination_unknown"})
+        if reported_total is not None and next_offset >= reported_total:
+            raise HTTPException(502, detail={"reason": "sberproject_pagination_unknown"})
+    else:
+        if next_offset is not None:
+            raise HTTPException(502, detail={"reason": "sberproject_pagination_unknown"})
     safe_rows = []
     for row in rows:
         code = row.get("id") or row.get("versionId")
@@ -64,8 +84,9 @@ def _catalog_response(payload: object, product: str, limit: int) -> dict:
         "product": product,
         "versions": safe_rows,
         "has_more": has_more,
-        "next_offset": meta.get("next_offset") if has_more and isinstance(meta.get("next_offset"), int) else None,
-        "total": meta.get("total") if isinstance(meta.get("total"), int) else None,
+        "next_offset": next_offset if has_more else None,
+        "offset": offset,
+        "total": reported_total,
         "as_of": datetime.now(timezone.utc).isoformat(),
         "membership_status": "SOURCE_UNVERIFIED",
     }
@@ -97,4 +118,4 @@ async def sberproject_versions(
         payload = response.json()
     except ValueError:
         raise HTTPException(502, detail={"reason": "sberproject_incomplete"}) from None
-    return _catalog_response(payload, product, limit)
+    return _catalog_response(payload, product, limit, offset)
