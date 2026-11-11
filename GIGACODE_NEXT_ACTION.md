@@ -1,16 +1,14 @@
-# GigaCode — NEXT ACTION / QA ONLY
+# GigaCode — NEXT ACTION (QA-ONLY)
 
-## A230R3.43 — Releases widget/theme/navigation independent QA
+## A230R3.44 — Releases layout review, ONE bounded smoke
 
-**Do not develop, edit source, fix issues or commit**. ChatGPT alone owns source. Wait until owner executes the source-only widget update from `scripts/update_releases_dashboard_widgets.sh`; do not run it on GigaCode's behalf.
+ChatGPT is the SOLE developer. GigaCode is QA-only: **do not edit code, change config, fix issues, cherry-pick/merge, stage or commit**. Only run this check AFTER ChatGPT owner layout patch `0f87b92` is deployed to live frontend via `scripts/update_releases_dashboard_layout.sh` and owner authorizes QA.
 
-### Code under test
-ChatGPT owner Review commits `c495181`, `61f2cb3`: change `frontend/src/recovery/ReleasesDashboard.tsx` ONLY. Existing live source currently runs SberProject OLP 69 total / DMS 16 total through validated CLI bridge. This patch does not change API, authentication, trusted CA, Core V4, or other pages.
+Test:
+1. On desktop, controls Product / Search / Status / Refresh have breathing room. Search input appears to the **right** of 'Поиск версии', not below. Verify responsive wrap at narrow viewport without overlap.
+2. Three panels under KPI: status distribution; milestones; **release detail** occupying the previously empty right-hand slot (responsive grid). Selecting a version from table or milestone updates details in-place (not below catalog). Closing shows instructional empty state.
+3. Card contains factual fields and a keyboard-focusable, max-height scroll-ready 'Задачи релиза' region. **No live task list is claimed yet**: the release→task join is still missing from the VERIFIED server contract, despite synchronized underlying SberProject↔AS21 task data. Verify explicit source-unavailable explanation, not fake zero entries or unrelated `/releases/{id}/tasks` (local CRUD).
+4. Visual theme matches Sprint/Overview shared panels and metric cards. No horizontal overflow at common widths.
+5. One focused `tsc && vite build` + browser smoke both OLAP and DataMarts, brief evidence PASS/RED, existing Core V4 hash unchanged. STOP.
 
-### Scope: one concise, bounded QA pass
-1. Browser screenshot color/theme parity against Sprint/Overview/Quality. Shared `metric-card`, `panel`, `insight-grid`, `metric-grid`; compare backgrounds, borders, text, accent, spacing and responsiveness, avoiding hardcoded release-only cyan.
-2. OLP and DMS `Ближайшие выпуски и контрольные даты` read real releaseDate when supplied; if not, use endDate **only** as explicitly labeled planned-completion milestone; never misrepresent as actual releaseDate. Filter out terminal statuses, past dates, invalid dates, and check ordering. Confirm DMS empty result is honest if no future source dates, not a UI defect.
-3. Pagination: inspect actual HTTP JSON `has_more`, `next_offset`, `total` on both products. `Далее` is enabled ONLY when has_more AND valid next_offset; if has_more with null offset, stays disabled with visible explanation (no fabricated page 2). Report this as **SOURCE_PAGINATION_BLOCKED**, not a frontend failure. Verify Back and stale status where applicable.
-4. One targeted tsc+vite build; verify source and Core V4 unaffected by test, no secret logging. One QA report with PASS/FAIL and source examples, STOP.
-
-**Important:** Need true end-to-end pagination for all 69 OLP versions later; this requires adding verified offset support in the CLI/backend, which is a **ChatGPT owner task**, not a QA fix.
+Separate ChatGPT owner stage (NOT GigaCode): verify exact release membership linkage in SberProject and AS21/SWTR with bounded read-only one-release A/B, then implement API and real scrollable task list; never infer membership from release name/space or treat empty response as 0 without provenance.
