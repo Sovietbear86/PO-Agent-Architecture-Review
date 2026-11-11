@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
-"""PO Agent owner patch: SberProject versions offset pagination (LOCAL ONLY).
+"""Owner-only guarded patch for the existing SberProject CLI and task-api bridge.
 
-Never touches Core V4, credentials, TLS, keychain or user services.
-Fail-closed: unexpected source contract => no file is changed.
-Live smoke/QA is a separate step after review. GigaCode is QA-only.
+Run from PO_Agent_Harness root. Default: dry run and show a bounded source diff.
+APPLY_SBERPROJECT_PAGINATION=1 writes both files only after all preflight checks.
+Does not touch Core V4, auth, TLS, keychain, user services, or config.
 """
 from __future__ import annotations
 
@@ -14,136 +14,149 @@ from pathlib import Path
 import re
 import shutil
 import subprocess
-import sys
 import tempfile
 
 ROOT = Path.cwd().resolve()
 CLI = ROOT / ".gigacode/skills/sbt-project/src/sbt-project.js"
 BRIDGE = ROOT / "task-api/app/services/sberproject/skill_bridge.py"
 
-def stop(reason: str):
-    raise SystemExit("PATCH_BLOCKED: " + reason + " (no files changed)")
 
-def run(cmd: list[str]) -> None:
-    proc = subprocess.run(cmd, cwd=ROOT, capture_output=True, text=True, timeout=90)
-    if proc.returncode:
-        stop(f"validation command failed: {cmd[0]} (see local logs; not displaying secrets)")
+def fail(message: str) -> None:
+    raise SystemExit(f"PATCH_BLOCKED: {message}; no source changes performed")
 
-def replace_one(source: str, old: str, new: str, name: str) -> str:
-    count = source.count(old)
-    if count != 1:
-        stop(f"{name}: expected exactly one anchor, got {count}")
-    return source.replace(old, new, 1)
 
-def modify_cli(original: str) -> str:
-    # Only edit the versions implementation; other commands intentionally keep offset=0.
-    start = original.find("async function cmdVersions(")
-    if start < 0:
-        start = original.find("function cmdVersions(")
-    if start < 0:
-        stop("cmdVersions function not found")
-    body_end = original.find("\nasync function ", start + 10)
-    if body_end < 0:
-        body_end = original.find("\nfunction ", start + 10)
-    if body_end < 0:
-        stop("cannot bound cmdVersions")
-    fn = original[start:body_end]
-    # Avoid options that can silently be ignored by the CLI.
-    if not re.search(r"\bopts\.maxResults\b", fn):
-        stop("cmdVersions opts.maxResults signature changed")
-    if re.search(r"\boffset\s*:\s*0\s*,", fn) is None:
-        stop("cmdVersions offset=0 not found")
-    fn = replace_one(fn, "offset: 0,", "offset,", "versions GraphQL offset")
-    m = re.search(r"(?m)^(?P<indent>\s*)const limit\s*=\s*Math\.min\(parseInt\(opts\.maxResults \?\? '50', 10\), 200\);", fn)
-    if not m:
-        stop("versions limit declaration changed; review required")
-    indent = m.group("indent")
-    stmt = (
-        f"\n{indent}const offset = Number(opts.offset ?? 0);"
-        f"\n{indent}if (!Number.isSafeInteger(offset) || offset < 0 || offset > 500) "
-        "throw new Error('Invalid offset: expected integer 0..500');"
+def one(pattern: str, source: str, label: str, flags: int = 0) -> re.Match[str]:
+    matches = list(re.finditer(pattern, source, flags))
+    if len(matches) != 1:
+        fail(f"{label}: expected exactly one matching source anchor; found {len(matches)}")
+    return matches[0]
+
+
+def bounded_js_function(source: str) -> tuple[int, int]:
+    m = one(r"(?m)^(?:async\s+)?function\s+cmdVersions\s*\(", source, "cmdVersions")
+    next_func = re.search(r"(?m)^(?:async\s+)?function\s+\w+\s*\(", source[m.end():])
+    if next_func is None:
+        fail("cmdVersions: unable to locate following function boundary")
+    return m.start(), m.end() + next_func.start()
+
+
+def patch_cli(original: str) -> str:
+    a, b = bounded_js_function(original)
+    body = original[a:b]
+    # Scope modifications to versions only. There are other commands using offset:0.
+    m = one(r"(?m)^([ \t]*)const limit\s*=\s*Math\.min\(parseInt\(opts\.maxResults\s*\?\?\s*['\"]50['\"],\s*10\),\s*200\);", body, "versions limit")
+    indent = m.group(1)
+    new = (
+        f"\n{indent}const offset = Number(opts.offset ?? '0');"
+        f"\n{indent}if (!Number.isSafeInteger(offset) || offset < 0 || offset > 500) {{"
+        f"\n{indent}  throw new Error('Invalid versions pagination offset');"
+        f"\n{indent}}}"
     )
-    fn = fn[:m.end()] + stmt + fn[m.end():]
-    # Derive the cursor from actual number of returned results, not requested limit.
-    # This is correct for a short page only if the source still reports has_more.
-    match = re.search(r"(?m)^(?P<indent>\s*)has_more\s*:\s*totalCount\s*>\s*limit\s*,", fn)
-    if not match:
-        stop("versions response has_more expression changed")
-    indent = match.group("indent")
-    fn = fn[:match.start()] + (
-        f"{indent}has_more: totalCount > offset + limit,\n"
+    body = body[:m.end()] + new + body[m.end():]
+    m = one(r"(?m)^([ \t]*)offset:\s*0,", body, "versions GraphQL hardcoded offset")
+    body = body[:m.start()] + m.group(1) + "offset," + body[m.end():]
+    # Derive cursor from the actual emitted result rows; do not claim a future page
+    # by blindly adding a limit when GraphQL returns fewer rows.
+    out = one(r"\bjsonOutput\(\s*([A-Za-z_$][\w$]*)\s*,\s*meta\s*\)", body, "versions jsonOutput(rows, meta)")
+    rows = out.group(1)
+    hm = one(r"(?m)^([ \t]*)has_more:\s*totalCount\s*>\s*limit\s*,?", body, "versions has_more")
+    indent = hm.group(1)
+    substitute = (
+        f"{indent}has_more: totalCount > offset + {rows}.length,\n"
         f"{indent}offset,\n"
-        f"{indent}next_offset: totalCount > offset + limit ? offset + limit : null,"
-    ) + fn[match.end():]
-    edited = original[:start] + fn + original[body_end:]
-    # CLI must explicitly register the option or --offset may be ignored.
-    # Work with the same registration family as --max-results, never assume parser details.
-    registration = list(re.finditer(r"(?m)^.*(?:option|addOption|\\.option|\\.addOption).{0,120}--max-results.{0,220}$", edited))
-    if len(registration) != 1:
-        stop("CLI --max-results registration not uniquely located; cannot safely register --offset")
-    line = registration[0].group()
-    if "option(" not in line:
-        stop("Unknown CLI parser option declaration")
-    indent = re.match(r"\s*", line).group()
-    # Compatible with Commander .option('--max-results <n>', ...).
-    if "('--max-results" not in line and '(\"--max-results' not in line:
-        stop("Unknown CLI option registration syntax")
-    if line.count("--max-results") != 1:
-        stop("ambiguous option declaration")
-    if ".option(" in line:
-        inserted = f"{indent}.option('--offset <n>', 'SberProject version page offset (0..500)', '0')\n"
-        # In fluent chains, option is a line that starts with .option().
-        if not line.lstrip().startswith(".option("):
-            stop("CLI parser option not a fluent chain; review necessary")
-        edited = edited[:registration[0].end()] + "\n" + inserted.rstrip("\n") + edited[registration[0].end():]
-    else:
-        stop("Unsupported CLI parser shape")
+        f"{indent}next_offset: totalCount > offset + {rows}.length ? offset + {rows}.length : null,"
+    )
+    body = body[:hm.start()] + substitute + body[hm.end():]
+    edited = original[:a] + body + original[b:]
+    # Find the versions command in the Commander registration, not a similarly
+    # named flag on another command.
+    cmd = one(r"\.command\(\s*['\"]versions['\"]\s*\)", edited, "versions command registration")
+    action = edited.find(".action(", cmd.end())
+    if action < 0 or action - cmd.end() > 3500:
+        fail("versions command registration: cannot identify option chain")
+    region = edited[cmd.end():action]
+    opt = one(r"(?m)^([ \t]*)\.option\(\s*['\"]--max-results\s+<n>['\"][^\n]*\)\s*$", region, "versions max-results option")
+    new_opt = opt.group(1) + ".option('--offset <n>', 'Version page offset (0..500)', '0')"
+    region = region[:opt.end()] + "\n" + new_opt + region[opt.end():]
+    edited = edited[:cmd.end()] + region + edited[action:]
+    if edited == original:
+        fail("versions: no edits")
     return edited
 
-def modify_bridge(original: str) -> str:
-    # Guard is a one-line check plus a raise; replacement is bounded.
-    pat = re.compile(r"(?m)^[ \t]*if offset != 0:\s*\n[ \t]*raise SkillBridgeError\([^\n]*REASON_PAGINATION[^\n]*\)\s*\n")
-    matches = list(pat.finditer(original))
-    if len(matches) != 1:
-        stop("bridge offset rejection guard not uniquely located")
-    edited = original[:matches[0].start()] + original[matches[0].end():]
-    # CLI has to receive the offset in the versions argv.
-    # Exact command invocation argument shapes must match the allowlisted pattern.
-    m = re.search(r"\bversions\b", edited)
-    if not m:
-        stop("bridge versions invocation not found")
-    # Requires explicit inspection of live bridge argv builder: don't mutate if ambiguous.
-    # Allows safely completing the CLI change separately without risking an auth regression.
-    stop("bridge argv construction needs exact source excerpt; no speculative local modification")
+
+def bounded_py_method(source: str) -> tuple[int, int]:
+    m = one(r"(?m)^([ \t]*)(?:async\s+)?def versions\s*\(", source, "skill_bridge.versions")
+    indent = m.group(1)
+    next_def = re.search(r"(?m)^" + re.escape(indent) + r"(?:async\s+)?def\s+\w+\s*\(", source[m.end():])
+    return m.start(), (m.end() + next_def.start()) if next_def else len(source)
+
+
+def patch_bridge(original: str) -> str:
+    a, b = bounded_py_method(original)
+    body = original[a:b]
+    guard = one(
+        r"(?m)^[ \t]*if\s+offset\s*!=\s*0\s*:\s*\n[ \t]*raise\s+SkillBridgeError\([^\n]*REASON_PAGINATION[^\n]*\)\s*\n",
+        body, "offset!=0 guard")
+    body = body[:guard.start()] + "\n" + body[guard.end():]
+    # Exact CLI argv structure, as reported by live read-only inventory.
+    cmd = one(r"(?m)^([ \t]*)([A-Za-z_]\w*)\s*=\s*\[\s*['\"]versions['\"]\s*,\s*product\s*,\s*['\"]--max-results['\"]\s*,\s*str\(limit\)\s*\]", body, "versions CLI argv")
+    body = body[:cmd.start()] + cmd.group(1) + cmd.group(2) + ' = ["versions", product, "--max-results", str(limit), "--offset", str(offset)]' + body[cmd.end():]
+    cursor = one(r"(?m)^([ \t]*)(['\"])next_offset\2\s*:\s*None\s*,?", body, "bridge next_offset")
+    body = body[:cursor.start()] + cursor.group(1) + '"next_offset": (meta.get("next_offset") if type(meta.get("next_offset")) is int else None),' + body[cursor.end():]
+    # Ensure bridge actually reads CLI metadata and preserves source identity.
+    if not re.search(r"\bmeta\s*=\s*", body):
+        fail("bridge metadata variable not found")
+    edited = original[:a] + body + original[b:]
+    try:
+        ast.parse(edited)
+    except SyntaxError:
+        fail("bridge syntax validation failed")
+    return edited
+
 
 def main() -> None:
     if not CLI.is_file() or not BRIDGE.is_file():
-        stop("working local CLI or bridge is missing; run from PO_Agent_Harness root")
-    cli_before = CLI.read_text(encoding="utf-8")
-    bridge_before = BRIDGE.read_text(encoding="utf-8")
-    cli_after = modify_cli(cli_before)
-    bridge_after = modify_bridge(bridge_before)
-    # Transactional preflight: reach here only when every layer is recognized.
-    with tempfile.TemporaryDirectory(prefix="po-agent-pagination-preflight-") as d:
-        temp_cli = Path(d) / "sbt-project.js"
-        temp_bridge = Path(d) / "skill_bridge.py"
-        temp_cli.write_text(cli_after, encoding="utf-8")
-        temp_bridge.write_text(bridge_after, encoding="utf-8")
-        run(["node", "--check", str(temp_cli)])
-        ast.parse(bridge_after)
-        print("SOURCE_PREFLIGHT_PASS")
-        for filename, before, after in [(CLI, cli_before, cli_after), (BRIDGE, bridge_before, bridge_after)]:
-            print("".join(difflib.unified_diff(before.splitlines(True), after.splitlines(True), fromfile=str(filename), tofile=str(filename)+" (patched)")))
+        fail("missing local skill or bridge; invoke from PO_Agent_Harness root")
+    before = {CLI: CLI.read_text(encoding="utf-8"), BRIDGE: BRIDGE.read_text(encoding="utf-8")}
+    after = {CLI: patch_cli(before[CLI]), BRIDGE: patch_bridge(before[BRIDGE])}
+    with tempfile.TemporaryDirectory(prefix="po-agent-sberproject-paging-") as tmp:
+        js = Path(tmp) / "sbt-project.js"
+        js.write_text(after[CLI], encoding="utf-8")
+        try:
+            result = subprocess.run(["node", "--check", str(js)], capture_output=True, text=True, timeout=30)
+        except (OSError, subprocess.TimeoutExpired):
+            fail("node --check not available/completed")
+        if result.returncode:
+            fail("node --check failed")
+        print("SOURCE_PREFLIGHT_PASS: CLI JS + bridge Python parsed, authentication untouched")
+        # Edits are deliberately small: show them for operator review before apply.
+        for path in (CLI, BRIDGE):
+            diff = "".join(difflib.unified_diff(before[path].splitlines(True), after[path].splitlines(True),
+                              fromfile=str(path.relative_to(ROOT)),
+                              tofile=str(path.relative_to(ROOT)) + " (proposed)"))
+            print(diff[:11000])
         if os.environ.get("APPLY_SBERPROJECT_PAGINATION") != "1":
-            print("DRY_RUN_ONLY: pass APPLY_SBERPROJECT_PAGINATION=1 only after inspection")
+            print("DRY_RUN_ONLY. To install after review: APPLY_SBERPROJECT_PAGINATION=1 python3 /tmp/apply_sberproject_pagination_owner.py")
             return
-        backup = Path(tempfile.mkdtemp(prefix="po-agent-pagination-backup-"))
-        shutil.copy2(CLI, backup / CLI.name)
-        shutil.copy2(BRIDGE, backup / BRIDGE.name)
-        CLI.write_text(cli_after, encoding="utf-8")
-        BRIDGE.write_text(bridge_after, encoding="utf-8")
-        print("SOURCE_FILES_UPDATED; BACKUP:", backup)
-    print("Do not restart services until a bounded integration smoke passes.")
+        backup_dir = Path(tempfile.mkdtemp(prefix="po-agent-sberproject-paging-backup-"))
+        for path in (CLI, BRIDGE):
+            shutil.copy2(path, backup_dir / path.name)
+        changed: list[Path] = []
+        try:
+            for path in (CLI, BRIDGE):
+                # Race check: never overwrite concurrent user edits.
+                if path.read_text(encoding="utf-8") != before[path]:
+                    raise RuntimeError("local source changed during preflight")
+                path.write_text(after[path], encoding="utf-8")
+                changed.append(path)
+        except (OSError, RuntimeError):
+            for path in changed:
+                shutil.copy2(backup_dir / path.name, path)
+            fail("write failed or concurrent edit; restored backups")
+        print("PAGINATION_SOURCE_PATCH_APPLIED; backups:", backup_dir)
+        print("Services have NOT been restarted; no live success has been claimed.")
+        print("Run a single bounded live page 0/20/40/60 smoke after controlled service restart.")
+
 
 if __name__ == "__main__":
     main()
