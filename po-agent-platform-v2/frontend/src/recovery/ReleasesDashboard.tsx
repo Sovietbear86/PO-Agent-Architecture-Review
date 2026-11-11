@@ -139,25 +139,23 @@ export function ReleasesDashboard() {
       <h1 style={{ marginBottom: 5 }}>Релизы</h1>
       <p style={muted}>Аналитика версий из SberProject · задачи релизов синхронизируются с AS21/SWTR · read-only</p>
     </div>
-    <div className="panel entity-toolbar" style={{ ...panel, display: 'flex', gap: '14px 24px', alignItems: 'center', flexWrap: 'wrap', marginBottom: 15 }}>
-      <label style={{ display: 'inline-flex', alignItems: 'center', gap: 10, flex: '0 0 auto' }}>Продукт
-        <select style={{ width: 190 }} aria-label="Продукт" value={product} onChange={e => switchProduct(e.target.value as 'OLP' | 'DMS')}>
+    <div className="panel entity-toolbar" style={{ ...panel, display: 'grid', gridTemplateColumns: 'max-content max-content minmax(145px, 1fr) max-content max-content', columnGap: 18, rowGap: 12, alignItems: 'center', marginBottom: 15, overflowX: 'auto' }}>
+      <label style={{ display: 'inline-flex', alignItems: 'center', gap: 10, whiteSpace: 'nowrap' }}>Продукт
+        <select style={{ width: 178 }} aria-label="Продукт" value={product} onChange={e => switchProduct(e.target.value as 'OLP' | 'DMS')}>
           <option value="OLP">PV OLAP Analytics</option><option value="DMS">PV DataMarts</option>
         </select>
       </label>
-      <label style={{ display: 'inline-flex', alignItems: 'center', gap: 10, flex: '0 0 auto' }}>Статус
-        <select style={{ width: 175 }} aria-label="Статус релиза" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
+      <label style={{ display: 'inline-flex', alignItems: 'center', gap: 10, whiteSpace: 'nowrap' }}>Статус
+        <select style={{ width: 158 }} aria-label="Статус релиза" value={statusFilter} onChange={e => setStatusFilter(e.target.value)}>
           <option value="">Все статусы</option>{statuses.map(value => <option key={value} value={value}>{description(value)}</option>)}
         </select>
       </label>
-      <div className="filter-input-row free-search-row" style={{ flex: '1 1 280px', maxWidth: 440, minWidth: 210 }}>
-        <input aria-label="Поиск версии" placeholder="Поиск версии: номер, ID, ответственный" value={search} onChange={e => setSearch(e.target.value)}
+      <div className="filter-input-row free-search-row" style={{ minWidth: 145, maxWidth: 265, width: '100%' }}>
+        <input aria-label="Поиск версии" placeholder="Поиск версии: номер или ID" value={search} onChange={e => setSearch(e.target.value)}
           style={{ width: '100%', minWidth: 0, background: 'var(--input-bg, #17283a)', color: 'var(--text-primary, #ecf5ff)', border: '1px solid var(--border, rgba(142,180,211,.38))', borderRadius: 9, padding: '10px 12px', colorScheme: 'dark' }} />
       </div>
-      <div style={{ marginLeft: 'auto', display: 'flex', gap: 12, alignItems: 'center', justifyContent: 'flex-end', flex: '1 0 auto' }}>
-        <span className="muted" style={{ fontSize: 12 }}>{data?.as_of ? `Источник: ${new Date(data.as_of).toLocaleString('ru-RU')}` : 'SberProject'}</span>
-        <button className="refresh-button" type="button" disabled={loading} onClick={() => setNonce(x => x + 1)}>{loading ? 'Обновляем…' : 'Обновить'}</button>
-      </div>
+      <span className="muted" style={{ fontSize: 12, whiteSpace: 'nowrap', justifySelf: 'end' }}>{data?.as_of ? `Источник: ${new Date(data.as_of).toLocaleString('ru-RU')}` : 'SberProject'}</span>
+      <button className="refresh-button" style={{ justifySelf: 'end', whiteSpace: 'nowrap' }} type="button" disabled={loading} onClick={() => setNonce(x => x + 1)}>{loading ? 'Обновляем…' : 'Обновить'}</button>
     </div>
     {error && <div className="panel" role="alert" style={{ ...panel, marginBottom: 14 }}>
       Не удалось обновить каталог: {error}. {data && stale ? 'Показан предыдущий снимок этой страницы — данные могут устареть.' : 'Нет подтверждённых данных; AS21 не подставляется вместо SberProject.'}
