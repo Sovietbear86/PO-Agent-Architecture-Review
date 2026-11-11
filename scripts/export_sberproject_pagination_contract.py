@@ -10,8 +10,8 @@ import re
 
 root = Path.cwd().resolve()
 sources = (
-    (root / ".gigacode/skills/sbt-project/src/sbt-project.js", [(1110, 1175), (1700, 1805)]),
-    (root / "task-api/app/services/sberproject/skill_bridge.py", [(1, 240)]),
+    (root / ".gigacode/skills/sbt-project/src/sbt-project.js", [(2100, 2175), (2390, 2490)]),
+    (root / "task-api/app/services/sberproject/skill_bridge.py", [(125, 225)]),
     (root / "task-api/app/routers/sberproject_read.py", [(1, 135)]),
 )
 SECRET = re.compile(r"(?i)(token|secret|password|credential|cookie|authorization|bearer|keychain|private.key|client_secret|pem|process\.env|os\.environ|dotenv)")
