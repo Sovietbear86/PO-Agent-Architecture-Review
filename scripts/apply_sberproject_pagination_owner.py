@@ -57,8 +57,9 @@ def patch_cli(original: str) -> str:
     body = body[:m.start()] + m.group(1) + "offset," + body[m.end():]
     # Derive cursor from the actual emitted result rows; do not claim a future page
     # by blindly adding a limit when GraphQL returns fewer rows.
-    out = one(r"\bjsonOutput\(\s*([A-Za-z_$][\w$]*)\s*,\s*meta\s*\)", body, "versions jsonOutput(rows, meta)")
-    rows = out.group(1)
+    # Live CLI returns jsonOutput(versions, { meta fields inline }).
+    one(r"\\bjsonOutput\\(\\s*versions\\s*,\\s*\\{", body, "versions inline jsonOutput")
+    rows = "versions"
     hm = one(r"(?m)^([ \t]*)has_more:\s*totalCount\s*>\s*limit\s*,?", body, "versions has_more")
     indent = hm.group(1)
     substitute = (
@@ -99,10 +100,11 @@ def patch_bridge(original: str) -> str:
         body, "offset!=0 guard")
     body = body[:guard.start()] + "\n" + body[guard.end():]
     # Exact CLI argv structure, as reported by live read-only inventory.
-    cmd = one(r"(?m)^([ \t]*)([A-Za-z_]\w*)\s*=\s*\[\s*['\"]versions['\"]\s*,\s*product\s*,\s*['\"]--max-results['\"]\s*,\s*str\(limit\)\s*\]", body, "versions CLI argv")
-    body = body[:cmd.start()] + cmd.group(1) + cmd.group(2) + ' = ["versions", product, "--max-results", str(limit), "--offset", str(offset)]' + body[cmd.end():]
-    cursor = one(r"(?m)^([ \t]*)(['\"])next_offset\2\s*:\s*None\s*,?", body, "bridge next_offset")
-    body = body[:cursor.start()] + cursor.group(1) + '"next_offset": (meta.get("next_offset") if type(meta.get("next_offset")) is int else None),' + body[cursor.end():]
+    # Live bridge constructs argv inline inside _run_skill(...).
+    cmd = one(r'''\\[\\s*['"]versions['"]\\s*,\\s*product\\s*,\\s*['"]--max-results['"]\\s*,\\s*str\\(limit\\)\\s*\\]''', body, "versions CLI argv list")
+    body = body[:cmd.start()] + '["versions", product, "--max-results", str(limit), "--offset", str(offset)]' + body[cmd.end():]
+    cursor = one(r'''['"]next_offset['"]\\s*:\\s*None\\b''', body, "bridge inline next_offset")
+    body = body[:cursor.start()] + '"next_offset": (meta.get("next_offset") if type(meta.get("next_offset")) is int else None)' + body[cursor.end():]
     # Ensure bridge actually reads CLI metadata and preserves source identity.
     if not re.search(r"\bmeta\s*=\s*", body):
         fail("bridge metadata variable not found")
