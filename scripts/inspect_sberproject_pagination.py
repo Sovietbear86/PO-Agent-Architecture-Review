@@ -11,7 +11,8 @@ import subprocess
 
 root = Path(__file__).resolve().parent.parent
 candidates = [
-    *root.glob("po-agent-platform-v2/task-api/app/**/*sberproject*read*.py"),
+    *root.glob("task-api/app/**/*sberproject*.py"),
+    *root.glob("task-api/app/**/*skill_bridge*.py"),
     *root.glob("po-agent-platform-v2/task-api/app/**/*sberproject*.py"),
     *root.glob(".gigacode/skills/sbt-project/src/*.js"),
     *root.glob(".gigacode/skills/sbt-project/src/*.ts"),
