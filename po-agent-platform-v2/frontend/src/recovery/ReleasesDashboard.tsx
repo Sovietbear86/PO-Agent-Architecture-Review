@@ -28,7 +28,6 @@ const fmt = (v?: string | null) => {
 }
 const description = (value?: string) => labels[value || ''] || value || 'Не указан'
 const panel: CSSProperties = { minWidth: 0 } // colors, borders and surfaces come from the shared .panel theme
-const grid: CSSProperties = { display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 260px), 1fr))', gap: 14 }
 const muted: CSSProperties = { opacity: .73, fontSize: 13 }
 /** Trust only source-declared HTTPS deep links on the known SberProject host. */
 function verifiedReleaseUrl(version: SberProjectVersion): string | null {
