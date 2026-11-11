@@ -261,3 +261,12 @@ Move from discovery to **one bounded implementation** A230R3.39: server-side nor
 ChatGPT authored a new frontend Releases dashboard in Review: `frontend/src/recovery/ReleasesDashboard.tsx` (commits `00373ff`, `c467643`), routed from `frontend/src/recovery/Pages.tsx` (`79ad7ab`). Full-width responsive metadata-only portfolio: product/version/status filtering, source-as-of, source total, loaded-page released/active/without-release-date KPI, status distribution, future-dated versions, sortable version table, full-width details, honest partial pagination and stale-refresh. Uses strictly SberProject version catalog; no speculative AS21 task aggregates; explicitly acknowledges that release tasks synchronize with AS21 and that technical identity linkage remains to be wired.
 
 **Delivery status: CODE_WRITTEN_REMOTE_NOT_YET_RUNTIME_VERIFIED.** The user's actual live SberProject bridge is in unpushed LOCAL commits, and cannot be treated as present in GitHub Review. Do not overwrite that local branch. A safe integration of owner dashboard patch into the LIVE local tree is required BEFORE GigaCode QA; GigaCode remains tester only. Once synchronized, run one focused frontend build/browser check on real OLP/DMS then independent QA A230R3.42. No assertion of GREEN until that occurs.
+
+
+## 11.11.2026 — Releases UX iteration: P3.2.2 layout owner patch
+
+User reviewed live Releases dashboard. Requested: (1) generous filter spacing and search field inline right of label; (2) relocate release detail from bottom to vacant area alongside milestones; (3) real scrollable list of release member tasks, Daily Brief-like.
+
+ChatGPT implemented **front-end-only** patch `0f87b92` with responsive three-panel overview, inline filter controls, always-visible release detail panel, scroll-ready task section explicitly blocked on verified SberProject→AS21 join. Guarded local apply script `scripts/update_releases_dashboard_layout.sh` created (`256abf4`). GigaCode QA-only assignment A230R3.44 prepared.
+
+**Honest distinction**: layout and scroll shell are implemented, but actual release membership/tasks cannot be displayed until read-only server endpoint identifies SberProject version membership and cross-checks AS21 task IDs. The product's underlying sync is confirmed by PO; missing is the API join. No use of unrelated local `/releases/{release_id}/tasks` CRUD and no speculative mapping. P3.2.3 next owner task: narrow real-source identity discovery and backend API, then populated scrolling list with actual tasks and provenance.
