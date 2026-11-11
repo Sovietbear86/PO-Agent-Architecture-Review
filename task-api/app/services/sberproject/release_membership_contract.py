@@ -73,3 +73,63 @@ def readiness_counts(membership: MembershipProof, statuses: Mapping[str, str], t
         raise MembershipUnverified("invalid_task_status")
     done = sum(statuses[i] in terminal for i in membership.as21_task_ids)
     return {"scope": len(membership.as21_task_ids), "completed": done, "remaining": len(statuses)-done}
+
+
+@dataclass(frozen=True)
+class PartialReleaseEvidence:
+    """Visible source-confirmed links; NOT a complete release task population."""
+    product: str
+    version_id: str
+    linked_task_ids: tuple[str, ...]
+    source_release_rows: int
+    internal_without_as21_key: int
+    membership_status: str = "PARTIAL_SOURCE_PROVEN"
+    complete: bool = False
+
+
+def verified_partial_links(
+    *,
+    product: str,
+    version_id: str,
+    release_tasks: Sequence[Mapping[str, Any]],
+    as21_records: Mapping[str, Mapping[str, Any]],
+    as21_version_uuid: str,
+) -> PartialReleaseEvidence:
+    """Verify only explicitly linked release entries against individual AS21 records.
+
+    Does not establish completeness or compute release-wide metrics. The caller
+    must bind as21_version_uuid using an independently read AS21 version record;
+    a version's display name alone is not an identity proof.
+    """
+    if product not in ("OLP", "DMS") or not isinstance(version_id, str) or not version_id:
+        raise MembershipUnverified("invalid_release_identity")
+    if not isinstance(as21_version_uuid, str) or not as21_version_uuid.strip():
+        raise MembershipUnverified("as21_version_identity_unverified")
+    if not isinstance(release_tasks, (list, tuple)) or not isinstance(as21_records, Mapping):
+        raise MembershipUnverified("invalid_release_task_sources")
+    linked: list[str] = []
+    internal = 0
+    for row in release_tasks:
+        if not isinstance(row, Mapping):
+            raise MembershipUnverified("invalid_release_task_row")
+        key = row.get("issueKey")
+        if key is None:
+            internal += 1
+            continue
+        if not isinstance(key, str) or not key or key != key.strip() or row.get("source") != "swtr":
+            raise MembershipUnverified("unverified_release_task_link")
+        if key in linked:
+            raise MembershipUnverified("duplicate_release_task_link")
+        record = as21_records.get(key)
+        if not isinstance(record, Mapping) or record.get("key") != key:
+            raise MembershipUnverified("as21_task_identity_mismatch")
+        versions = record.get("fix_version_s")
+        if not isinstance(versions, (tuple, list)) or as21_version_uuid not in [
+            v.get("code") for v in versions if isinstance(v, Mapping)
+        ]:
+            raise MembershipUnverified("as21_version_link_mismatch")
+        linked.append(key)
+    return PartialReleaseEvidence(
+        product=product, version_id=version_id, linked_task_ids=tuple(linked),
+        source_release_rows=len(release_tasks), internal_without_as21_key=internal
+    )
