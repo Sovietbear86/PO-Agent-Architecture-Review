@@ -10,7 +10,7 @@ git fetch --no-tags origin feat/core8-real-query-hardening-v2
 # The original dashboard checked in by ChatGPT was the parent of the widget
 # corrections. Compare bytes before replacing to protect unrelated live edits.
 BASE="a8dc8a7"
-LATEST="61f2cb3"
+LATEST="000f0ee"
 git cat-file -e "$BASE:$TARGET"
 git cat-file -e "$LATEST:$TARGET"
 OLD="$(mktemp)"
