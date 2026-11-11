@@ -10,13 +10,15 @@ const labels: Record<string, string> = {
   RELEASED: 'Выпущен',
   INSTALLATION: 'Внедрение',
   PLANNING: 'Планирование',
+  REALIZATION: 'Реализация',
+  INSTALLED: 'Установлен',
   END_OF_SUPPORT: 'Снят с поддержки',
   TRANSFERRED: 'Передан',
   CANCELLED: 'Отменён',
   INSTALLATION_CANCELLED: 'Внедрение отменено',
 }
 const ended = new Set(['RELEASED', 'END_OF_SUPPORT', 'TRANSFERRED', 'CANCELLED', 'INSTALLATION_CANCELLED'])
-const active = new Set(['INSTALLATION', 'PLANNING'])
+const active = new Set(['INSTALLATION', 'PLANNING', 'REALIZATION'])
 const fmt = (v?: string | null) => {
   if (!v) return 'Нет данных'
   const iso = /^\d{4}-\d{2}-\d{2}/.exec(v)?.[0]
