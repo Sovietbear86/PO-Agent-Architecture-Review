@@ -52,3 +52,37 @@ def test_incomplete_status_snapshot_fails_closed():
                                           task_ids=["OLP-1", "OLP-2"], proof=valid_proof())
     with pytest.raises(module.MembershipUnverified):
         module.readiness_counts(membership, {"OLP-1": "done"}, frozenset({"done"}))
+
+
+def test_partial_links_are_visible_but_never_complete():
+    release_rows = [
+        {"issueKey": "STS-579398", "source": "swtr"},
+        {"issueKey": "STS-579399", "source": "swtr"},
+        {"issueKey": None}, {"issueKey": None}
+    ]
+    as21 = {
+        key: {"key": key, "fix_version_s": [{"code": "as21-version-uuid"}]}
+        for key in ("STS-579398", "STS-579399")
+    }
+    partial = module.verified_partial_links(
+        product="OLP", version_id="OLP.78", release_tasks=release_rows,
+        as21_records=as21, as21_version_uuid="as21-version-uuid"
+    )
+    assert partial.membership_status == "PARTIAL_SOURCE_PROVEN"
+    assert partial.linked_task_ids == ("STS-579398", "STS-579399")
+    assert partial.source_release_rows == 4
+    assert partial.internal_without_as21_key == 2
+    assert partial.complete is False
+    with pytest.raises(module.MembershipUnverified):
+        module.readiness_counts(partial, {}, frozenset({"done"}))
+
+
+def test_partial_link_cross_source_mismatch_fails_closed():
+    with pytest.raises(module.MembershipUnverified):
+        module.verified_partial_links(
+            product="OLP", version_id="OLP.78",
+            release_tasks=[{"issueKey": "STS-579398", "source": "swtr"}],
+            as21_records={"STS-579398": {
+                "key": "STS-579398", "fix_version_s": [{"code": "other-version"}]
+            }}, as21_version_uuid="as21-version-uuid"
+        )
