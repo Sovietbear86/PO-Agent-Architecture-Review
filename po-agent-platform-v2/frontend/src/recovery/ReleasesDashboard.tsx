@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
-import { sberprojectCatalog, type SberProjectCatalog, type SberProjectVersion } from '../api/client'
+import { sberprojectCatalog, type SberProjectCatalog } from '../api/client'
 
 /**
  * Releases dashboard v1: real SberProject VERSION metadata only.
