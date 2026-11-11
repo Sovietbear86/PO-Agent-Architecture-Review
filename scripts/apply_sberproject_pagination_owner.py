@@ -71,7 +71,7 @@ def patch_cli(original: str) -> str:
     edited = original[:a] + body + original[b:]
     # Find the versions command in the Commander registration, not a similarly
     # named flag on another command.
-    cmd = one(r"\.command\(\s*['\"]versions['\"]\s*\)", edited, "versions command registration")
+    cmd = one(r"\\.command\\(\\s*['\\\"]versions\\s+<productId>['\\\"]\\s*\\)", edited, "versions command registration")
     action = edited.find(".action(", cmd.end())
     if action < 0 or action - cmd.end() > 3500:
         fail("versions command registration: cannot identify option chain")
