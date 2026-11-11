@@ -1,19 +1,17 @@
-# A230R3.49 — release linkage subset: QA only
+# A230R3.50 — Single-release read-only linked-task adapter QA
 
-Owner: ChatGPT; GigaCode must NOT change code, patches, scripts, config or commits.
+GigaCode is QA ONLY. Do not edit sources, install packages, commit, deploy, restart, or read more source data.
 
-### Source findings from completed A230R3.48
-- OLP.78 (SberProject version 1.9.0) SberProject release composition has 7 rows.
-- 5 rows have source=swtr + issueKey; five AS21 point reads independently show matching fix_version_s linked to the AS21 version UUID.
-- 2 rows lack issueKey (internal SberProject tasks).
-- AS21 reverse query via release=<version-uuid> returned 0: this is NOT an exhaustive enumerator for the fix_version_s link.
-- Therefore MEMBERSHIP_UNVERIFIED for whole release; do not produce Scope, Completed, WIP, ready%, Delivery Forecast, or assert there are only 5/7 tasks in the total release population.
+## Owner changes
+- `task-api/app/services/sberproject/release_task_adapter.py`: dependency-injected adapter for ONE exact release, max 100 composition rows and AS21 point reads; checks source/identity/complete pagination.
+- `task-api/tests/test_release_task_adapter.py`: narrow mocked tests.
+- This is NOT wired to live routes/UI. The complete=True check refers only to SberProject composition page coverage, NOT exhaustive AS21 reverse membership. Response is explicitly PARTIAL_SOURCE_PROVEN; all release-wide KPIs remain null.
 
-### New owner pure code
-`task-api/app/services/sberproject/release_membership_contract.py`: `verified_partial_links` verifies source-issued issueKey + source=swtr + AS21 key + explicit fix_version_s UUID. It returns PARTIAL_SOURCE_PROVEN and complete=False; no live API integrated.
+## Exactly one QA run
+From repository root, in existing environment:
+`python3 -m pytest -q task-api/tests/test_release_membership_contract.py task-api/tests/test_release_task_adapter.py`
 
-### One bounded QA action
-Run only `python3 -m pytest -q task-api/tests/test_release_membership_contract.py`, inspect resulting tests (no edits), summarize PASS/RED + failure reason and STOP. No live data reads, no full regression, no deployment.
+Report count PASS/RED; on RED show FIRST failing boundary and compact root cause. Check Core V4 unchanged against baseline with read-only git diff (no re-run full regression). STOP. No live data reads, no real SberProject/AS21 requests.
 
-### Owner next integration decision
-A separate read-only adapter must fetch a SINGLE selected release's SberProject composition and point-read the linked AS21 task IDs, returning a bounded list. Do not confuse the linked subset with exhaustive membership. To unlock aggregate metrics, source owner must confirm an authoritative exhaustive version-to-task contract (including internal-only rows) and explicit version identity binding. Do not infer from version name/number.
+## Owner continuation
+Review existing task-api AS21 point-read and SberProject searchTaskCr interfaces in local working copy. Bind actual read-only callbacks (including authorized, verified AS21 UUID lookup) and create one selected-release API after proving bounded source complete. Then wire scrollable release card and independently QA it. Never fabricate release-wide completeness or readiness.
