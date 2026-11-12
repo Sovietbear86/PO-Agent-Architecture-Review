@@ -14,7 +14,7 @@ import re
 from collections.abc import Mapping
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, HTTPException
 
 from app.services.sberproject import skill_bridge
 from app.services.sberproject.release_membership_contract import MembershipUnverified
@@ -22,7 +22,7 @@ from app.services.sberproject.release_task_adapter import (
     fetch_linked_release_tasks_from_sources,
 )
 
-router = APIRouter(prefix="/api/v1/sberproject-read", tags=["sberproject-read"])
+router = APIRouter(tags=["sberproject-read"])
 _RELEASE_ID = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,119}$")
 
 # No misleading default binding between SberProject version ID and AS21 UUID.
@@ -71,7 +71,6 @@ def read_linked_tasks(
 async def get_release_linked_tasks(
     product: str,
     version_id: str,
-    enabled: bool = Query(False, exclude=True),
 ):
     """Disabled by default and source-proven only.
 
