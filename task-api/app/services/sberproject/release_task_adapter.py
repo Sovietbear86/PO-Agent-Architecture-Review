@@ -6,8 +6,7 @@ release-task rows, a verified AS21 version UUID, and complete point reads.
 """
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping, Sequence
-from dataclasses import asdict
+from collections.abc import Callable, Mapping
 from typing import Any
 
 from .release_membership_contract import MembershipUnverified, verified_partial_links
@@ -44,6 +43,14 @@ def fetch_linked_release_tasks(
     rows = source.get("tasks")
     if not isinstance(rows, (list, tuple)) or len(rows) > MAX_RELEASE_ROWS:
         raise MembershipUnverified("release_composition_invalid_or_over_limit")
+    # COMPLETE here means all SberProject composition pages were read, not that
+    # all AS21 tasks with a fix_version_s relation have been enumerated.
+    # Require explicit source count and stable version-level identity.
+    source_total = source.get("total")
+    if type(source_total) is not int or source_total != len(rows):
+        raise MembershipUnverified("release_composition_count_unverified")
+    if source.get("has_more") is not False:
+        raise MembershipUnverified("release_composition_pagination_unverified")
 
     keys = []
     for row in rows:
