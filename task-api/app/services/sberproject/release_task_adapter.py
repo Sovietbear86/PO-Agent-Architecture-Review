@@ -102,3 +102,34 @@ def fetch_linked_release_tasks(
         "readiness": None,
         "delivery_forecast": None,
     }
+
+
+def fetch_linked_release_tasks_from_sources(
+    *,
+    product: str,
+    version_id: str,
+    as21_version_uuid: str,
+    fetch_composition_source: Callable[[str, str], Mapping[str, Any]],
+    fetch_as21_point_source: Callable[[str], Mapping[str, Any]],
+) -> dict[str, Any]:
+    """Wire the two pure adapters into the existing certified contract.
+
+    Caller must independently verify the AS21 version UUID. No endpoint is
+    enabled here: the CLI currently lacks authoritative composition paging.
+    """
+    from .release_composition import fetch_release_composition
+    from .as21_point_adapter import normalize_as21_point_read
+
+    def release_reader(p: str, v: str) -> Mapping[str, Any]:
+        return fetch_release_composition(p, v, fetch_source=fetch_composition_source)
+
+    def point_reader(key: str) -> Mapping[str, Any]:
+        return normalize_as21_point_read(key, fetch_as21_point_source(key))
+
+    return fetch_linked_release_tasks(
+        product=product,
+        version_id=version_id,
+        as21_version_uuid=as21_version_uuid,
+        fetch_release=release_reader,
+        fetch_as21_task=point_reader,
+    )
