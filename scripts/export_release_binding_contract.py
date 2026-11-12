@@ -5,7 +5,6 @@ Displays function-level API signatures and sanitized context. Does NOT import
 modules, access network/keys/env, or modify files. Review output before sharing.
 """
 from pathlib import Path
-import ast
 import re
 
 ROOT = Path.cwd()
@@ -13,7 +12,7 @@ MAX_FILES = 24
 MAX_LINES = 135
 SENSITIVE = re.compile(
     r"(?i)(password|token|credential|authorization|cookie|keychain|"
-    r"client_secret|private.key|pem|process\\.env|os\\.environ|dotenv|"
+    r"client_secret|private.key|pem|process\.env|os\.environ|dotenv|"
     r"api[_-]?key|bearer|secret)"
 )
 RELEVANT = re.compile(
@@ -54,10 +53,10 @@ def safe_line(n, line):
     return f"{n}: {line[:200]}"
 
 for path, lines in selected:
-    print("\\n###", path.relative_to(ROOT), "(lines:", len(lines), ")")
+    print("\n###", path.relative_to(ROOT), "(lines:", len(lines), ")")
     matches = [i for i, line in enumerate(lines) if (
         RELEVANT.search(line) and
-        (re.search(r"\\b(def|async def|function|async function|class)\\b", line)
+        (re.search(r"\b(def|async def|function|async function|class)\b", line)
          or "searchTaskCr" in line or "fix_version_s" in line
          or "issueKey" in line or "def versions(" in line)
     )]
@@ -69,10 +68,10 @@ for path, lines in selected:
     # JS cmdRelease and searchTaskCr query: bounded samples around named funcs.
     if path.suffix == ".js":
         for i, line in enumerate(lines):
-            if re.search(r"(?:function\\s+cmdRelease|function\\s+cmdVersions|searchTaskCr)", line):
+            if re.search(r"(?:function\s+cmdRelease|function\s+cmdVersions|searchTaskCr)", line):
                 allowed.update(range(max(0, i - 2), min(len(lines), i + 13)))
     for i in sorted(allowed)[:MAX_LINES]:
         print(safe_line(i + 1, lines[i]))
     if len(allowed) > MAX_LINES:
         print("[TRUNCATED: send specific source interval only if needed]")
-print("\\nEND: read-only source contract inventory; no network, writes, or secrets.")
+print("\nEND: read-only source contract inventory; no network, writes, or secrets.")
