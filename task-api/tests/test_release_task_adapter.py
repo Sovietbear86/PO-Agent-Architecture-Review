@@ -15,7 +15,7 @@ from app.services.sberproject.release_membership_contract import MembershipUnver
 
 
 def source(product, version):
-    return {"product": product, "version_id": version, "complete": True, "tasks": [
+    return {"product": product, "version_id": version, "complete": True, "has_more": False, "total": 4, "tasks": [
         {"issueKey": "STS-579398", "source": "swtr"},
         {"issueKey": "STS-579399", "source": "swtr"},
         {"issueKey": None},
@@ -65,7 +65,7 @@ def test_wrong_task_version_fails_closed():
 def test_excessive_release_scope_rejected_before_reads():
     called = []
     def huge(p, v):
-        return {"product": p, "version_id": v, "complete": True,
+        return {"product": p, "version_id": v, "complete": True, "has_more": False, "total": 101,
                 "tasks": [{"issueKey": f"STS-{i}", "source": "swtr"} for i in range(101)]}
     with pytest.raises(MembershipUnverified):
         fetch_linked_release_tasks(product="OLP", version_id="OLP.78",
@@ -85,3 +85,21 @@ def test_duplicate_link_fails_before_point_reads():
             as21_version_uuid="uuid-1", fetch_release=dup,
             fetch_as21_task=lambda key: called.append(key))
     assert not called
+
+
+@pytest.mark.parametrize("change", [
+    {"total": None}, {"total": 5}, {"has_more": True},
+    {"has_more": None}, {"total": True},
+])
+def test_unverified_source_pagination_fails_before_point_reads(change):
+    observed = []
+    def bad(product, version):
+        result = source(product, version)
+        result.update(change)
+        return result
+    with pytest.raises(MembershipUnverified):
+        fetch_linked_release_tasks(
+            product="OLP", version_id="OLP.78", as21_version_uuid="uuid-1",
+            fetch_release=bad, fetch_as21_task=lambda key: observed.append(key),
+        )
+    assert not observed
