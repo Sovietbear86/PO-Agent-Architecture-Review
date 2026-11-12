@@ -208,3 +208,39 @@ def versions(product: str, limit: int, offset: int, cfg: SkillBridgeConfig) -> d
         "results": rows,
         "meta": {"has_more": has_more, "total": total_int, "next_offset": None},
     }
+
+
+def release_composition(product: str, version_id: str, cfg: SkillBridgeConfig) -> dict:
+    """One exact SberProject release; never infer completeness from CLI defaults.
+
+    Existing skill 'release <versionId>' returns task rows but its total and
+    has_more may be synthesized client-side. Those responses fail closed
+    until the skill exposes verified source pagination evidence.
+    """
+    from .release_composition import normalize_release_composition
+    from .release_membership_contract import MembershipUnverified
+
+    if product not in _VALID_PRODUCTS or not isinstance(version_id, str) or not version_id.strip():
+        raise SkillBridgeError(REASON_INVALID_PRODUCT)
+    if not cfg.enabled:
+        raise SkillBridgeError(REASON_AUTH)
+    code, out, _ = _run_skill(
+        cfg.skill_cmd, ["release", version_id], cfg.timeout, cfg.ca_bundle,
+    )
+    data = _read_json(out)
+    if code != 0:
+        error = data.get("error") if isinstance(data, dict) else None
+        error_code = error.get("code") if isinstance(error, dict) else None
+        if code == _AUTH_EXIT_CODE or error_code in _AUTH_ERROR_CODES:
+            raise SkillBridgeError(REASON_AUTH)
+        raise SkillBridgeError(REASON_UNAVAILABLE)
+    if not isinstance(data, dict):
+        raise SkillBridgeError(REASON_INCOMPLETE)
+    # Do not promote the CLI's synthetic meta.total / has_more into proof.
+    # Only explicit independently sourced fields are accepted.
+    try:
+        return normalize_release_composition(
+            product=product, version_id=version_id, payload=data,
+        )
+    except MembershipUnverified as exc:
+        raise SkillBridgeError(REASON_INCOMPLETE, str(exc)) from None
