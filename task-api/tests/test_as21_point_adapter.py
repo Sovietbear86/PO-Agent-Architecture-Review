@@ -33,7 +33,7 @@ def test_normalizes_one_verified_point_read():
 @pytest.mark.parametrize("mutation", [
     lambda p: p.update(task_code="DMS-3"),
     lambda p: p["unit"].update(code="DMS-3"),
-    lambda p: p["unit"]["attributes"].update(fix_version_s=[] if False else None),
+    lambda p: p["unit"]["attributes"].update(fix_version_s=None),
     lambda p: p["unit"]["attributes"].update(fix_version_s=["a fake version"]),
     lambda p: p["unit"]["attributes"].update(fix_version_s=[{"name": "OLP 1.9"}]),
 ])
