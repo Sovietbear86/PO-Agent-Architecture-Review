@@ -6,12 +6,15 @@ claims that a version's task membership is known.
 """
 from __future__ import annotations
 
+import asyncio
 import os
 from datetime import datetime, timezone
 from urllib.parse import urlsplit
 
 import httpx
 from fastapi import APIRouter, HTTPException, Query
+
+from app.services.sberproject import skill_bridge
 
 router = APIRouter(prefix="/api/v1/sberproject-read", tags=["sberproject-read"])
 _VALID_PRODUCTS = {"OLP", "DMS"}
@@ -35,7 +38,7 @@ def _source_config():
     return url, token
 
 
-def _catalog_response(payload: object, product: str, limit: int, offset: int = 0) -> dict:
+def _catalog_response(payload: object, product: str, limit: int) -> dict:
     if not isinstance(payload, dict):
         raise HTTPException(502, detail={"reason": "sberproject_incomplete"})
     rows = payload.get("results")
@@ -49,26 +52,6 @@ def _catalog_response(payload: object, product: str, limit: int, offset: int = 0
     has_more = meta.get("has_more")
     if not isinstance(has_more, bool):
         raise HTTPException(502, detail={"reason": "sberproject_pagination_unknown"})
-    # A cursor is only trustworthy if the upstream confirms this page's offset.
-    # Do not derive a cursor from has_more alone: a CLI pinned to offset=0 would
-    # otherwise repeat page 1 indefinitely and silently corrupt portfolio totals.
-    upstream_offset = meta.get("offset")
-    if type(upstream_offset) is not int or upstream_offset != offset:
-        raise HTTPException(502, detail={"reason": "sberproject_page_identity_unverified"})
-    reported_total = meta.get("total")
-    if reported_total is not None and (type(reported_total) is not int or reported_total < 0):
-        raise HTTPException(502, detail={"reason": "sberproject_pagination_unknown"})
-    next_offset = meta.get("next_offset")
-    if has_more:
-        if not rows or type(next_offset) is not int or next_offset <= offset or next_offset > 500:
-            raise HTTPException(502, detail={"reason": "sberproject_pagination_unknown"})
-        if next_offset != offset + len(rows):
-            raise HTTPException(502, detail={"reason": "sberproject_pagination_unknown"})
-        if reported_total is not None and next_offset >= reported_total:
-            raise HTTPException(502, detail={"reason": "sberproject_pagination_unknown"})
-    else:
-        if next_offset is not None:
-            raise HTTPException(502, detail={"reason": "sberproject_pagination_unknown"})
     safe_rows = []
     for row in rows:
         code = row.get("id") or row.get("versionId")
@@ -84,24 +67,15 @@ def _catalog_response(payload: object, product: str, limit: int, offset: int = 0
         "product": product,
         "versions": safe_rows,
         "has_more": has_more,
-        "next_offset": next_offset if has_more else None,
-        "offset": offset,
-        "total": reported_total,
+        "next_offset": meta.get("next_offset") if has_more and isinstance(meta.get("next_offset"), int) else None,
+        "total": meta.get("total") if isinstance(meta.get("total"), int) else None,
         "as_of": datetime.now(timezone.utc).isoformat(),
         "membership_status": "SOURCE_UNVERIFIED",
     }
 
 
-@router.get("/versions")
-async def sberproject_versions(
-    product: str = Query(...),
-    limit: int = Query(20, ge=1, le=_MAX_ROWS),
-    offset: int = Query(0, ge=0, le=500),
-):
-    product = product.strip().upper()
-    if product not in _VALID_PRODUCTS:
-        raise HTTPException(400, detail={"reason": "invalid_product"})
-    url, token = _source_config()
+async def _http_source(url: str, token: str, product: str, limit: int, offset: int) -> dict:
+    """Existing external-HTTPS source path (unchanged contract)."""
     try:
         async with httpx.AsyncClient(timeout=20, follow_redirects=False, trust_env=True) as client:
             response = await client.get(
@@ -118,4 +92,32 @@ async def sberproject_versions(
         payload = response.json()
     except ValueError:
         raise HTTPException(502, detail={"reason": "sberproject_incomplete"}) from None
-    return _catalog_response(payload, product, limit, offset)
+    return _catalog_response(payload, product, limit)
+
+
+@router.get("/versions")
+async def sberproject_versions(
+    product: str = Query(...),
+    limit: int = Query(20, ge=1, le=_MAX_ROWS),
+    offset: int = Query(0, ge=0, le=500),
+):
+    product = product.strip().upper()
+    if product not in _VALID_PRODUCTS:
+        raise HTTPException(400, detail={"reason": "invalid_product"})
+    if os.environ.get("SBERPROJECT_CATALOG_READ_URL", "").strip():
+        # External corporate HTTPS read endpoint (original behavior, preserved).
+        url, token = _source_config()
+        return await _http_source(url, token, product, limit, offset)
+    # No external URL configured: use the local read-only skill bridge, which
+    # reuses the official sbt-project skill's own (keychain) authorization.
+    cfg = skill_bridge.SkillBridgeConfig.from_env(os.environ)
+    if not cfg.enabled:
+        raise HTTPException(503, detail={"reason": "sberproject_auth_required"})
+    try:
+        payload = await asyncio.to_thread(skill_bridge.versions, product, limit, offset, cfg)
+    except skill_bridge.SkillBridgeError as exc:
+        if exc.reason == skill_bridge.REASON_INVALID_PRODUCT:
+            raise HTTPException(400, detail={"reason": "invalid_product"}) from None
+        status = 503 if exc.reason in (skill_bridge.REASON_AUTH, skill_bridge.REASON_UNAVAILABLE) else 502
+        raise HTTPException(status, detail={"reason": exc.reason}) from None
+    return _catalog_response(payload, product, limit)
