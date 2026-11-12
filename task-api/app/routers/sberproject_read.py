@@ -121,3 +121,9 @@ async def sberproject_versions(
         status = 503 if exc.reason in (skill_bridge.REASON_AUTH, skill_bridge.REASON_UNAVAILABLE) else 502
         raise HTTPException(status, detail={"reason": exc.reason}) from None
     return _catalog_response(payload, product, limit)
+
+
+# Separate read-only task-binding facade. Registration does not enable access;
+# the server-side feature flag and independent source proofs remain mandatory.
+from app.routers import sberproject_release_tasks
+router.include_router(sberproject_release_tasks.router)
