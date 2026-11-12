@@ -1,17 +1,21 @@
-# A230R3.50 — Single-release read-only linked-task adapter QA
+# A230R3.50 — read-only release adapter, one bounded QA (updated)
 
-GigaCode is QA ONLY. Do not edit sources, install packages, commit, deploy, restart, or read more source data.
+## Roles
+ChatGPT develops. GigaCode is ONLY independent QA. NO code edits/commits, no deploy/restart, no Core V4 changes.
 
-## Owner changes
-- `task-api/app/services/sberproject/release_task_adapter.py`: dependency-injected adapter for ONE exact release, max 100 composition rows and AS21 point reads; checks source/identity/complete pagination.
-- `task-api/tests/test_release_task_adapter.py`: narrow mocked tests.
-- This is NOT wired to live routes/UI. The complete=True check refers only to SberProject composition page coverage, NOT exhaustive AS21 reverse membership. Response is explicitly PARTIAL_SOURCE_PROVEN; all release-wide KPIs remain null.
+## Source-proven discovery
+OLP.78 SberProject release composition: 7 entries, 5 issueKey + source=swtr and 2 internal without AS21 key. All 5 linked AS21 point reads have matching fix_version_s UUID. This proves the five links, NOT exhaustive version membership. AS21 reverse query release=<uuid> returned zero; cannot use it to calculate readiness.
 
-## Exactly one QA run
-From repository root, in existing environment:
-`python3 -m pytest -q task-api/tests/test_release_membership_contract.py task-api/tests/test_release_task_adapter.py`
+## Owner delta to verify
+- Release adapter `task-api/app/services/sberproject/release_task_adapter.py`.
+- Source completeness now requires `complete is True`, `has_more is False`, and source `total == len(tasks)` BEFORE AS21 point reads. This certifies only pagination of SberProject composition.
+- Any whole-release Scope/Completed/WIP/Readiness/Forecast stays null. No invented '0 tasks'.
+- Narrow tests in `task-api/tests/test_release_task_adapter.py` and `test_release_membership_contract.py`.
 
-Report count PASS/RED; on RED show FIRST failing boundary and compact root cause. Check Core V4 unchanged against baseline with read-only git diff (no re-run full regression). STOP. No live data reads, no real SberProject/AS21 requests.
+## QA one pass
+Execute once from repo root:
+`python3 -m pytest -q task-api/tests/test_release_membership_contract.py task-api/tests/test_release_task_adapter.py`.
+Inspect only if RED, report first failure boundary. Verify Core V4 files untouched with git diff; no full regression. STOP.
 
-## Owner continuation
-Review existing task-api AS21 point-read and SberProject searchTaskCr interfaces in local working copy. Bind actual read-only callbacks (including authorized, verified AS21 UUID lookup) and create one selected-release API after proving bounded source complete. Then wire scrollable release card and independently QA it. Never fabricate release-wide completeness or readiness.
+## Next owner integration stage (do NOT implement as QA)
+ChatGPT must bind two real local-only read-only APIs: SberProject exact-version composition (including explicit total/cursor) and AS21 point-read via issueKey, with independent AS21 version UUID identity. These local skill bridge files are not in remote repo. Do not invent a callback or expose an endpoint before real binding. Owner can use a single bounded local export if necessary; no tenant-wide scan. After binding, wire visible scrollable release task card and perform ONE end-to-end browser smoke.
