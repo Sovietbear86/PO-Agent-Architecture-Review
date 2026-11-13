@@ -1,6 +1,6 @@
 """A230R3.58: gated API contract tests; no network, no live sources."""
 import pytest
-from fastapi import HTTPException
+from fastapi import FastAPI, HTTPException
 
 from app.routers import sberproject_read
 from app.routers.sberproject_release_tasks import read_linked_tasks
@@ -8,7 +8,11 @@ from app.services.sberproject.release_membership_contract import MembershipUnver
 
 
 def test_route_registered_under_existing_facade():
-    paths = [r.path for r in sberproject_read.router.routes]
+    # Nested include_router stores _IncludedRouter wrappers without .path on
+    # some FastAPI versions. Inspect the flattened application route table.
+    app = FastAPI()
+    app.include_router(sberproject_read.router)
+    paths = [r.path for r in app.routes if hasattr(r, "path")]
     assert "/api/v1/sberproject-read/releases/{product}/{version_id}/linked-tasks" in paths
 
 
