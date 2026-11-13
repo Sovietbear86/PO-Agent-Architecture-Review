@@ -89,3 +89,61 @@ async def get_release_linked_tasks(
     except MembershipUnverified as exc:
         # A source-proof failure is never a zero-task result or a 100% KPI.
         raise HTTPException(502, detail={"reason": str(exc)}) from None
+
+
+@router.get("/releases/{product}/{version_id}/observed-tasks")
+async def get_observed_release_tasks(product: str, version_id: str):
+    """Show bounded live tasks, explicitly NOT the complete release population.
+
+    No AS21 release UUID is guessed. We verify each task identity with a
+    direct point read, but do not claim AS21 fix-version membership.
+    """
+    product = product.strip().upper()
+    if product not in {"OLP", "DMS"} or not _RELEASE_ID.fullmatch(version_id):
+        raise HTTPException(400, detail={"reason": "invalid_release_identity"})
+    if os.environ.get("SBERPROJECT_RELEASE_OBSERVATIONS_ENABLED", "").lower() not in {"1", "true", "on"}:
+        raise HTTPException(503, detail={"reason": "release_observations_not_enabled"})
+    cfg = skill_bridge.SkillBridgeConfig.from_env(os.environ)
+    try:
+        observations = await asyncio.to_thread(
+            skill_bridge.release_observations, product, version_id, cfg,
+        )
+    except skill_bridge.SkillBridgeError as exc:
+        status = 503 if exc.reason in {skill_bridge.REASON_AUTH, skill_bridge.REASON_UNAVAILABLE} else 502
+        raise HTTPException(status, detail={"reason": exc.reason}) from None
+
+    # Live point reads are intentionally bounded. Never silently truncate a
+    # release or pretend an observed set is its full population.
+    keys = observations["observed_issue_keys"]
+    if len(keys) > 20:
+        raise HTTPException(502, detail={"reason": "release_observation_point_read_limit"})
+    from app.routers.swtr_read import get_task_raw, _unwrap_task_unit
+    from app.services.sberproject.as21_point_adapter import _text
+    tasks = []
+    for key in keys:
+        payload = await get_task_raw(key)
+        unit = _unwrap_task_unit(payload.get("unit"))
+        if not isinstance(unit, Mapping) or unit.get("code") != key:
+            raise HTTPException(502, detail={"reason": "as21_task_identity_mismatch"})
+        attrs = unit.get("attributes")
+        attrs = attrs if isinstance(attrs, Mapping) else {}
+        tasks.append({
+            "key": key,
+            "title": _text(attrs.get("title", unit.get("title"))),
+            "status": _text(attrs.get("workflow_status", unit.get("workflow_status"))),
+            "assignee": _text(attrs.get("assigned_to", unit.get("assigned_to"))),
+            "source": "SBERPROJECT_OBSERVED_AS21_IDENTITY_VERIFIED",
+        })
+    # Observed count refers ONLY to listed links. KPI fields remain null.
+    return {
+        "product": product,
+        "version_id": version_id,
+        "membership_status": "OBSERVED_LINKS_UNVERIFIED",
+        "complete": False,
+        "observed_count": len(tasks),
+        "observed_rows": observations["observed_rows"],
+        "observed_internal_rows": observations["observed_internal_rows"],
+        "linked_tasks": tasks,
+        "scope": None, "completed": None, "wip": None,
+        "readiness": None, "delivery_forecast": None,
+    }
