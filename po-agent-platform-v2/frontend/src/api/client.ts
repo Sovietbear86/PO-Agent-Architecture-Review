@@ -196,3 +196,38 @@ export const sberprojectCatalog = {
     return response.data
   },
 }
+
+
+/** Source-observed SberProject links with AS21 point-read identity checks.
+ * This is NOT the complete AS21 membership of a release. */
+export interface ObservedReleaseTask {
+  key: string
+  title: string | null
+  status: string | null
+  assignee: string | null
+  source: 'SBERPROJECT_OBSERVED_AS21_IDENTITY_VERIFIED'
+}
+export interface ObservedReleaseTasks {
+  product: 'OLP' | 'DMS'
+  version_id: string
+  membership_status: 'OBSERVED_LINKS_UNVERIFIED'
+  complete: false
+  observed_count: number
+  observed_rows: number
+  observed_internal_rows: number
+  linked_tasks: ObservedReleaseTask[]
+  scope: null
+  completed: null
+  wip: null
+  readiness: null
+  delivery_forecast: null
+}
+export const sberprojectObservedTasks = {
+  get: async (product: 'OLP' | 'DMS', versionId: string): Promise<ObservedReleaseTasks> => {
+    const response = await api.get<ObservedReleaseTasks>(
+      `/sberproject-read/releases/${encodeURIComponent(product)}/${encodeURIComponent(versionId)}/observed-tasks`,
+      { timeout: 110000 },
+    )
+    return response.data
+  },
+}
