@@ -13,6 +13,7 @@ from po_agent.config import get_settings
 from po_agent.core import errors
 from po_agent.api.v1 import health_check as api_v1_health_check
 from po_agent.api.v1 import router as api_v1_router
+from po_agent.api.v1.sberproject_release_proxy import router as observed_releases_router
 
 # Configure logging
 logging.basicConfig(
@@ -32,6 +33,7 @@ app = FastAPI(
 
 # Include API v1 routes
 app.include_router(api_v1_router, prefix="/api/v1", tags=["v1"])
+app.include_router(observed_releases_router, prefix="/api/v1")
 
 
 @app.middleware("http")
