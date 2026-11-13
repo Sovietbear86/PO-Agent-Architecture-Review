@@ -8,12 +8,15 @@ from app.services.sberproject.release_membership_contract import MembershipUnver
 
 
 def test_route_registered_under_existing_facade():
-    # Nested include_router stores _IncludedRouter wrappers without .path on
-    # some FastAPI versions. Inspect the flattened application route table.
+    # FastAPI/Starlette can keep nested routers as _IncludedRouter wrappers.
+    # Resolve by endpoint name through the public router lookup API rather
+    # than assuming every app.routes entry has a flat .path attribute.
     app = FastAPI()
     app.include_router(sberproject_read.router)
-    paths = [r.path for r in app.routes if hasattr(r, "path")]
-    assert "/api/v1/sberproject-read/releases/{product}/{version_id}/linked-tasks" in paths
+    path = app.url_path_for(
+        "get_release_linked_tasks", product="OLP", version_id="OLP.78"
+    )
+    assert str(path) == "/api/v1/sberproject-read/releases/OLP/OLP.78/linked-tasks"
 
 
 def test_missing_authoritative_as21_identity_fails_closed_before_sources():
