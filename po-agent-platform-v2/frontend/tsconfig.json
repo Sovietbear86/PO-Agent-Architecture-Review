@@ -19,6 +19,7 @@
   "include": [
     "src/main.tsx",
     "src/api/client.ts",
+    "src/vite-env.d.ts",
     "src/recovery/**/*.tsx"
   ],
   "references": [{ "path": "./tsconfig.node.json" }]
