@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type CSSProperties } from 'react'
-import { sberprojectCatalog, type SberProjectCatalog, type SberProjectVersion } from '../api/client'
+import { sberprojectCatalog, sberprojectObservedTasks, type ObservedReleaseTasks, type SberProjectCatalog, type SberProjectVersion } from '../api/client'
 
 /**
  * Releases dashboard v1: real SberProject VERSION metadata only.
@@ -63,6 +63,10 @@ export function ReleasesDashboard() {
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('')
   const [selected, setSelected] = useState<string | null>(null)
+  const [observed, setObserved] = useState<ObservedReleaseTasks | null>(null)
+  const [observedLoading, setObservedLoading] = useState(false)
+  const [observedError, setObservedError] = useState<string | null>(null)
+  const observationsEnabled = import.meta.env.VITE_RELEASE_OBSERVATIONS_ENABLED === 'true'
   const [sortBy, setSortBy] = useState<'version' | 'end' | 'release'>('release')
 
   useEffect(() => {
@@ -84,6 +88,27 @@ export function ReleasesDashboard() {
       .finally(() => { if (alive) setLoading(false) })
     return () => { alive = false }
   }, [product, offset, nonce])
+
+  useEffect(() => {
+    let active = true
+    setObserved(null)
+    setObservedError(null)
+    if (!selected || !observationsEnabled) return () => { active = false }
+    setObservedLoading(true)
+    sberprojectObservedTasks.get(product, selected)
+      .then(result => {
+        if (!active) return
+        if (result.product !== product || result.version_id !== selected || result.complete !== false || result.membership_status !== 'OBSERVED_LINKS_UNVERIFIED') {
+          throw new Error('Недостоверный ответ источника')
+        }
+        setObserved(result)
+      })
+      .catch(() => {
+        if (active) setObservedError('Не удалось получить подтверждённые данные о наблюдаемых связях. Это не означает, что задач в релизе нет.')
+      })
+      .finally(() => { if (active) setObservedLoading(false) })
+    return () => { active = false }
+  }, [product, selected, observationsEnabled])
 
   const rows = data?.versions || []
   const filtered = useMemo(() => {
@@ -205,7 +230,17 @@ export function ReleasesDashboard() {
             </div>
             <h3 style={{ fontSize: 15, margin: '18px 0 8px' }}>Задачи релиза</h3>
             <div aria-label="Задачи выбранного релиза" role="region" tabIndex={0} style={{ maxHeight: 220, minHeight: 90, overflowY: 'auto', overscrollBehavior: 'contain', padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border, rgba(143,180,216,.20))' }}>
-              <p style={muted}>Задачи синхронизируются между SberProject и AS21/SWTR, но идентификатор связи и read-only API получения состава пока не проверены. Список задач временно недоступен — не подменяем его посторонними задачами и не показываем фиктивный ноль.</p>
+              {!observationsEnabled && <p style={muted}>Просмотр наблюдаемых связей SberProject ↔ AS21 пока отключён администратором. Это не означает отсутствие задач.</p>}
+              {observationsEnabled && observedLoading && <p role="status" style={muted}>Получаем подтверждения по отдельным задачам AS21…</p>}
+              {observationsEnabled && observedError && <p role="alert" style={muted}>{observedError}</p>}
+              {observationsEnabled && observed && <>
+                <p style={{ ...muted, marginTop: 0 }}>Наблюдаемые связи: {observed.observed_count}. Список может быть неполным, готовность и общий объём задач не рассчитаны.</p>
+                {observed.linked_tasks.map(task => <div key={task.key} style={{ padding: '9px 0', borderBottom: '1px solid rgba(150,170,190,.16)' }}>
+                  <strong>{task.key}</strong> · {task.title || 'Название не передано AS21'}
+                  <div style={muted}>{task.status || 'Статус не передан'} · {task.assignee || 'Исполнитель не передан'}</div>
+                </div>)}
+                {!observed.linked_tasks.length && <p style={muted}>Подтверждённых отдельных связей в полученной выборке нет. Полнота состава релиза неизвестна.</p>}
+              </>}
             </div>
           </> : <p className="muted" style={{ flex: 1 }}>Выберите версию в каталоге или в блоке контрольных дат. Здесь появятся сведения о релизе и список синхронизированных задач AS21/SWTR.</p>}
         </div>
