@@ -244,3 +244,32 @@ def release_composition(product: str, version_id: str, cfg: SkillBridgeConfig) -
         )
     except MembershipUnverified as exc:
         raise SkillBridgeError(REASON_INCOMPLETE, str(exc)) from None
+
+
+def release_observations(product: str, version_id: str, cfg: SkillBridgeConfig) -> dict:
+    """Observed, non-exhaustive issueKeys for one exact CLI release.
+
+    This is deliberately separate from release_composition(): never turns
+    client-invented meta.total into certified completion.
+    """
+    from .release_observations import observed_release_links
+    from .release_membership_contract import MembershipUnverified
+
+    if product not in _VALID_PRODUCTS or not isinstance(version_id, str) or not version_id.strip():
+        raise SkillBridgeError(REASON_INVALID_PRODUCT)
+    if not cfg.enabled:
+        raise SkillBridgeError(REASON_AUTH)
+    code, out, _ = _run_skill(
+        cfg.skill_cmd, ["release", version_id], cfg.timeout, cfg.ca_bundle,
+    )
+    data = _read_json(out)
+    if code != 0:
+        error = data.get("error") if isinstance(data, dict) else None
+        reason = error.get("code") if isinstance(error, dict) else None
+        if code == _AUTH_EXIT_CODE or reason in _AUTH_ERROR_CODES:
+            raise SkillBridgeError(REASON_AUTH)
+        raise SkillBridgeError(REASON_UNAVAILABLE)
+    try:
+        return observed_release_links(product=product, version_id=version_id, payload=data)
+    except MembershipUnverified as exc:
+        raise SkillBridgeError(REASON_INCOMPLETE, str(exc)) from None
