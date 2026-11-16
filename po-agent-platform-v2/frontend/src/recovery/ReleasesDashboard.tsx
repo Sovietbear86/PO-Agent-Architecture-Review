@@ -234,7 +234,7 @@ export function ReleasesDashboard() {
               {observationsEnabled && observedLoading && <p role="status" style={muted}>Получаем подтверждения по отдельным задачам AS21…</p>}
               {observationsEnabled && observedError && <p role="alert" style={muted}>{observedError}</p>}
               {observationsEnabled && observed && <>
-                <p style={{ ...muted, marginTop: 0 }}>Наблюдаемые связи: {observed.observed_count}. Список может быть неполным, готовность и общий объём задач не рассчитаны.</p>
+                <p style={{ ...muted, marginTop: 0 }}>Связанные задачи AS21 в полученной выборке: {observed.observed_count}. Внутренние записи SberProject без issueKey: {observed.observed_internal_rows}. Список может быть неполным; готовность и полный объём задач релиза не рассчитаны.</p>
                 {observed.linked_tasks.map(task => <div key={task.key} style={{ padding: '9px 0', borderBottom: '1px solid rgba(150,170,190,.16)' }}>
                   <strong>{task.key}</strong> · {task.title || 'Название не передано AS21'}
                   <div style={muted}>{task.status || 'Статус не передан'} · {task.assignee || 'Исполнитель не передан'}</div>
