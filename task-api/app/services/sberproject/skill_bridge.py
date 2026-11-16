@@ -247,10 +247,11 @@ def release_composition(product: str, version_id: str, cfg: SkillBridgeConfig) -
 
 
 def release_observations(product: str, version_id: str, cfg: SkillBridgeConfig) -> dict:
-    """Observed, non-exhaustive issueKeys for one exact CLI release.
+    """Observed links via the existing working accountingObject CLI query.
 
-    This is deliberately separate from release_composition(): never turns
-    client-invented meta.total into certified completion.
+    This operation accepts the release's *display code* (e.g. OLP.78),
+    unlike cmdRelease, which requires a separate internal version UUID.
+    Results are source observations only, never an exhaustive release scope.
     """
     from .release_observations import observed_release_links
     from .release_membership_contract import MembershipUnverified
@@ -260,7 +261,7 @@ def release_observations(product: str, version_id: str, cfg: SkillBridgeConfig) 
     if not cfg.enabled:
         raise SkillBridgeError(REASON_AUTH)
     code, out, _ = _run_skill(
-        cfg.skill_cmd, ["release", version_id], cfg.timeout, cfg.ca_bundle,
+        cfg.skill_cmd, ["tasks", version_id, "--accounting-object"], cfg.timeout, cfg.ca_bundle,
     )
     data = _read_json(out)
     if code != 0:
